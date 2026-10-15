@@ -1,0 +1,6 @@
+/target
+/dist
+.env
+.DS_Store
+# Raw clean-room captures never enter the repository.
+/research
