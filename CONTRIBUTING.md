@@ -18,6 +18,18 @@ tracker into this repository. Describe behavior in your own words in
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/) in English, one concern per commit.
 - Write the test first, watch it fail, then make it pass.
 
+## Database
+
+santi needs PostgreSQL 17. Start it on OrbStack and point the tools at it:
+
+    docker --context orbstack compose up -d --wait
+    export DATABASE_URL=postgres://santi:santi@localhost:5433/santi
+    cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
+    sqlx migrate run --source crates/santi-server/migrations
+
+Tests create a throwaway database per test (`#[sqlx::test]`). After changing any SQL, refresh the
+offline query data with `cargo sqlx prepare --workspace` and commit `.sqlx/`.
+
 ## Quality gate
 
 CI runs these on every push; run them locally first:
