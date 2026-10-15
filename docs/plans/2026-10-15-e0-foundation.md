@@ -364,20 +364,18 @@ git commit -m "ci: enforce fmt, clippy and 90% coverage on every push"
 **Files:**
 - Create: `.claude/CLAUDE.md`
 - Create: `.claude/agents/{investigator,architect,backend,cli-mcp,web,qa,oss}.md`
-- Create: `.mcp.json`
 
 Content rules:
-- `.mcp.json` registers only REA, pinned: `npx -y rea-agents@6.5.0 mcp`.
-- Only `investigator` lists `mcp__rea__*` in `tools:`. Every other agent omits it and is told never to read `/research`.
+- REA is defined inline in `investigator`'s `mcpServers` frontmatter, pinned: `npx -y rea-agents@6.5.0 mcp`. No `.mcp.json`: neither the main session nor other agents ever see REA, and every other agent is told never to read `/research`.
 - Every agent: `model: opus`, minimal `tools:`, body under ~25 lines, subagent discipline in at most 5 lines.
 - `.claude/CLAUDE.md` states the clean-room rule, the gitflow, the quality gate and the known limit: separation is by process and tool lists, not OS-enforced.
 
 - [ ] **Step 1:** write the files.
-- [ ] **Step 2:** validate `.mcp.json` with `jq . .mcp.json` and every agent frontmatter parses (`head -8`).
+- [ ] **Step 2:** check every agent frontmatter parses (`head -12`).
 - [ ] **Step 3: Commit**
 
 ```bash
-git add .claude/CLAUDE.md .claude/agents .mcp.json
+git add .claude/CLAUDE.md .claude/agents docs/plans/2026-10-15-e0-foundation.md
 git commit -m "chore: add project agents and clean-room reverse engineering setup"
 ```
 
