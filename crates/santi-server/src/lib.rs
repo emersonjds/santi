@@ -1,8 +1,9 @@
+pub mod auth;
 pub mod error;
 pub mod extract;
 
 use axum::extract::State;
-use axum::{Json, Router};
+use axum::{Json, Router, middleware};
 use santi_types::{Health, Problem};
 use sqlx::PgPool;
 use tower_http::compression::CompressionLayer;
@@ -31,10 +32,12 @@ struct ApiDoc;
 pub fn app(state: AppState) -> Router {
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(routes!(health))
+        .merge(auth::handler::router())
         .split_for_parts();
     router
         .merge(SwaggerUi::new("/docs").url("/openapi.json", api))
         .fallback(not_found)
+        .layer(middleware::from_fn(auth::extract::reject_cross_site_writes))
         .layer(CompressionLayer::new())
         .with_state(state)
 }
