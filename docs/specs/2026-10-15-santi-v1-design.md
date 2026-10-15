@@ -134,10 +134,10 @@ Work runs one agent at a time, one card at a time.
 ## Epics (in order)
 
 1. **E0 Open-source foundation**: gitflow branches, license, CI, agents, REA
-   registration, compose file, community files.
+   registration, community files.
 2. **E1 Clean-room investigation**: behavior specs for Scrum board, Kanban board,
    backlog and ranking, sprint lifecycle.
-3. **E2 Domain and API**: auth, projects, members, issues, statuses, boards, sprints.
+3. **E2 Domain and API**: PostgreSQL compose file, auth, projects, members, issues, statuses, boards, sprints.
 4. **E3 CLI and MCP**: after this epic santi can track its own work.
 5. **E4 Web boards**.
 6. **E5 Jira importer**.
