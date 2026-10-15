@@ -4,3 +4,7 @@
 .DS_Store
 # Raw clean-room captures never enter the repository.
 /research
+# Project agents are versioned; personal settings are not.
+!/.claude/
+!/.claude/CLAUDE.md
+/.claude/settings.local.json
