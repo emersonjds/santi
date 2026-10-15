@@ -43,14 +43,13 @@ The name "Jira" appears only in documentation that describes the importer.
 
 ## Architecture
 
-Cargo workspace with four crates:
+Cargo workspace with three crates (see `decisions.md` D1, D25; every `Dn` in this spec points to `docs/specs/decisions.md`):
 
 | Crate | Role |
 |---|---|
 | `santi-types` | Request/response DTOs (serde), shared by every other crate |
-| `santi-server` | HTTP API (axum), persistence (sqlx + PostgreSQL 17), serves the embedded web bundle |
+| `santi-server` | HTTP API (axum), persistence (sqlx + PostgreSQL 17), server-rendered web UI (askama + htmx) |
 | `santi-cli` | `santi` binary: subcommands and `santi mcp` (stdio MCP server, `rmcp`) |
-| `santi-web` | Web UI (Leptos, client-side rendered to WASM) |
 
 ### Server
 
@@ -60,7 +59,13 @@ Each slice holds:
 - `domain.rs`: pure rules (status transitions, ranking, sprint lifecycle), unit tested
   without a database;
 - `repo.rs`: sqlx queries;
-- `handler.rs`: axum routes, annotated for OpenAPI (utoipa), served at `/docs`.
+- `service.rs`: use cases (membership, transaction, domain + repo), the only thing routes call;
+- `handler.rs`: JSON routes, annotated for OpenAPI (utoipa), served at `/docs`;
+- `web.rs`: HTML routes rendering askama templates.
+
+Ids are `bigint` identity (D19). Errors are RFC 9457 problem+json (D24). Migrations are
+`sqlx migrate`, embedded and applied at startup (D27). Membership is checked once, by an
+extractor (D28). Lists use keyset pagination; board and backlog are unpaged (D29).
 
 One binary serves API and UI, so self-hosting means one process plus PostgreSQL.
 Local development runs PostgreSQL through `docker compose` on OrbStack.
@@ -77,41 +82,52 @@ Every manual action maps to an MCP tool and a CLI subcommand:
 
 ### Web
 
-Leptos CSR organized in Feature-Sliced Design modules
-(`app → widgets → features → entities → shared`, imports only downward).
+Server-rendered askama templates with htmx, organized by Feature-Sliced Design layer
+(`app → widgets → features → entities → shared`, includes only downward). No WASM and
+no npm: vendored htmx, one `app.js` and one `app.css` embedded in the binary (D1, D25, D26).
 Mobile first at 375px, 44px touch targets, form fields at 16px or larger.
 Drag and drop uses the native HTML5 API, with a keyboard-accessible "move to…" action
-as the equivalent path.
+as the equivalent path. Quick filters live in the URL (D3, D18); no real-time push in v1 (D17).
 
 ### Auth
 
-Email and password (argon2) with a session cookie for the web; personal API tokens for
-CLI and MCP. New members join through a copyable invite link (no SMTP in v1).
+Email and password (argon2) with a server-side session (hashed token, HttpOnly cookie) for
+the web; personal API tokens (`santi_…`, hash stored) for CLI and MCP (D22, D23).
+New members join through a copyable invite link (no SMTP in v1).
 
 ## Domain (v1)
 
 Fine-grained rules are confirmed by the behavior specs from the investigation epic.
 
-- **Project**: unique key (e.g. `SANTI`); issues are numbered `KEY-N`, never reused.
+- **Project**: unique key (e.g. `SANTI`); issues are numbered `KEY-N` from a per-project
+  counter, never reused (D20).
 - **Member**: user in a project with role `admin` or `member`.
 - **Issue type**: Epic, Story, Task, Bug, Subtask.
 - **Status**: name plus category `todo`, `in_progress` or `done`. Transitions are free
-  between any statuses of the project.
+  between any statuses of the project. Done means category `done`; `done` statuses map
+  only to the rightmost column, which holds only them (D2). A status with no column is
+  unmapped and its issues are hidden (D30).
 - **Issue**: summary, markdown description, type, status, priority, assignee, reporter,
-  story points, labels, parent (epic or parent of a subtask), rank.
+  story points, labels, parent (epic or parent of a subtask), rank, `done_at` (D8).
+  Subtasks carry no points and always share their parent's sprint; they render as flat
+  cards with a parent chip (D6, D11). Epics show in a side panel, not as rows (D10).
 - **Rank**: total order of issues in a project, stored as a fractional index string so
-  moving one issue rewrites one row.
-- **Board**: one per project, `scrum` or `kanban`. Columns map to one or more statuses;
-  Kanban columns may have a WIP limit.
-- **Sprint**: name, goal, start and end dates, state `future`, `active` or `closed`.
-  At most one active sprint per board. Completing a sprint moves unfinished issues to
-  the backlog or to a chosen future sprint.
+  moving one issue rewrites one row. A move places the issue next to one anchor issue;
+  inline create appends at the end (D4, D5, D21).
+- **Board**: one per project, `scrum` or `kanban` (D31). Columns map to one or more statuses;
+  Kanban columns may have a max WIP limit that only warns (D7). Kanban hides `done` issues
+  after a per-board window counted from `done_at` (D8, D33) and has no separate backlog (D9).
+  Deleting a column moves its statuses to a chosen column (D16).
+- **Sprint**: name (default `Sprint N`), goal, start and end dates, state `future`, `active`
+  or `closed` (D12). At most one active sprint per board. Completing a sprint moves unfinished
+  issues to the backlog or to a chosen future sprint (D13). Only future sprints can be
+  deleted (D14, D32); an overdue sprint stays active (D15).
 
 ## Quality
 
 - TDD per slice: tests first, one red run, implementation, one green run.
 - Integration tests use `sqlx::test` against a real PostgreSQL.
-- CI: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo test`,
+- CI: `cargo fmt --check`, `cargo clippy -- -D warnings`, `cargo sqlx prepare --check` (D27), `cargo test`,
   `cargo llvm-cov` failing under 90% for lines, regions and functions on stable.
   Branch coverage only exists on nightly (`--branch`), so a separate nightly job
   enforces the 90% branch threshold.
@@ -125,7 +141,7 @@ Fine-grained rules are confirmed by the behavior specs from the investigation ep
 | `architect` | Technical specs and implementation plans |
 | `backend` | `santi-server` and `santi-types` slices |
 | `cli-mcp` | `santi-cli` subcommands and MCP tools |
-| `web` | `santi-web` |
+| `web` | Templates, `web.rs` routes and static assets in `santi-server` (D25) |
 | `qa` | Adversarial review, coverage, clean-room contamination check |
 | `oss` | README, CONTRIBUTING, CODE_OF_CONDUCT, issue/PR templates, release notes |
 | `product` | Product/UX votes grounded in how agile tools on the market behave (sonnet; recommendations only) |
