@@ -247,3 +247,11 @@ Options: A) live `WHERE` on `done_at` B) cached or materialized "hidden" flag
 Product vote: n/a
 Architecture vote: A — `done_at IS NULL OR done_window_days IS NULL OR done_at > now() - make_interval(days => done_window_days)` in the kanban board query; B needs a scheduler and is stale between runs.
 Winner: A — always correct, no job; accepted: the predicate runs on every board load (cheap: rows are already narrowed to one project).
+
+## D34 — Data transport: JSON over HTTP vs gRPC
+Context: the API serves the web UI, the CLI, the MCP server and third-party scripts; E2 fixes the wire format.
+Options: A) JSON over HTTP (REST + OpenAPI) B) gRPC with protobuf C) both
+Market: Linear, GitHub, GitLab and YouTrack expose JSON over HTTP (REST or GraphQL) as their public API; none ships gRPC to integrators.
+Product vote: A — integrations and scripts speak HTTP + JSON natively (curl, any language's standard library); gRPC raises the contribution bar with protoc, generated code and a second toolchain.
+Architecture vote: A — JSON REST described by OpenAPI (D24 errors included) with gzip/br response compression (`tower-http`); the browser gets HTML through htmx anyway (D1), payloads are a few KB so serialization cost is negligible next to the database and the network, and every call stays debuggable with curl and browser devtools. B would need grpc-web or a proxy for the browser and protoc in every build.
+Winner: A — one wire format for UI, CLI, MCP and scripts; accepted: the contract is typed by OpenAPI plus the shared `santi-types` DTOs instead of protobuf schemas, and gRPC is reconsidered only for high-volume service-to-service traffic, which santi does not have.
