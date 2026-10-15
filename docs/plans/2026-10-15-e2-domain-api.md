@@ -12,7 +12,7 @@
 
 - Binding inputs: `docs/specs/2026-10-15-santi-v1-design.md`, `docs/specs/decisions.md` (D1–D34), the "Proposed v1 cut" sections of `docs/specs/behavior/{scrum-board,kanban-board,backlog,sprint-lifecycle}.md`. Never open `/research`.
 - Branch per task: `feat/SAN-<card>-<slug>` out of an up-to-date `developer` (`<card>` is the Jira card of the task). Conventional Commits in English, author `Emerson Silva <emerson_jdss@hotmail.com>`, no trailers, files added by name.
-- Local database: `docker --context orbstack compose up -d --wait` (OrbStack only). Every shell exports `DATABASE_URL=postgres://santi:santi@localhost:5433/santi`.
+- Local database: `docker --context orbstack compose up -d --wait` (OrbStack only). Every shell exports `DATABASE_URL=postgres://santi:santi@localhost:5440/santi`.
 - sqlx-cli once per machine: `cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls`.
 - After adding a migration: `sqlx migrate run --source crates/santi-server/migrations` (the query macros check SQL against this database). After any SQL change: `cargo sqlx prepare --workspace` and commit `.sqlx/` (D27).
 - SQL lives in `repo.rs` files (plus the health ping) and uses the checked macros `sqlx::query!`, `query_as!`, `query_scalar!`. Tests use the runtime functions (`sqlx::query`, `sqlx::query_scalar`) so they need no `.sqlx/` entries.
@@ -35,7 +35,7 @@
 ## File map
 
 ```
-compose.yaml                                   PostgreSQL 17 on port 5433 (Task 1)
+compose.yaml                                   PostgreSQL 17 on port 5440 (Task 1)
 .github/workflows/ci.yml                       Postgres service, sqlx prepare --check (Task 1)
 .sqlx/                                         offline query data, refreshed by every task with SQL
 crates/santi-types/src/
@@ -99,7 +99,7 @@ services:
       POSTGRES_PASSWORD: santi
       POSTGRES_DB: santi
     ports:
-      - "5433:5432"
+      - "5440:5432"
     volumes:
       - santi-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -694,12 +694,12 @@ Expected: `query data written to .sqlx in the workspace root; please check this 
           POSTGRES_PASSWORD: santi
           POSTGRES_DB: santi
         ports:
-          - 5433:5432
+          - 5440:5432
         options: >-
           --health-cmd "pg_isready -U santi -d santi"
           --health-interval 2s --health-timeout 3s --health-retries 15
     env:
-      DATABASE_URL: postgres://santi:santi@localhost:5433/santi
+      DATABASE_URL: postgres://santi:santi@localhost:5440/santi
       SQLX_OFFLINE: "true"
 ```
 
@@ -719,7 +719,7 @@ and in the `check` job, after `cargo clippy …`:
 santi needs PostgreSQL 17. Start it on OrbStack and point the tools at it:
 
     docker --context orbstack compose up -d --wait
-    export DATABASE_URL=postgres://santi:santi@localhost:5433/santi
+    export DATABASE_URL=postgres://santi:santi@localhost:5440/santi
     cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
     sqlx migrate run --source crates/santi-server/migrations
 
@@ -7526,7 +7526,7 @@ git commit -m "feat: add board and backlog views with quick filters"
 
 | Requirement | Task |
 |---|---|
-| PostgreSQL compose on 5433 / OrbStack, embedded migrations at startup, CI Postgres + `sqlx prepare --check` (D27) | 1 |
+| PostgreSQL compose on 5440 / OrbStack, embedded migrations at startup, CI Postgres + `sqlx prepare --check` (D27) | 1 |
 | problem+json (D24), OpenAPI at `/docs` (utoipa), gzip/br compression (D34) | 1 |
 | Register/login/logout, DB sessions + HttpOnly cookie, API tokens, one extractor for cookie or Bearer, same-origin writes (D22, D23) | 2 |
 | Projects, members, invite links, membership extractor, 404 for strangers, admin checks (D28, D31) | 3 |

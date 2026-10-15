@@ -7,9 +7,15 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-santi-types.workspace = true
+santi-types = { workspace = true, features = ["sqlx"] }
 axum.workspace = true
 tokio.workspace = true
+sqlx.workspace = true
+chrono.workspace = true
+utoipa.workspace = true
+utoipa-axum.workspace = true
+utoipa-swagger-ui.workspace = true
+tower-http.workspace = true
 
 [dev-dependencies]
 tower.workspace = true
