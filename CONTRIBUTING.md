@@ -35,11 +35,11 @@ and branches (nightly). Locally, with [cargo-llvm-cov](https://github.com/taiki-
 cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$'
 ```
 
-On a Homebrew Rust toolchain (no rustup), point it at Homebrew's LLVM:
+On a Homebrew Rust toolchain (no rustup), point it at Homebrew's LLVM matching rustc's major version (`rustc -vV`, LLVM 22 for Rust 1.97):
 
 ```bash
-LLVM_COV="$(brew --prefix llvm)/bin/llvm-cov" \
-LLVM_PROFDATA="$(brew --prefix llvm)/bin/llvm-profdata" \
+LLVM_COV="$(brew --prefix llvm@22)/bin/llvm-cov" \
+LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
 cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$'
 ```
 
