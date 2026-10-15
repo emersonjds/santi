@@ -128,6 +128,10 @@ Fine-grained rules are confirmed by the behavior specs from the investigation ep
 | `web` | `santi-web` |
 | `qa` | Adversarial review, coverage, clean-room contamination check |
 | `oss` | README, CONTRIBUTING, CODE_OF_CONDUCT, issue/PR templates, release notes |
+| `product` | Product/UX votes grounded in how agile tools on the market behave (sonnet; recommendations only) |
+
+Decisions: `product` votes on product/UX, `architect` challenges on architecture; both votes,
+the winner and the reason are recorded in `docs/specs/decisions.md`.
 
 Work runs one agent at a time, one card at a time.
 
