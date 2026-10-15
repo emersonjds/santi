@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: santi
       POSTGRES_DB: santi
     ports:
-      - "5433:5432"
+      - "5440:5432"
     volumes:
       - santi-postgres:/var/lib/postgresql/data
     healthcheck:

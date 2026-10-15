@@ -23,7 +23,7 @@ tracker into this repository. Describe behavior in your own words in
 santi needs PostgreSQL 17. Start it on OrbStack and point the tools at it:
 
     docker --context orbstack compose up -d --wait
-    export DATABASE_URL=postgres://santi:santi@localhost:5433/santi
+    export DATABASE_URL=postgres://santi:santi@localhost:5440/santi
     cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
     sqlx migrate run --source crates/santi-server/migrations
 

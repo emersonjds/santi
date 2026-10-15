@@ -20,12 +20,12 @@ jobs:
           POSTGRES_PASSWORD: santi
           POSTGRES_DB: santi
         ports:
-          - 5433:5432
+          - 5440:5432
         options: >-
           --health-cmd "pg_isready -U santi -d santi"
           --health-interval 2s --health-timeout 3s --health-retries 15
     env:
-      DATABASE_URL: postgres://santi:santi@localhost:5433/santi
+      DATABASE_URL: postgres://santi:santi@localhost:5440/santi
       SQLX_OFFLINE: "true"
     steps:
       - uses: actions/checkout@v5
@@ -53,12 +53,12 @@ jobs:
           POSTGRES_PASSWORD: santi
           POSTGRES_DB: santi
         ports:
-          - 5433:5432
+          - 5440:5432
         options: >-
           --health-cmd "pg_isready -U santi -d santi"
           --health-interval 2s --health-timeout 3s --health-retries 15
     env:
-      DATABASE_URL: postgres://santi:santi@localhost:5433/santi
+      DATABASE_URL: postgres://santi:santi@localhost:5440/santi
       SQLX_OFFLINE: "true"
     steps:
       - uses: actions/checkout@v5
