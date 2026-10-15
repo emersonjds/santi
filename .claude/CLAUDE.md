@@ -13,7 +13,8 @@ Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`. Jira: 
 
 ## Layout
 
-- `crates/santi-types`: shared DTOs. `crates/santi-server`: axum + sqlx, vertical slices (`domain.rs`, `repo.rs`, `handler.rs`). `crates/santi-cli`: `santi` binary and `santi mcp`. `crates/santi-web` (E4): Leptos CSR, FSD modules.
+- `crates/santi-types`: shared DTOs. `crates/santi-server`: axum + sqlx, vertical slices (`domain.rs` pure rules, `repo.rs` sqlx, `service.rs` use cases taking `&Member`, `handler.rs` JSON API, `web.rs` HTML pages); web UI is askama templates + htmx + vanilla `app.js`, embedded (decisions D1, D25, D26). `crates/santi-cli`: `santi` binary and `santi mcp`.
+- Product and architecture decisions, with votes and winners: `docs/specs/decisions.md`. Read it before planning or coding.
 - `main.rs` files hold wiring only; they are excluded from coverage.
 
 ## Gitflow and gate
