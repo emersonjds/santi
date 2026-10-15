@@ -71,4 +71,7 @@ jobs:
           cargo llvm-cov --workspace --branch --ignore-filename-regex "$COVERAGE_IGNORE"
           --json --summary-only --output-path coverage.json
       - name: Enforce 90% branch coverage
-        run: jq -e '.data[0].totals.branches | .count == 0 or .percent >= 90' coverage.json
+        run: |
+          jq -r '.data[0].files[] | select(.summary.branches.count > .summary.branches.covered)
+            | "\(.filename): \(.summary.branches.covered)/\(.summary.branches.count) branches"' coverage.json
+          jq -e '.data[0].totals.branches | .count == 0 or .percent >= 90' coverage.json
