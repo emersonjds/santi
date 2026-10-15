@@ -190,8 +190,22 @@ mod tests {
     }
 
     #[test]
+    fn internal_error_response_is_500() {
+        let response = AppError::Internal("boom".into()).into_response();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
     fn row_not_found_becomes_not_found() {
         assert_eq!(AppError::from(sqlx::Error::RowNotFound), AppError::NotFound);
+    }
+
+    #[test]
+    fn non_database_error_becomes_internal() {
+        let problem = AppError::from(sqlx::Error::PoolTimedOut).to_problem();
+
+        assert_eq!(problem.status, 500);
     }
 
     #[sqlx::test(migrations = false)]
