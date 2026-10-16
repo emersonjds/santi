@@ -1,0 +1,172 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% block title %}Backlog · {{ project.name }}{% endblock %}
+{% block main %}
+<header class="project-head">
+  <p class="key">{{ project.key }}</p>
+  <h1 class="greeting">Backlog</h1>
+</header>
+<section class="board-area" aria-labelledby="new-issue-title">
+  <h2 id="new-issue-title" class="visually-hidden">New issue</h2>
+  <form class="create-issue plan-issue" method="post" action="/p/{{ project.key }}/backlog/issues">
+    {%- if !self.error("form").is_empty() %}
+    <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>{{ self.error("form") }}</span></p>
+    {%- endif %}
+    {{ ui::field("summary", "Title", "text", draft.summary, "off", self.error("summary")) }}
+    <div class="field">
+      <label for="issue_type">Type</label>
+      <select id="issue_type" name="issue_type">
+        {%- for option in self.issue_types() %}
+        <option value="{{ option.label()|lower }}"{% if option.label() == draft.issue_type.label() %} selected{% endif %}>{{ option.label() }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="sprint">Plan into</label>
+      <select id="sprint" name="sprint">
+        <option value="">Backlog</option>
+        {%- for sprint in self.open_sprints() %}
+        <option value="{{ sprint.id }}">{{ sprint.name }}</option>
+        {%- endfor %}
+      </select>
+      {%- if !self.error("sprint_id").is_empty() %}
+      <p class="field-error">Sprint {{ self.error("sprint_id") }}.</p>
+      {%- endif %}
+    </div>
+    <button class="button" type="submit">{{ ui::icon("plus") }}<span>Create issue</span></button>
+  </form>
+  <form class="sprint-create" method="post" action="/p/{{ project.key }}/sprints">
+    <input type="hidden" name="name" value="">
+    <input type="hidden" name="goal" value="">
+    <button class="button secondary" type="submit">{{ ui::icon("plus") }}<span>Create sprint</span></button>
+  </form>
+  {% block backlog %}
+  <div id="backlog">
+    {%- if !self.page_error().is_empty() %}
+    <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>{{ self.page_error() }}</span></p>
+    {%- endif %}
+    {%- for section in backlog.sections %}
+    <section class="backlog-section" data-sprint="{% if let Some(sprint) = section.sprint %}{{ sprint.id }}{% endif %}" aria-labelledby="section-{% if let Some(sprint) = section.sprint %}{{ sprint.id }}{% else %}backlog{% endif %}">
+      <header class="sprint-head">
+        {%- if let Some(sprint) = section.sprint %}
+        <h2 id="section-{{ sprint.id }}">{{ sprint.name }}
+          {%- if sprint.state == SprintState::Active %} <span class="badge">Active</span>{% endif %}
+          {%- if sprint.overdue %} <span class="badge overdue">Overdue</span>{% endif %}</h2>
+        <p class="sprint-meta">
+          <span class="count">{{ self.count(section.issue_count) }} · {{ section.total_points }} points</span>
+          {%- if let Some(start) = sprint.start_date %}{% if let Some(end) = sprint.end_date %}
+          <span>{{ start.format("%b %-d") }} – {{ end.format("%b %-d") }}</span>
+          {%- endif %}{% endif %}
+        </p>
+        {%- if !sprint.goal.is_empty() %}
+        <p class="sprint-goal">{{ sprint.goal }}</p>
+        {%- endif %}
+        {%- if !self.sprint_error(sprint.id).is_empty() %}
+        <p class="alert" role="alert" id="sprint-{{ sprint.id }}-error">{{ ui::icon("circle-alert") }}<span>{{ self.sprint_error(sprint.id) }}</span></p>
+        {%- endif %}
+        <div class="sprint-actions">
+          {%- if sprint.state == SprintState::Future %}
+          <details class="move-to sheet">
+            <summary>{{ ui::icon("play") }}<span>Start sprint</span></summary>
+            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/start">
+              <label for="start-{{ sprint.id }}-name">Name</label>
+              <input id="start-{{ sprint.id }}-name" name="name" value="{{ sprint.name }}" required>
+              <label for="start-{{ sprint.id }}-start">Starts</label>
+              <input id="start-{{ sprint.id }}-start" name="start_date" type="date" value="{% if let Some(date) = sprint.start_date %}{{ date }}{% else %}{{ today }}{% endif %}">
+              <label for="start-{{ sprint.id }}-end">Ends</label>
+              <input id="start-{{ sprint.id }}-end" name="end_date" type="date" value="{% if let Some(date) = sprint.end_date %}{{ date }}{% else %}{{ self.default_end() }}{% endif %}">
+              <label for="start-{{ sprint.id }}-goal">Goal</label>
+              <textarea id="start-{{ sprint.id }}-goal" name="goal" rows="2">{{ sprint.goal }}</textarea>
+              <button class="button" type="submit">Start {{ sprint.name }}</button>
+            </form>
+          </details>
+          {%- else %}
+          <details class="move-to sheet">
+            <summary>{{ ui::icon("circle-check") }}<span>Complete sprint</span></summary>
+            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/complete">
+              <fieldset>
+                <legend>Unfinished issues go to</legend>
+                <label><input type="radio" name="open_issues" value="backlog" checked> Backlog</label>
+                {%- for target in self.future_sprints() %}
+                <label><input type="radio" name="open_issues" value="{{ target.id }}"> {{ target.name }}</label>
+                {%- endfor %}
+                <label><input type="radio" name="open_issues" value="new_sprint"> A new sprint</label>
+              </fieldset>
+              <button class="button" type="submit">Complete {{ sprint.name }}</button>
+            </form>
+          </details>
+          {%- endif %}
+          <details class="move-to sheet">
+            <summary>{{ ui::icon("pencil") }}<span>Edit</span></summary>
+            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}">
+              <label for="edit-{{ sprint.id }}-name">Name</label>
+              <input id="edit-{{ sprint.id }}-name" name="name" value="{{ sprint.name }}" required>
+              <label for="edit-{{ sprint.id }}-start">Starts</label>
+              <input id="edit-{{ sprint.id }}-start" name="start_date" type="date" value="{% if let Some(date) = sprint.start_date %}{{ date }}{% endif %}">
+              <label for="edit-{{ sprint.id }}-end">Ends</label>
+              <input id="edit-{{ sprint.id }}-end" name="end_date" type="date" value="{% if let Some(date) = sprint.end_date %}{{ date }}{% endif %}">
+              <label for="edit-{{ sprint.id }}-goal">Goal</label>
+              <textarea id="edit-{{ sprint.id }}-goal" name="goal" rows="2">{{ sprint.goal }}</textarea>
+              <button class="button" type="submit">Save {{ sprint.name }}</button>
+            </form>
+          </details>
+          {%- if sprint.state == SprintState::Future %}
+          <details class="move-to sheet">
+            <summary>{{ ui::icon("trash") }}<span>Delete</span></summary>
+            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/delete">
+              <p>Its issues go back to the backlog, in the same order.</p>
+              <button class="button danger" type="submit">Delete {{ sprint.name }}</button>
+            </form>
+          </details>
+          {%- endif %}
+        </div>
+        {%- else %}
+        <h2 id="section-backlog">Backlog</h2>
+        <p class="sprint-meta"><span class="count">{{ self.count(section.issue_count) }} · {{ section.total_points }} points</span></p>
+        {%- endif %}
+      </header>
+      <ul class="backlog-rows">
+        {%- for card in section.cards %}
+        <li class="card-slot backlog-row" draggable="true" data-key="{{ card.key }}" data-move="{{ self.issue_path(card.key) }}/plan">
+          <a class="issue-card" href="{{ self.issue_path(card.key) }}">
+            <span class="issue-title">{{ card.summary }}</span>
+            <span class="issue-meta">
+              <span class="key">{{ card.key }}</span>
+              <span class="type">{{ card.issue_type.label() }}</span>
+              {%- if let Some(points) = card.points %}
+              <span class="badge">{{ points }}</span>
+              {%- endif %}
+              {%- if let Some(name) = card.assignee_name %}
+              <abbr class="initials" title="Assigned to {{ name }}">{{ self.initials(name) }}</abbr>
+              {%- endif %}
+            </span>
+          </a>
+          <details class="move-to">
+            <summary>{{ ui::icon("move") }}<span>Move to…</span></summary>
+            <form method="post" action="{{ self.issue_path(card.key) }}/plan" hx-post="{{ self.issue_path(card.key) }}/plan" hx-target="#backlog" hx-swap="outerHTML">
+              <label for="plan-{{ card.id }}-sprint">Section</label>
+              <select id="plan-{{ card.id }}-sprint" name="sprint">
+                <option value=""{% if card.sprint_id.is_none() %} selected{% endif %}>Backlog</option>
+                {%- for target in self.open_sprints() %}
+                <option value="{{ target.id }}"{% if card.sprint_id.as_ref() == Some(target.id) %} selected{% endif %}>{{ target.name }}</option>
+                {%- endfor %}
+              </select>
+              <label for="plan-{{ card.id }}-place">Place</label>
+              <select id="plan-{{ card.id }}-place" name="place">
+                <option value="top">Top</option>
+                <option value="bottom" selected>Bottom</option>
+              </select>
+              <button class="button" type="submit">Move {{ card.key }}</button>
+            </form>
+          </details>
+        </li>
+        {%- else %}
+        <li class="drop-hint">No issues here. Drag one in or use Move to.</li>
+        {%- endfor %}
+      </ul>
+    </section>
+    {%- endfor %}
+  </div>
+  {% endblock %}
+</section>
+{% endblock %}

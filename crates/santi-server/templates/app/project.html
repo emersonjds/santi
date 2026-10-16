@@ -12,6 +12,24 @@
 </header>
 <section class="board-area" aria-labelledby="board-title">
   <h2 id="board-title" class="visually-hidden">Board</h2>
+  {%- if let Some(sprint) = board.sprint %}
+  <div class="sprint-head board-sprint">
+    <h2>{{ sprint.name }}{% if sprint.overdue %} <span class="badge overdue">Overdue</span>{% endif %}</h2>
+    {%- if let Some(end) = sprint.end_date %}
+    <p class="sprint-meta"><span>Ends {{ end.format("%b %-d") }}</span> <a href="/p/{{ project.key }}/backlog">Complete in the backlog</a></p>
+    {%- endif %}
+    {%- if !sprint.goal.is_empty() %}
+    <p class="sprint-goal">{{ sprint.goal }}</p>
+    {%- endif %}
+  </div>
+  {%- endif %}
+  {%- if board.sprint.is_none() && project.board_type == BoardType::Scrum %}
+  <div class="empty">
+    <h2>No sprint is running</h2>
+    <p>Plan issues into a sprint and start it from the backlog; its issues show up here.</p>
+    <a class="button" href="/p/{{ project.key }}/backlog">{{ ui::icon("list") }}<span>Open the backlog</span></a>
+  </div>
+  {%- else %}
   <form class="create-issue" method="post" action="/p/{{ project.key }}/issues">
     {%- if !self.error("form").is_empty() %}
     <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>{{ self.error("form") }}</span></p>
@@ -25,8 +43,12 @@
         {%- endfor %}
       </select>
     </div>
+    {%- if let Some(sprint) = board.sprint %}
+    <input type="hidden" name="sprint_id" value="{{ sprint.id }}">
+    {%- endif %}
     <button class="button" type="submit">{{ ui::icon("plus") }}<span>Create issue</span></button>
   </form>
+  {%- endif %}
   {% block board %}
   <div id="board">
     {%- if let Some(error) = move_error %}

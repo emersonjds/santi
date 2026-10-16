@@ -10,6 +10,9 @@
       {%- if project.key == shell.current %}
       <ul class="side-sub">
         <li><a class="side-link" href="/p/{{ project.key }}">{{ ui::icon("kanban") }}<span>Board</span></a></li>
+        {%- if project.board_type == santi_types::projects::BoardType::Scrum %}
+        <li><a class="side-link" href="/p/{{ project.key }}/backlog">{{ ui::icon("list") }}<span>Backlog</span></a></li>
+        {%- endif %}
       </ul>
       {%- endif %}
     </li>

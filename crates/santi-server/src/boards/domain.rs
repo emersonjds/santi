@@ -258,7 +258,10 @@ fn backlog_section(sprint: Option<Sprint>, cards: &[Card], filter: &IssueFilter)
         .collect();
     BacklogSection {
         issue_count: in_section.len() as i64,
-        total_points: in_section.iter().filter_map(|card| card.points).sum(),
+        total_points: in_section
+            .iter()
+            .filter_map(|card| card.points)
+            .fold(0.0, |total, points| total + points),
         cards: in_section
             .into_iter()
             .filter(|card| matches_filter(card, filter))
@@ -534,6 +537,7 @@ mod tests {
         assert_eq!(sections[0].total_points, 3.0);
         assert!(sections[0].cards.is_empty());
         assert_eq!(sections[1].issue_count, 0);
+        assert_eq!(sections[1].total_points.to_string(), "0");
         assert!(sections[2].sprint.is_none());
         assert_eq!(sections[2].total_points, 5.0);
     }

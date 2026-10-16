@@ -29,6 +29,7 @@ pub fn router() -> Router<AppState> {
         .merge(crate::auth::web::router())
         .merge(crate::projects::web::router())
         .merge(crate::issues::web::router())
+        .merge(crate::sprints::web::router())
 }
 
 /// The signed-in caller on an HTML page; anonymous visitors are sent to the sign-in form.
@@ -71,6 +72,22 @@ pub async fn shell(pool: &PgPool, user: &CurrentUser, current: &str) -> Result<S
         projects,
         current: current.into(),
     })
+}
+
+/// `/p/KEY/issues/N` for the card key `KEY-N`.
+pub fn issue_path(project_key: &str, card_key: &str) -> String {
+    let number = card_key
+        .rsplit_once('-')
+        .map_or(card_key, |(_, number)| number);
+    format!("/p/{project_key}/issues/{number}")
+}
+
+pub fn initials(name: &str) -> String {
+    name.split_whitespace()
+        .take(2)
+        .filter_map(|word| word.chars().next())
+        .flat_map(char::to_uppercase)
+        .collect()
 }
 
 #[derive(Template)]
