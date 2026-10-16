@@ -74,13 +74,14 @@ Keyboard
 
 Mirror UI-1, UI-2 minus switcher and upgrade, UI-3, UI-6, UI-8, UI-10..13, UI-15..23, UI-26..30,
 UI-32, UI-33 minus chips beyond title/description/type/assignee/estimate/sprint, UI-36..38.
-- Sidebar (UI-4 trimmed): home hub (assigned to me), recent, projects group; each project
-  expands to board, backlog, settings. Starred, filters, dashboards wait for those features.
+- Sidebar (UI-4 trimmed, see `information-architecture.md`): home, projects group; the current
+  project expands to board, backlog (scrum), settings (admins). Assigned-to-me hub, recent,
+  starred, filters, dashboards wait for those features.
 - D6: subtasks are flat cards with a parent-key chip, not indented under the parent (overrides UI-13 nesting).
 - D10: epic panel lists key, summary, child count and progress; epics never appear as rows.
 - D18: quick filters and assignee picks live in the board URL; the filter bar renders from it.
-- D1: panel and full page are the same server route; the panel loads it into the right region
-  and pushes the URL, so a reload lands on the full page.
+- D1: modal and full page are the same server route; the modal loads it over the board or
+  backlog and pushes the URL, so a reload lands on the full page (right panel: later).
 - Later: UI-7, UI-14, UI-21 split, UI-24 versions, UI-34, UI-35, UI-39.
 
 ## Responsive (375px)
