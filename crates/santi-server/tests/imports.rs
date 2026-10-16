@@ -427,3 +427,106 @@ async fn bad_rows_fail_alone(pool: PgPool) {
     assert_eq!(second["created"], 0);
     assert_eq!(second["skipped"], 2);
 }
+
+/// A sprint named `name` holding one issue, started and, when `close`, completed.
+async fn ran_sprint(app: &TestApp, name: &str, close: bool) -> Value {
+    let (status, sprint) = app
+        .post("/api/projects/SANTI/sprints", json!({ "name": name }))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{sprint}");
+    app.create_issue(
+        "SANTI",
+        json!({ "summary": format!("in {name}"), "sprint_id": sprint["id"] }),
+    )
+    .await;
+    let id = &sprint["id"];
+    let (started, _) = app
+        .post(
+            &format!("/api/projects/SANTI/sprints/{id}/start"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(started, StatusCode::OK);
+    if close {
+        let (closed, _) = app
+            .post(
+                &format!("/api/projects/SANTI/sprints/{id}/complete"),
+                json!({ "open_issues": { "to": "backlog" } }),
+            )
+            .await;
+        assert_eq!(closed, StatusCode::OK);
+    }
+    sprint
+}
+
+/// A sprint of the same name is reused only in the state the mapping asks for.
+#[sqlx::test]
+async fn sprint_names_are_reused_only_in_the_mapped_state(pool: PgPool) {
+    let (ana, bob) = team(pool, "scrum").await;
+    let old_one = ran_sprint(&ana, "Sprint 1", true).await;
+    let old_two = ran_sprint(&ana, "Sprint 2", true).await;
+    let running_two = ran_sprint(&ana, "Sprint 2", false).await;
+    let mapping = jira_mapping(&ana, &bob).await;
+
+    let (status, result) = import(&ana, JIRA, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let sprints = sprints(&ana).await;
+    let states: Vec<(&str, &str)> = sprints
+        .iter()
+        .map(|sprint| {
+            (
+                sprint["name"].as_str().unwrap(),
+                sprint["state"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        states,
+        [
+            ("Sprint 1", "closed"),
+            ("Sprint 2", "closed"),
+            ("Sprint 2", "active"),
+            ("Sprint 2", "future"),
+        ]
+    );
+    let story = issue(&ana, 5).await;
+    assert_eq!(story["summary"], "Pay with card");
+    assert_eq!(story["sprint_id"], sprints[3]["id"]);
+    assert_ne!(story["sprint_id"], running_two["id"]);
+    assert_ne!(story["sprint_id"], old_two["id"]);
+    assert_eq!(sprints[0]["id"], old_one["id"]);
+}
+
+/// Like planning an issue into a running sprint, an imported subtask that follows its parent into
+/// one counts as added after the start.
+#[sqlx::test]
+async fn issues_imported_into_a_running_sprint_count_as_added(pool: PgPool) {
+    let (ana, bob) = team(pool.clone(), "scrum").await;
+    let mapping = jira_mapping(&ana, &bob).await;
+    import(&ana, JIRA, &mapping).await;
+    let story = issue(&ana, 2).await;
+    let sprint = &story["sprint_id"];
+    let (started, _) = ana
+        .post(
+            &format!("/api/projects/SANTI/sprints/{sprint}/start"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(started, StatusCode::OK);
+    let more =
+        "Issue key,Issue Type,Summary,Status,Parent\nACME-6,Sub-task,Later subtask,Done,ACME-2\n";
+
+    let (status, result) = import(&ana, more, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let subtask = issue(&ana, 4).await;
+    assert_eq!(subtask["sprint_id"], *sprint);
+    let joined: Vec<bool> =
+        sqlx::query_scalar("SELECT added_after_start FROM sprint_issue WHERE issue_id = $1")
+            .bind(subtask["id"].as_i64().unwrap())
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(joined, [true]);
+}

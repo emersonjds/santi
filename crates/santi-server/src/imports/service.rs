@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use chrono::Utc;
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult};
 use santi_types::issues::IssueType;
+use santi_types::sprints::SprintState;
 use sqlx::PgPool;
 
 use super::domain::{self, BATCH_SIZE, Export, Plan};
@@ -88,6 +89,8 @@ pub async fn import(
             )
             .await?;
         }
+        let inserted: Vec<String> = keys.iter().cloned().collect();
+        repo::record_joins(&mut tx, member.project_id, export.source, &inserted).await?;
         tx.commit().await?;
         created.extend(keys);
     }
@@ -168,19 +171,25 @@ async fn plan(
     ))
 }
 
-/// Sprints with the same name on the board are reused, so a second import creates none.
+/// A sprint of the same name in the state the mapping asks for (future or closed) is reused, so a
+/// second import creates none; a running sprint is never reused.
 async fn create_sprints(
     conn: &mut sqlx::PgConnection,
     member: &Member,
     plan: &Plan,
 ) -> Result<HashMap<String, i64>, AppError> {
-    let mut ids: HashMap<String, i64> = sprints::repo::list_sprints(conn, member.board_id)
-        .await?
-        .into_iter()
-        .map(|sprint| (sprint.name, sprint.id))
-        .collect();
+    let existing = sprints::repo::list_sprints(conn, member.board_id).await?;
+    let mut ids = HashMap::new();
     for sprint in &plan.sprints {
-        if ids.contains_key(&sprint.name) {
+        let state = match sprint.closed {
+            true => SprintState::Closed,
+            false => SprintState::Future,
+        };
+        let same = existing
+            .iter()
+            .find(|found| found.name == sprint.name && found.state == state);
+        if let Some(found) = same {
+            ids.insert(sprint.name.clone(), found.id);
             continue;
         }
         sprints::repo::take_sprint_number(conn, member.board_id).await?; // D12: never reused
