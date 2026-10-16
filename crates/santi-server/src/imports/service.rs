@@ -55,13 +55,15 @@ pub async fn import(
     let (export, plan) = plan(pool, member, export, mapping).await?;
     let mut tx = pool.begin().await?;
     let count = plan.issues.len() as i64;
-    let first_number = repo::take_issue_numbers(&mut tx, member.project_id, count).await?;
+    let (first_number, state) = repo::take_issue_numbers(&mut tx, member.project_id, count).await?;
+    projects::domain::check_active(state)?;
     let sprint_ids = create_sprints(&mut tx, member, &plan).await?;
     tx.commit().await?;
     let mut created = HashSet::with_capacity(plan.issues.len());
     for batch in domain::insert_order(&plan.issues).chunks(BATCH_SIZE) {
         let mut tx = pool.begin().await?;
-        projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: ranks are taken in order
+        let state = projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: ranks are taken in order
+        projects::domain::check_active(state)?;
         let mut rank = issues::repo::last_rank(&mut tx, member.project_id).await?;
         let mut keys = HashSet::new();
         for tier in batch.chunk_by(|a, b| {
@@ -130,7 +132,8 @@ async fn finish(
     created: &HashSet<String>,
 ) -> Result<(), AppError> {
     let mut tx = pool.begin().await?;
-    projects::repo::lock_project(&mut tx, member.project_id).await?;
+    let state = projects::repo::lock_project(&mut tx, member.project_id).await?;
+    projects::domain::check_active(state)?;
     let mut rank = issues::repo::last_rank(&mut tx, member.project_id).await?;
     let finished: Vec<(String, String, chrono::DateTime<Utc>)> = plan
         .issues

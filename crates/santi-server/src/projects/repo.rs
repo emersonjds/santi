@@ -162,15 +162,15 @@ pub async fn unarchive(conn: &mut PgConnection, project_id: i64) -> Result<bool,
     Ok(updated.rows_affected() == 1)
 }
 
-/// False when the project is already archived or trashed.
+/// Trashing an archived project unarchives it. False when the project is already trashed.
 pub async fn trash(
     conn: &mut PgConnection,
     project_id: i64,
     user_id: i64,
 ) -> Result<bool, sqlx::Error> {
     let updated = sqlx::query!(
-        "UPDATE project SET trashed_at = now(), trashed_by = $2
-         WHERE id = $1 AND archived_at IS NULL AND trashed_at IS NULL",
+        "UPDATE project SET trashed_at = now(), trashed_by = $2, archived_at = NULL, archived_by = NULL
+         WHERE id = $1 AND trashed_at IS NULL",
         project_id,
         user_id
     )
@@ -203,38 +203,60 @@ pub async fn purge(conn: &mut PgConnection, project_id: i64) -> Result<bool, sql
     Ok(deleted.rows_affected() == 1)
 }
 
-/// OR-58: deletes projects trashed `TRASH_DAYS` ago or earlier; returns how many.
-pub async fn purge_expired_trash(conn: &mut PgConnection) -> Result<u64, sqlx::Error> {
-    let deleted = sqlx::query!(
-        "DELETE FROM project WHERE trashed_at <= now() - make_interval(days => $1)",
-        TRASH_DAYS
-    )
-    .execute(&mut *conn)
-    .await?;
-    Ok(deleted.rows_affected())
+pub struct ExpiredTrash {
+    pub id: i64,
+    pub key: String,
 }
 
-/// Serializes writes that must not interleave inside one project (D20, D21).
-pub async fn lock_project(conn: &mut PgConnection, project_id: i64) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "SELECT id FROM project WHERE id = $1 FOR UPDATE",
-        project_id
+/// OR-58: up to `limit` projects trashed `TRASH_DAYS` ago or earlier, oldest first.
+pub async fn list_expired_trash(
+    conn: &mut PgConnection,
+    limit: i64,
+) -> Result<Vec<ExpiredTrash>, sqlx::Error> {
+    sqlx::query_as!(
+        ExpiredTrash,
+        "SELECT id, key FROM project WHERE trashed_at <= now() - make_interval(days => $1)
+         ORDER BY trashed_at LIMIT $2",
+        TRASH_DAYS,
+        limit
     )
-    .fetch_one(&mut *conn)
-    .await?;
-    Ok(())
+    .fetch_all(&mut *conn)
+    .await
 }
 
-/// D20: hands out KEY-N numbers that are never reused; the UPDATE also locks the project row.
-pub async fn take_issue_number(
+/// Serializes writes that must not interleave inside one project (D20, D21); returns the
+/// project's state as of the lock, which may have changed since the request was authorized.
+pub async fn lock_project(
     conn: &mut PgConnection,
     project_id: i64,
-) -> Result<i64, sqlx::Error> {
+) -> Result<ProjectState, sqlx::Error> {
     sqlx::query_scalar!(
-        r#"UPDATE project SET next_issue_number = next_issue_number + 1
-           WHERE id = $1 RETURNING next_issue_number - 1 AS "number!""#,
+        r#"SELECT CASE WHEN trashed_at IS NOT NULL THEN 'trashed'
+                       WHEN archived_at IS NOT NULL THEN 'archived'
+                       ELSE 'active' END AS "state!: ProjectState"
+           FROM project WHERE id = $1 FOR UPDATE"#,
         project_id
     )
     .fetch_one(&mut *conn)
     .await
+}
+
+/// D20: hands out KEY-N numbers that are never reused; the UPDATE also locks the project row,
+/// and the project's state as of that lock comes back with the number.
+pub async fn take_issue_number(
+    conn: &mut PgConnection,
+    project_id: i64,
+) -> Result<(i64, ProjectState), sqlx::Error> {
+    let row = sqlx::query!(
+        r#"UPDATE project SET next_issue_number = next_issue_number + 1
+           WHERE id = $1
+           RETURNING next_issue_number - 1 AS "number!",
+                     CASE WHEN trashed_at IS NOT NULL THEN 'trashed'
+                          WHEN archived_at IS NOT NULL THEN 'archived'
+                          ELSE 'active' END AS "state!: ProjectState""#,
+        project_id
+    )
+    .fetch_one(&mut *conn)
+    .await?;
+    Ok((row.number, row.state))
 }

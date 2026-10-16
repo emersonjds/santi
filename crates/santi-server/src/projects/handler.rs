@@ -130,11 +130,10 @@ pub async fn unarchive_project(
 #[utoipa::path(post, path = "/api/projects/{key}/trash", tag = "projects",
     params(("key" = String, Path, description = "Project key")),
     responses(
-        (status = 204, description = "In the trash: 404 for everyone until restored; purged 60 days later"),
+        (status = 204, description = "In the trash (an archived project is unarchived): 404 for everyone until restored; purged 60 days later"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin of the project"),
-        (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`: unarchive it first")))]
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
 pub async fn trash_project(
     State(state): State<AppState>,
     member: Member,
@@ -149,7 +148,7 @@ pub async fn trash_project(
         (status = 204, description = "Back from the trash"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin of the project"),
-        (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown, or trashed and the caller is not an admin"),
         (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-not-trashed`")))]
 pub async fn restore_project(
     State(state): State<AppState>,
@@ -166,7 +165,7 @@ pub async fn restore_project(
         (status = 204, description = "Deleted for good with its issues, sprints, board, members and invites; cannot be undone"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin of the project"),
-        (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown, or trashed and the caller is not an admin"),
         (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-not-trashed`: only a trashed project can be purged")))]
 pub async fn purge_project(
     State(state): State<AppState>,

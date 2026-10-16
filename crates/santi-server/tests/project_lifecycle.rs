@@ -181,8 +181,38 @@ async fn an_archived_project_is_read_only_except_stars_visits_and_leaving(pool: 
             json!(null),
         ),
         (
+            Method::PUT,
+            format!("/api/projects/SANTI/sprints/{sprint_id}"),
+            json!({ "name": "Renamed" }),
+        ),
+        (
+            Method::DELETE,
+            format!("/api/projects/SANTI/sprints/{sprint_id}"),
+            json!(null),
+        ),
+        (
             Method::POST,
-            "/api/projects/SANTI/trash".into(),
+            format!("/api/projects/SANTI/sprints/{sprint_id}/complete"),
+            json!({ "open_issues": { "to": "backlog" } }),
+        ),
+        (
+            Method::PUT,
+            "/api/projects/SANTI/board/columns/order".into(),
+            json!({ "column_ids": [column_id] }),
+        ),
+        (
+            Method::PUT,
+            format!("/api/projects/SANTI/board/columns/{column_id}"),
+            json!({ "name": "Next" }),
+        ),
+        (
+            Method::PUT,
+            format!("/api/projects/SANTI/statuses/{status_id}"),
+            json!({ "name": "Next" }),
+        ),
+        (
+            Method::DELETE,
+            format!("/api/projects/SANTI/statuses/{status_id}"),
             json!(null),
         ),
     ];
@@ -309,7 +339,7 @@ async fn admins_restore_from_the_trash(pool: PgPool) {
 
     assert_eq!(not_trashed, StatusCode::CONFLICT);
     assert_eq!(problem["type"], "urn:santi:error:project-not-trashed");
-    assert_eq!(by_member, StatusCode::FORBIDDEN);
+    assert_eq!(by_member, StatusCode::NOT_FOUND);
     assert_eq!(by_stranger, StatusCode::NOT_FOUND);
     assert_eq!(unknown, StatusCode::NOT_FOUND);
     assert_eq!(restored, StatusCode::NO_CONTENT);
@@ -325,6 +355,31 @@ async fn admins_restore_from_the_trash(pool: PgPool) {
 #[sqlx::test]
 async fn purge_deletes_a_trashed_project_with_everything_it_owns(pool: PgPool) {
     let (ana, bob) = team(pool.clone()).await;
+    let sprint_id = ana.get("/api/projects/SANTI/sprints").await.1[0]["id"].clone();
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Sprinted", "sprint_id": sprint_id }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Child", "issue_type": "subtask", "parent": "SANTI-2" }),
+    )
+    .await;
+    let (started, body) = ana
+        .post(
+            &format!("/api/projects/SANTI/sprints/{sprint_id}/start"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(started, StatusCode::OK, "{body}");
+    let (completed, body) = ana
+        .post(
+            &format!("/api/projects/SANTI/sprints/{sprint_id}/complete"),
+            json!({ "open_issues": { "to": "backlog" } }),
+        )
+        .await;
+    assert_eq!(completed, StatusCode::OK, "{body}");
     ana.post("/api/me/stars", json!({ "key": "SANTI-1" })).await;
     ana.post("/api/projects/SANTI/invites", json!({ "role": "member" }))
         .await;
@@ -336,22 +391,18 @@ async fn purge_deletes_a_trashed_project_with_everything_it_owns(pool: PgPool) {
 
     assert_eq!(live, StatusCode::CONFLICT);
     assert_eq!(problem["type"], "urn:santi:error:project-not-trashed");
-    assert_eq!(by_member, StatusCode::FORBIDDEN);
+    assert_eq!(by_member, StatusCode::NOT_FOUND);
     assert_eq!(purged, StatusCode::NO_CONTENT);
-    for table in [
-        "project",
-        "member",
-        "board",
-        "board_column",
-        "status",
-        "issue",
-        "issue_comment",
-        "sprint",
-        "sprint_issue",
-        "invite",
-        "issue_star",
-        "issue_activity",
-    ] {
+    let tables: Vec<String> = sqlx::query_scalar(
+        "SELECT table_name::text FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+           AND table_name NOT IN ('_sqlx_migrations', 'app_user', 'auth_token', 'legal_acceptance')",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert!(tables.len() >= 12, "{tables:?}");
+    for table in tables {
         let count: i64 =
             sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT count(*) FROM {table}")))
                 .fetch_one(&pool)
@@ -385,6 +436,124 @@ async fn the_hourly_purge_removes_projects_trashed_sixty_days_ago(pool: PgPool) 
         ["NEW"]
     );
     assert_eq!(keys(&ana.get("/api/projects").await.1), ["LIVE"]);
+}
+
+#[sqlx::test]
+async fn the_hourly_purge_skips_a_project_it_cannot_delete_and_purges_the_rest(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    for key in ["BAD", "OLD"] {
+        ana.create_project(key, "scrum").await;
+        ana.post(&format!("/api/projects/{key}/trash"), json!(null))
+            .await;
+    }
+    sqlx::query("UPDATE project SET trashed_at = now() - interval '61 days'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "CREATE FUNCTION refuse_bad() RETURNS trigger LANGUAGE plpgsql AS
+           $$ BEGIN RAISE EXCEPTION 'refused'; END $$;
+         CREATE TRIGGER refuse_bad BEFORE DELETE ON project
+           FOR EACH ROW WHEN (OLD.key = 'BAD') EXECUTE FUNCTION refuse_bad();",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let purged = santi_server::purge_trash(&pool).await.unwrap();
+
+    assert_eq!(purged, 1);
+    assert_eq!(
+        keys(&ana.get("/api/projects?state=trashed").await.1),
+        ["BAD"]
+    );
+}
+
+#[sqlx::test]
+async fn an_archived_project_can_be_trashed_and_restores_active(pool: PgPool) {
+    let (ana, _bob) = team(pool).await;
+    ana.post("/api/projects/SANTI/archive", json!(null)).await;
+
+    let (trashed, body) = ana.post("/api/projects/SANTI/trash", json!(null)).await;
+
+    assert_eq!(trashed, StatusCode::NO_CONTENT, "{body}");
+    assert!(keys(&ana.get("/api/projects?state=archived").await.1).is_empty());
+    let (_, tab) = ana.get("/api/projects?state=trashed").await;
+    assert_eq!(keys(&tab), ["SANTI"]);
+    assert!(tab[0]["archived_at"].is_null());
+    let (restored, _) = ana.post("/api/projects/SANTI/restore", json!(null)).await;
+    assert_eq!(restored, StatusCode::NO_CONTENT);
+    let (_, project) = ana.get("/api/projects/SANTI").await;
+    assert_eq!(project["state"], "active");
+}
+
+/// A write that passed the extractor while the project was active re-checks the state under
+/// the project lock, so an archive or trash committed in between wins.
+#[sqlx::test]
+async fn writes_under_the_project_lock_recheck_its_state(pool: PgPool) {
+    use santi_server::{issues, members, projects};
+    let (ana, bob) = team(pool.clone()).await;
+    let mut conn = pool.acquire().await.unwrap();
+    let stale_ana = members::repo::find_member(&mut conn, "SANTI", ana.user_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let stale_bob = members::repo::find_member(&mut conn, "SANTI", bob.user_id)
+        .await
+        .unwrap()
+        .unwrap();
+    let to_do = ana.status_id("SANTI", "To Do").await;
+    let new_issue = || serde_json::from_value(json!({ "summary": "Late" })).unwrap();
+    let move_to = || serde_json::from_value(json!({ "status_id": to_do })).unwrap();
+    let admin = || serde_json::from_value(json!({ "role": "admin" })).unwrap();
+    ana.post("/api/projects/SANTI/archive", json!(null)).await;
+
+    let archived = Some(projects::domain::archived());
+    assert_eq!(
+        issues::service::create_issue(&pool, &stale_ana, new_issue())
+            .await
+            .err(),
+        archived
+    );
+    assert_eq!(
+        issues::service::move_issue(&pool, &stale_ana, 1, move_to())
+            .await
+            .err(),
+        archived
+    );
+    assert_eq!(
+        members::service::set_role(&pool, &stale_ana, bob.user_id, admin())
+            .await
+            .err(),
+        archived
+    );
+    assert_eq!(
+        members::service::remove_member(&pool, &stale_ana, bob.user_id)
+            .await
+            .err(),
+        archived
+    );
+    ana.post("/api/projects/SANTI/unarchive", json!(null)).await;
+    ana.post("/api/projects/SANTI/trash", json!(null)).await;
+    let gone = Some(santi_server::error::AppError::NotFound);
+    assert_eq!(
+        issues::service::create_issue(&pool, &stale_ana, new_issue())
+            .await
+            .err(),
+        gone
+    );
+    assert_eq!(
+        issues::service::move_issue(&pool, &stale_ana, 1, move_to())
+            .await
+            .err(),
+        gone
+    );
+    assert_eq!(
+        members::service::remove_member(&pool, &stale_bob, bob.user_id)
+            .await
+            .err(),
+        gone
+    );
 }
 
 #[sqlx::test]
@@ -435,11 +604,14 @@ async fn invites_to_an_archived_or_trashed_project_cannot_be_used(pool: PgPool) 
         .post(&format!("/api/invites/{}/accept", tokens[1]), json!(null))
         .await;
     let (preview, _) = bob.get(&format!("/api/invites/{}", tokens[1])).await;
+    let (archived_preview, preview_problem) = bob.get(&format!("/api/invites/{}", tokens[0])).await;
 
     assert_eq!(archived, StatusCode::CONFLICT);
     assert_eq!(problem["type"], "urn:santi:error:project-archived");
     assert_eq!(trashed, StatusCode::NOT_FOUND);
     assert_eq!(preview, StatusCode::NOT_FOUND);
+    assert_eq!(archived_preview, StatusCode::CONFLICT);
+    assert_eq!(preview_problem["type"], "urn:santi:error:project-archived");
 }
 
 #[sqlx::test]
@@ -463,8 +635,10 @@ async fn a_member_leaves_a_project_but_cannot_remove_others(pool: PgPool) {
 #[sqlx::test]
 async fn the_export_lists_archived_and_trashed_projects_with_their_state(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
     for key in ["ARC", "BIN", "LIVE"] {
         ana.create_project(key, "scrum").await;
+        join(&ana, key, "bob@example.com", "member").await;
     }
     ana.post("/api/projects/ARC/archive", json!(null)).await;
     ana.post("/api/projects/BIN/trash", json!(null)).await;
@@ -487,6 +661,8 @@ async fn the_export_lists_archived_and_trashed_projects_with_their_state(pool: P
         states,
         [("ARC", "archived"), ("BIN", "trashed"), ("LIVE", "active")]
     );
+    let (_, export) = bob.get("/api/me/export").await;
+    assert_eq!(keys(&export["other_projects"]), ["LIVE"]);
 }
 
 #[sqlx::test]

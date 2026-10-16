@@ -23,3 +23,12 @@ Owner: inside the project there must be the option to archive or delete it; sant
 - Account export (D45) lists archived and trashed projects the user administers with their state.
 - Web states: empty tabs, network error inside dialogs (dialog stays open), last admin cannot leave (button disabled + reason), non-admins never see Archive/Delete, archived banner with `role="status"`, phone 375px (rows stack, 44px targets).
 - `information-architecture.md` updated (tabs, danger zone, banner, API rows).
+
+## Review decisions
+
+- **Trashing an archived project** is allowed: `/trash` is on the archived allow-list and the same UPDATE clears `archived_at`/`archived_by`, so a restore brings it back active.
+- **A plain member of a trashed project** gets 404 from restore and purge, like everyone else (OR-54); 403 stays for members of a live project.
+- **Invite preview** of an archived project answers 409 `project-archived`, so the join page shows the reason instead of a Join that fails.
+- **Export:** `other_projects` lists only active projects; archived and trashed ones appear only for their admins, under `projects`.
+- **Timer purge** takes at most 20 expired projects per tick, one DELETE each; a failure is logged with the key and the rest still go.
+- **Race with archive/trash/purge.** Writes that already lock the project (create issue, move issue, imports, set role, remove member) re-read its state under that lock: archived answers 409 `project-archived` (leaving still works), trashed answers 404. Archive, trash and purge need no explicit `lock_project`: their UPDATE/DELETE take a row lock that conflicts with `FOR UPDATE`, so the two serialize. **Remaining window:** writes that do not lock the project (issue edit, comments, sprints, board settings, add member, invites) can still land if their request passed the member check just before an archive or trash committed — at most the requests in flight at that instant. Against a purge, such a write fails on the foreign key and answers 409 `in-use` (or 404 where `not_found_if_parent_gone` applies), never 500.

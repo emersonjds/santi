@@ -1,6 +1,6 @@
 use chrono::{Duration, Utc};
 use santi_types::projects::{
-    AddMember, CreateInvite, Invite, InvitePreview, MemberInfo, Project, SetRole,
+    AddMember, CreateInvite, Invite, InvitePreview, MemberInfo, Project, ProjectState, SetRole,
 };
 use sqlx::PgPool;
 
@@ -49,7 +49,8 @@ pub async fn set_role(
 ) -> Result<MemberInfo, AppError> {
     domain::require_admin(member)?;
     let mut tx = pool.begin().await?;
-    projects::repo::lock_project(&mut tx, member.project_id).await?;
+    let state = projects::repo::lock_project(&mut tx, member.project_id).await?;
+    projects::domain::check_active(state)?;
     let target = repo::find_member_info(&mut tx, member.project_id, user_id)
         .await?
         .ok_or(AppError::NotFound)?;
@@ -69,7 +70,11 @@ pub async fn remove_member(pool: &PgPool, member: &Member, user_id: i64) -> Resu
         domain::require_admin(member)?;
     }
     let mut tx = pool.begin().await?;
-    projects::repo::lock_project(&mut tx, member.project_id).await?;
+    let state = projects::repo::lock_project(&mut tx, member.project_id).await?;
+    let leaving_archived = user_id == member.user_id && state == ProjectState::Archived;
+    if !leaving_archived {
+        projects::domain::check_active(state)?;
+    }
     let target = repo::find_member_info(&mut tx, member.project_id, user_id)
         .await?
         .ok_or(AppError::NotFound)?;
@@ -132,5 +137,8 @@ pub async fn preview_invite(pool: &PgPool, token: &str) -> Result<InvitePreview,
         .await?
         .ok_or(AppError::NotFound)?;
     domain::check_invite_usable(invite.preview.expires_at, invite.used_at, Utc::now())?;
+    if invite.archived {
+        return Err(projects::domain::archived());
+    }
     Ok(invite.preview)
 }

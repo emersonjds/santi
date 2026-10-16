@@ -15,9 +15,11 @@ pub fn require_admin(member: &Member) -> Result<(), AppError> {
 }
 
 /// Writes an archived project still takes (SAN-70): visits and views feed the caller's home, and
-/// the routes that undo the archive. Stars live under `/api/me` and leaving is handled apart.
-const WRITABLE_WHILE_ARCHIVED: [&str; 3] = [
+/// the routes that undo the archive, and trashing. Stars live under `/api/me` and leaving is
+/// handled apart.
+const WRITABLE_WHILE_ARCHIVED: [&str; 4] = [
     "/api/projects/{key}/unarchive",
+    "/api/projects/{key}/trash",
     "/api/projects/{key}/visit",
     "/api/projects/{key}/issues/{number}/view",
 ];

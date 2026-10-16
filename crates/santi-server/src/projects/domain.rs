@@ -39,6 +39,16 @@ pub fn archived() -> AppError {
     )
 }
 
+/// For a write under the project lock: an archive or trash committed after the request was
+/// authorized still wins.
+pub fn check_active(state: ProjectState) -> Result<(), AppError> {
+    match state {
+        ProjectState::Active => Ok(()),
+        ProjectState::Archived => Err(archived()),
+        ProjectState::Trashed => Err(AppError::NotFound),
+    }
+}
+
 pub fn not_trashed() -> AppError {
     AppError::conflict("project-not-trashed", "This project is not in the trash.")
 }

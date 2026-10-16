@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE project SET next_issue_number = next_issue_number + 1\n           WHERE id = $1\n           RETURNING next_issue_number - 1 AS \"number!\",\n                     CASE WHEN trashed_at IS NOT NULL THEN 'trashed'\n                          WHEN archived_at IS NOT NULL THEN 'archived'\n                          ELSE 'active' END AS \"state!: ProjectState\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "state!: ProjectState",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "134e0dd545e7d2d1562bd625de83d08560333adb5cd115e7574b95ddf4eb1a26"
+}

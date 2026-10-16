@@ -61,7 +61,7 @@ pub async fn trash(pool: &PgPool, member: &Member) -> Result<(), AppError> {
     members::domain::require_admin(member)?;
     let mut conn = pool.acquire().await?;
     let trashed = repo::trash(&mut conn, member.project_id, member.user_id).await?;
-    trashed.then_some(()).ok_or_else(domain::archived)
+    trashed.then_some(()).ok_or(AppError::NotFound)
 }
 
 /// Restore and purge reach trashed projects, which the `Member` extractor hides (OR-54).
@@ -87,11 +87,12 @@ async fn trashed_project(
     let membership = repo::find_membership(conn, key, user.id)
         .await?
         .ok_or(AppError::NotFound)?;
-    if membership.role != MemberRole::Admin {
-        return Err(AppError::Forbidden);
-    }
-    if !membership.trashed {
-        return Err(domain::not_trashed());
+    match (membership.role, membership.trashed) {
+        (MemberRole::Admin, true) => {}
+        (MemberRole::Admin, false) => return Err(domain::not_trashed()),
+        // OR-54: a trashed project is hidden from everyone but its admins.
+        (_, true) => return Err(AppError::NotFound),
+        (_, false) => return Err(AppError::Forbidden),
     }
     Ok(membership.project_id)
 }
