@@ -11,6 +11,11 @@ COPY web/ ./
 # Public address for the landing page's canonical and social links, robots.txt and sitemap.xml.
 ARG VITE_SITE_URL
 ARG RAILWAY_PUBLIC_DOMAIN
+# Operator details for /privacy and /terms (D45); placeholders when unset.
+ARG VITE_OPERATOR_NAME
+ARG VITE_PRIVACY_EMAIL
+ARG VITE_HOSTING_REGION
+ARG VITE_LEGAL_VENUE
 RUN pnpm build
 
 FROM rust:slim-trixie AS server

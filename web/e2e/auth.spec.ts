@@ -19,6 +19,7 @@ test('register lands on the empty home', async ({ page }) => {
   await page.getByLabel('Name').fill('Ada')
   await page.getByLabel('Email').fill(uniqueEmail())
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
 
   await expect(home(page)).toBeVisible()
@@ -32,6 +33,7 @@ test('sign out, then sign back in', async ({ page }) => {
   await page.getByLabel('Name').fill('Grace')
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(home(page)).toBeVisible()
 

@@ -1,9 +1,10 @@
-/* The public landing and privacy pages (web/landing.html, web/privacy.html): static HTML, D36 tokens, shadcn button and card classes ported. */
+/* The public landing, privacy and terms pages (web/landing.html, privacy.html, terms.html): static HTML, D36 tokens, shadcn button and card classes ported. */
 @import 'tailwindcss' source(none);
 @import './theme.css';
 
 @source '../../../landing.html';
 @source '../../../privacy.html';
+@source '../../../terms.html';
 
 @layer base {
   * {
@@ -200,6 +201,9 @@
   .faq details[open] summary::after {
     @apply content-['−'];
   }
+  .faq a {
+    @apply text-primary underline;
+  }
   .faq p {
     @apply pb-5 text-muted-foreground;
   }
@@ -215,6 +219,41 @@
   }
   .footer-links a {
     @apply inline-flex min-h-11 items-center hover:text-foreground;
+  }
+  /* Privacy and terms: one readable column of prose. */
+  .legal {
+    @apply max-w-3xl leading-relaxed;
+  }
+  .legal h1 {
+    @apply text-3xl font-semibold tracking-tight sm:text-4xl;
+  }
+  .legal h2 {
+    @apply mt-10 text-xl font-semibold;
+  }
+  .legal p,
+  .legal ul {
+    @apply mt-3 text-muted-foreground;
+  }
+  .legal ul {
+    @apply grid list-disc gap-2 ps-5;
+  }
+  .legal strong {
+    @apply text-foreground;
+  }
+  .legal a {
+    @apply text-primary underline;
+  }
+  .legal code {
+    @apply font-mono text-sm;
+  }
+  .legal-meta {
+    @apply text-sm;
+  }
+  .legal .legal-lead {
+    @apply text-lg text-foreground;
+  }
+  .legal .legal-note {
+    @apply rounded-lg border bg-muted px-4 py-3 text-sm;
   }
 }
 

@@ -437,6 +437,49 @@
       </section>
 
       <section
+        id="your-data"
+        aria-labelledby="data-title"
+        class="container-page py-20 sm:py-28"
+      >
+        <p class="eyebrow text-center">Privacy</p>
+        <h2 id="data-title" class="section-title text-center">
+          Your data is yours
+        </h2>
+        <p class="section-lead mx-auto text-center">
+          santi tracks your team's work, not you. The
+          <a href="/privacy" class="text-primary underline">privacy policy</a>
+          says it in plain words.
+        </p>
+        <ul class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <li class="card">
+            <h3 class="card-title">Never sold</h3>
+            <p class="card-text">
+              Your data is not sold, rented or shared, and there are no ads.
+            </p>
+          </li>
+          <li class="card">
+            <h3 class="card-title">No tracking</h3>
+            <p class="card-text">
+              No analytics, no third-party scripts, one session cookie.
+            </p>
+          </li>
+          <li class="card">
+            <h3 class="card-title">Your rights, one click away</h3>
+            <p class="card-text">
+              Export everything or delete your account from the account page, as
+              the LGPD and the GDPR provide.
+            </p>
+          </li>
+          <li class="card">
+            <h3 class="card-title">Or keep it at home</h3>
+            <p class="card-text">
+              Self-host santi and your data never leaves your own server.
+            </p>
+          </li>
+        </ul>
+      </section>
+
+      <section
         id="faq"
         aria-labelledby="faq-title"
         class="container-page py-20 sm:py-28"
@@ -478,6 +521,26 @@
               HttpOnly, Secure cookie, and API tokens can be revoked at any
               time. Back up the database volume on a schedule; security reports
               go through the process in SECURITY.md.
+            </p>
+          </details>
+          <details>
+            <summary>Who owns my data?</summary>
+            <p>
+              You do. It is never sold or shared, and there is no tracking or
+              analytics. From your account page you can download everything as
+              JSON or delete your account, the rights the LGPD and the GDPR give
+              you. The <a href="/privacy">privacy policy</a> has the details.
+            </p>
+          </details>
+          <details>
+            <summary>Is santi legal to use at my company?</summary>
+            <p>
+              santi is open source under MIT or Apache-2.0, which allow
+              commercial use. The hosted instance follows Brazil's LGPD and
+              Marco Civil da Internet and, where it applies, the GDPR. Read the
+              <a href="/terms">Terms of Use</a> and the
+              <a href="/privacy">Privacy Policy</a>, or self-host it to keep
+              everything under your own policies.
             </p>
           </details>
           <details>
@@ -578,7 +641,8 @@
           <ul class="footer-links">
             <li><a href="/login">Sign in</a></li>
             <li><a href="/register">Create account</a></li>
-            <li><a href="/privacy">Privacy</a></li>
+            <li><a href="/privacy">Privacy Policy</a></li>
+            <li><a href="/terms">Terms of Use</a></li>
             <li>
               <a href="https://github.com/emersonjds/santi/issues/new/choose"
                 >Send feedback</a
