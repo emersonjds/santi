@@ -239,3 +239,15 @@ Follows ui-layout "Responsive". IA specifics:
 | 10 | Account page with API tokens | new card (needed before the CLI ships, E3) |
 | 11 | Home "Assigned to me"; Recent; global search | later |
 | 12 | Dark theme switched on and checked screen by screen | later |
+
+## Resolved questions (orchestrator, 2026-10-15)
+
+The owner delegated these calls; defaults chosen to keep v1 small.
+
+1. Dark theme: tokens defined, switched off in v1 (item 12).
+2. New issues land at the bottom of the backlog, as `create_issue` already does; UI-36 "top of backlog" is dropped for v1.
+3. Home "Assigned to me" and sidebar "Recent" stay later (item 11).
+4. Account page with API tokens is v1 and gets its own card before the CLI ships.
+5. Issue delete is deferred; the card menu has no Delete item until a delete service exists.
+6. Settings are hidden from members; the URL answers 403.
+7. After creation a scrum project opens on the backlog and a kanban project on the board.
