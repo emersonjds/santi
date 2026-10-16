@@ -19,7 +19,9 @@ import {
   sprintsQuery,
 } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
+import { PersonName } from '@/entities/user/user-avatar'
 import { type Issue, fieldMessage } from '@/shared/api/client'
+import { fullName, shortName } from '@/shared/lib/initials'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
@@ -69,7 +71,7 @@ const Field = ({ label, issue, projectKey, children }: FieldProps) => {
 const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className={ROW}>
     <span className={LABEL}>{label}</span>
-    <span className='text-sm md:px-2.25'>{children}</span>
+    <span className='truncate text-sm md:px-2.25'>{children}</span>
   </div>
 )
 
@@ -148,8 +150,12 @@ const AssigneeField = ({ issue, projectKey }: IssueFieldsProps) => {
             >
               <option value={UNASSIGNED}>Unassigned</option>
               {members.map((member) => (
-                <option key={member.user_id} value={member.user_id}>
-                  {member.display_name}
+                <option
+                  key={member.user_id}
+                  value={member.user_id}
+                  title={fullName(member.display_name)}
+                >
+                  {shortName(member.display_name)}
                 </option>
               ))}
             </select>
@@ -252,7 +258,13 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
       </h3>
       <StatusField {...field} />
       <AssigneeField {...field} />
-      <Fact label='Reporter'>{reporter?.display_name ?? 'Former member'}</Fact>
+      <Fact label='Reporter'>
+        {reporter ? (
+          <PersonName name={reporter.display_name} />
+        ) : (
+          'Former member'
+        )}
+      </Fact>
       <Field label='Priority' {...field}>
         {(save, id) => (
           <select
