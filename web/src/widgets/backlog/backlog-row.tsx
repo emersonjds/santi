@@ -1,6 +1,11 @@
 import { type ReactNode, memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Ellipsis, GripVertical, Layers } from 'lucide-react'
+import {
+  RowAssignee,
+  RowPoints,
+  RowSummary,
+} from '@/features/edit-row/row-fields'
 import { issueNumber } from '@/entities/issue/board-query'
 import { SubtaskCount } from '@/entities/issue/issue-card'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
@@ -38,65 +43,87 @@ type BacklogRowProps = {
   status?: Status
   handle: ReactNode
   menu: ReactNode
+  /** BL-19: summary, points and assignee edited in the row (wide screens; a phone opens the issue). */
+  editable: boolean
 }
+
+const Points = ({ card }: { card: Card }) =>
+  card.points != null && (
+    <span
+      className='rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground tabular-nums'
+      aria-label={`${card.points} points`}
+    >
+      {card.points}
+    </span>
+  )
+
+const Assignee = ({ card }: { card: Card }) =>
+  card.assignee_name && (
+    <span
+      className='grid size-6 shrink-0 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
+      title={`Assigned to ${card.assignee_name}`}
+    >
+      {initials(card.assignee_name)}
+    </span>
+  )
 
 /** One dense line on wide screens; on a phone the summary takes two lines and the facts wrap below. */
 export const BacklogRow = memo(
-  ({ card, projectKey, epic, status, handle, menu }: BacklogRowProps) => (
-    <div className='relative flex min-h-11 items-start bg-card ps-1 hover:bg-muted md:items-center'>
-      {handle}
-      <div className='grid min-w-0 flex-1 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 py-2 ps-2 text-sm md:flex md:py-1.5 md:ps-0'>
-        <TypeGlyph type={card.issue_type} />
-        <span className='text-xs tracking-wide text-subtle-foreground tabular-nums'>
-          {card.key}
-        </span>
-        {/* IA §6: a dialog over the backlog, the address bar showing the issue page. */}
-        <Link
-          to='.'
-          search={(prev) => ({ ...prev, issue: issueNumber(card.key) })}
-          mask={{
-            to: '/p/$key/issues/$number',
-            params: { key: projectKey, number: String(issueNumber(card.key)) },
-          }}
-          draggable={false}
-          className='line-clamp-2 min-w-0 outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring md:line-clamp-1 md:flex-1'
-        >
-          {card.summary}
-        </Link>
-        <span className='col-span-3 flex flex-wrap items-center gap-2 md:contents'>
-          {epic && (
-            <span
-              className='inline-flex max-w-40 items-center gap-1 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'
-              title={`Epic ${epic.summary}`}
-            >
-              <Layers
-                className='size-3.5 shrink-0 text-type-epic'
-                aria-hidden='true'
-              />
-              <span className='truncate'>{epic.summary}</span>
-            </span>
-          )}
-          {status && <StatusPill status={status} />}
-          <SubtaskCount card={card} />
-          {card.points != null && (
-            <span
-              className='rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground tabular-nums'
-              aria-label={`${card.points} points`}
-            >
-              {card.points}
-            </span>
-          )}
-          {card.assignee_name && (
-            <span
-              className='grid size-6 shrink-0 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
-              title={`Assigned to ${card.assignee_name}`}
-            >
-              {initials(card.assignee_name)}
-            </span>
-          )}
-        </span>
+  ({
+    card,
+    projectKey,
+    epic,
+    status,
+    handle,
+    menu,
+    editable,
+  }: BacklogRowProps) => {
+    const summary = (
+      /* IA §6: a dialog over the backlog, the address bar showing the issue page. */
+      <Link
+        to='.'
+        search={(prev) => ({ ...prev, issue: issueNumber(card.key) })}
+        mask={{
+          to: '/p/$key/issues/$number',
+          params: { key: projectKey, number: String(issueNumber(card.key)) },
+        }}
+        draggable={false}
+        className='line-clamp-2 min-w-0 outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring md:line-clamp-1 md:flex-1'
+      >
+        {card.summary}
+      </Link>
+    )
+    const fields = { card, projectKey }
+    return (
+      <div className='group relative flex min-h-11 items-start bg-card ps-1 hover:bg-muted md:items-center'>
+        {handle}
+        <div className='grid min-w-0 flex-1 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 py-2 ps-2 text-sm md:flex md:py-1.5 md:ps-0'>
+          <TypeGlyph type={card.issue_type} />
+          <span className='text-xs tracking-wide text-subtle-foreground tabular-nums'>
+            {card.key}
+          </span>
+          {editable ? <RowSummary {...fields}>{summary}</RowSummary> : summary}
+          <span className='col-span-3 flex flex-wrap items-center gap-2 md:contents'>
+            {epic && (
+              <span
+                className='inline-flex max-w-40 items-center gap-1 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'
+                title={`Epic ${epic.summary}`}
+              >
+                <Layers
+                  className='size-3.5 shrink-0 text-type-epic'
+                  aria-hidden='true'
+                />
+                <span className='truncate'>{epic.summary}</span>
+              </span>
+            )}
+            {status && <StatusPill status={status} />}
+            <SubtaskCount card={card} />
+            {editable ? <RowPoints {...fields} /> : <Points card={card} />}
+            {editable ? <RowAssignee {...fields} /> : <Assignee card={card} />}
+          </span>
+        </div>
+        <div className='relative z-10'>{menu}</div>
       </div>
-      <div className='relative z-10'>{menu}</div>
-    </div>
-  )
+    )
+  }
 )

@@ -113,3 +113,41 @@ export const setEpic = (backlog: Backlog, { card, epic }: EpicChange) => {
     }),
   }
 }
+
+/** D40: a deleted row takes its count and points; a deleted epic leaves the panel and its rows. */
+export const removeRow = (backlog: Backlog, key: string): Backlog => ({
+  epics: backlog.epics.filter((epic) => epic.key !== key),
+  sections: backlog.sections.map((section) => {
+    const gone = section.cards.find((card) => card.key === key)
+    const cards = section.cards
+      .filter((card) => card.key !== key)
+      .map((card) =>
+        card.parent_key === key ? { ...card, parent_key: null } : card
+      )
+    return gone
+      ? { ...section, cards, ...tally(section, gone, -1) }
+      : { ...section, cards }
+  }),
+})
+
+/** A row edited in place (BL-19); its section's points follow (D11). */
+export const patchRow = (
+  backlog: Backlog,
+  key: string,
+  fields: Partial<Card>
+): Backlog => ({
+  ...backlog,
+  sections: backlog.sections.map((section) => {
+    const card = section.cards.find((each) => each.key === key)
+    if (!card) return section
+    const before = card.points ?? 0
+    const after = 'points' in fields ? (fields.points ?? 0) : before
+    return {
+      ...section,
+      total_points: section.total_points + after - before,
+      cards: section.cards.map((each) =>
+        each.key === key ? { ...each, ...fields } : each
+      ),
+    }
+  }),
+})

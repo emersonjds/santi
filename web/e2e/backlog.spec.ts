@@ -167,3 +167,40 @@ test('create an epic in the panel, drag two issues onto it and filter by it', as
   await expect(section(page, 'Backlog')).toContainText('Alpha task')
   await expect(section(page, 'Backlog')).not.toContainText('Gamma task')
 })
+
+test('edit a row summary and its points in place; a reload keeps both', async ({
+  page,
+}) => {
+  const key = await scrumWithIssues(page)
+  const backlog = section(page, 'Backlog')
+  await expect(backlog).toContainText('Gamma task')
+
+  await backlog
+    .getByRole('button', { name: `Edit summary of ${key}-2` })
+    .click()
+  await backlog
+    .getByRole('textbox', { name: `Summary of ${key}-2` })
+    .fill('Beta task, renamed')
+  const renamed = page.waitForResponse(
+    (response) => response.request().method() === 'PATCH'
+  )
+  await page.keyboard.press('Enter')
+  expect((await renamed).status()).toBe(200)
+
+  await backlog.getByRole('button', { name: `Add points to ${key}-2` }).click()
+  await backlog
+    .getByRole('spinbutton', { name: `Points of ${key}-2` })
+    .fill('3')
+  const estimated = page.waitForResponse(
+    (response) => response.request().method() === 'PATCH'
+  )
+  await page.keyboard.press('Enter')
+  expect((await estimated).status()).toBe(200)
+
+  await page.reload()
+  await expect(
+    backlog.getByRole('link', { name: 'Beta task, renamed' })
+  ).toBeVisible()
+  await expect(backlog.getByRole('button', { name: '3 points' })).toBeVisible()
+  await expect(backlog).toContainText('Estimate: 3 of 3')
+})

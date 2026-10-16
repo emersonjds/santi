@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useState } from 'react'
+import { type FormEvent, type ReactNode, Suspense, lazy, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Link2 } from 'lucide-react'
@@ -16,6 +16,17 @@ import { IssueFields } from './issue-fields'
 import { IssueSubtasks } from './issue-subtasks'
 
 type IssueProps = { issue: Issue; projectKey: string }
+
+// Lazy: the menu chunk would push the issue page past its D39 budget.
+const IssueMenu = lazy(() =>
+  import('./issue-menu').then((module) => ({ default: module.IssueMenu }))
+)
+
+const DeleteIssueDialog = lazy(() =>
+  import('@/features/delete-issue/delete-issue-dialog').then((module) => ({
+    default: module.DeleteIssueDialog,
+  }))
+)
 
 const issueLink = (projectKey: string, number: number) =>
   new URL(`/p/${projectKey}/issues/${number}`, location.origin).href
@@ -167,6 +178,8 @@ type IssueDetailProps = {
   number: number
   /** Extra header buttons, like "Open as page" in the dialog. */
   actions?: ReactNode
+  /** Where the view goes once its issue is deleted. */
+  onDeleted: () => void
 }
 
 /** The issue view (IA §6), the same in the dialog and on the full page. */
@@ -174,8 +187,10 @@ export const IssueDetail = ({
   projectKey,
   number,
   actions,
+  onDeleted,
 }: IssueDetailProps) => {
   const { data: issue, error } = useQuery(issueQuery(projectKey, number))
+  const [deleting, setDeleting] = useState(false)
   if (error)
     return (
       <p role='alert' className='text-sm text-destructive'>
@@ -188,7 +203,20 @@ export const IssueDetail = ({
     <div className='grid gap-6 md:grid-cols-[minmax(0,1fr)_16rem]'>
       <div className='grid min-w-0 content-start gap-6'>
         <div className='grid gap-2'>
-          <Heading issue={issue} projectKey={projectKey} actions={actions} />
+          <Heading
+            issue={issue}
+            projectKey={projectKey}
+            actions={
+              <>
+                {actions}
+                <Suspense
+                  fallback={<span className='block size-11 md:size-8' />}
+                >
+                  <IssueMenu onDelete={() => setDeleting(true)} />
+                </Suspense>
+              </>
+            }
+          />
           <Summary issue={issue} projectKey={projectKey} />
         </div>
         <Description issue={issue} projectKey={projectKey} />
@@ -198,6 +226,17 @@ export const IssueDetail = ({
         <IssueComments projectKey={projectKey} number={number} />
       </div>
       <IssueFields issue={issue} projectKey={projectKey} />
+      {deleting && (
+        <Suspense fallback={null}>
+          <DeleteIssueDialog
+            projectKey={projectKey}
+            issueKey={issue.key}
+            issueType={issue.issue_type}
+            onClose={() => setDeleting(false)}
+            onDeleted={onDeleted}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

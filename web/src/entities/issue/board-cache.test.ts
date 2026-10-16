@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { OPS_BOARD, WEB_BOARD, card } from '@/test/stub-api'
-import { insertCard, moveCard, patchCard, planMove } from './board-cache'
+import {
+  insertCard,
+  moveCard,
+  patchCard,
+  planMove,
+  removeCard,
+} from './board-cache'
 import { timeAgo } from './time-ago'
 
 const OPS_1 = OPS_BOARD.columns[0].cards[0]
@@ -75,6 +81,32 @@ describe('board cache', () => {
     expect(insertCard(WEB_BOARD, planned)).toBe(WEB_BOARD)
     const inSprint = insertCard(WEB_BOARD, { ...planned, sprint_id: 4 })
     expect(inSprint.columns[0].cards).toHaveLength(3)
+  })
+
+  it('drops a deleted card with its subtasks and recounts their columns (D40)', () => {
+    const removed = removeCard(WEB_BOARD, 'WEB-2')
+
+    expect(removed.columns[0].cards.map((each) => each.key)).toEqual(['WEB-1'])
+    expect(removed.columns[0].issue_count).toBe(1)
+    expect(removed.columns[1]).toMatchObject({ cards: [], issue_count: 0 })
+  })
+
+  it('keeps the children of a deleted epic, without it', () => {
+    const child = card({
+      key: 'OPS-5',
+      summary: 'Child',
+      column_id: 1,
+      parent_key: 'OPS-9',
+    })
+    const board = insertCard(OPS_BOARD, child)
+
+    const removed = removeCard(board, 'OPS-9')
+
+    expect(removed.columns[0].cards[1]).toMatchObject({
+      key: 'OPS-5',
+      parent_key: null,
+    })
+    expect(removed.columns[0].issue_count).toBe(2)
   })
 
   it('says how long ago something changed', () => {

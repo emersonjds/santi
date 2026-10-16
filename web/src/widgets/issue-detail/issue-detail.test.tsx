@@ -403,4 +403,46 @@ describe('issue detail', () => {
       .element(screen.getByRole('heading', { name: 'Something went wrong' }))
       .toBeVisible()
   })
+
+  it('deletes the issue from its menu and closes onto the board', async () => {
+    const { dialog, router, screen } = await openFromBoard({
+      'DELETE /api/projects/WEB/issues/1': pending,
+    })
+
+    await dialog.getByRole('button', { name: 'More actions' }).click()
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    await screen
+      .getByRole('alertdialog', { name: 'Delete WEB-1?' })
+      .getByRole('button', { name: 'Delete issue' })
+      .click()
+
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/p/WEB/board')
+    expect(router.state.location.search).toEqual({})
+    await expect
+      .element(screen.getByText('Write the release notes'))
+      .not.toBeInTheDocument()
+  })
+
+  it('leaves the issue page for the board once the issue is deleted, saying so', async () => {
+    inProjects({
+      'GET /api/projects/WEB/issues/1': {
+        status: 200,
+        body: issue({ key: 'WEB-1', summary: 'Plan', issue_type: 'epic' }),
+      },
+      'DELETE /api/projects/WEB/issues/1': { status: 204 },
+    })
+    const { router, screen } = await renderApp('/p/WEB/issues/1')
+
+    await screen.getByRole('button', { name: 'More actions' }).click()
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    const confirm = screen.getByRole('alertdialog', { name: 'Delete WEB-1?' })
+    await expect
+      .element(confirm)
+      .toHaveTextContent('Its issues stay, without an epic.')
+    await confirm.getByRole('button', { name: 'Delete issue' }).click()
+
+    await expect.element(screen.getByText('WEB-1 deleted')).toBeVisible()
+    expect(router.state.location.pathname).toBe('/p/WEB/board')
+  })
 })

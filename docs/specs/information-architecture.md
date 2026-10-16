@@ -118,8 +118,8 @@ Type, Label, Epic dropdowns, "Filters (n)" with Clear. AND across kinds, OR with
 
 Card: type glyph, key, summary (2 lines), points pill, priority glyph (urgent only colored),
 avatar; subtasks add a parent-key chip; parents show `open/total` subtasks (D6). Card menu
-("…"): Move to…, Assign to me / Assign…, Set priority, Copy issue key. Delete: later (no issue
-delete in v1). Drop slot: dashed outline at the target position.
+("…"): Move to…, Assign to me / Assign…, Set priority, Copy issue key, Delete (D40: admins and
+the reporter, behind a confirm naming its subtasks and comments). Drop slot: dashed outline at the target position.
 
 Backlog section header: name, dates, issue count, status chips (to do / in progress / done
 counts), points total (D11), Start or Complete, "…" (edit, delete if future). Footer line:
@@ -227,6 +227,6 @@ The owner delegated these calls; defaults chosen to keep v1 small.
 2. New issues land at the bottom of the backlog, as `create_issue` already does; UI-36 "top of backlog" is dropped for v1.
 3. Home "Assigned to me" and sidebar "Recent" stay later (item 11).
 4. Account page with API tokens is v1 and gets its own card before the CLI ships.
-5. Issue delete is deferred; the card menu has no Delete item until a delete service exists.
+5. Issue delete was deferred until a delete service existed; SAN-49 built it (D40): card, row and issue menus.
 6. Settings are hidden from members; the URL answers 403.
 7. After creation a scrum project opens on the backlog and a kanban project on the board.

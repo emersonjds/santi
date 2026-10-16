@@ -13,6 +13,16 @@ import {
 } from '@/test/stub-api'
 
 const CREATE_WEB = 'POST /api/projects/WEB/issues'
+const EPIC = issue({
+  key: 'WEB-9',
+  summary: 'Checkout revamp',
+  issue_type: 'epic',
+})
+const BUG = issue({
+  key: 'WEB-2',
+  summary: 'Fix the login redirect loop',
+  issue_type: 'bug',
+})
 const CREATE_OPS = 'POST /api/projects/OPS/issues'
 
 const bodiesOf = (requests: Request[], route: string) =>
@@ -190,10 +200,14 @@ describe('create issue', () => {
 
   it('checks the summary first and puts refusals on their fields', async () => {
     const requests = inProjects({
+      'GET /api/projects/WEB/issues': {
+        status: 200,
+        body: { items: [EPIC], next_cursor: null },
+      },
       [CREATE_WEB]: {
         status: 422,
         body: problem(422, 'Check the fields.', [
-          { field: 'parent', message: 'only an epic can be the parent' },
+          { field: 'parent', message: 'no such issue in this project' },
         ]),
       },
     })
@@ -206,20 +220,76 @@ describe('create issue', () => {
     expect(await bodiesOf(requests, CREATE_WEB)).toEqual([])
 
     await dialog.getByLabelText('Summary').fill('Split the header')
-    await dialog.getByLabelText('Parent').fill('web-2')
+    await dialog.getByLabelText('Epic').selectOptions('WEB-9 Checkout revamp')
     await dialog.getByRole('button', { name: 'Create', exact: true }).click()
 
     await expect
-      .element(dialog.getByText('only an epic can be the parent'))
+      .element(dialog.getByText('no such issue in this project'))
       .toBeVisible()
     expect(await bodiesOf(requests, CREATE_WEB)).toEqual([
       {
         summary: 'Split the header',
         issue_type: 'story',
         priority: 'medium',
+        parent: 'WEB-9',
+      },
+    ])
+  })
+
+  it('offers epics to a story, open stories, tasks and bugs to a subtask, and nothing to an epic', async () => {
+    const requests = inProjects({
+      'GET /api/projects/WEB/issues': {
+        status: 200,
+        body: (request: Request) => ({
+          items: new URL(request.url).searchParams
+            .getAll('type')
+            .includes('epic')
+            ? [EPIC]
+            : [BUG],
+          next_cursor: null,
+        }),
+      },
+      [CREATE_WEB]: { status: 422, body: problem(422, 'Not now.') },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+    await screen.getByRole('button', { name: 'Create', exact: true }).click()
+    const dialog = createDialog(screen)
+
+    await dialog.getByLabelText('Epic').selectOptions('WEB-9 Checkout revamp')
+    await dialog.getByLabelText('Type').selectOptions('Subtask')
+    await expect.element(dialog.getByLabelText('Epic')).not.toBeInTheDocument()
+    await expect.element(dialog.getByLabelText('Parent')).toHaveValue('')
+    await dialog
+      .getByLabelText('Parent')
+      .selectOptions('WEB-2 Fix the login redirect loop')
+    await dialog.getByLabelText('Summary').fill('Keep the target')
+    await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+
+    await expect.element(dialog.getByText('Not now.')).toBeVisible()
+    expect(await bodiesOf(requests, CREATE_WEB)).toEqual([
+      {
+        summary: 'Keep the target',
+        issue_type: 'subtask',
+        priority: 'medium',
         parent: 'WEB-2',
       },
     ])
+    const searches = requests
+      .filter((request) => routeOf(request) === 'GET /api/projects/WEB/issues')
+      .map((request) => new URL(request.url).searchParams)
+    expect(
+      searches.some(
+        (params) =>
+          params.getAll('type').join() === 'story,task,bug' &&
+          params.getAll('status').join() === 'todo,in_progress'
+      )
+    ).toBe(true)
+
+    await dialog.getByLabelText('Type').selectOptions('Epic')
+    await expect
+      .element(dialog.getByLabelText('Parent'))
+      .not.toBeInTheDocument()
+    await expect.element(dialog.getByLabelText('Epic')).not.toBeInTheDocument()
   })
 
   it('says when the project cannot take issues yet', async () => {

@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { epicsQuery, parentsQuery } from '@/entities/issue/board-query'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { PRIORITY_LABEL, TYPE_LABEL } from '@/entities/issue/labels'
 import {
@@ -53,7 +54,7 @@ const schema = z.object({
     .string()
     .refine((text) => text === '' || Number(text) >= 0, 'Use zero or more.'),
   sprint_id: z.string(),
-  parent: z.string().trim(),
+  parent: z.string(),
 })
 
 type NewIssue = z.infer<typeof schema>
@@ -94,10 +95,12 @@ const toBody = (values: NewIssue): CreateIssue => ({
   assignee_id: values.assignee_id ? Number(values.assignee_id) : undefined,
   points: values.points ? Number(values.points) : undefined,
   sprint_id: values.sprint_id ? Number(values.sprint_id) : undefined,
-  parent: values.parent.toUpperCase() || undefined,
+  parent: values.parent || undefined,
 })
 
 type Option = { value: string | number; label: string }
+
+type IssueForm = ReturnType<typeof useForm<NewIssue>>
 
 const SelectField = ({
   form,
@@ -107,8 +110,14 @@ const SelectField = ({
   children,
   onPick,
 }: {
-  form: ReturnType<typeof useForm<NewIssue>>
-  name: 'project' | 'issue_type' | 'assignee_id' | 'priority' | 'sprint_id'
+  form: IssueForm
+  name:
+    | 'project'
+    | 'issue_type'
+    | 'assignee_id'
+    | 'priority'
+    | 'sprint_id'
+    | 'parent'
   label: string
   options: Option[]
   children?: ReactNode
@@ -143,6 +152,36 @@ const SelectField = ({
   />
 )
 
+/** BL-21: a story, task or bug picks its epic; a subtask its open story, task or bug (D6). */
+const ParentField = ({
+  form,
+  project,
+  subtask,
+}: {
+  form: IssueForm
+  project: string
+  subtask: boolean
+}) => {
+  const { data: parents = [] } = useQuery(
+    subtask ? parentsQuery(project) : epicsQuery(project)
+  )
+  return (
+    <SelectField
+      form={form}
+      name='parent'
+      label={subtask ? 'Parent' : 'Epic'}
+      options={parents.map((parent) => ({
+        value: parent.key,
+        label: `${parent.key} ${parent.summary}`,
+      }))}
+    >
+      <option value=''>
+        {subtask ? 'Pick a story, task or bug' : 'No epic'}
+      </option>
+    </SelectField>
+  )
+}
+
 const entries = (labels: Record<string, string>): Option[] =>
   Object.entries(labels).map(([value, label]) => ({ value, label }))
 
@@ -160,6 +199,7 @@ export const CreateIssueDialog = ({
     defaultValues: blank(projectKey),
   })
   const project = useWatch({ control: form.control, name: 'project' })
+  const issueType = useWatch({ control: form.control, name: 'issue_type' })
   const { data: projects = [] } = useQuery(projectsQuery)
   const { data: members = [] } = useQuery(membersQuery(project))
   const scrum =
@@ -236,6 +276,7 @@ export const CreateIssueDialog = ({
                 form={form}
                 name='issue_type'
                 label='Type'
+                onPick={() => form.setValue('parent', '')}
                 options={entries(TYPE_LABEL)}
               />
             </div>
@@ -324,24 +365,13 @@ export const CreateIssueDialog = ({
                   <option value=''>Backlog</option>
                 </SelectField>
               )}
-              <FormField
-                control={form.control}
-                name='parent'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Parent</FormLabel>
-                    <FormControl>
-                      <Input
-                        autoComplete='off'
-                        placeholder='Optional epic or story key'
-                        className='h-11 font-mono md:h-9'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {issueType !== 'epic' && (
+                <ParentField
+                  form={form}
+                  project={project}
+                  subtask={issueType === 'subtask'}
+                />
+              )}
             </div>
             <RootError message={form.formState.errors.root?.message} />
             <div className='flex flex-wrap items-center gap-3'>

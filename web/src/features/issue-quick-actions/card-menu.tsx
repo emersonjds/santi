@@ -1,6 +1,6 @@
 import { use } from 'react'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, Ellipsis } from 'lucide-react'
+import { Copy, Ellipsis, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { planMove, statusMove } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
@@ -177,7 +177,11 @@ const copyKey = (key: string) =>
   )
 
 /** The card's "…" menu (lazy chunk): every edit is optimistic and says so when it fails. */
-export const CardMenu = ({ card, projectKey }: CardMenuProps) => (
+export const CardMenu = ({
+  card,
+  projectKey,
+  onDelete,
+}: CardMenuProps & { onDelete: (card: Card) => void }) => (
   <DropdownMenu>
     <DropdownMenuTrigger
       aria-label={`Actions for ${card.key}`}
@@ -193,6 +197,14 @@ export const CardMenu = ({ card, projectKey }: CardMenuProps) => (
       <DropdownMenuItem className={ROW} onSelect={() => void copyKey(card.key)}>
         <Copy />
         Copy issue key
+      </DropdownMenuItem>
+      <DropdownMenuItem
+        className={ROW}
+        variant='destructive'
+        onSelect={() => onDelete(card)}
+      >
+        <Trash2 />
+        Delete
       </DropdownMenuItem>
     </DropdownMenuContent>
   </DropdownMenu>

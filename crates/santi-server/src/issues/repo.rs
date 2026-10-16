@@ -242,6 +242,38 @@ pub async fn update_position(
     Ok(())
 }
 
+pub struct Deletable {
+    pub id: i64,
+    pub reporter_id: i64,
+    pub sprint_id: Option<i64>,
+}
+
+pub async fn find_deletable_for_update(
+    conn: &mut PgConnection,
+    project_id: i64,
+    number: i64,
+) -> Result<Option<Deletable>, sqlx::Error> {
+    sqlx::query_as!(
+        Deletable,
+        "SELECT id, reporter_id, sprint_id FROM issue WHERE project_id = $1 AND number = $2 FOR UPDATE",
+        project_id,
+        number
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// The issue and its subtasks; comments cascade, an epic's children lose their parent (0011).
+pub async fn delete_issue(conn: &mut PgConnection, issue_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM issue WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')",
+        issue_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
 pub async fn find_id(
     conn: &mut PgConnection,
     project_id: i64,

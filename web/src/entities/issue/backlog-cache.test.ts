@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { WEB_BACKLOG, card } from '@/test/stub-api'
-import { insertRow, moveRow, planRowMove, setEpic } from './backlog-cache'
+import {
+  insertRow,
+  moveRow,
+  patchRow,
+  planRowMove,
+  removeRow,
+  setEpic,
+} from './backlog-cache'
 
 const [ACTIVE, PLANNED, EMPTY, NO_SPRINT] = WEB_BACKLOG.sections
 const [WEB_6, WEB_7] = NO_SPRINT.cards
@@ -80,5 +87,27 @@ describe('backlog cache', () => {
     const set = setEpic(cleared, { card: WEB_6, epic: 'WEB-9' })
     expect(set.sections[3].cards[0].parent_key).toBe('WEB-9')
     expect(set.epics[0].child_count).toBe(1)
+  })
+
+  it('drops a deleted row with its count and points; an epic leaves the panel and its rows (D40)', () => {
+    const removed = removeRow(WEB_BACKLOG, 'WEB-7')
+    expect(keys(3, removed)).toEqual(['WEB-6'])
+    expect(removed.sections[3]).toMatchObject({
+      issue_count: 1,
+      total_points: 0,
+    })
+
+    const epicGone = removeRow(WEB_BACKLOG, 'WEB-9')
+    expect(epicGone.epics).toEqual([])
+    expect(epicGone.sections[1].cards[0].parent_key).toBeNull()
+    expect(epicGone.sections[1].issue_count).toBe(1)
+  })
+
+  it('patches one row and its section points', () => {
+    const patched = patchRow(WEB_BACKLOG, 'WEB-7', { points: 5 })
+
+    expect(patched.sections[3].cards[1].points).toBe(5)
+    expect(patched.sections[3].total_points).toBe(5)
+    expect(patched.sections[0]).toBe(ACTIVE)
   })
 })
