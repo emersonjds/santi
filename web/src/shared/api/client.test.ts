@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiError, dataOrThrow, hasStatus } from './client'
+import { ApiError, dataOrThrow, hasStatus, okOrThrow } from './client'
 
 describe('api results', () => {
   it('hands back the data of a success', () => {
@@ -26,6 +26,18 @@ describe('api results', () => {
       })
 
     expect(failure).toThrow('Bad Gateway')
+  })
+
+  it('accepts an empty success and throws an empty failure', () => {
+    expect(
+      okOrThrow({ response: new Response(null, { status: 204 }) })
+    ).toBeUndefined()
+    expect(() =>
+      okOrThrow({
+        error: { detail: 'Only a future sprint can be deleted.' },
+        response: new Response(null, { status: 409 }),
+      })
+    ).toThrow(new ApiError(409, 'Only a future sprint can be deleted.'))
   })
 
   it('tells API failures apart by status', () => {

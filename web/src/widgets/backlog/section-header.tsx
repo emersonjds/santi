@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { issueCount } from '@/entities/issue/labels'
 import {
   CATEGORY,
   type Category,
@@ -7,9 +8,6 @@ import {
 } from '@/entities/issue/status-pill'
 import type { BacklogSection, Sprint } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
-
-export const plural = (count: number) =>
-  `${count} ${count === 1 ? 'issue' : 'issues'}`
 
 const day = (date: string) =>
   new Date(`${date}T00:00`).toLocaleDateString('en-US', {
@@ -60,7 +58,7 @@ const Dates = ({
   onAddDates,
 }: {
   sprint: Sprint
-  onAddDates: () => void
+  onAddDates: (sprint: Sprint) => void
 }) =>
   sprint.start_date && sprint.end_date ? (
     <span className='text-sm text-muted-foreground'>
@@ -70,7 +68,7 @@ const Dates = ({
     <button
       type='button'
       className='h-11 rounded-md px-1 text-sm text-primary hover:underline md:h-9'
-      onClick={onAddDates}
+      onClick={() => onAddDates(sprint)}
     >
       Add dates
     </button>
@@ -82,7 +80,7 @@ type SectionHeaderProps = {
   statuses: Map<number, Status>
   expanded: boolean
   onToggle: () => void
-  onAddDates: () => void
+  onAddDates: (sprint: Sprint) => void
   actions: ReactNode
   hint?: string
 }
@@ -126,7 +124,7 @@ export const SectionHeader = ({
       )}
       {sprint && <Dates sprint={sprint} onAddDates={onAddDates} />}
       <span className='text-sm text-muted-foreground'>
-        {plural(section.issue_count)}
+        {issueCount(section.issue_count)}
       </span>
       <span className='ms-auto flex flex-wrap items-center gap-1.5'>
         <Chips section={section} statuses={statuses} />

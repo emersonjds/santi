@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { FilterBar } from '@/widgets/board/filter-bar'
+import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { backlogQuery } from '@/entities/issue/backlog-query'
 import { BacklogContext } from '@/entities/issue/board-context'
 import {
@@ -20,6 +21,7 @@ import type {
   Backlog as BacklogView,
   BacklogSection,
   Card,
+  Sprint,
 } from '@/shared/api/client'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { Button } from '@/shared/ui/button'
@@ -42,8 +44,21 @@ const RowMenu = lazy(() =>
   }))
 )
 
+// Lazy: the forms (react-hook-form, zod, Radix dialog) load on the first sprint action (D39).
+const SprintDialog = lazy(() =>
+  import('@/features/sprint/sprint-dialog').then((module) => ({
+    default: module.SprintDialog,
+  }))
+)
+
+const SprintMenu = lazy(() =>
+  import('@/features/sprint/sprint-menu').then((module) => ({
+    default: module.SprintMenu,
+  }))
+)
+
 /** A section's lane: its sprint id, or `backlog` for the no-sprint section. */
-export const laneOf = (section: BacklogSection) =>
+const laneOf = (section: BacklogSection) =>
   String(section.sprint?.id ?? 'backlog')
 
 const ACTION = 'h-11 md:h-9'
@@ -63,6 +78,7 @@ type SectionsProps = {
 const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
   const narrow = useIsMobile()
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  const [dialog, setDialog] = useState<SprintAction | null>(null)
   const epics = useMemo(
     () => new Map(backlog.epics.map((epic) => [epic.key, epic])),
     [backlog.epics]
@@ -96,32 +112,61 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
     [projectKey, epics, statuses]
   )
 
-  const actionsOf = (section: BacklogSection) => {
-    const { sprint } = section
-    if (!sprint)
-      return (
-        <Button variant='outline' className={ACTION}>
-          Create sprint
-        </Button>
-      )
-    if (sprint.state === 'active')
-      return (
-        <Button variant='outline' className={ACTION}>
-          Complete sprint
-        </Button>
-      )
+  const open =
+    (
+      kind: 'edit' | 'delete' | 'start' | 'complete',
+      section: BacklogSection,
+      sprint: Sprint
+    ) =>
+    () =>
+      setDialog({ kind, sprint, section })
+
+  const sprintActions = (section: BacklogSection, sprint: Sprint) => {
     const hint = startHint(section, running?.name)
     return (
+      <>
+        {sprint.state === 'active' ? (
+          <Button
+            variant='outline'
+            className={ACTION}
+            onClick={open('complete', section, sprint)}
+          >
+            Complete sprint
+          </Button>
+        ) : (
+          <Button
+            variant='outline'
+            className={ACTION}
+            disabled={hint !== undefined}
+            aria-describedby={hint && `section-${laneOf(section)}-hint`}
+            onClick={open('start', section, sprint)}
+          >
+            Start sprint
+          </Button>
+        )}
+        <Suspense fallback={<MenuSlot />}>
+          <SprintMenu
+            sprint={sprint}
+            onEdit={open('edit', section, sprint)}
+            onDelete={open('delete', section, sprint)}
+          />
+        </Suspense>
+      </>
+    )
+  }
+
+  const actionsOf = (section: BacklogSection) =>
+    section.sprint ? (
+      sprintActions(section, section.sprint)
+    ) : (
       <Button
         variant='outline'
         className={ACTION}
-        disabled={hint !== undefined}
-        aria-describedby={hint && `section-${laneOf(section)}-hint`}
+        onClick={() => setDialog({ kind: 'create' })}
       >
-        Start sprint
+        Create sprint
       </Button>
     )
-  }
 
   const renderSection = (section: BacklogSection, list: ReactNode) => {
     const lane = laneOf(section)
@@ -143,7 +188,7 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
           statuses={statuses}
           expanded={expanded}
           onToggle={() => toggle(lane)}
-          onAddDates={() => {}}
+          onAddDates={(sprint) => setDialog({ kind: 'edit', sprint, section })}
           actions={actionsOf(section)}
           hint={
             section.sprint?.state === 'future'
@@ -204,6 +249,15 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
           </Suspense>
         )}
       </div>
+      {dialog && (
+        <Suspense fallback={null}>
+          <SprintDialog
+            projectKey={projectKey}
+            action={dialog}
+            onClose={() => setDialog(null)}
+          />
+        </Suspense>
+      )}
     </BacklogContext>
   )
 }
