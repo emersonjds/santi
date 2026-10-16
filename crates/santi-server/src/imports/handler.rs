@@ -13,6 +13,7 @@ use super::service;
 use crate::AppState;
 use crate::error::AppError;
 use crate::members::Member;
+use crate::members::domain::require_admin;
 
 /// Room for the multipart framing and the mapping next to a 10 MB file; past it the body is cut.
 const MAX_BODY_BYTES: usize = MAX_FILE_BYTES + 1024 * 1024;
@@ -67,6 +68,7 @@ pub async fn preview_import(
     member: Member,
     upload: Upload,
 ) -> Result<Json<ImportPreview>, AppError> {
+    require_admin(&member)?; // before the up to 10 MB body is read
     let parts = read_parts(upload).await?;
     Ok(Json(
         service::preview(&state.pool, &member, &parts.file).await?,
@@ -87,6 +89,7 @@ pub async fn import(
     member: Member,
     upload: Upload,
 ) -> Result<Json<ImportResult>, AppError> {
+    require_admin(&member)?;
     let parts = read_parts(upload).await?;
     let mapping = parts
         .mapping

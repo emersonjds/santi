@@ -181,7 +181,17 @@ async fn only_admins_import(pool: PgPool) {
     let member_preview = preview(&bob, JIRA).await.0;
     let member_import = import(&bob, JIRA, &mapping).await.0;
     let stranger_preview = preview(&stranger, JIRA).await.0;
+    let (member_unread, _) = bob
+        .post("/api/projects/SANTI/imports/preview", json!({}))
+        .await;
+    let (member_unread_import, _) = bob.post("/api/projects/SANTI/imports", json!({})).await;
 
+    assert_eq!(
+        member_unread,
+        StatusCode::FORBIDDEN,
+        "refused before the body is read"
+    );
+    assert_eq!(member_unread_import, StatusCode::FORBIDDEN);
     assert_eq!(member_preview, StatusCode::FORBIDDEN);
     assert_eq!(member_import, StatusCode::FORBIDDEN);
     assert_eq!(stranger_preview, StatusCode::NOT_FOUND);
