@@ -9,6 +9,7 @@ repository.workspace = true
 [dependencies]
 santi-types = { workspace = true, features = ["sqlx"] }
 axum.workspace = true
+axum-extra.workspace = true
 tokio.workspace = true
 sqlx.workspace = true
 chrono.workspace = true

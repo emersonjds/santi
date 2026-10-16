@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE board_column c SET position = ordered.position::integer\n         FROM unnest($2::bigint[]) WITH ORDINALITY AS ordered(id, position)\n         WHERE c.id = ordered.id AND c.board_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "988a5331d778b2148cae8b82884c3fe89079634342a56ce70d89b8a7142ee531"
+}

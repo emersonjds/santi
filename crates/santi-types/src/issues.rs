@@ -1,0 +1,126 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "text", rename_all = "snake_case")
+)]
+#[serde(rename_all = "snake_case")]
+pub enum IssueType {
+    Epic,
+    #[default]
+    Story,
+    Task,
+    Bug,
+    Subtask,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "text", rename_all = "snake_case")
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Priority {
+    Urgent,
+    High,
+    #[default]
+    Medium,
+    Low,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct CreateIssue {
+    pub summary: String,
+    #[serde(default)]
+    pub issue_type: IssueType,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub priority: Priority,
+    /// Defaults to the project's first mapped to-do status (D5).
+    #[serde(default)]
+    pub status_id: Option<i64>,
+    #[serde(default)]
+    pub assignee_id: Option<i64>,
+    #[serde(default)]
+    pub points: Option<f64>,
+    #[serde(default)]
+    pub labels: Vec<String>,
+    /// Parent issue key, e.g. `SANTI-3`.
+    #[serde(default)]
+    pub parent: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Issue {
+    pub id: i64,
+    pub key: String,
+    pub number: i64,
+    pub summary: String,
+    pub description: String,
+    pub issue_type: IssueType,
+    pub priority: Priority,
+    pub status_id: i64,
+    pub assignee_id: Option<i64>,
+    pub reporter_id: i64,
+    pub points: Option<f64>,
+    pub labels: Vec<String>,
+    pub parent_key: Option<String>,
+    pub sprint_id: Option<i64>,
+    pub rank: String,
+    pub done_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Absent fields stay as they are; `null` clears a nullable field.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct UpdateIssue {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub summary: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub issue_type: Option<IssueType>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub priority: Option<Priority>,
+    #[serde(
+        default,
+        deserialize_with = "crate::nullable_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Option<i64>)]
+    pub assignee_id: Option<Option<i64>>,
+    #[serde(
+        default,
+        deserialize_with = "crate::nullable_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Option<f64>)]
+    pub points: Option<Option<f64>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub labels: Option<Vec<String>>,
+    #[serde(
+        default,
+        deserialize_with = "crate::nullable_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Option<String>)]
+    pub parent: Option<Option<String>>,
+}
+
+impl IssueType {
+    pub fn label(self) -> &'static str {
+        match self {
+            IssueType::Epic => "Epic",
+            IssueType::Story => "Story",
+            IssueType::Task => "Task",
+            IssueType::Bug => "Bug",
+            IssueType::Subtask => "Subtask",
+        }
+    }
+}

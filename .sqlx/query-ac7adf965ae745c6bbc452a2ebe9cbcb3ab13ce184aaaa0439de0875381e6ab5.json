@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE board_column SET position = position + 1\n           WHERE board_id = $1\n             AND position = (SELECT max(position) FROM board_column WHERE board_id = $1)\n           RETURNING position - 1 AS \"position!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "position!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "ac7adf965ae745c6bbc452a2ebe9cbcb3ab13ce184aaaa0439de0875381e6ab5"
+}

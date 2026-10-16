@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE issue SET summary = $2, description = $3, issue_type = $4, priority = $5,\n                          assignee_id = $6, points = $7, labels = $8, parent_id = $9\n         WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Float8",
+        "TextArray",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c353d28b9b9f81da3c58c1c856ff03ed3127249ff52614874ff0cff68d7cb9a6"
+}

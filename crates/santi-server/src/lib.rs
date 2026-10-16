@@ -1,6 +1,8 @@
 pub mod auth;
+pub mod boards;
 pub mod error;
 pub mod extract;
+pub mod issues;
 pub mod members;
 pub mod projects;
 pub mod web;
@@ -38,6 +40,8 @@ pub fn app(state: AppState) -> Router {
         .merge(auth::handler::router())
         .merge(projects::handler::router())
         .merge(members::handler::router())
+        .merge(boards::handler::router())
+        .merge(issues::handler::router())
         .split_for_parts();
     router
         .merge(SwaggerUi::new("/docs").url("/openapi.json", api))
