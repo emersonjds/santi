@@ -20,6 +20,7 @@ import { statusesOf } from '@/entities/issue/statuses'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Card } from '@/shared/api/client'
+import { fullName, shortName } from '@/shared/lib/initials'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -155,8 +156,11 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
                 className={ROW}
                 key={member.user_id}
                 value={String(member.user_id)}
+                title={fullName(member.display_name)}
               >
-                {member.display_name}
+                <span className='truncate'>
+                  {shortName(member.display_name)}
+                </span>
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

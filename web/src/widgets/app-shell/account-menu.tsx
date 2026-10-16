@@ -1,6 +1,7 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import { Keyboard, KeyRound, LogOut, MessageSquare } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
+import { fullName } from '@/shared/lib/initials'
 import { FEEDBACK_URL } from '@/shared/lib/links'
 import {
   DropdownMenu,
@@ -23,7 +24,9 @@ export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-60'>
         <DropdownMenuLabel className='grid font-normal'>
-          <span className='truncate font-medium'>{user.display_name}</span>
+          <span className='truncate font-medium'>
+            {fullName(user.display_name)}
+          </span>
           <span className='truncate text-xs text-muted-foreground'>
             {user.email}
           </span>

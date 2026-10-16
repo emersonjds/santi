@@ -8,6 +8,7 @@ import {
 } from '@/features/project/member-controls'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { UserAvatar } from '@/entities/user/user-avatar'
+import { fullName } from '@/shared/lib/initials'
 
 const InviteDialog = lazy(() =>
   import('@/features/project/invite-dialog').then((module) => ({
@@ -49,7 +50,7 @@ export const MembersPage = () => {
               <UserAvatar name={member.display_name} />
               <span className='grid min-w-48 flex-1'>
                 <span className='truncate font-medium'>
-                  {member.display_name}
+                  {fullName(member.display_name)}
                 </span>
                 <span className='truncate text-sm text-muted-foreground'>
                   {member.email}

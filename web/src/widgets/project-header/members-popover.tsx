@@ -2,7 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ROLE_LABEL } from '@/entities/project/labels'
 import { membersQuery } from '@/entities/project/project-queries'
-import { UserAvatar } from '@/entities/user/user-avatar'
+import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 import { MemberStack, STACK } from './member-stack'
 
@@ -30,9 +30,10 @@ export const MembersPopover = ({ projectKey, admin }: MembersPopoverProps) => {
             >
               <UserAvatar name={member.display_name} />
               <span className='grid min-w-0 flex-1'>
-                <span className='truncate text-sm font-medium'>
-                  {member.display_name}
-                </span>
+                <PersonName
+                  name={member.display_name}
+                  className='truncate text-sm font-medium'
+                />
                 <span className='truncate text-xs text-muted-foreground'>
                   {member.email}
                 </span>

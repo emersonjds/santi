@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { WEB, inProjects, issue, problem, routeOf } from '@/test/stub-api'
+import {
+  MEMBERS,
+  WEB,
+  inProjects,
+  issue,
+  problem,
+  routeOf,
+} from '@/test/stub-api'
 
 const PATCH = 'PATCH /api/projects/WEB/issues/1'
 const MOVE = 'POST /api/projects/WEB/issues/1/move'
@@ -104,6 +111,39 @@ describe('issue detail', () => {
     await expect
       .element(comment)
       .toHaveTextContent('Draft is in the shared doc.')
+  })
+
+  it('shows people by first and last name, the full name on hover', async () => {
+    const full = 'Emerson Junior Daniel Silva'
+    const [reporter, author] = MEMBERS
+    inProjects({
+      'GET /api/projects/WEB/members': {
+        status: 200,
+        body: [
+          { ...reporter, display_name: 'EMERSON JUNIOR DANIEL SILVA' },
+          { ...author, display_name: 'Ana McDonald da Silva' },
+        ],
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    const details = screen.getByRole('region', { name: 'Details' })
+    await expect.element(details).toHaveTextContent(/Reporter\s*Emerson Silva/)
+    await expect
+      .element(details.getByTitle(full).last())
+      .toHaveTextContent('Emerson Silva')
+    await expect
+      .element(screen.getByRole('option', { name: 'Emerson Silva' }))
+      .toHaveAttribute('title', full)
+    const comment = screen
+      .getByRole('region', { name: 'Comments' })
+      .getByRole('article')
+    await expect
+      .element(comment.getByText('Ana Silva'))
+      .toHaveAttribute('title', 'Ana McDonald da Silva')
+    await expect
+      .element(comment.getByTitle('Ana McDonald da Silva').first())
+      .toHaveTextContent('AS')
   })
 
   it('answers an unknown issue with the not-found page', async () => {
