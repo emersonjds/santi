@@ -26,9 +26,17 @@ pub async fn seed_default_layout(
 
 pub async fn get_settings(pool: &PgPool, member: &Member) -> Result<BoardSettings, AppError> {
     let mut conn = pool.acquire().await?;
-    let done_window = repo::find_done_window(&mut conn, member.board_id).await?;
-    let columns = repo::list_columns(&mut conn, member.board_id).await?;
-    let statuses = repo::list_statuses(&mut conn, member.project_id).await?;
+    read_settings(&mut conn, member).await
+}
+
+/// On the caller's connection: a second one from the pool deadlocks it under load.
+async fn read_settings(
+    conn: &mut PgConnection,
+    member: &Member,
+) -> Result<BoardSettings, AppError> {
+    let done_window = repo::find_done_window(conn, member.board_id).await?;
+    let columns = repo::list_columns(conn, member.board_id).await?;
+    let statuses = repo::list_statuses(conn, member.project_id).await?;
     Ok(domain::assemble_settings(
         member.board_type,
         done_window,
@@ -79,7 +87,7 @@ pub async fn update_settings(
     domain::check_done_window(member.board_type, input.done_window_days)?;
     let mut conn = pool.acquire().await?;
     repo::set_done_window(&mut conn, member.board_id, input.done_window_days).await?;
-    get_settings(pool, member).await
+    read_settings(&mut conn, member).await
 }
 
 pub async fn create_column(
@@ -121,7 +129,7 @@ pub async fn update_column(
     if !updated {
         return Err(AppError::NotFound);
     }
-    get_settings(pool, member).await
+    read_settings(&mut conn, member).await
 }
 
 pub async fn reorder_columns(

@@ -111,7 +111,8 @@ pub async fn create_invite(
     responses(
         (status = 200, body = Project, description = "Joined; the invite is used up"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
-        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown, used or expired")))]
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown token"),
+        (status = 410, body = Problem, content_type = "application/problem+json", description = "`invite-used` or `invite-expired`")))]
 pub async fn accept_invite(
     State(state): State<AppState>,
     user: CurrentUser,

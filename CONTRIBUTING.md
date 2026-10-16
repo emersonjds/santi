@@ -30,6 +30,11 @@ santi needs PostgreSQL 17. Start it on OrbStack and point the tools at it:
 Tests create a throwaway database per test (`#[sqlx::test]`). After changing any SQL, refresh the
 offline query data with `scripts/sqlx-prepare.sh` (fresh empty database, the same plans CI sees) and commit `.sqlx/`.
 
+Migrations after release: once a version ships, a migration runs against tables full of data on
+servers that are still serving. Backfill large tables in batches rather than one `UPDATE`, add
+constraints `NOT VALID` and `VALIDATE` them in a later step, and build indexes on big tables with
+`CREATE INDEX CONCURRENTLY` in a migration of its own, since it cannot run inside a transaction.
+
 ## Quality gate
 
 CI runs these on every push; run them locally first:

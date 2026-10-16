@@ -217,7 +217,17 @@
             }
           },
           "404": {
-            "description": "Unknown, used or expired",
+            "description": "Unknown token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`invite-used` or `invite-expired`",
             "content": {
               "application/problem+json": {
                 "schema": {

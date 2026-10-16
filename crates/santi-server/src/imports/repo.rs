@@ -160,6 +160,29 @@ pub async fn insert_issues(
     .await
 }
 
+/// Like `sprints::repo::record_join`: new issues that landed in the running sprint (subtasks follow
+/// their parent there) count as added after its start.
+pub async fn record_joins(
+    conn: &mut PgConnection,
+    project_id: i64,
+    source: ImportSource,
+    keys: &[String],
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO sprint_issue (sprint_id, issue_id, added_after_start, points_at_start)
+         SELECT s.id, i.id, true, i.points
+         FROM issue i JOIN sprint s ON s.id = i.sprint_id AND s.state = 'active'
+         WHERE i.project_id = $1 AND i.external_source = $2 AND i.external_key = ANY($3)
+         ON CONFLICT (sprint_id, issue_id) DO NOTHING",
+        project_id,
+        source as ImportSource,
+        keys
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
 /// Comments by the importing admin, at the time the export gives.
 pub async fn insert_comments(
     conn: &mut PgConnection,

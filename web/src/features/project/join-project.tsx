@@ -14,7 +14,6 @@ import { RootError } from '@/shared/ui/root-error'
 import { Skeleton } from '@/shared/ui/skeleton'
 
 const ASK_AGAIN = 'Ask for a new one.'
-const USED_OR_EXPIRED = `This invite link was already used or has expired. ${ASK_AGAIN}`
 const UNKNOWN = `This invite link does not exist. ${ASK_AGAIN}`
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
@@ -40,9 +39,11 @@ const JoinButton = ({ token }: { token: string }) => {
       await navigate({ to: '/p/$key', params: { key: project.key } })
     },
   })
-  const failure = hasStatus(join.error, 404)
-    ? USED_OR_EXPIRED
-    : join.error?.message
+  const failure = hasStatus(join.error, 410)
+    ? `${join.error?.message} ${ASK_AGAIN}`
+    : hasStatus(join.error, 404)
+      ? UNKNOWN
+      : join.error?.message
 
   return (
     <div className='grid gap-3'>

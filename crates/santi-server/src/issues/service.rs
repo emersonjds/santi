@@ -9,7 +9,7 @@ use super::domain::Anchor;
 use super::repo::{IssueKind, NewIssue, Position};
 use super::{domain, repo};
 use crate::boards::repo::StatusRef;
-use crate::error::AppError;
+use crate::error::{AppError, not_found_if_parent_gone};
 use crate::members::Member;
 use crate::{boards, members, pagination, projects, sprints};
 
@@ -19,6 +19,7 @@ pub async fn create_issue(
     input: CreateIssue,
 ) -> Result<Issue, AppError> {
     let summary = domain::check_summary(&input.summary)?;
+    let description = domain::check_description(&input.description)?;
     let labels = domain::normalize_labels(input.labels)?;
     domain::check_points(input.issue_type, input.points)?;
     let mut tx = pool.begin().await?;
@@ -38,7 +39,7 @@ pub async fn create_issue(
         number,
         issue_type: input.issue_type,
         summary,
-        description: input.description,
+        description,
         priority: input.priority,
         status_id: status.id,
         assignee_id: input.assignee_id,
@@ -50,7 +51,9 @@ pub async fn create_issue(
         rank: domain::rank_between(last_rank.as_deref(), None),
         done_at: domain::done_at_on_create(status.category, Utc::now()),
     };
-    let issue_id = repo::insert_issue(&mut tx, &new_issue).await?;
+    let issue_id = repo::insert_issue(&mut tx, &new_issue)
+        .await
+        .map_err(not_found_if_parent_gone)?;
     if let Some(sprint_id) = new_issue.sprint_id {
         sprints::repo::record_join(&mut tx, sprint_id, issue_id).await?;
     }
@@ -269,7 +272,9 @@ pub async fn add_comment(
     let issue_id = repo::find_id(&mut conn, member.project_id, number)
         .await?
         .ok_or(AppError::NotFound)?;
-    Ok(repo::insert_comment(&mut conn, issue_id, member.user_id, &body).await?)
+    repo::insert_comment(&mut conn, issue_id, member.user_id, &body)
+        .await
+        .map_err(not_found_if_parent_gone)
 }
 
 pub async fn list_comments(

@@ -3,7 +3,7 @@ use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueFilter, IssueType, NO_PARENT, Priority, UpdateIssue};
 use santi_types::projects::MemberRole;
 
-use crate::error::AppError;
+use crate::error::{AppError, reject_nul};
 
 /// Base-62 digits in ASCII order, so Rust and PostgreSQL (`COLLATE "C"`) sort keys the same way.
 const DIGITS: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -134,6 +134,7 @@ pub struct EditableIssue {
 }
 
 pub fn check_summary(summary: &str) -> Result<String, AppError> {
+    reject_nul("summary", summary)?;
     let summary = summary.trim();
     if summary.is_empty() || summary.chars().count() > 255 {
         return Err(AppError::invalid(
@@ -144,9 +145,24 @@ pub fn check_summary(summary: &str) -> Result<String, AppError> {
     Ok(summary.to_string())
 }
 
+/// Characters; migration 0013 holds the same limit.
+pub const MAX_DESCRIPTION: usize = 65_536;
+
+pub fn check_description(description: &str) -> Result<String, AppError> {
+    reject_nul("description", description)?;
+    if description.chars().count() > MAX_DESCRIPTION {
+        return Err(AppError::invalid(
+            "description",
+            "must have at most 65536 characters",
+        ));
+    }
+    Ok(description.to_string())
+}
+
 pub fn normalize_labels(labels: Vec<String>) -> Result<Vec<String>, AppError> {
     let mut normalized: Vec<String> = Vec::new();
     for label in labels {
+        reject_nul("labels", &label)?;
         let label = label.trim().to_string();
         if label.is_empty() || normalized.contains(&label) {
             continue;
@@ -270,7 +286,7 @@ pub fn apply_field_changes(
         next.summary = check_summary(summary)?;
     }
     if let Some(description) = &change.description {
-        next.description = description.clone();
+        next.description = check_description(description)?;
     }
     if let Some(issue_type) = change.issue_type {
         check_type_change(current.issue_type, issue_type)?;
@@ -358,6 +374,10 @@ pub fn to_search_query(
     filter: &IssueFilter,
     now: DateTime<Utc>,
 ) -> Result<SearchQuery, AppError> {
+    reject_nul("q", filter.q.as_deref().unwrap_or_default())?;
+    for label in &filter.label {
+        reject_nul("label", label)?;
+    }
     let parent_numbers = filter
         .parent
         .iter()
@@ -377,6 +397,7 @@ pub fn to_search_query(
 }
 
 pub fn check_comment_body(body: &str) -> Result<String, AppError> {
+    reject_nul("body", body)?;
     let body = body.trim();
     if body.is_empty() || body.chars().count() > 20_000 {
         return Err(AppError::invalid("body", "must have 1 to 20000 characters"));
@@ -547,6 +568,12 @@ mod tests {
         assert_eq!(check_summary("  Fix login ").unwrap(), "Fix login");
         assert!(check_summary("   ").is_err());
         assert!(check_summary(&"x".repeat(256)).is_err());
+    }
+
+    #[test]
+    fn description_is_bounded() {
+        assert!(check_description(&"x".repeat(MAX_DESCRIPTION)).is_ok());
+        assert!(check_description(&"x".repeat(MAX_DESCRIPTION + 1)).is_err());
     }
 
     #[test]

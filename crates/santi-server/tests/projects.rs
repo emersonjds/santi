@@ -189,16 +189,21 @@ async fn invite_link_adds_the_member_once(pool: PgPool) {
         .await;
     let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
     let (accepted, project) = bob.post(&accept, json!(null)).await;
-    let (reused, _) = carl.post(&accept, json!(null)).await;
+    let (reused, reused_problem) = carl.post(&accept, json!(null)).await;
+    let (unknown, _) = carl
+        .post("/api/invites/santi_unknown/accept", json!(null))
+        .await;
 
     assert_eq!(created, StatusCode::CREATED);
     assert_eq!(accepted, StatusCode::OK);
     assert_eq!(project["role"], "member");
-    assert_eq!(reused, StatusCode::NOT_FOUND);
+    assert_eq!(reused, StatusCode::GONE);
+    assert_eq!(reused_problem["type"], "urn:santi:error:invite-used");
+    assert_eq!(unknown, StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
-async fn expired_invite_is_not_found(pool: PgPool) {
+async fn expired_invite_is_gone(pool: PgPool) {
     let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     ana.create_project("SANTI", "scrum").await;
@@ -210,14 +215,15 @@ async fn expired_invite_is_not_found(pool: PgPool) {
         .await
         .unwrap();
 
-    let (status, _) = bob
+    let (status, problem) = bob
         .post(
             &format!("/api/invites/{}/accept", invite["token"].as_str().unwrap()),
             json!(null),
         )
         .await;
 
-    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(status, StatusCode::GONE);
+    assert_eq!(problem["type"], "urn:santi:error:invite-expired");
 }
 
 #[sqlx::test]

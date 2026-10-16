@@ -1,7 +1,7 @@
 mod common;
 
 use std::fmt::Write as _;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
@@ -159,6 +159,13 @@ async fn preview_refuses_files_that_are_not_exports(pool: PgPool) {
     )
     .await
     .0;
+    let commas = vec![b','; 10 * 1024 * 1024 - 1];
+    let (wide, wide_problem) = upload(
+        &ana,
+        "/api/projects/SANTI/imports/preview",
+        multipart(&commas, None),
+    )
+    .await;
     let (not_multipart, _) = ana
         .post("/api/projects/SANTI/imports/preview", json!({}))
         .await;
@@ -170,6 +177,11 @@ async fn preview_refuses_files_that_are_not_exports(pool: PgPool) {
     assert_eq!(too_large, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(over_limit, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(not_multipart, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(wide, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        wide_problem["errors"][0]["message"],
+        "a row has more than 1000 columns"
+    );
 }
 
 #[sqlx::test]
@@ -181,7 +193,17 @@ async fn only_admins_import(pool: PgPool) {
     let member_preview = preview(&bob, JIRA).await.0;
     let member_import = import(&bob, JIRA, &mapping).await.0;
     let stranger_preview = preview(&stranger, JIRA).await.0;
+    let (member_unread, _) = bob
+        .post("/api/projects/SANTI/imports/preview", json!({}))
+        .await;
+    let (member_unread_import, _) = bob.post("/api/projects/SANTI/imports", json!({})).await;
 
+    assert_eq!(
+        member_unread,
+        StatusCode::FORBIDDEN,
+        "refused before the body is read"
+    );
+    assert_eq!(member_unread_import, StatusCode::FORBIDDEN);
     assert_eq!(member_preview, StatusCode::FORBIDDEN);
     assert_eq!(member_import, StatusCode::FORBIDDEN);
     assert_eq!(stranger_preview, StatusCode::NOT_FOUND);
@@ -359,4 +381,224 @@ async fn five_thousand_rows_import_within_budget(pool: PgPool) {
     assert_eq!(result["failed"], 0);
     assert!(elapsed.as_secs_f64() < 10.0, "import took {elapsed:?}");
     assert_eq!(issue(&ana, 4001).await["parent_key"], "SANTI-3001");
+}
+
+/// Rows the schema would refuse fail on their own; the rest of their batch still imports.
+#[sqlx::test]
+async fn bad_rows_fail_alone(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+    let long_key = "K".repeat(256);
+    let long_sprint = "S".repeat(150);
+    let csv = format!(
+        "Issue key,Summary,Status,Sprint\n\
+         GOOD-1,First,Done,\n\
+         {long_key},Key too long,Done,\n\
+         GOOD-2,Has a \0 inside,Done,\n\
+         GOOD-3,Long sprint,Done,{long_sprint}\n"
+    );
+    let sprint_name: String = long_sprint.chars().take(100).collect();
+    let mapping = json!({
+        "statuses": { "Done": ana.status_id("SANTI", "Done").await },
+        "sprints": { sprint_name: "future" },
+    });
+
+    let (status, result) = import(&ana, &csv, &mapping).await;
+    let (again, second) = import(&ana, &csv, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(result["created"], 2);
+    assert_eq!(result["failed"], 2);
+    let messages: Vec<&str> = result["problems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|problem| problem["message"].as_str().unwrap())
+        .collect();
+    assert!(
+        messages.contains(&"issue key is longer than 255 characters; row skipped"),
+        "{messages:?}"
+    );
+    assert!(
+        messages.contains(&"the row contains a NUL character; row skipped"),
+        "{messages:?}"
+    );
+    assert_eq!(issue(&ana, 2).await["summary"], "Long sprint");
+    assert_eq!(again, StatusCode::OK, "{second}");
+    assert_eq!(second["created"], 0);
+    assert_eq!(second["skipped"], 2);
+}
+
+/// A sprint named `name` holding one issue, started and, when `close`, completed.
+async fn ran_sprint(app: &TestApp, name: &str, close: bool) -> Value {
+    let (status, sprint) = app
+        .post("/api/projects/SANTI/sprints", json!({ "name": name }))
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{sprint}");
+    app.create_issue(
+        "SANTI",
+        json!({ "summary": format!("in {name}"), "sprint_id": sprint["id"] }),
+    )
+    .await;
+    let id = &sprint["id"];
+    let (started, _) = app
+        .post(
+            &format!("/api/projects/SANTI/sprints/{id}/start"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(started, StatusCode::OK);
+    if close {
+        let (closed, _) = app
+            .post(
+                &format!("/api/projects/SANTI/sprints/{id}/complete"),
+                json!({ "open_issues": { "to": "backlog" } }),
+            )
+            .await;
+        assert_eq!(closed, StatusCode::OK);
+    }
+    sprint
+}
+
+/// A sprint of the same name is reused only in the state the mapping asks for.
+#[sqlx::test]
+async fn sprint_names_are_reused_only_in_the_mapped_state(pool: PgPool) {
+    let (ana, bob) = team(pool, "scrum").await;
+    let old_one = ran_sprint(&ana, "Sprint 1", true).await;
+    let old_two = ran_sprint(&ana, "Sprint 2", true).await;
+    let running_two = ran_sprint(&ana, "Sprint 2", false).await;
+    let mapping = jira_mapping(&ana, &bob).await;
+
+    let (status, result) = import(&ana, JIRA, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let sprints = sprints(&ana).await;
+    let states: Vec<(&str, &str)> = sprints
+        .iter()
+        .map(|sprint| {
+            (
+                sprint["name"].as_str().unwrap(),
+                sprint["state"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        states,
+        [
+            ("Sprint 1", "closed"),
+            ("Sprint 2", "closed"),
+            ("Sprint 2", "active"),
+            ("Sprint 2", "future"),
+        ]
+    );
+    let story = issue(&ana, 5).await;
+    assert_eq!(story["summary"], "Pay with card");
+    assert_eq!(story["sprint_id"], sprints[3]["id"]);
+    assert_ne!(story["sprint_id"], running_two["id"]);
+    assert_ne!(story["sprint_id"], old_two["id"]);
+    assert_eq!(sprints[0]["id"], old_one["id"]);
+}
+
+/// Like planning an issue into a running sprint, an imported subtask that follows its parent into
+/// one counts as added after the start.
+#[sqlx::test]
+async fn issues_imported_into_a_running_sprint_count_as_added(pool: PgPool) {
+    let (ana, bob) = team(pool.clone(), "scrum").await;
+    let mapping = jira_mapping(&ana, &bob).await;
+    import(&ana, JIRA, &mapping).await;
+    let story = issue(&ana, 2).await;
+    let sprint = &story["sprint_id"];
+    let (started, _) = ana
+        .post(
+            &format!("/api/projects/SANTI/sprints/{sprint}/start"),
+            json!({}),
+        )
+        .await;
+    assert_eq!(started, StatusCode::OK);
+    let more =
+        "Issue key,Issue Type,Summary,Status,Parent\nACME-6,Sub-task,Later subtask,Done,ACME-2\n";
+
+    let (status, result) = import(&ana, more, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let subtask = issue(&ana, 4).await;
+    assert_eq!(subtask["sprint_id"], *sprint);
+    let joined: Vec<bool> =
+        sqlx::query_scalar("SELECT added_after_start FROM sprint_issue WHERE issue_id = $1")
+            .bind(subtask["id"].as_i64().unwrap())
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(joined, [true]);
+}
+
+/// `rows` Jira rows with `distinct` different statuses, types, people and sprints.
+fn wide_export(rows: usize, distinct: usize) -> String {
+    let mut csv = String::from("Issue key,Summary,Issue Type,Status,Assignee,Sprint,Sprint\n");
+    for row in 0..rows {
+        let value = row % distinct;
+        writeln!(
+            csv,
+            "W-{row},Row {row},Type {value},Status {value},person{value}@example.com,Sprint {value},Sprint {}",
+            (value + 1) % distinct
+        )
+        .unwrap();
+    }
+    csv
+}
+
+/// The preview's work stays off the async workers: `/health` answers while it runs.
+async fn preview_beside_health(app: &TestApp, csv: String) -> (StatusCode, Value, Duration) {
+    let started = Instant::now();
+    let preview = tokio::spawn({
+        let app = app.clone();
+        async move { preview(&app, &csv).await }
+    });
+    while !preview.is_finished() {
+        let asked = Instant::now();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let (status, _) = app.get("/health").await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(
+            asked.elapsed() < Duration::from_millis(300),
+            "/health waited {:?} behind the preview",
+            asked.elapsed()
+        );
+    }
+    let (status, body) = preview.await.unwrap();
+    (status, body, started.elapsed())
+}
+
+#[sqlx::test]
+async fn previews_of_large_files_stay_fast_and_off_the_workers(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+
+    let (status, preview, elapsed) = preview_beside_health(&ana, wide_export(40_000, 400)).await;
+
+    println!("previewed 40k rows (400 of each) in {elapsed:?}");
+    assert_eq!(status, StatusCode::OK, "{}", preview["errors"]);
+    assert_eq!(preview["statuses"].as_array().unwrap().len(), 400);
+    assert_eq!(preview["sprints"][0]["closed"], true);
+    assert!(elapsed < Duration::from_secs(2), "preview took {elapsed:?}");
+}
+
+#[sqlx::test]
+async fn files_with_too_many_different_values_are_refused_quickly(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+
+    let (status, problem, elapsed) = preview_beside_health(&ana, wide_export(40_000, 40_000)).await;
+
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "{}",
+        problem["errors"]
+    );
+    assert_eq!(
+        problem["errors"][0]["message"],
+        "the file has more than 500 different statuses; split it or merge statuses first"
+    );
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "refusing took {elapsed:?}"
+    );
 }

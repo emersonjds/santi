@@ -58,23 +58,26 @@ describe('join a project', () => {
     expect(requests.map(routeOf)).toContain('POST /api/invites/tok123/accept')
   })
 
-  it('says when the link is used or expired', async () => {
+  it.each([
+    [
+      410,
+      'This invite link was already used.',
+      'This invite link was already used. Ask for a new one.',
+    ],
+    [404, 'Not found.', 'This invite link does not exist. Ask for a new one.'],
+  ])('says why joining failed (%i)', async (status, detail, alert) => {
     inProjects({
       ...preview,
       'POST /api/invites/tok123/accept': {
-        status: 404,
-        body: problem(404, 'Not found.'),
+        status,
+        body: problem(status, detail),
       },
     })
     const { screen } = await renderApp('/invites/tok123')
 
     await screen.getByRole('button', { name: 'Join project' }).click()
 
-    await expect
-      .element(screen.getByRole('alert'))
-      .toHaveTextContent(
-        'This invite link was already used or has expired. Ask for a new one.'
-      )
+    await expect.element(screen.getByRole('alert')).toHaveTextContent(alert)
   })
 
   it('shows what the invite offers before joining', async () => {

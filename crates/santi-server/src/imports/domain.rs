@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, NaiveDate, Utc};
 use santi_types::FieldError;
@@ -16,6 +16,13 @@ use crate::issues;
 pub const MAX_FILE_BYTES: usize = 10 * 1024 * 1024;
 pub const MAX_PROBLEMS: usize = 100;
 pub const BATCH_SIZE: usize = 500;
+/// Far past any real export, low enough that 10 MB of commas or line breaks cannot fan out
+/// into hundreds of MB of empty fields.
+pub const MAX_COLUMNS: usize = 1_000;
+pub const MAX_RECORDS: usize = 100_000;
+pub const MAX_FIELDS: usize = 3_000_000;
+/// Statuses, types, people and sprints each: a mapping screen past this is unusable.
+pub const MAX_DISTINCT: usize = 500;
 
 pub struct Table {
     pub header: Vec<String>,
@@ -69,14 +76,60 @@ pub struct Export {
     pub problems: Vec<RowProblem>,
 }
 
+/// Every field and record of the file, refused once past the caps above.
+struct Builder {
+    records: Vec<Record>,
+    fields: Vec<String>,
+    total_fields: usize,
+}
+
+impl Builder {
+    fn push_field(&mut self, field: String) -> Result<(), AppError> {
+        self.total_fields += 1;
+        if self.fields.len() == MAX_COLUMNS {
+            return Err(AppError::invalid(
+                "file",
+                "a row has more than 1000 columns",
+            ));
+        }
+        if self.total_fields > MAX_FIELDS {
+            return Err(AppError::invalid(
+                "file",
+                "the file has more than 3000000 fields",
+            ));
+        }
+        self.fields.push(field);
+        Ok(())
+    }
+
+    /// Blank lines are dropped.
+    fn push_record(&mut self, line: i64) -> Result<(), AppError> {
+        let fields = std::mem::take(&mut self.fields);
+        if fields.iter().all(String::is_empty) {
+            return Ok(());
+        }
+        if self.records.len() > MAX_RECORDS {
+            return Err(AppError::invalid(
+                "file",
+                "the file has more than 100000 rows",
+            ));
+        }
+        self.records.push(Record { line, fields });
+        Ok(())
+    }
+}
+
 /// RFC 4180: quoted fields may hold commas, `""` and line breaks; blank lines are dropped.
 pub fn parse_csv(text: &str) -> Result<Table, AppError> {
     let text = text
         .strip_prefix('\u{feff}')
         .unwrap_or(text)
         .replace("\r\n", "\n");
-    let mut records = Vec::new();
-    let mut fields = Vec::new();
+    let mut table = Builder {
+        records: Vec::new(),
+        fields: Vec::new(),
+        total_fields: 0,
+    };
     let mut field = String::new();
     let (mut quoted, mut line, mut start) = (false, 1, 1);
     let mut chars = text.chars().peekable();
@@ -97,13 +150,10 @@ pub fn parse_csv(text: &str) -> Result<Table, AppError> {
         }
         match char {
             '"' if field.is_empty() => quoted = true,
-            ',' => fields.push(std::mem::take(&mut field)),
+            ',' => table.push_field(std::mem::take(&mut field))?,
             '\n' => {
-                fields.push(std::mem::take(&mut field));
-                records.push(Record {
-                    line: start,
-                    fields: std::mem::take(&mut fields),
-                });
+                table.push_field(std::mem::take(&mut field))?;
+                table.push_record(start)?;
                 line += 1;
                 start = line;
             }
@@ -116,15 +166,11 @@ pub fn parse_csv(text: &str) -> Result<Table, AppError> {
             "a quoted field is never closed; is this a CSV file?",
         ));
     }
-    if !field.is_empty() || !fields.is_empty() {
-        fields.push(field);
-        records.push(Record {
-            line: start,
-            fields,
-        });
+    if !field.is_empty() || !table.fields.is_empty() {
+        table.push_field(field)?;
+        table.push_record(start)?;
     }
-    records.retain(|record| record.fields.iter().any(|field| !field.is_empty()));
-    let mut records = records.into_iter();
+    let mut records = table.records.into_iter();
     let header = records
         .next()
         .ok_or_else(|| AppError::invalid("file", "the file is empty"))?;
@@ -259,11 +305,16 @@ pub fn check_mapping(
         })
     };
     for (name, id) in &mapping.statuses {
-        if !statuses.iter().any(|status| status.id == *id) {
-            error(
+        match statuses.iter().find(|status| status.id == *id) {
+            None => error(
                 format!("mapping.statuses.{name}"),
                 "no such status in this project",
-            );
+            ),
+            Some(status) if status.column_id.is_none() => error(
+                format!("mapping.statuses.{name}"),
+                "map this status to a board column first",
+            ),
+            Some(_) => {}
         }
     }
     for (name, id) in &mapping.people {
@@ -328,15 +379,22 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
         failed: 0,
         problems: Vec::new(),
     };
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = HashSet::new();
     for record in &table.records {
         let problem = |message: String| RowProblem {
             line: record.line,
             message,
         };
         let row = read_row(source, &columns_map, record, &mut export.problems);
+        // Checked here so no row can fail its whole insert batch in the database.
         let fatal = match &row {
+            _ if record.fields.iter().any(|field| field.contains('\0')) => {
+                Some("the row contains a NUL character; row skipped".to_string())
+            }
             row if row.key.is_empty() => Some("no issue key; row skipped".to_string()),
+            row if row.key.chars().count() > 255 => {
+                Some("issue key is longer than 255 characters; row skipped".to_string())
+            }
             row if row.summary.is_empty() => Some("no summary; row skipped".to_string()),
             row if !seen.insert(row.key.clone()) => {
                 Some(format!("issue key {} appears twice; row skipped", row.key))
@@ -350,7 +408,47 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
         }
         export.rows.push(row);
     }
+    check_distinct(&export.rows)?;
     Ok(export)
+}
+
+fn check_distinct(rows: &[SourceRow]) -> Result<(), AppError> {
+    let kinds: [(&str, HashSet<&str>); 4] = [
+        (
+            "statuses",
+            rows.iter().map(|row| row.status.as_str()).collect(),
+        ),
+        (
+            "types",
+            rows.iter().map(|row| row.issue_type.as_str()).collect(),
+        ),
+        ("people", people(rows).collect()),
+        ("sprints", sprint_names(rows).collect()),
+    ];
+    for (kind, names) in kinds {
+        if names.len() > MAX_DISTINCT {
+            return Err(AppError::invalid(
+                "file",
+                &format!(
+                    "the file has more than {MAX_DISTINCT} different {kind}; split it or merge {kind} first"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn people(rows: &[SourceRow]) -> impl Iterator<Item = &str> {
+    rows.iter().flat_map(|row| {
+        [row.assignee.as_deref(), row.reporter.as_deref()]
+            .into_iter()
+            .flatten()
+    })
+}
+
+fn sprint_names(rows: &[SourceRow]) -> impl Iterator<Item = &str> {
+    rows.iter()
+        .flat_map(|row| row.sprints.iter().map(String::as_str))
 }
 
 fn read_row(
@@ -392,6 +490,9 @@ fn read_row(
         .collect();
     if let (true, Some(number)) = (sprints.is_empty(), columns.first(record, "cycle_number")) {
         sprints.push(format!("Cycle {number}"));
+    }
+    for name in &mut sprints {
+        *name = name.chars().take(100).collect(); // a sprint name's limit
     }
     problems.extend(messages.into_iter().map(|message| RowProblem {
         line: record.line,
@@ -529,22 +630,31 @@ fn type_from_name(name: &str) -> IssueType {
 /// Counts by name, in order of first appearance.
 fn tally<'a>(names: impl Iterator<Item = &'a str>) -> Vec<(&'a str, i64)> {
     let mut counts: Vec<(&str, i64)> = Vec::new();
+    let mut index: HashMap<&str, usize> = HashMap::new();
     for name in names {
-        match counts.iter_mut().find(|(seen, _)| *seen == name) {
-            Some((_, count)) => *count += 1,
-            None => counts.push((name, 1)),
+        match index.get(name) {
+            Some(at) => counts[*at].1 += 1,
+            None => {
+                index.insert(name, counts.len());
+                counts.push((name, 1));
+            }
         }
     }
     counts
 }
 
-fn sprint_closed(export: &Export, name: &str, today: NaiveDate) -> bool {
-    export.rows.iter().any(|row| {
-        let listed = row.sprints.iter().position(|sprint| sprint == name);
-        let moved_on = listed.is_some_and(|index| index + 1 < row.sprints.len());
-        let ended = listed.is_some() && row.sprint_end.is_some_and(|end| end < today);
-        moved_on || ended
-    })
+/// Sprints an issue moved on from, or that ended before today.
+fn closed_sprints(export: &Export, today: NaiveDate) -> HashSet<&str> {
+    let mut closed = HashSet::new();
+    for row in &export.rows {
+        let ended = row.sprint_end.is_some_and(|end| end < today);
+        for (index, name) in row.sprints.iter().enumerate() {
+            if ended || index + 1 < row.sprints.len() {
+                closed.insert(name.as_str());
+            }
+        }
+    }
+    closed
 }
 
 pub fn preview(
@@ -554,18 +664,16 @@ pub fn preview(
     today: NaiveDate,
 ) -> ImportPreview {
     let status_names = tally(export.rows.iter().map(|row| row.status.as_str()));
-    let people = tally(export.rows.iter().flat_map(|row| {
-        [row.assignee.as_deref(), row.reporter.as_deref()]
-            .into_iter()
-            .flatten()
-    }));
-    let sprints = tally(
-        export
-            .rows
-            .iter()
-            .flat_map(|row| row.sprints.iter().map(String::as_str)),
-    );
+    let people = tally(people(&export.rows));
+    let sprints = tally(sprint_names(&export.rows));
     let types = tally(export.rows.iter().map(|row| row.issue_type.as_str()));
+    let closed = closed_sprints(export, today);
+    let mut categories: HashMap<&str, Option<StatusCategory>> = HashMap::new();
+    for row in &export.rows {
+        categories
+            .entry(row.status.as_str())
+            .or_insert(row.status_category);
+    }
     ImportPreview {
         source: export.source,
         row_count: export.row_count,
@@ -573,12 +681,7 @@ pub fn preview(
         statuses: status_names
             .into_iter()
             .map(|(name, count)| {
-                let category = export
-                    .rows
-                    .iter()
-                    .find(|row| row.status == name)
-                    .and_then(|row| row.status_category)
-                    .unwrap_or_else(|| category_from_name(name));
+                let category = categories[name].unwrap_or_else(|| category_from_name(name));
                 StatusFound {
                     name: name.to_string(),
                     count,
@@ -603,7 +706,7 @@ pub fn preview(
             .map(|(name, count)| SprintFound {
                 name: name.to_string(),
                 count,
-                closed: sprint_closed(export, name, today),
+                closed: closed.contains(name),
             })
             .collect(),
         issue_types: types
@@ -754,8 +857,16 @@ pub fn plan_import(
         if summary.len() < row.summary.len() {
             problem("summary cut to 255 characters".into());
         }
+        let description: String = row
+            .description
+            .chars()
+            .take(issues::domain::MAX_DESCRIPTION)
+            .collect();
+        if description.len() < row.description.len() {
+            problem("description cut to 65536 characters".into());
+        }
         let done = categories.get(&status_id) == Some(&StatusCategory::Done);
-        let created = row.created.unwrap_or(now);
+        let created = row.created.unwrap_or(now).min(now);
         let sprint = row.sprints.last().filter(|name| {
             let action = mapping
                 .sprints
@@ -774,7 +885,7 @@ pub fn plan_import(
             key: row.key.clone(),
             issue_type,
             summary,
-            description: row.description.clone(),
+            description,
             priority: row.priority,
             status_id,
             done,
@@ -785,14 +896,14 @@ pub fn plan_import(
             parent_key: parent.cloned(),
             sprint: sprint.cloned(),
             created,
-            updated: row.updated.unwrap_or(created).max(created),
+            updated: row.updated.unwrap_or(created).clamp(created, now),
             comments: row
                 .comments
                 .iter()
                 .filter(|comment| !comment.body.is_empty())
                 .map(|comment| {
                     let body: String = comment.body.chars().take(20_000).collect();
-                    (body, comment.created.unwrap_or(created))
+                    (body, comment.created.unwrap_or(created).min(now))
                 })
                 .collect(),
         });
@@ -837,6 +948,7 @@ impl Types<'_> {
 /// Sprints the mapping creates, dated by their cycle or by the issues in them.
 fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> {
     let mut sprints: Vec<PlannedSprint> = Vec::new();
+    let mut index: HashMap<&str, usize> = HashMap::new();
     for row in &export.rows {
         for name in &row.sprints {
             let action = mapping
@@ -853,9 +965,10 @@ fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> 
             let end = row
                 .sprint_end
                 .or(row.updated.or(row.created).map(|date| date.date_naive()));
-            let Some(sprint) = sprints.iter_mut().find(|sprint| &sprint.name == name) else {
+            let Some(sprint) = index.get(name.as_str()).map(|at| &mut sprints[*at]) else {
                 let today = Utc::now().date_naive();
                 let start = start.unwrap_or(today);
+                index.insert(name, sprints.len());
                 sprints.push(PlannedSprint {
                     name: name.clone(),
                     closed: action == SprintAction::Closed,
@@ -957,6 +1070,25 @@ mod tests {
     fn csv_rejects_an_open_quote_and_an_empty_file() {
         assert!(parse_csv("a,b\n\"never closed,1\n").is_err());
         assert!(parse_csv("\n\n").is_err());
+    }
+
+    #[test]
+    fn csv_refuses_shapes_no_export_has_before_holding_them() {
+        let wide = format!("a{}\n", ",".repeat(MAX_COLUMNS));
+        let long = "a\n".repeat(MAX_RECORDS + 2);
+        let blank_lines = format!("a\n{}b\n", "\n".repeat(MAX_RECORDS + 2));
+        let fields =
+            format!("{}\n", ",".repeat(MAX_COLUMNS - 1)).repeat(MAX_FIELDS / MAX_COLUMNS + 1);
+
+        let message = |csv: &str| match parse_csv(csv) {
+            Err(AppError::Validation(errors)) => errors[0].message.clone(),
+            _ => panic!("expected a validation error"),
+        };
+
+        assert_eq!(message(&wide), "a row has more than 1000 columns");
+        assert_eq!(message(&long), "the file has more than 100000 rows");
+        assert_eq!(message(&fields), "the file has more than 3000000 fields");
+        assert_eq!(parse_csv(&blank_lines).unwrap().records.len(), 1);
     }
 
     #[test]
@@ -1262,6 +1394,71 @@ mod tests {
         assert_eq!(
             plan.sprints[0].end,
             NaiveDate::from_ymd_opt(2026, 10, 6).unwrap()
+        );
+    }
+
+    #[test]
+    fn a_mapped_status_needs_a_board_column() {
+        let mut statuses = statuses();
+        statuses[0].column_id = None;
+        let mapping = jira_mapping();
+
+        let error = check_mapping(&mapping, &statuses, &members(), BoardType::Scrum).unwrap_err();
+
+        let AppError::Validation(errors) = error else {
+            panic!("expected a validation error");
+        };
+        assert_eq!(errors[0].field, "mapping.statuses.Waiting");
+        assert_eq!(errors[0].message, "map this status to a board column first");
+        assert!(check_mapping(&mapping, &self::statuses(), &members(), BoardType::Scrum).is_ok());
+    }
+
+    #[test]
+    fn plan_keeps_dates_out_of_the_future() {
+        let csv = "Issue key,Summary,Status,Created,Updated,Comment\n\
+                   A-1,Later,Done,2099-01-01 10:00,2099-01-02 10:00,2099-01-03 10:00;x;hello\n";
+        let export = read_export(csv).unwrap();
+        let now = at(2026, 10, 16, 12, 0);
+
+        let plan = plan_import(
+            &export,
+            &jira_mapping(),
+            &categories(),
+            &HashMap::new(),
+            1,
+            now,
+        );
+
+        let issue = &plan.issues[0];
+        assert_eq!((issue.created, issue.updated), (now, now));
+        assert_eq!(issue.comments, [("hello".to_string(), now)]);
+    }
+
+    #[test]
+    fn plan_cuts_long_descriptions() {
+        let csv = format!(
+            "Issue key,Summary,Status,Description\nA-1,Long,Done,{}\n",
+            "x".repeat(issues::domain::MAX_DESCRIPTION + 5)
+        );
+        let export = read_export(&csv).unwrap();
+
+        let plan = plan_import(
+            &export,
+            &jira_mapping(),
+            &categories(),
+            &HashMap::new(),
+            1,
+            Utc::now(),
+        );
+
+        assert_eq!(
+            plan.issues[0].description.chars().count(),
+            issues::domain::MAX_DESCRIPTION
+        );
+        assert!(
+            plan.problems
+                .iter()
+                .any(|problem| problem.message == "description cut to 65536 characters")
         );
     }
 

@@ -3,7 +3,7 @@ use santi_types::issues::IssueType;
 use santi_types::projects::BoardType;
 use santi_types::sprints::{Sprint, SprintState};
 
-use crate::error::AppError;
+use crate::error::{AppError, reject_nul};
 
 pub const DEFAULT_SPRINT_DAYS: u64 = 14;
 
@@ -19,6 +19,7 @@ pub fn require_scrum(board_type: BoardType) -> Result<(), AppError> {
 }
 
 pub fn check_sprint_name(name: &str) -> Result<String, AppError> {
+    reject_nul("name", name)?;
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 100 {
         return Err(AppError::invalid("name", "must have 1 to 100 characters"));
@@ -35,6 +36,7 @@ pub fn sprint_name(custom: Option<&str>, number: i64) -> Result<String, AppError
 }
 
 pub fn check_goal(goal: &str) -> Result<String, AppError> {
+    reject_nul("goal", goal)?;
     let goal = goal.trim();
     if goal.chars().count() > 1000 {
         return Err(AppError::invalid(
