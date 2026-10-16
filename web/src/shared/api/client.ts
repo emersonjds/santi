@@ -15,6 +15,7 @@ export type Card = Schemas['Card']
 export type IssueType = Schemas['IssueType']
 export type Priority = Schemas['Priority']
 export type Sprint = Schemas['Sprint']
+export type UpdateIssue = Schemas['UpdateIssue']
 
 // The session is an HttpOnly cookie (D22): no token ever reaches this code.
 export const api = createClient<paths>({

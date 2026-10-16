@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { renderApp } from '@/test/render-app'
-import { MEMBERS, OPS, WEB, problem, routeOf, signedIn } from '@/test/stub-api'
+import {
+  MEMBERS,
+  OPS,
+  OPS_BOARD,
+  WEB,
+  WEB_BOARD,
+  problem,
+  routeOf,
+  signedIn,
+} from '@/test/stub-api'
 
 const create = (screen: RenderResult) =>
   screen.getByRole('button', { name: 'Create project' }).click()
@@ -10,6 +19,10 @@ const created = (project: typeof WEB | typeof OPS) => ({
   [`POST /api/projects`]: { status: 201, body: project },
   [`GET /api/projects/${project.key}`]: { status: 200, body: project },
   [`GET /api/projects/${project.key}/members`]: { status: 200, body: MEMBERS },
+  [`GET /api/projects/${project.key}/board`]: {
+    status: 200,
+    body: project.key === 'OPS' ? OPS_BOARD : WEB_BOARD,
+  },
 })
 
 describe('create project', () => {

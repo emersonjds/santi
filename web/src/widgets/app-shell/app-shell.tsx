@@ -1,7 +1,12 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, Suspense, lazy } from 'react'
 import { SidebarInset, SidebarProvider } from '@/shared/ui/sidebar'
 import { AppSidebar } from './app-sidebar'
 import { TopBar } from './top-bar'
+
+// Lazy: toasts only follow a user action, long after first paint.
+const Toaster = lazy(() =>
+  import('@/shared/ui/sonner').then((module) => ({ default: module.Toaster }))
+)
 
 export const AppShell = ({ children }: { children: ReactNode }) => (
   <SidebarProvider>
@@ -18,5 +23,8 @@ export const AppShell = ({ children }: { children: ReactNode }) => (
         {children}
       </main>
     </SidebarInset>
+    <Suspense>
+      <Toaster position='bottom-right' />
+    </Suspense>
   </SidebarProvider>
 )

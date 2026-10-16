@@ -1,3 +1,4 @@
+import { type ReactNode, Suspense, lazy, memo, useCallback } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import {
   type BoardSearch,
@@ -6,7 +7,8 @@ import {
   boardSettingsQuery,
 } from '@/entities/issue/board-query'
 import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
-import type { BoardView } from '@/shared/api/client'
+import type { BoardColumn, BoardView, Card } from '@/shared/api/client'
+import { useIsMobile } from '@/shared/lib/use-mobile'
 import { ColumnPicker, ColumnShell } from './board-column'
 import { BoardSkeleton, NoSprint, SprintStrip } from './board-states'
 import { FilterBar } from './filter-bar'
@@ -19,40 +21,74 @@ const DoneNote = ({ days }: { days: number }) => (
   </p>
 )
 
-const Columns = ({
-  board,
-  projectKey,
-  shown,
-  doneWindow,
-}: {
+const SortableBoard = lazy(() =>
+  import('@/features/move-issue/sortable-board').then((module) => ({
+    default: module.SortableBoard,
+  }))
+)
+
+const BoardCard = memo(
+  ({ card, projectKey }: { card: Card; projectKey: string }) => (
+    <IssueCard card={card} projectKey={projectKey} />
+  )
+)
+
+type ColumnsProps = {
   board: BoardView
   projectKey: string
   shown: number
   doneWindow?: number | null
-}) => (
-  <div className='flex flex-1 gap-3 overflow-x-auto overscroll-x-contain pb-2'>
-    {board.columns.map((column, index) => (
-      <ColumnShell
-        key={column.id}
-        column={column}
-        narrowHidden={column.id !== shown}
-        footer={
-          doneWindow != null &&
-          index === board.columns.length - 1 && <DoneNote days={doneWindow} />
-        }
-      >
-        <ol className={CARD_LIST}>
-          {column.cards.map((card) => (
-            <li key={card.key}>
-              <IssueCard card={card} projectKey={projectKey} />
-            </li>
-          ))}
-          {column.cards.length === 0 && <EmptySlot />}
-        </ol>
-      </ColumnShell>
-    ))}
-  </div>
-)
+}
+
+/** Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads. */
+const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
+  const narrow = useIsMobile()
+  const last = board.columns[board.columns.length - 1]
+  const renderCard = useCallback(
+    (card: Card) => <BoardCard card={card} projectKey={projectKey} />,
+    [projectKey]
+  )
+  const renderColumn = (column: BoardColumn, list: ReactNode) => (
+    <ColumnShell
+      key={column.id}
+      column={column}
+      narrowHidden={column.id !== shown}
+      footer={
+        doneWindow != null && column === last && <DoneNote days={doneWindow} />
+      }
+    >
+      {list}
+    </ColumnShell>
+  )
+  const plain = board.columns.map((column) =>
+    renderColumn(
+      column,
+      <ol className={CARD_LIST}>
+        {column.cards.map((card) => (
+          <li key={card.key}>{renderCard(card)}</li>
+        ))}
+        {column.cards.length === 0 && <EmptySlot />}
+      </ol>
+    )
+  )
+
+  return (
+    <div className='flex flex-1 gap-3 overflow-x-auto overscroll-x-contain pb-2'>
+      {narrow ? (
+        plain
+      ) : (
+        <Suspense fallback={plain}>
+          <SortableBoard
+            board={board}
+            projectKey={projectKey}
+            renderColumn={renderColumn}
+            renderCard={renderCard}
+          />
+        </Suspense>
+      )}
+    </div>
+  )
+}
 
 const BoardBody = ({ projectKey, search }: BoardProps) => {
   const { data: board, error } = useQuery({
