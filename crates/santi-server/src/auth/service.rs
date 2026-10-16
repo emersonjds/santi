@@ -218,7 +218,8 @@ pub async fn legal_status(
     })
 }
 
-/// Accepts the current versions, e.g. after they changed (D45).
+/// Accepts the current versions, e.g. after they changed (D45). Records nothing when they are
+/// already accepted or the instance does not require them.
 pub async fn accept_legal(
     pool: &PgPool,
     legal: &Legal,
@@ -227,10 +228,16 @@ pub async fn accept_legal(
 ) -> Result<LegalStatus, AppError> {
     domain::check_terms(input.accept_terms)?;
     domain::check_age(input.confirm_age)?;
+    let status = legal_status(pool, legal, user).await?;
+    if status.accepted {
+        return Ok(status);
+    }
     let mut conn = pool.acquire().await?;
     record_acceptance(&mut conn, legal, user.id).await?;
-    drop(conn);
-    legal_status(pool, legal, user).await
+    Ok(LegalStatus {
+        accepted: true,
+        ..status
+    })
 }
 
 /// New API tokens and joining a project need the current documents accepted; existing tokens

@@ -500,6 +500,7 @@ Numbers (burst, then one more per interval):
 | `POST /api/invites/{token}/accept` | 10, then 1 per min | same |
 | `POST /api/projects/{key}/imports[/preview]` (one shared bucket) | 20, then 1 per 30 s | same |
 | `DELETE /api/me` (password check) | — | 5, then 1 per min |
+| `POST /api/me/legal` (records nothing when already accepted) | — | 10, then 1 per min |
 
 - Lockout (amended after the SAN-62 review): counted per (email, client network: the /24 of an IPv4 address, the /64 of an IPv6 one), so failures from elsewhere never lock the owner out. Every login attempt counts before the password is checked (parallel guesses count too); from the 5th attempt without a success that pair is locked for 30 s, doubling per further attempt, never longer than 15 min; a success clears the count; an idle hour forgets it. Unknown emails count the same way, so a 429 never tells whether an account exists. The email is normalized first; anything that is not an email address (or longer than 254 bytes) answers 401 without an entry, and entries hold its SHA-256, not the input. The `DELETE /api/me` password check has its own per-account bucket and never shares the lockout.
 - Answer: 429 RFC 9457 problem (`urn:santi:error:rate-limited`, D24) with `Retry-After` in seconds.

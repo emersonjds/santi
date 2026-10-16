@@ -248,3 +248,60 @@ async fn openapi_lists_the_legal_routes(pool: PgPool) {
     assert!(api["paths"]["/api/me/legal"]["post"].is_object());
     assert!(api["paths"]["/api/tokens"]["post"]["responses"]["409"].is_object());
 }
+
+#[sqlx::test]
+async fn accepting_again_records_nothing_new_and_is_rate_limited(pool: PgPool) {
+    let on = router(pool.clone(), true);
+    let off = router(pool.clone(), false);
+    let (_, ana) = register(
+        &on,
+        "ana@example.com",
+        json!({ "accept_terms": true, "confirm_age": true }),
+    )
+    .await;
+    let (_, bob) = register(&off, "bob@example.com", json!({})).await;
+    let accept = json!({ "accept_terms": true, "confirm_age": true });
+    let rows = || async {
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM legal_acceptance")
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+    };
+
+    let (again, status) = call(
+        &on,
+        Method::POST,
+        "/api/me/legal",
+        &ana,
+        Some(accept.clone()),
+    )
+    .await;
+    let (not_required, _) = call(
+        &off,
+        Method::POST,
+        "/api/me/legal",
+        &bob,
+        Some(accept.clone()),
+    )
+    .await;
+
+    assert_eq!(again, StatusCode::OK);
+    assert_eq!(status["accepted"], true);
+    assert_eq!(not_required, StatusCode::OK);
+    assert_eq!(rows().await, 3);
+    let mut answers = Vec::new();
+    for _ in 0..10 {
+        answers.push(
+            call(
+                &on,
+                Method::POST,
+                "/api/me/legal",
+                &ana,
+                Some(accept.clone()),
+            )
+            .await
+            .0,
+        );
+    }
+    assert_eq!(answers.last(), Some(&StatusCode::TOO_MANY_REQUESTS));
+}

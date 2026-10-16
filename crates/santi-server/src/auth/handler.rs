@@ -112,14 +112,18 @@ pub async fn legal_status(
 
 #[utoipa::path(post, path = "/api/me/legal", tag = "auth", request_body = AcceptLegal,
     responses(
-        (status = 200, body = LegalStatus, description = "Accepted; recorded in the append-only acceptance log"),
+        (status = 200, body = LegalStatus, description = "Accepted; recorded in the append-only acceptance log unless the current versions were already accepted or are not required"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "`accept_terms` or `confirm_age` not true")))]
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "`accept_terms` or `confirm_age` not true"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited per account (D44); wait `Retry-After` seconds")))]
 pub async fn accept_legal(
     State(state): State<AppState>,
     user: CurrentUser,
     JsonBody(input): JsonBody<AcceptLegal>,
 ) -> Result<Json<LegalStatus>, AppError> {
+    state
+        .limits
+        .check(Action::AcceptLegal, None, Some(user.id))?;
     Ok(Json(
         service::accept_legal(&state.pool, &state.legal, &user, input).await?,
     ))
