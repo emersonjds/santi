@@ -282,8 +282,28 @@ async fn a_self_hoster_can_turn_the_legal_pages_off() {
     };
     let app = santi_server::app(state, Some(&built_spa("legal-off")));
 
-    for uri in ["/privacy", "/terms", "/privacy.html", "/terms.pt-BR.html"] {
+    for uri in [
+        "/privacy",
+        "/terms",
+        "/privacy.html",
+        "/terms.pt-BR.html",
+        "//privacy.html",
+        "/%70rivacy.html",
+        "/./terms.html",
+        "/%2e/terms.html",
+        "/terms%2Ehtml",
+        "/PRIVACY.html",
+        "/Terms.PT-BR.html",
+        "/privacy.html/",
+        "/assets/../privacy.html",
+    ] {
         let response = send(&app, Method::GET, uri).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+        let page = body(response).await;
+        for text in [PRIVACY, TERMS, PRIVACY_PT, TERMS_PT] {
+            assert!(!page.contains(text), "{uri} served {text}");
+        }
     }
+    let home = send(&app, Method::GET, "/projects/TERMS/board").await;
+    assert_eq!(home.status(), StatusCode::OK);
 }
