@@ -1,6 +1,8 @@
 pub mod auth;
 pub mod error;
 pub mod extract;
+pub mod members;
+pub mod projects;
 pub mod web;
 
 use axum::extract::State;
@@ -34,6 +36,8 @@ pub fn app(state: AppState) -> Router {
     let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(routes!(health))
         .merge(auth::handler::router())
+        .merge(projects::handler::router())
+        .merge(members::handler::router())
         .split_for_parts();
     router
         .merge(SwaggerUi::new("/docs").url("/openapi.json", api))

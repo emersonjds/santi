@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod projects;
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;

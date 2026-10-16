@@ -127,3 +127,13 @@ pub fn session_cookie(response: &Response) -> String {
     let set_cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
     set_cookie.split(';').next().unwrap().to_string()
 }
+
+impl TestApp {
+    pub async fn create_project(&self, key: &str, board_type: &str) -> Value {
+        let body =
+            json!({ "key": key, "name": format!("Project {key}"), "board_type": board_type });
+        let (status, project) = self.post("/api/projects", body).await;
+        assert_eq!(status, StatusCode::CREATED, "{project}");
+        project
+    }
+}
