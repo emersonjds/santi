@@ -233,7 +233,11 @@ type ClearFiltersProps = { count: number; keepText: boolean }
 export const ClearFilters = ({ count, keepText }: ClearFiltersProps) => (
   <Link
     {...HERE}
-    search={({ column, q }) => ({ column, q: keepText ? q : undefined })}
+    search={({ column, panel, q }) => ({
+      column,
+      panel,
+      q: keepText ? q : undefined,
+    })}
     className='inline-flex h-11 shrink-0 items-center px-2 text-sm font-medium whitespace-nowrap text-primary hover:underline md:h-9'
   >
     Clear filters ({count})

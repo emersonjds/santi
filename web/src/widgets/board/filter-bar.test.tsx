@@ -132,6 +132,18 @@ describe('board filter bar', () => {
       .toContain('?type=bug&type=task&label=ui&parent=none')
   })
 
+  it('drops a filter once its last option is unchecked', async () => {
+    inProjects()
+    const { screen, router } = await renderApp(
+      '/p/WEB/board?type=%5B%22bug%22%5D'
+    )
+
+    await screen.getByRole('button', { name: 'Type' }).click()
+    await screen.getByRole('menuitemcheckbox', { name: 'Bug' }).click()
+
+    await expect.poll(() => router.state.location.search).toEqual({})
+  })
+
   it('sends the text box to the board once typing pauses', async () => {
     const requests = inProjects()
     const { screen, router } = await renderApp('/p/WEB/board')

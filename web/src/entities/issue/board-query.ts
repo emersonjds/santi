@@ -13,6 +13,8 @@ export type BoardSearch = {
   recently_updated?: boolean
   column?: number
   issue?: number
+  /** The backlog's side panel (D10). */
+  panel?: 'epics'
 }
 
 /** The quick filters as the board, backlog and search endpoints take them (D3). */
@@ -56,6 +58,7 @@ export const parseBoardSearch = (
   recently_updated: search.recently_updated === true || undefined,
   column: isId(search.column) ? search.column : undefined,
   issue: isId(search.issue) ? search.issue : undefined,
+  panel: search.panel === 'epics' ? 'epics' : undefined,
 })
 
 export const boardFilters = ({

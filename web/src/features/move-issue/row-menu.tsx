@@ -2,7 +2,7 @@ import { use } from 'react'
 import { Ellipsis } from 'lucide-react'
 import { planRowMove } from '@/entities/issue/backlog-cache'
 import { BacklogContext } from '@/entities/issue/board-context'
-import { useMoveRow } from '@/entities/issue/issue-mutations'
+import { useMoveRow, useSetEpic } from '@/entities/issue/issue-mutations'
 import type { Card } from '@/shared/api/client'
 import {
   DropdownMenu,
@@ -22,10 +22,11 @@ const PLACES = ['top', 'bottom'] as const
 
 type RowMenuProps = { card: Card; projectKey: string }
 
-/** The row's "…" (lazy chunk): BL-7 top or bottom of any section, the phone's way to plan (IA §10). */
+/** The row's "…" (lazy chunk): BL-7 top or bottom of any section and BL-20 its epic, the phone's way to plan (IA §10). */
 export const RowMenu = ({ card, projectKey }: RowMenuProps) => {
   const backlog = use(BacklogContext)
   const move = useMoveRow(projectKey)
+  const setEpic = useSetEpic(projectKey)
   if (!backlog) return null
 
   return (
@@ -72,6 +73,30 @@ export const RowMenu = ({ card, projectKey }: RowMenuProps) => {
                 </DropdownMenuGroup>
               )
             })}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className={ROW}>
+            Set epic
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className='max-h-96 w-56 overflow-y-auto'>
+            <DropdownMenuItem
+              className={ROW}
+              onSelect={() => setEpic.mutate({ card, epic: null })}
+            >
+              No epic
+            </DropdownMenuItem>
+            {backlog.epics.map((epic) => (
+              <DropdownMenuItem
+                key={epic.key}
+                className={ROW}
+                onSelect={() => setEpic.mutate({ card, epic: epic.key })}
+              >
+                <span className='truncate'>
+                  {epic.key} {epic.summary}
+                </span>
+              </DropdownMenuItem>
+            ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
       </DropdownMenuContent>
