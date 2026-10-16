@@ -1,21 +1,16 @@
-{% extends "app/layout.html" %}
+{% extends "app/auth.html" %}
 {% import "shared/ui.html" as ui %}
 {% block title %}Sign in{% endblock %}
-{% block body %}
-<main class="auth">
-  <div class="auth-card">
-    {{ ui::brand("/login") }}
-    <h1>Welcome back</h1>
-    <p class="lede">Sign in to pick up where you left off.</p>
-    {% if failed %}
-    <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>Email or password is not right.</span></p>
-    {% endif %}
-    <form class="stack" method="post" action="/login">
-      {{ ui::field("email", "Email", "email", email, "email", "") }}
-      {{ ui::field("password", "Password", "password", "", "current-password", "") }}
-      <button class="button" type="submit">Sign in</button>
-    </form>
-    <p class="switch">New to santi? <a href="/register">Create an account</a></p>
-  </div>
-</main>
+{% block heading %}Welcome back{% endblock %}
+{% block lede %}Sign in to pick up where you left off.{% endblock %}
+{% block form %}
+{%- if failed %}
+{{ ui::alert("Email or password is not right.") }}
+{%- endif %}
+<form class="mt-6 grid gap-4" method="post" action="/login">
+  {{ ui::field("email", "Email", "email", email, "email", "") }}
+  {{ ui::field("password", "Password", "password", "", "current-password", "") }}
+  {{ ui::submit("Sign in") }}
+</form>
+<p class="mt-6 text-text-muted">New to santi? <a class="inline-block py-2.5 font-semibold text-link hover:underline" href="/register">Create an account</a></p>
 {% endblock %}

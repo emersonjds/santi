@@ -1,0 +1,35 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT c.id,\n                  COALESCE(array_agg(s.category ORDER BY s.id) FILTER (WHERE s.id IS NOT NULL), '{}')\n                      AS \"categories!: Vec<StatusCategory>\"\n           FROM board_column c\n           LEFT JOIN status s ON s.column_id = c.id\n           WHERE c.board_id = $1\n           GROUP BY c.id\n           ORDER BY c.position",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "board_column",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "categories!: Vec<StatusCategory>",
+        "type_info": "TextArray",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null
+    ]
+  },
+  "hash": "b2600880df13e79d64b2d2615acc8c62e8c8699dbc841da2ec4397e92bd5942b"
+}

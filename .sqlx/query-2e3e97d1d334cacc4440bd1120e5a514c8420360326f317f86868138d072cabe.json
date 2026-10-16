@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT rank FROM issue WHERE project_id = $1 AND number = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "rank",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "rank"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2e3e97d1d334cacc4440bd1120e5a514c8420360326f317f86868138d072cabe"
+}

@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 
 use crate::error::AppError;
 
-pub const SESSION_COOKIE: &str = "santi_session";
+pub const SESSION_COOKIE: &str = "__Host-santi_session";
 pub const SESSION_DAYS: i64 = 30;
 pub const API_TOKEN_PREFIX: &str = "santi_";
 
@@ -19,7 +19,14 @@ pub fn normalize_email(email: &str) -> Result<String, AppError> {
     let Some((local, domain)) = email.split_once('@') else {
         return Err(AppError::invalid("email", "must be an email address"));
     };
-    if local.is_empty() || !domain.contains('.') || email.len() > 254 {
+    let mut labels = domain.split('.');
+    let valid = !local.is_empty()
+        && email.len() <= 254
+        && !domain.contains('@')
+        && !email.chars().any(char::is_whitespace)
+        && labels.clone().count() >= 2
+        && labels.all(|label| !label.is_empty());
+    if !valid {
         return Err(AppError::invalid("email", "must be an email address"));
     }
     Ok(email)
@@ -85,11 +92,8 @@ pub fn token_from_headers(headers: &HeaderMap) -> Option<&str> {
 }
 
 fn bearer_token(headers: &HeaderMap) -> Option<&str> {
-    headers
-        .get(AUTHORIZATION)?
-        .to_str()
-        .ok()?
-        .strip_prefix("Bearer ")
+    let (scheme, token) = header_text(headers, AUTHORIZATION)?.split_once(' ')?;
+    scheme.eq_ignore_ascii_case("bearer").then_some(token)
 }
 
 fn session_token(headers: &HeaderMap) -> Option<&str> {
@@ -112,7 +116,8 @@ pub fn expired_session_cookie() -> String {
 
 /// D22: a browser write must come from our own origin. Bearer requests carry no ambient
 /// credential and pass; so do requests with neither `Sec-Fetch-Site` nor `Origin` (CLI).
-pub fn is_cross_site_write(method: &Method, headers: &HeaderMap) -> bool {
+/// `authority` is the request URI authority, which carries the host on HTTP/2.
+pub fn is_cross_site_write(method: &Method, headers: &HeaderMap, authority: Option<&str>) -> bool {
     let safe_method = matches!(*method, Method::GET | Method::HEAD | Method::OPTIONS);
     if safe_method || bearer_token(headers).is_some() {
         return false;
@@ -124,7 +129,7 @@ pub fn is_cross_site_write(method: &Method, headers: &HeaderMap) -> bool {
         return false;
     };
     let origin_host = origin.split_once("://").map(|(_, host)| host);
-    match (origin_host, header_text(headers, HOST)) {
+    match (origin_host, header_text(headers, HOST).or(authority)) {
         (Some(origin_host), Some(host)) => origin_host != host,
         _ => true,
     }
@@ -153,6 +158,15 @@ mod tests {
         assert!(normalize_email("ana@localhost").is_err());
         assert!(normalize_email("@example.com").is_err());
         assert!(normalize_email(&format!("{}@example.com", "a".repeat(250))).is_err());
+    }
+
+    #[test]
+    fn email_needs_one_at_no_spaces_and_non_empty_domain_labels() {
+        for email in ["a@b@c.com", "a@.", "a b@x.y", "a@b.", "a@.b", "a@b..c"] {
+            assert!(normalize_email(email).is_err(), "{email}");
+        }
+        assert_eq!(normalize_email("a@b.c").unwrap(), "a@b.c");
+        assert_eq!(normalize_email("a.b@mail.x.io").unwrap(), "a.b@mail.x.io");
     }
 
     #[test]
@@ -219,7 +233,7 @@ mod tests {
         );
         headers.insert(
             header::COOKIE,
-            HeaderValue::from_static("santi_session=def"),
+            HeaderValue::from_static("__Host-santi_session=def"),
         );
         assert_eq!(token_from_headers(&headers), Some("santi_abc"));
     }
@@ -229,7 +243,7 @@ mod tests {
         let mut headers = HeaderMap::new();
         headers.insert(
             header::COOKIE,
-            HeaderValue::from_static("theme=dark; santi_session=def"),
+            HeaderValue::from_static("theme=dark; __Host-santi_session=def"),
         );
         assert_eq!(token_from_headers(&headers), Some("def"));
     }
@@ -242,9 +256,23 @@ mod tests {
     }
 
     #[test]
+    fn bearer_scheme_is_case_insensitive() {
+        for value in ["bearer santi_abc", "BEARER santi_abc", "Bearer santi_abc"] {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::AUTHORIZATION, HeaderValue::from_static(value));
+            assert_eq!(token_from_headers(&headers), Some("santi_abc"), "{value}");
+            headers.insert("sec-fetch-site", HeaderValue::from_static("cross-site"));
+            assert!(
+                !is_cross_site_write(&Method::POST, &headers, None),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
     fn session_cookie_is_http_only_secure_and_lax() {
         let cookie = session_cookie("abc");
-        assert!(cookie.starts_with("santi_session=abc;"));
+        assert!(cookie.starts_with("__Host-santi_session=abc;"));
         assert!(cookie.contains("HttpOnly"));
         assert!(cookie.contains("Secure"));
         assert!(cookie.contains("SameSite=Lax"));
@@ -265,10 +293,28 @@ mod tests {
         let cross_site = headers(&[("sec-fetch-site", "cross-site")]);
         let other_origin = headers(&[("origin", "https://evil.example"), ("host", "santi.dev")]);
         let null_origin = headers(&[("origin", "null"), ("host", "santi.dev")]);
+        let same_site = headers(&[("sec-fetch-site", "same-site")]);
+        let origin_without_host = headers(&[("origin", "https://santi.dev")]);
 
-        assert!(is_cross_site_write(&Method::POST, &cross_site));
-        assert!(is_cross_site_write(&Method::DELETE, &other_origin));
-        assert!(is_cross_site_write(&Method::POST, &null_origin));
+        assert!(is_cross_site_write(&Method::POST, &cross_site, None));
+        assert!(is_cross_site_write(&Method::DELETE, &other_origin, None));
+        assert!(is_cross_site_write(&Method::POST, &null_origin, None));
+        assert!(is_cross_site_write(&Method::POST, &same_site, None));
+        assert!(is_cross_site_write(
+            &Method::POST,
+            &origin_without_host,
+            None
+        ));
+        assert!(is_cross_site_write(
+            &Method::POST,
+            &origin_without_host,
+            Some("evil.example")
+        ));
+        assert!(!is_cross_site_write(
+            &Method::POST,
+            &origin_without_host,
+            Some("santi.dev")
+        ));
     }
 
     #[test]
@@ -282,11 +328,15 @@ mod tests {
             ("authorization", "Bearer santi_abc"),
         ]);
 
-        assert!(!is_cross_site_write(&Method::GET, &cross_site));
-        assert!(!is_cross_site_write(&Method::POST, &same_origin));
-        assert!(!is_cross_site_write(&Method::POST, &typed_url));
-        assert!(!is_cross_site_write(&Method::POST, &matching_origin));
-        assert!(!is_cross_site_write(&Method::POST, &HeaderMap::new()));
-        assert!(!is_cross_site_write(&Method::POST, &bearer_from_elsewhere));
+        assert!(!is_cross_site_write(&Method::GET, &cross_site, None));
+        assert!(!is_cross_site_write(&Method::POST, &same_origin, None));
+        assert!(!is_cross_site_write(&Method::POST, &typed_url, None));
+        assert!(!is_cross_site_write(&Method::POST, &matching_origin, None));
+        assert!(!is_cross_site_write(&Method::POST, &HeaderMap::new(), None));
+        assert!(!is_cross_site_write(
+            &Method::POST,
+            &bearer_from_elsewhere,
+            None
+        ));
     }
 }

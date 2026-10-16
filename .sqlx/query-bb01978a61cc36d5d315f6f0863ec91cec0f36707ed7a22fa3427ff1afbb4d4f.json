@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE board SET next_sprint_number = next_sprint_number + 1\n           WHERE id = $1 RETURNING next_sprint_number - 1 AS \"number!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "number!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "bb01978a61cc36d5d315f6f0863ec91cec0f36707ed7a22fa3427ff1afbb4d4f"
+}

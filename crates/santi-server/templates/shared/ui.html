@@ -1,6 +1,6 @@
 {# Icons from Lucide (https://lucide.dev), ISC license. #}
-{% macro icon(name) %}
-<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{% macro icon(name, size = "icon") %}
+<svg class="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
 {%- if name == "log-out" -%}
 <path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
 {%- else if name == "user" -%}
@@ -9,26 +9,113 @@
 <path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
 {%- else if name == "chevron-down" -%}
 <path d="m6 9 6 6 6-6"/>
+{%- else if name == "panel-left" -%}
+<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>
+{%- else if name == "house" -%}
+<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+{%- else if name == "plus" -%}
+<path d="M5 12h14"/><path d="M12 5v14"/>
+{%- else if name == "folder" -%}
+<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+{%- else if name == "kanban" -%}
+<path d="M6 5v11"/><path d="M12 5v6"/><path d="M18 5v14"/>
+{%- else if name == "user-plus" -%}
+<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
+{%- else if name == "search" -%}
+<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+{%- else if name == "move" -%}
+<path d="M12 2v20"/><path d="m15 19-3 3-3-3"/><path d="m19 9 3 3-3 3"/><path d="M2 12h20"/><path d="m5 9-3 3 3 3"/><path d="m9 5 3-3 3 3"/>
 {%- else if name == "circle-alert" -%}
 <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+{%- else if name == "list" -%}
+<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>
+{%- else if name == "play" -%}
+<polygon points="6 3 20 12 6 21 6 3"/>
+{%- else if name == "circle-check" -%}
+<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+{%- else if name == "pencil" -%}
+<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>
+{%- else if name == "trash" -%}
+<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+{%- else if name == "book-open" -%}
+<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
+{%- else if name == "clipboard-check" -%}
+<rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>
+{%- else if name == "bug" -%}
+<path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 3.8-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"/>
+{%- else if name == "layers" -%}
+<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>
+{%- else if name == "list-tree" -%}
+<path d="M21 12h-8"/><path d="M21 6H8"/><path d="M21 18h-8"/><path d="M3 6v4c0 1.1.9 2 2 2h3"/><path d="M3 10v6c0 1.1.9 2 2 2h3"/>
+{%- else if name == "signal-high" -%}
+<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/><path d="M17 20V8"/>
+{%- else if name == "signal-medium" -%}
+<path d="M2 20h.01"/><path d="M7 20v-4"/><path d="M12 20v-8"/>
+{%- else if name == "signal-low" -%}
+<path d="M2 20h.01"/><path d="M7 20v-4"/>
+{%- else if name == "circle" -%}
+<circle cx="12" cy="12" r="10"/>
+{%- else if name == "circle-dot" -%}
+<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>
+{%- else if name == "ellipsis" -%}
+<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+{%- else if name == "x" -%}
+<path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+{%- else if name == "grip-vertical" -%}
+<circle cx="9" cy="12" r="1"/><circle cx="9" cy="5" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="19" r="1"/>
+{%- else if name == "copy" -%}
+<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
 {%- endif -%}
 </svg>
 {% endmacro %}
 
-{% macro brand(href) %}
-<a class="brand" href="{{ href }}">
-  <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="7"/><path d="M7 8h10M7 12h6M7 16h8"/></svg>
-  <span>santi</span>
+
+{% macro brand(href, word = "") %}
+<a class="inline-flex min-h-11 items-center gap-2 rounded-md px-1 text-lg font-bold tracking-tight text-text" href="{{ href }}">
+  <span class="grid size-7 place-items-center rounded-lg bg-primary text-base leading-none text-on-primary" aria-hidden="true">s</span>
+  <span class="{{ word }}">santi</span>
 </a>
 {% endmacro %}
 
 {% macro field(name, label, kind, value, autocomplete, error) %}
-<div class="field">
-  <label for="{{ name }}">{{ label }}</label>
-  <input id="{{ name }}" name="{{ name }}" type="{{ kind }}" value="{{ value }}" autocomplete="{{ autocomplete }}" required
+<div class="grid gap-1.5">
+  <label class="text-sm font-semibold" for="{{ name }}">{{ label }}</label>
+  <input class="min-h-11 w-full rounded-md border border-control bg-canvas px-3 py-2 text-base text-text placeholder:text-text-subtle aria-[invalid=true]:border-danger" id="{{ name }}" name="{{ name }}" type="{{ kind }}" value="{{ value }}" autocomplete="{{ autocomplete }}" required
     {%- if !error.is_empty() %} aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
   {%- if !error.is_empty() %}
-  <p class="field-error" id="{{ name }}-error">{{ label }} {{ error }}.</p>
+  <p class="text-sm text-danger" id="{{ name }}-error">{{ label }} {{ error }}.</p>
   {%- endif %}
 </div>
+{% endmacro %}
+
+{% macro submit(label) %}
+<button class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed aria-busy:opacity-70" type="submit">{{ label }}</button>
+{% endmacro %}
+
+{% macro link_button(href, name, label) %}
+<a class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed" href="{{ href }}">{{ icon(name) }}<span>{{ label }}</span></a>
+{% endmacro %}
+
+{% macro alert(message) %}
+<p class="mt-5 flex items-center gap-2.5 rounded-md bg-danger-bg px-3.5 py-3 text-danger" role="alert">{{ icon("circle-alert") }}<span>{{ message }}</span></p>
+{% endmacro %}
+
+{# Sidebar row; the current one gets the purple tint, purple text and a 3px bar on the left. #}
+{% macro nav_link(href, name, label, current) %}
+<a href="{{ href }}"{% if current %} aria-current="page"{% endif %} class="relative flex min-h-11 items-center gap-2.5 rounded-md px-2.5 text-sm text-text hover:bg-hover aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-link aria-[current=page]:before:absolute aria-[current=page]:before:inset-y-2 aria-[current=page]:before:left-0 aria-[current=page]:before:w-[3px] aria-[current=page]:before:rounded-full aria-[current=page]:before:bg-primary">{{ icon(name) }}<span>{{ label }}</span></a>
+{% endmacro %}
+
+{% macro tab(href, label, current) %}
+<a href="{{ href }}"{% if current %} aria-current="page"{% endif %} class="-mb-px inline-flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-semibold text-text-muted hover:text-text aria-[current=page]:border-primary aria-[current=page]:text-link">{{ label }}</a>
+{% endmacro %}
+
+{% macro avatar(name, shape = "size-8 rounded-full") %}
+<span class="grid shrink-0 place-items-center {{ shape }} bg-selected-strong text-xs font-bold text-primary" title="{{ name }}" aria-hidden="true">{{ crate::web::initials(name) }}</span>
+{% endmacro %}
+
+{% macro choice(name, value, title, help, checked) %}
+<label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-canvas px-3 py-2.5 hover:bg-hover has-checked:border-primary has-checked:bg-selected">
+  <input class="size-5 accent-primary" type="radio" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}>
+  <span><strong class="mr-1.5">{{ title }}</strong>{{ help }}</span>
+</label>
 {% endmacro %}

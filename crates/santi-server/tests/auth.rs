@@ -48,7 +48,7 @@ async fn register_returns_user_and_session_cookie(pool: PgPool) {
         .to_str()
         .unwrap()
         .to_string();
-    assert!(set_cookie.starts_with("santi_session="));
+    assert!(set_cookie.starts_with("__Host-santi_session="));
     assert!(set_cookie.contains("HttpOnly"));
     let user = body_json(response).await;
     assert_eq!(user["email"], "ana@example.com");
@@ -75,22 +75,29 @@ async fn register_validates_password_email_and_name(pool: PgPool) {
     let blank_name =
         json!({ "email": "ana@example.com", "password": PASSWORD, "display_name": " " });
 
-    let short = body_json(register(&app, "ana@example.com", "short").await).await;
-    let bad_email = body_json(register(&app, "not-an-email", PASSWORD).await).await;
-    let no_name = body_json(
-        app.send(json_request(
+    let short = register(&app, "ana@example.com", "short").await;
+    let bad_email = register(&app, "not-an-email", PASSWORD).await;
+    let no_name = app
+        .send(json_request(
             Method::POST,
             "/api/auth/register",
             None,
             Some(blank_name),
         ))
-        .await,
-    )
-    .await;
+        .await;
 
-    assert_eq!(short["errors"][0]["field"], "password");
-    assert_eq!(bad_email["errors"][0]["field"], "email");
-    assert_eq!(no_name["errors"][0]["field"], "display_name");
+    for (response, field) in [
+        (short, "password"),
+        (bad_email, "email"),
+        (no_name, "display_name"),
+    ] {
+        assert_eq!(
+            response.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "{field}"
+        );
+        assert_eq!(body_json(response).await["errors"][0]["field"], field);
+    }
 }
 
 #[sqlx::test]

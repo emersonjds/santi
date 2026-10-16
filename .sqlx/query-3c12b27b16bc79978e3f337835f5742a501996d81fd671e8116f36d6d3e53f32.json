@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sprint SET name = $2, goal = $3, start_date = $4, end_date = $5 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3c12b27b16bc79978e3f337835f5742a501996d81fd671e8116f36d6d3e53f32"
+}

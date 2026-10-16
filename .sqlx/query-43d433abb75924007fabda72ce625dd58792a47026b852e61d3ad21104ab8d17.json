@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sprint_issue si SET outcome = 'removed'\n         FROM sprint s, issue i\n         WHERE si.sprint_id = $1 AND s.id = $1 AND s.state = 'active'\n           AND si.issue_id = i.id\n           AND (i.id = $2 OR (i.parent_id = $2 AND i.issue_type = 'subtask'))",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "43d433abb75924007fabda72ce625dd58792a47026b852e61d3ad21104ab8d17"
+}

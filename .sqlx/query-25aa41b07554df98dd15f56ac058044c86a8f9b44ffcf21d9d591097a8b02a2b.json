@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE board_column SET name = $3, wip_limit = $4 WHERE board_id = $1 AND id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "25aa41b07554df98dd15f56ac058044c86a8f9b44ffcf21d9d591097a8b02a2b"
+}

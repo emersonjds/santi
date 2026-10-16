@@ -137,6 +137,12 @@ impl From<PathRejection> for AppError {
     }
 }
 
+impl From<axum_extra::extract::QueryRejection> for AppError {
+    fn from(rejection: axum_extra::extract::QueryRejection) -> Self {
+        AppError::BadRequest(rejection.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::AppError;

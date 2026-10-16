@@ -1,0 +1,46 @@
+{#- The card's "…" menu: the keyboard and touch path for moving (D1), plus quick edits. #}
+{%- let path = self.issue_path(card.key) %}
+<details class="absolute top-0.5 right-0.5 [&[open]]:z-20">
+  <summary class="grid size-10 place-items-center rounded-md text-text-muted hover:bg-hover hover:text-text" aria-label="Actions for {{ card.key }}">{{ ui::icon("ellipsis", "size-4") }}</summary>
+  <div class="absolute right-0 grid w-64 gap-3 rounded-lg border border-border bg-raised p-3 text-sm shadow-lg">
+    <form class="grid gap-1.5" method="post" action="{{ path }}/move" hx-post="{{ path }}/move" hx-target="#board" hx-swap="outerHTML">
+      <label class="font-semibold" for="move-{{ card.id }}-column">Move to…</label>
+      <div class="flex gap-1.5">
+        <select class="{{ menu_select }}" id="move-{{ card.id }}-column" name="column_id">
+          {%- for target in board.columns %}
+          <option value="{{ target.id }}"{% if target.id == column.id %} selected{% endif %}>{{ target.name }}</option>
+          {%- endfor %}
+        </select>
+        <select class="{{ menu_select }}" aria-label="Place" name="place">
+          <option value="top">Top</option>
+          <option value="bottom" selected>Bottom</option>
+        </select>
+      </div>
+      <button class="{{ menu_button }}" type="submit">Move {{ card.key }}</button>
+    </form>
+    <form class="grid gap-1.5" method="post" action="{{ path }}" hx-post="{{ path }}" hx-swap="none">
+      <label class="font-semibold" for="assign-{{ card.id }}">Assign</label>
+      <div class="flex gap-1.5">
+        <select class="{{ menu_select }}" id="assign-{{ card.id }}" name="assignee">
+          <option value="">Unassigned</option>
+          {%- for person in members %}
+          <option value="{{ person.user_id }}"{% if card.assignee_id.as_ref() == Some(person.user_id) %} selected{% endif %}>{{ person.display_name }}</option>
+          {%- endfor %}
+        </select>
+        <button class="{{ menu_button }}" type="submit">Save</button>
+      </div>
+    </form>
+    <form class="grid gap-1.5" method="post" action="{{ path }}" hx-post="{{ path }}" hx-swap="none">
+      <label class="font-semibold" for="priority-{{ card.id }}">Set priority</label>
+      <div class="flex gap-1.5">
+        <select class="{{ menu_select }}" id="priority-{{ card.id }}" name="priority">
+          {%- for option in crate::web::PRIORITIES %}
+          <option value="{{ option.label()|lower }}"{% if option == card.priority %} selected{% endif %}>{{ option.label() }}</option>
+          {%- endfor %}
+        </select>
+        <button class="{{ menu_button }}" type="submit">Save</button>
+      </div>
+    </form>
+    <button class="flex min-h-11 items-center gap-2 rounded-md px-2 font-semibold hover:bg-hover" type="button" data-copy="{{ card.key }}">{{ ui::icon("copy", "size-4") }}<span>Copy issue key</span></button>
+  </div>
+</details>

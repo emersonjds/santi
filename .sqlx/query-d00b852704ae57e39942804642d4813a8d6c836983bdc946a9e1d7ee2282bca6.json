@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, category AS \"category: StatusCategory\", column_id FROM status WHERE project_id = $1 AND id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "category: StatusCategory",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "column_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "column_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "d00b852704ae57e39942804642d4813a8d6c836983bdc946a9e1d7ee2282bca6"
+}

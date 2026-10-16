@@ -13,7 +13,9 @@ Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`. Jira: 
 
 ## Layout
 
-- `crates/santi-types`: shared DTOs. `crates/santi-server`: axum + sqlx, vertical slices (`domain.rs` pure rules, `repo.rs` sqlx, `service.rs` use cases taking `&Member`, `handler.rs` JSON API, `web.rs` HTML pages); web UI is askama templates + htmx + vanilla `app.js`, embedded (decisions D1, D25, D26). `crates/santi-cli`: `santi` binary and `santi mcp`.
+- `crates/santi-types`: shared DTOs. `crates/santi-server`: axum + sqlx, vertical slices (`domain.rs` pure rules, `repo.rs` sqlx, `service.rs` use cases taking `&Member`, `handler.rs` JSON API, `web.rs` HTML pages); the askama + htmx UI (`web.rs`, `templates/`, `static/`) stays only until the SPA reaches parity (D37). `crates/santi-cli`: `santi` binary and `santi mcp`.
+- `web/`: React SPA on shadcn-admin (D37), FSD in `web/src` (`app → pages → widgets → features → entities → shared`), calls `/api/*` only through `openapi-fetch`. Self-contained for a later split (D38): never import across `web/` and `crates/`; the contract is the committed `web/openapi.json`.
+- Web commands (pnpm, from `web/`): `pnpm dev` (Vite on 5173, proxies `/api` to the server on 8080), `pnpm gen:api` (types from `openapi.json`), `pnpm typecheck`, `pnpm lint`, `pnpm test:coverage` (> 90% on 4 metrics), `pnpm e2e` (Playwright), `pnpm build` (`web/dist`, served via `SANTI_WEB_DIR`).
 - Product and architecture decisions, with votes and winners: `docs/specs/decisions.md`. Read it before planning or coding.
 - `main.rs` files hold wiring only; they are excluded from coverage.
 

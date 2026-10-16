@@ -1,0 +1,10 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% import "entities/issue.html" as entity %}
+{% block title %}{{ issue.key }} {{ issue.summary }}{% endblock %}
+{% block main %}
+<a class="inline-flex min-h-11 items-center gap-2 font-semibold text-link" href="/p/{{ shell.current }}/board">{{ ui::icon("kanban") }}<span>Back to board</span></a>
+<div class="mt-2 max-w-5xl">
+{% block detail %}{% include "features/issue_dialog.html" %}{% endblock %}
+</div>
+{% endblock %}

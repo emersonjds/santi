@@ -1,4 +1,8 @@
 pub mod auth;
+pub mod boards;
+pub mod issues;
+pub mod projects;
+pub mod sprints;
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -25,6 +29,16 @@ pub struct Problem {
 pub struct FieldError {
     pub field: String,
     pub message: String,
+}
+
+/// For PATCH bodies: a missing field deserializes to `None`, an explicit `null` to `Some(None)`.
+/// Use with `#[serde(default, deserialize_with = "crate::nullable_field")]`.
+pub fn nullable_field<'de, D, T>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
 }
 
 #[cfg(test)]
