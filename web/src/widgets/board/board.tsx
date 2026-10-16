@@ -9,6 +9,7 @@ import {
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Ellipsis } from 'lucide-react'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
+import { recount } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
@@ -17,7 +18,14 @@ import {
   boardSettingsQuery,
 } from '@/entities/issue/board-query'
 import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
-import type { BoardColumn, BoardView, Card, Sprint } from '@/shared/api/client'
+import { projectQuery } from '@/entities/project/project-queries'
+import type {
+  BoardColumn,
+  BoardSettings,
+  BoardView,
+  Card,
+  Sprint,
+} from '@/shared/api/client'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { ColumnPicker, ColumnShell } from './board-column'
 import { BoardSkeleton, NoSprint, SprintStrip } from './board-states'
@@ -35,6 +43,12 @@ const DoneNote = ({ days }: { days: number }) => (
 const SortableBoard = lazy(() =>
   import('@/features/move-issue/sortable-board').then((module) => ({
     default: module.SortableBoard,
+  }))
+)
+
+const ColumnLimit = lazy(() =>
+  import('@/features/board-settings/column-limit').then((module) => ({
+    default: module.ColumnLimit,
   }))
 )
 
@@ -121,11 +135,21 @@ type ColumnsProps = {
   board: BoardView
   projectKey: string
   shown: number
-  doneWindow?: number | null
+  settings?: BoardSettings
+  /** KB-16: admins of a kanban board set limits from the column header. */
+  limits: boolean
 }
 
 /** Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads. */
-const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
+const Columns = ({
+  board,
+  projectKey,
+  shown,
+  settings,
+  limits,
+}: ColumnsProps) => {
+  const doneWindow =
+    board.board_type === 'kanban' ? settings?.done_window_days : null
   const narrow = useIsMobile()
   // Held here, above the drag layer swap, so an open form survives it; one column's form at a time.
   const [creating, setCreating] = useState<number | null>(null)
@@ -134,11 +158,27 @@ const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
     (card: Card) => <BoardCard card={card} projectKey={projectKey} />,
     [projectKey]
   )
+  // The settings limit, so a change from the header shows (and rolls back) with the settings write.
+  const withLimit = (column: BoardColumn) => {
+    const limit = settings?.columns.find(
+      (each) => each.id === column.id
+    )?.wip_limit
+    return limit === undefined
+      ? column
+      : recount({ ...column, wip_limit: limit }, 0)
+  }
   const renderColumn = (column: BoardColumn, list: ReactNode) => (
     <ColumnShell
       key={column.id}
-      column={column}
+      column={withLimit(column)}
       narrowHidden={column.id !== shown}
+      menu={
+        limits && (
+          <Suspense fallback={<span className='block size-11 md:size-8' />}>
+            <ColumnLimit projectKey={projectKey} columnId={column.id} />
+          </Suspense>
+        )
+      }
       footer={
         <>
           <CreateSlot
@@ -193,6 +233,7 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
     placeholderData: keepPreviousData,
   })
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
+  const { data: project } = useQuery(projectQuery(projectKey))
   if (error) throw error
   if (!board) return <BoardSkeleton />
   if (board.board_type === 'scrum' && !board.sprint)
@@ -223,9 +264,8 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
           board={board}
           projectKey={projectKey}
           shown={shown}
-          doneWindow={
-            board.board_type === 'kanban' ? settings?.done_window_days : null
-          }
+          settings={settings}
+          limits={board.board_type === 'kanban' && project?.role === 'admin'}
         />
       </BoardContext>
     </>

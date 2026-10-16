@@ -86,7 +86,7 @@ describe('moving cards by drag and drop', () => {
 
     await expect.poll(() => bodyOf(requests, MOVE)).toEqual({ status_id: 21 })
     await expect.element(doing).toHaveTextContent('Write the release notes')
-    expect(doing.getByText('In review').elements()).toHaveLength(0)
+    await expect.element(doing.getByText('In review')).not.toBeInTheDocument()
   })
 
   it('counts follow the held card and come back when the drag is cancelled (KB-27)', async () => {

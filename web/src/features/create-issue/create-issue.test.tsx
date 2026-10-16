@@ -316,7 +316,9 @@ describe('create issue', () => {
     await done.getByRole('button', { name: 'Create issue' }).click()
     await done.getByLabelText('New issue summary').fill('Ship it')
     await userEvent.keyboard('{Enter}')
-    await expect.element(done.getByLabelText('New issue summary')).toHaveValue('')
+    await expect
+      .element(done.getByLabelText('New issue summary'))
+      .toHaveValue('')
     await doing.getByRole('button', { name: 'Create issue' }).click()
     expect(done.getByLabelText('New issue summary').elements()).toHaveLength(0)
     await doing.getByLabelText('New issue summary').fill('Review it')
@@ -325,8 +327,18 @@ describe('create issue', () => {
     await expect
       .poll(() => bodiesOf(requests, CREATE_WEB))
       .toEqual([
-        { summary: 'Ship it', issue_type: 'story', sprint_id: 4, status_id: 30 },
-        { summary: 'Review it', issue_type: 'story', sprint_id: 4, status_id: 20 },
+        {
+          summary: 'Ship it',
+          issue_type: 'story',
+          sprint_id: 4,
+          status_id: 30,
+        },
+        {
+          summary: 'Review it',
+          issue_type: 'story',
+          sprint_id: 4,
+          status_id: 20,
+        },
       ])
   })
 })

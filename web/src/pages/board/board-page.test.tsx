@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { WEB_BOARD, inProjects, routeOf } from '@/test/stub-api'
+import {
+  OPS,
+  OPS_BOARD,
+  OPS_SETTINGS,
+  WEB_BOARD,
+  inProjects,
+  routeOf,
+} from '@/test/stub-api'
 
 describe('board page', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -62,6 +69,59 @@ describe('board page', () => {
       )
     expect(
       screen.getByRole('region', { name: 'Active sprint' }).elements()
+    ).toHaveLength(0)
+  })
+
+  it('lets an admin set a column limit from its header, shown at once (KB-16, D7)', async () => {
+    const PUT = 'PUT /api/projects/OPS/board/columns/2'
+    const requests = inProjects({
+      'GET /api/projects/OPS': { status: 200, body: { ...OPS, role: 'admin' } },
+      'GET /api/projects/OPS/board/settings': {
+        status: 200,
+        body: {
+          ...OPS_SETTINGS,
+          columns: OPS_SETTINGS.columns.map((column, index) => ({
+            ...column,
+            name: OPS_BOARD.columns[index].name,
+            wip_limit: OPS_BOARD.columns[index].wip_limit,
+          })),
+        },
+      },
+      [PUT]: { status: 200, body: {}, until: new Promise(() => {}) },
+    })
+    const { screen } = await renderApp('/p/OPS/board')
+    const doing = screen.getByRole('region', { name: 'Doing' })
+
+    await doing
+      .getByRole('button', { name: 'Actions for column Doing' })
+      .click()
+    await screen.getByRole('menuitem', { name: 'Set WIP limit' }).click()
+    const limit = doing.getByLabelText('WIP limit of Doing')
+    await expect.element(limit).toHaveValue(1)
+    await limit.fill('3')
+    await userEvent.keyboard('{Enter}')
+
+    await expect.element(doing.getByText('Max 3')).toBeVisible()
+    expect(doing.getByTitle(/Over the limit/).elements()).toHaveLength(0)
+    expect(doing.getByLabelText('WIP limit of Doing').elements()).toHaveLength(
+      0
+    )
+    const put = requests.find((request) => routeOf(request) === PUT)
+    expect(await put?.json()).toEqual({ name: 'Doing', wip_limit: 3 })
+  })
+
+  it('keeps the column menu to admins of kanban boards', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/OPS/board')
+    await expect.element(screen.getByText('Patch the gateway')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Actions for column/ }).elements()
+    ).toHaveLength(0)
+
+    await screen.getByRole('link', { name: 'Website' }).first().click()
+    await expect.element(screen.getByText('WEB-1')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /^Actions for column/ }).elements()
     ).toHaveLength(0)
   })
 
