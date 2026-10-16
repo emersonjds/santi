@@ -255,3 +255,17 @@ Market: Linear, GitHub, GitLab and YouTrack expose JSON over HTTP (REST or Graph
 Product vote: A — integrations and scripts speak HTTP + JSON natively (curl, any language's standard library); gRPC raises the contribution bar with protoc, generated code and a second toolchain.
 Architecture vote: A — JSON REST described by OpenAPI (D24 errors included) with gzip/br response compression (`tower-http`); the browser gets HTML through htmx anyway (D1), payloads are a few KB so serialization cost is negligible next to the database and the network, and every call stays debuggable with curl and browser devtools. B would need grpc-web or a proxy for the browser and protoc in every build.
 Winner: A — one wire format for UI, CLI, MCP and scripts; accepted: the contract is typed by OpenAPI plus the shared `santi-types` DTOs instead of protobuf schemas, and gRPC is reconsidered only for high-volume service-to-service traffic, which santi does not have.
+
+## D35 — CSS with Tailwind (amends D26)
+Context: the hand-written `app.css` slowed down the tracker-style layout pass; the owner asked for Tailwind.
+Options: A) keep hand-written CSS B) Tailwind v4 standalone CLI, output committed C) Tailwind through npm
+Product vote: B — utility classes in the askama templates make layout changes fast and readable next to the markup.
+Architecture vote: B — the standalone binary needs no Node; `static/app.css` is generated (minified) and committed, so `cargo build` still needs nothing extra; CI downloads the binary, regenerates and fails when the committed file is stale. JS stays vendored as in D26, same 50 KB gzip budget.
+Winner: B — fast styling with no Node toolchain; accepted: contributors who change styles install one binary (`brew install tailwindcss`).
+
+## D36 — Visual identity: light theme, brand purple
+Context: first screens shipped dark with a teal accent; the owner wants the familiar light tracker look with santi's own brand.
+Options: A) dark + teal B) light + brand purple
+Product vote: B — a white canvas with dense rows is what tracker users expect; purple #4C35D2 (shared with the owner's other product) gives santi its own identity where the reference uses blue.
+Architecture vote: B — one set of color tokens in the Tailwind `@theme`; dark mode reuses the same purple later.
+Winner: B — light theme first, purple #4C35D2 for primary actions, focus and active navigation; accepted: dark mode is a later pass.
