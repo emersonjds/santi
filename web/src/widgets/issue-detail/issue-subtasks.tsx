@@ -6,9 +6,14 @@ import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { subtasksQuery } from '@/entities/issue/issue-queries'
+import { StatusPill } from '@/entities/issue/status-pill'
+import { type Status, statusesById } from '@/entities/issue/statuses'
 import { type Issue, fieldMessage } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
+
+const SubtaskStatus = ({ status }: { status?: Status }) =>
+  status && <StatusPill status={status} />
 
 type IssueSubtasksProps = { issue: Issue; projectKey: string }
 
@@ -19,10 +24,7 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
   const create = useCreateIssue(projectKey)
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
-  const statusName = (statusId: number) =>
-    settings?.columns
-      .flatMap((column) => column.statuses)
-      .find((status) => status.id === statusId)?.name
+  const statuses = statusesById(settings)
 
   const cancel = () => {
     setAdding(false)
@@ -45,11 +47,11 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
       <h3 id='issue-subtasks' className='text-sm font-semibold'>
         Subtasks
       </h3>
-      <ul className='grid divide-y rounded-md border empty:hidden'>
+      <ul className='grid grid-cols-1 divide-y rounded-md border empty:hidden'>
         {subtasks.map((subtask) => (
           <li
             key={subtask.key}
-            className='flex min-h-11 items-center gap-2 px-3 text-sm'
+            className='flex min-h-11 items-center gap-2 px-3 text-sm transition-colors duration-150 hover:bg-hover'
           >
             <TypeGlyph type={subtask.issue_type} />
             <span className='text-subtle-foreground tabular-nums'>
@@ -62,9 +64,7 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
             >
               {subtask.summary}
             </Link>
-            <span className='rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'>
-              {statusName(subtask.status_id)}
-            </span>
+            <SubtaskStatus status={statuses.get(subtask.status_id)} />
           </li>
         ))}
       </ul>

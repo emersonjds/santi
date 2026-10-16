@@ -47,7 +47,7 @@ export const MembersPopover = ({ projectKey, admin }: MembersPopoverProps) => {
           <Link
             to='/p/$key/settings/members'
             params={{ key: projectKey }}
-            className='flex min-h-11 items-center border-t px-3 text-sm font-medium text-primary hover:bg-muted'
+            className='flex min-h-11 items-center border-t px-3 text-sm font-medium text-primary hover:bg-hover'
           >
             Manage members
           </Link>

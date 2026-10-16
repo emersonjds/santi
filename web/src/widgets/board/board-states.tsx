@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import type { Sprint } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { COLUMN_WIDTH } from './board-column'
 
 const DAY = 86_400_000
 
@@ -53,19 +54,28 @@ export const NoSprint = ({ projectKey }: { projectKey: string }) => (
   </div>
 )
 
-/** Same boxes as the loaded board (filter bar, three columns), so nothing shifts when cards land (D39). */
-export const BoardSkeleton = () => (
+const CARD = 'h-22 border bg-card'
+
+/** Same boxes as the loaded board (sprint line, filter bar, columns), so nothing shifts when cards land (D39). */
+export const BoardSkeleton = ({ scrum }: { scrum: boolean }) => (
   <div role='status' aria-label='Loading board' className='grid gap-3'>
-    <Skeleton className='h-11 w-64' />
+    {scrum && (
+      <div className='grid gap-1'>
+        <Skeleton className='h-5 w-48' />
+        <Skeleton className='h-5 w-full max-w-xl' />
+      </div>
+    )}
+    <Skeleton className='h-11 w-24 md:h-9 md:w-full md:max-w-2xl' />
+    <Skeleton className='h-11 w-64 rounded-full md:hidden' />
     <div className='flex gap-3 overflow-hidden'>
       {[0, 1, 2].map((column) => (
         <div
           key={column}
-          className='grid w-full shrink-0 content-start gap-2 rounded-lg bg-muted p-2 md:w-72'
+          className={`grid content-start gap-2 rounded-lg bg-muted px-2 pt-3 pb-2 ${COLUMN_WIDTH}`}
         >
-          <Skeleton className='m-1 h-5 w-24' />
-          <Skeleton className='h-22 bg-card' />
-          <Skeleton className='h-22 bg-card' />
+          <Skeleton className='mx-1 h-4 w-24' />
+          <Skeleton className={CARD} />
+          <Skeleton className={CARD} />
         </div>
       ))}
     </div>

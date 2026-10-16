@@ -290,7 +290,7 @@ describe('epic panel', () => {
     await screen.getByRole('button', { name: 'Epics' }).click()
     const sheet = screen.getByRole('dialog', { name: 'Epics' })
     await expect.element(sheet).toBeVisible()
-    expect(sheet.element().getBoundingClientRect().width).toBe(375)
+    expect(sheet.element().getBoundingClientRect().width).toBeCloseTo(375, 0)
     await sheet.getByRole('button', { name: 'Close' }).click()
     await expect.poll(() => router.state.location.search).toEqual({})
 

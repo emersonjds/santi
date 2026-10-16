@@ -9,6 +9,7 @@ import {
   formData,
 } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
+import { Disclosure } from '@/shared/ui/disclosure'
 import { RootError } from '@/shared/ui/root-error'
 
 const MAX_BYTES = 10 * 1024 * 1024
@@ -84,7 +85,7 @@ export const UploadStep = ({ projectKey, onPreview }: UploadStepProps) => {
         onDragLeave={() => setOver(false)}
         onDrop={drop}
         className={cn(
-          'grid justify-items-center gap-3 rounded-lg border-2 border-dashed border-input bg-muted px-4 py-10 text-center',
+          'grid justify-items-center gap-3 rounded-lg border border-dashed border-input bg-muted px-4 py-10 text-center transition-colors duration-150 ease-out',
           over && 'border-primary bg-accent'
         )}
       >
@@ -116,10 +117,7 @@ export const UploadStep = ({ projectKey, onPreview }: UploadStepProps) => {
           How to export
         </h4>
         {HELP.map((help) => (
-          <details key={help.source} className='rounded-md border px-3'>
-            <summary className='flex min-h-11 cursor-pointer items-center text-sm font-medium'>
-              {help.source}
-            </summary>
+          <Disclosure key={help.source} title={help.source}>
             <p className='pb-2 text-sm text-muted-foreground'>{help.steps}</p>
             <a
               href={help.href}
@@ -129,7 +127,7 @@ export const UploadStep = ({ projectKey, onPreview }: UploadStepProps) => {
             >
               {help.guide} (opens a new tab)
             </a>
-          </details>
+          </Disclosure>
         ))}
       </section>
     </div>

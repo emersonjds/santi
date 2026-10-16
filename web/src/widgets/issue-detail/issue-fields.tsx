@@ -11,6 +11,7 @@ import {
   isIssueType,
   isPriority,
 } from '@/entities/issue/labels'
+import { CATEGORY, statusesById } from '@/entities/issue/statuses'
 import { timeAgo } from '@/entities/issue/time-ago'
 import {
   membersQuery,
@@ -19,12 +20,23 @@ import {
 } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { type Issue, fieldMessage } from '@/shared/api/client'
+import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
 
 // Native selects: no menu chunk to load, the phone's own picker, 44px rows on touch (ui-layout).
-const SELECT =
-  'h-11 w-full rounded-md border border-input bg-background px-2 text-base md:h-9 md:text-sm'
+// Wide screens: borderless until hovered or focused, so the column reads as a list of values.
+const GHOST =
+  'transition-colors duration-150 ease-out md:h-8 md:border-transparent md:bg-transparent md:shadow-none md:hover:border-input md:hover:bg-background md:focus-visible:border-ring md:focus-visible:bg-background'
+const SELECT = cn(
+  'h-11 w-full rounded-md border border-input bg-background px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm',
+  GHOST
+)
+const INPUT = cn('h-11 md:px-2', GHOST)
+const ROW =
+  'grid gap-1.5 md:min-h-8 md:grid-cols-[5.5rem_minmax(0,1fr)] md:items-center md:gap-x-2 md:gap-y-0.5'
+const LABEL =
+  'text-xs font-medium text-muted-foreground md:text-sm md:font-normal'
 
 type Save = (change: IssueChange['change'], shown: IssueChange['shown']) => void
 
@@ -40,22 +52,24 @@ const Field = ({ label, issue, projectKey, children }: FieldProps) => {
   const edit = useEditIssue(projectKey, issue)
   const id = useId()
   return (
-    <div className='grid gap-1.5'>
-      <label htmlFor={id} className='text-xs font-medium text-muted-foreground'>
+    <div className={ROW}>
+      <label htmlFor={id} className={LABEL}>
         {label}
       </label>
       {children((change, shown) => edit.mutate({ change, shown }), id)}
       {edit.error && (
-        <p className='text-sm text-destructive'>{fieldMessage(edit.error)}</p>
+        <p className='text-sm text-destructive md:col-start-2'>
+          {fieldMessage(edit.error)}
+        </p>
       )}
     </div>
   )
 }
 
 const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className='grid gap-0.5'>
-    <span className='text-xs font-medium text-muted-foreground'>{label}</span>
-    <span className='text-sm'>{children}</span>
+  <div className={ROW}>
+    <span className={LABEL}>{label}</span>
+    <span className='text-sm md:px-2.25'>{children}</span>
   </div>
 )
 
@@ -67,14 +81,19 @@ const When = ({ iso }: { iso: string }) => (
 
 type IssueFieldsProps = { issue: Issue; projectKey: string }
 
+/** IA §4: the issue's primary control, in its category's chip colours (D36). */
 const StatusField = ({ issue, projectKey }: IssueFieldsProps) => {
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
+  const category = statusesById(settings).get(issue.status_id)?.category
   return (
     <Field label='Status' issue={issue} projectKey={projectKey}>
       {(save, id) => (
         <select
           id={id}
-          className={SELECT}
+          className={cn(
+            'h-11 w-full rounded-md border border-transparent px-2 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8 md:w-fit md:max-w-full md:text-sm',
+            category ? CATEGORY[category].tone : 'bg-muted'
+          )}
           value={issue.status_id}
           onChange={(event) => {
             const status_id = Number(event.target.value)
@@ -137,7 +156,7 @@ const AssigneeField = ({ issue, projectKey }: IssueFieldsProps) => {
             {me && issue.assignee_id !== me.id && (
               <Button
                 variant='link'
-                className='h-11 justify-self-start px-0 md:h-7'
+                className='h-11 justify-self-start px-0 md:col-start-2 md:h-7 md:px-2.25'
                 aria-keyshortcuts='i'
                 onClick={() => assign(me.id)}
               >
@@ -226,9 +245,9 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
   return (
     <section
       aria-labelledby='issue-details'
-      className='grid content-start gap-4 md:border-s md:ps-6'
+      className='grid content-start gap-4 md:gap-1 md:border-s md:ps-6'
     >
-      <h3 id='issue-details' className='text-sm font-semibold'>
+      <h3 id='issue-details' className='text-sm font-semibold md:mb-2'>
         Details
       </h3>
       <StatusField {...field} />
@@ -280,7 +299,7 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
             min={0}
             step='any'
             inputMode='decimal'
-            className='h-11 md:h-9'
+            className={INPUT}
             value={issue.points == null ? '' : String(issue.points)}
             onCommit={(text) => {
               const points = pointsOf(text)
@@ -294,7 +313,7 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
         {(save, id) => (
           <CommitInput
             id={id}
-            className='h-11 md:h-9'
+            className={INPUT}
             placeholder='Words separated by spaces'
             value={issue.labels.join(' ')}
             onCommit={(text) => {

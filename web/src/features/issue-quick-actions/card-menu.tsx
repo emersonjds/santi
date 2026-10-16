@@ -1,6 +1,14 @@
 import { use } from 'react'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { Copy, Ellipsis, Trash2 } from 'lucide-react'
+import {
+  ArrowRightLeft,
+  Copy,
+  Ellipsis,
+  SignalHigh,
+  Trash2,
+  UserCheck,
+  UserPlus,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { planMove, statusMove } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
@@ -42,7 +50,10 @@ const MoveTo = ({ card, projectKey }: CardMenuProps) => {
 
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger className={ROW}>Move to…</DropdownMenuSubTrigger>
+      <DropdownMenuSubTrigger className={ROW}>
+        <ArrowRightLeft />
+        Move to…
+      </DropdownMenuSubTrigger>
       <DropdownMenuSubContent className='w-40'>
         {board.columns.map((column) => {
           const statuses = statusesOf(settings, column.id)
@@ -119,11 +130,15 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
     <>
       {me && card.assignee_id !== me.id && (
         <DropdownMenuItem className={ROW} onSelect={() => assign(me.id)}>
+          <UserCheck />
           Assign to me
         </DropdownMenuItem>
       )}
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger className={ROW}>Assign…</DropdownMenuSubTrigger>
+        <DropdownMenuSubTrigger className={ROW}>
+          <UserPlus />
+          Assign…
+        </DropdownMenuSubTrigger>
         <DropdownMenuSubContent className='max-h-80 w-40 overflow-y-auto'>
           <DropdownMenuRadioGroup
             value={String(card.assignee_id ?? UNASSIGNED)}
@@ -148,6 +163,7 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
       </DropdownMenuSub>
       <DropdownMenuSub>
         <DropdownMenuSubTrigger className={ROW}>
+          <SignalHigh />
           Set priority
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
@@ -185,7 +201,7 @@ export const CardMenu = ({
   <DropdownMenu>
     <DropdownMenuTrigger
       aria-label={`Actions for ${card.key}`}
-      className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-10'
+      className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-10'
     >
       <Ellipsis className='size-4' />
     </DropdownMenuTrigger>

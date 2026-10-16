@@ -58,7 +58,7 @@ export const FilterBar = ({
       <div
         role='group'
         aria-label='Filters'
-        className='hidden min-w-0 items-center gap-2 md:flex'
+        className='hidden min-w-0 flex-wrap items-center gap-2 md:flex'
       >
         {text && <TextFilter q={search.q} />}
         <AssigneeToggles {...props} />

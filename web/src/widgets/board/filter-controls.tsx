@@ -14,7 +14,7 @@ import { Input } from '@/shared/ui/input'
 import { NativeSelect } from '@/shared/ui/native-select'
 
 export const TOGGLE =
-  'inline-flex h-11 shrink-0 items-center rounded-md border px-3 text-sm font-medium whitespace-nowrap hover:bg-muted aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground md:h-9'
+  'inline-flex h-11 shrink-0 items-center rounded-md border px-3 text-sm font-medium whitespace-nowrap transition-colors duration-150 ease-out hover:bg-hover aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground md:h-9'
 
 const toggled = <Value,>(values: Value[], value: Value) =>
   values.includes(value)
@@ -35,7 +35,7 @@ export const AssigneeToggles = ({ projectKey, search }: FilterProps) => {
   const { data: members } = useSuspenseQuery(membersQuery(projectKey))
   const assignee = search.assignee ?? []
   return (
-    <div className='flex max-w-full min-w-0 -space-x-1 overflow-x-auto p-0.5'>
+    <div className='flex max-w-full min-w-0 -space-x-1 overflow-x-auto p-0.5 first:-ms-1'>
       {members.map((member) => (
         <Link
           key={member.user_id}
@@ -125,7 +125,7 @@ export const TextFilter = ({ q }: { q?: string }) => {
       placeholder='Filter issues'
       value={text}
       onChange={({ target }) => setText(target.value)}
-      className='h-11 w-full md:h-9 md:w-44'
+      className='h-11 w-full md:h-9 md:w-40'
     />
   )
 }
@@ -215,7 +215,7 @@ export const EpicFilter = ({ projectKey, search }: FilterProps) => {
           search: (prev) => ({ ...prev, epic: target.value || undefined }),
         })
       }
-      className='max-w-56'
+      className='w-full md:w-36'
     >
       <option value=''>Any epic</option>
       <option value='none'>No epic</option>

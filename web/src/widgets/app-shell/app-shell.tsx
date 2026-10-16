@@ -17,7 +17,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => (
       Skip to content
     </a>
     <AppSidebar />
-    <SidebarInset>
+    <SidebarInset className='min-w-0'>
       <TopBar />
       <main id='content' className='flex min-w-0 flex-1 flex-col'>
         {children}

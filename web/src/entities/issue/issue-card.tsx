@@ -1,8 +1,8 @@
 import { type ReactNode, memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ListTree } from 'lucide-react'
+import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
-import { initials } from '@/shared/lib/initials'
 import { issueNumber } from './board-query'
 import { PriorityGlyph, TypeGlyph } from './issue-glyphs'
 import { timeAgo } from './time-ago'
@@ -31,7 +31,7 @@ export const SubtaskCount = ({ card }: { card: Card }) =>
 type IssueCardProps = { card: Card; projectKey: string; menu?: ReactNode }
 
 export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
-  <article className='relative grid gap-2 rounded-md border bg-card p-3 pe-11 text-sm shadow-xs hover:border-primary'>
+  <article className='relative grid gap-2 rounded-md border bg-card p-3 pe-11 text-sm shadow-xs transition-[border-color,box-shadow] duration-150 ease-out hover:border-input/60 hover:shadow-sm'>
     {card.parent_key && (
       <span className='w-fit rounded-sm bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'>
         {card.parent_key}
@@ -54,7 +54,7 @@ export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
     <div className='flex min-h-6 items-center gap-2 text-xs'>
       <TypeGlyph type={card.issue_type} />
       <span
-        className='tracking-wide text-subtle-foreground tabular-nums'
+        className='tracking-wide whitespace-nowrap text-subtle-foreground tabular-nums'
         title={`Updated ${timeAgo(card.updated_at)}`}
       >
         {card.key}
@@ -70,14 +70,7 @@ export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
           </span>
         )}
         <PriorityGlyph priority={card.priority} />
-        {card.assignee_name && (
-          <span
-            className='grid size-6 shrink-0 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
-            title={`Assigned to ${card.assignee_name}`}
-          >
-            {initials(card.assignee_name)}
-          </span>
-        )}
+        {card.assignee_name && <AssigneeAvatar name={card.assignee_name} />}
       </span>
     </div>
     {menu && <div className='absolute end-0.5 top-0.5 z-10'>{menu}</div>}

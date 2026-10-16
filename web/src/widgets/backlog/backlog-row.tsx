@@ -11,8 +11,8 @@ import { SubtaskCount } from '@/entities/issue/issue-card'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { StatusPill } from '@/entities/issue/status-pill'
 import type { Status } from '@/entities/issue/statuses'
+import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Backlog, Card } from '@/shared/api/client'
-import { initials } from '@/shared/lib/initials'
 
 type Epic = Backlog['epics'][number]
 
@@ -58,14 +58,7 @@ const Points = ({ card }: { card: Card }) =>
   )
 
 const Assignee = ({ card }: { card: Card }) =>
-  card.assignee_name && (
-    <span
-      className='grid size-6 shrink-0 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
-      title={`Assigned to ${card.assignee_name}`}
-    >
-      {initials(card.assignee_name)}
-    </span>
-  )
+  card.assignee_name && <AssigneeAvatar name={card.assignee_name} />
 
 /** One dense line on wide screens; on a phone the summary takes two lines and the facts wrap below. */
 export const BacklogRow = memo(
@@ -96,18 +89,18 @@ export const BacklogRow = memo(
     )
     const fields = { card, projectKey }
     return (
-      <div className='group relative flex min-h-11 items-start bg-card ps-1 hover:bg-muted md:items-center'>
+      <div className='group relative flex min-h-11 items-start bg-card ps-1 transition-colors duration-150 hover:bg-hover md:items-center'>
         {handle}
         <div className='grid min-w-0 flex-1 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 py-2 ps-2 text-sm md:flex md:py-1.5 md:ps-0'>
           <TypeGlyph type={card.issue_type} />
-          <span className='text-xs tracking-wide text-subtle-foreground tabular-nums'>
+          <span className='text-xs tracking-wide whitespace-nowrap text-subtle-foreground tabular-nums'>
             {card.key}
           </span>
           {editable ? <RowSummary {...fields}>{summary}</RowSummary> : summary}
-          <span className='col-span-3 flex flex-wrap items-center gap-2 md:contents'>
+          <span className='col-span-3 flex min-w-0 items-center gap-2 md:contents'>
             {epic && (
               <span
-                className='inline-flex max-w-40 items-center gap-1 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'
+                className='inline-flex min-w-0 items-center gap-1 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground md:max-w-40'
                 title={`Epic ${epic.summary}`}
               >
                 <Layers

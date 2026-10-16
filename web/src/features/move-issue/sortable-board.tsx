@@ -139,7 +139,7 @@ const SortableCard = ({
       className={cn(
         'touch-manipulation rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring',
         isDragging &&
-          'bg-accent outline-2 outline-offset-0 outline-primary outline-dashed',
+          'bg-accent/60 outline-2 outline-offset-0 outline-primary outline-dashed',
         // Out of the flow under the zones, so they keep their size while the card hovers them.
         isDragging && zoned && 'invisible absolute'
       )}
@@ -358,7 +358,9 @@ export const SortableBoard = ({
       })}
       <DragOverlay>
         {pending?.held && (
-          <div className='rounded-md shadow-lg'>{renderCard(pending.held)}</div>
+          <div className='cursor-grabbing rounded-md shadow-xl ring-1 ring-primary/30'>
+            {renderCard(pending.held)}
+          </div>
         )}
       </DragOverlay>
     </DndContext>

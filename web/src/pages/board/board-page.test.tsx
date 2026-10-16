@@ -214,4 +214,35 @@ describe('board page', () => {
       .element(screen.getByRole('status', { name: 'Loading board' }))
       .toBeVisible()
   })
+
+  it('stretches its columns to fill a wide screen, up to 26rem each', async () => {
+    await page.viewport(1440, 900)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const columns = screen.getByRole('region', { name: 'Board' })
+    const done = screen.getByRole('region', { name: 'Done' })
+    await expect.element(done).toBeVisible()
+    const board = columns.element().getBoundingClientRect()
+    const last = done.element().getBoundingClientRect()
+    // 24px is the board's padding: the last column ends at the content edge.
+    expect(Math.round(board.right - last.right)).toBe(24)
+    expect(last.width).toBeGreaterThan(288)
+
+    await page.viewport(2560, 900)
+    await expect
+      .poll(() => done.element().getBoundingClientRect().width)
+      .toBe(416)
+  })
+
+  it('keeps every column at least 18rem wide, scrolling the board sideways instead', async () => {
+    await page.viewport(900, 800)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const done = screen.getByRole('region', { name: 'Done' })
+    await expect.element(done).toBeInTheDocument()
+    expect(done.element().getBoundingClientRect().width).toBe(288)
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(900)
+  })
 })

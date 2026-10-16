@@ -222,7 +222,7 @@ export const SortableColumn = ({
           aria-label={`Drag column ${column.name}`}
           className={cn(
             ICON,
-            'inline-flex touch-manipulation items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring'
+            'inline-flex touch-manipulation items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring'
           )}
         >
           <GripVertical className='size-4' />
