@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { LabelsPicker } from '@/features/edit-labels/labels-picker'
 import { epicsQuery, parentsQuery } from '@/entities/issue/board-query'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { PRIORITY_LABEL, TYPE_LABEL } from '@/entities/issue/labels'
@@ -56,6 +57,7 @@ const schema = z.object({
     .refine((text) => text === '' || Number(text) >= 0, 'Use zero or more.'),
   sprint_id: z.string(),
   parent: z.string(),
+  labels: z.array(z.string()),
 })
 
 type NewIssue = z.infer<typeof schema>
@@ -69,6 +71,7 @@ const FIELDS = [
   'points',
   'sprint_id',
   'parent',
+  'labels',
 ] as const
 
 // Native selects, as in the issue view: no menu chunk, the phone's own picker.
@@ -85,6 +88,7 @@ const blank = (project: string): NewIssue => ({
   points: '',
   sprint_id: '',
   parent: '',
+  labels: [],
 })
 
 /** Empty fields stay out of the body, so the server applies its defaults (D5). */
@@ -97,6 +101,7 @@ const toBody = (values: NewIssue): CreateIssue => ({
   points: values.points ? Number(values.points) : undefined,
   sprint_id: values.sprint_id ? Number(values.sprint_id) : undefined,
   parent: values.parent || undefined,
+  labels: values.labels.length > 0 ? values.labels : undefined,
 })
 
 type Option = { value: string | number; label: string }
@@ -378,6 +383,23 @@ export const CreateIssueDialog = ({
                 />
               )}
             </div>
+            <FormField
+              control={form.control}
+              name='labels'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Labels</FormLabel>
+                  <FormControl>
+                    <LabelsPicker
+                      projectKey={project}
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <RootError message={form.formState.errors.root?.message} />
             <div className='flex flex-wrap items-center gap-3'>
               <Label className='me-auto min-h-11 gap-2 md:min-h-0'>
