@@ -7,7 +7,7 @@ import {
 } from '@/entities/issue/board-query'
 import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
 import type { BoardView } from '@/shared/api/client'
-import { ColumnShell } from './board-column'
+import { ColumnPicker, ColumnShell } from './board-column'
 import { BoardSkeleton, NoSprint, SprintStrip } from './board-states'
 import { FilterBar } from './filter-bar'
 
@@ -22,10 +22,12 @@ const DoneNote = ({ days }: { days: number }) => (
 const Columns = ({
   board,
   projectKey,
+  shown,
   doneWindow,
 }: {
   board: BoardView
   projectKey: string
+  shown: number
   doneWindow?: number | null
 }) => (
   <div className='flex flex-1 gap-3 overflow-x-auto overscroll-x-contain pb-2'>
@@ -33,7 +35,7 @@ const Columns = ({
       <ColumnShell
         key={column.id}
         column={column}
-        narrowHidden={index > 0}
+        narrowHidden={column.id !== shown}
         footer={
           doneWindow != null &&
           index === board.columns.length - 1 && <DoneNote days={doneWindow} />
@@ -62,6 +64,9 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
   if (!board) return <BoardSkeleton />
   if (board.board_type === 'scrum' && !board.sprint)
     return <NoSprint projectKey={projectKey} />
+  const shown =
+    board.columns.find((column) => column.id === search.column)?.id ??
+    board.columns[0]?.id
 
   return (
     <>
@@ -73,9 +78,15 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
             No issues match these filters.
           </p>
         )}
+      <ColumnPicker
+        projectKey={projectKey}
+        columns={board.columns}
+        shown={shown}
+      />
       <Columns
         board={board}
         projectKey={projectKey}
+        shown={shown}
         doneWindow={
           board.board_type === 'kanban' ? settings?.done_window_days : null
         }

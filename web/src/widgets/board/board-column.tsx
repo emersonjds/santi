@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Link } from '@tanstack/react-router'
 import type { BoardColumn } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
 
@@ -14,6 +15,36 @@ const WipBadge = ({ limit, over }: { limit: number; over: boolean }) => (
   >
     Max {limit}
   </span>
+)
+
+/** 375px: one column at a time, picked here and kept in `?column=` (IA §10). */
+export const ColumnPicker = ({
+  projectKey,
+  columns,
+  shown,
+}: {
+  projectKey: string
+  columns: BoardColumn[]
+  shown: number
+}) => (
+  <nav aria-label='Columns' className='flex flex-wrap gap-1.5 md:hidden'>
+    {columns.map((column) => (
+      <Link
+        key={column.id}
+        to='/p/$key/board'
+        params={{ key: projectKey }}
+        search={(prev) => ({ ...prev, column: column.id })}
+        replace
+        aria-current={column.id === shown}
+        className='inline-flex h-11 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold aria-[current=true]:border-primary aria-[current=true]:bg-accent aria-[current=true]:text-accent-foreground'
+      >
+        {column.name}
+        <span className='text-muted-foreground tabular-nums'>
+          {column.issue_count}
+        </span>
+      </Link>
+    ))}
+  </nav>
 )
 
 type ColumnShellProps = {
