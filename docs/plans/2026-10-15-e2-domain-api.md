@@ -29,7 +29,7 @@
   - `cargo clippy --workspace --all-targets -- -D warnings`
   - `cargo test --workspace`
   - `cargo sqlx prepare --workspace --check`
-  - `LLVM_COV=$(brew --prefix llvm@22)/bin/llvm-cov LLVM_PROFDATA=$(brew --prefix llvm@22)/bin/llvm-profdata cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$' --fail-under-lines 90 --fail-under-functions 90 --fail-under-regions 90`
+  - `LLVM_COV=$(brew --prefix llvm@22)/bin/llvm-cov LLVM_PROFDATA=$(brew --prefix llvm@22)/bin/llvm-profdata cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$' --fail-under-lines 90 --fail-under-functions 90 --fail-under-regions 90`
 - Out of E2 (YAGNI): issue deletion, password change, sprint reports read endpoint, closed-sprint reopen/delete, sprint reordering, swimlanes, saved filters, real-time push, TLS to PostgreSQL (add `tls-rustls-ring-webpki` to sqlx when an instance needs a remote database), HTML pages (E4).
 
 ## File map

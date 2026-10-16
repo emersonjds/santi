@@ -5,9 +5,11 @@ use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
 use axum::response::Response;
 use http_body_util::BodyExt;
-use serde_json::Value;
+use serde_json::{Value, json};
 use sqlx::PgPool;
 use tower::ServiceExt;
+
+pub const PASSWORD: &str = "correct horse battery";
 
 #[derive(Clone)]
 pub struct TestApp {
@@ -23,6 +25,41 @@ impl TestApp {
             router,
             token: None,
             user_id: 0,
+        }
+    }
+
+    pub async fn signed_in(pool: PgPool, email: &str) -> Self {
+        TestApp::anonymous(pool).another_user(email).await
+    }
+
+    /// Registers a new user on the same router and signs in with a fresh API token.
+    pub async fn another_user(&self, email: &str) -> Self {
+        let register = json!({ "email": email, "password": PASSWORD, "display_name": email });
+        let response = self
+            .send(json_request(
+                Method::POST,
+                "/api/auth/register",
+                None,
+                Some(register),
+            ))
+            .await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+        let cookie = session_cookie(&response);
+        let user = body_json(response).await;
+        let mut request = json_request(
+            Method::POST,
+            "/api/tokens",
+            None,
+            Some(json!({ "name": "tests" })),
+        );
+        request
+            .headers_mut()
+            .insert(header::COOKIE, cookie.parse().unwrap());
+        let created = body_json(self.send(request).await).await;
+        TestApp {
+            router: self.router.clone(),
+            token: Some(created["token"].as_str().unwrap().to_string()),
+            user_id: user["id"].as_i64().unwrap(),
         }
     }
 
@@ -83,4 +120,10 @@ pub async fn body_json(response: Response) -> Value {
         return Value::Null;
     }
     serde_json::from_slice(&bytes).unwrap()
+}
+
+/// The `name=value` part of the response's `Set-Cookie`, ready for a `Cookie` header.
+pub fn session_cookie(response: &Response) -> String {
+    let set_cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
+    set_cookie.split(';').next().unwrap().to_string()
 }

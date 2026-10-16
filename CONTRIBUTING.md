@@ -44,7 +44,7 @@ Coverage must stay at or above 90% for lines, regions and functions (stable tool
 and branches (nightly). Locally, with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov):
 
 ```bash
-cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$'
+cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
 On a Homebrew Rust toolchain (no rustup), point it at Homebrew's LLVM matching rustc's major version (`rustc -vV`, LLVM 22 for Rust 1.97):
@@ -52,7 +52,7 @@ On a Homebrew Rust toolchain (no rustup), point it at Homebrew's LLVM matching r
 ```bash
 LLVM_COV="$(brew --prefix llvm@22)/bin/llvm-cov" \
 LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
-cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$'
+cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
 ## Conduct and security
