@@ -65,7 +65,10 @@ export const ProjectHeader = () => {
         <BoardTypeBadge type={project.board_type} />
         <div className='ms-auto flex items-center gap-2'>
           <Suspense fallback={<MembersFallback projectKey={project.key} />}>
-            <MembersPopover projectKey={project.key} />
+            <MembersPopover
+              projectKey={project.key}
+              admin={project.role === 'admin'}
+            />
           </Suspense>
           {project.role === 'admin' && (
             <Suspense fallback={<InviteFallback />}>

@@ -70,3 +70,66 @@ test('a signed-in user opening sign in goes home', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'Hi, Linus' })).toBeVisible()
 })
+
+test('an admin changes a member role and removes them; a member gets 403 on the members page', async ({
+  page,
+  browser,
+}) => {
+  const key = `M${unique().slice(-6).toUpperCase()}`
+  await register(page, 'Ada', `e2e-${unique()}@example.com`)
+  const teammate = await (await browser.newContext()).newPage()
+  const graceEmail = `e2e-${unique()}@example.com`
+  await register(teammate, 'Grace', graceEmail)
+  await page.evaluate(
+    async ({ key, email }) => {
+      const post = (path: string, body: unknown) =>
+        fetch(path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      await post('/api/projects', {
+        key,
+        name: `Team ${key}`,
+        board_type: 'kanban',
+      })
+      await post(`/api/projects/${key}/members`, { email, role: 'member' })
+    },
+    { key, email: graceEmail }
+  )
+
+  await teammate.goto(`/p/${key}/settings/members`)
+  await expect(
+    teammate.getByText('Only project admins can change settings.')
+  ).toBeVisible()
+
+  await page.goto(`/p/${key}/board`)
+  await page.getByRole('button', { name: 'Members: 2' }).click()
+  await page.getByRole('link', { name: 'Manage members' }).click()
+  const members = page.getByRole('list', { name: 'Members' })
+  await expect(members).toContainText(graceEmail)
+  await expect(
+    page.getByRole('combobox', { name: 'Role of Ada' })
+  ).toBeDisabled()
+
+  await page
+    .getByRole('combobox', { name: 'Role of Grace' })
+    .selectOption('admin')
+  await expect(
+    page.getByRole('combobox', { name: 'Role of Ada' })
+  ).toBeEnabled()
+  await page.reload()
+  await expect(
+    page.getByRole('combobox', { name: 'Role of Grace' })
+  ).toHaveValue('admin')
+
+  await page.getByRole('button', { name: 'Remove Grace' }).click()
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Remove member' })
+    .click()
+  await expect(members).not.toContainText('Grace')
+  await expect(
+    page.getByRole('combobox', { name: 'Role of Ada' })
+  ).toBeDisabled()
+})

@@ -1,11 +1,15 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
+import { Link } from '@tanstack/react-router'
 import { ROLE_LABEL } from '@/entities/project/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { UserAvatar } from '@/entities/user/user-avatar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 import { MemberStack, STACK } from './member-stack'
 
-export const MembersPopover = ({ projectKey }: { projectKey: string }) => {
+type MembersPopoverProps = { projectKey: string; admin: boolean }
+
+/** Everyone sees the list (IA §9); admins also get the way to the members page. */
+export const MembersPopover = ({ projectKey, admin }: MembersPopoverProps) => {
   const { data: members } = useSuspenseQuery(membersQuery(projectKey))
 
   return (
@@ -39,6 +43,15 @@ export const MembersPopover = ({ projectKey }: { projectKey: string }) => {
             </li>
           ))}
         </ul>
+        {admin && (
+          <Link
+            to='/p/$key/settings/members'
+            params={{ key: projectKey }}
+            className='flex min-h-11 items-center border-t px-3 text-sm font-medium text-primary hover:bg-muted'
+          >
+            Manage members
+          </Link>
+        )}
       </PopoverContent>
     </Popover>
   )
