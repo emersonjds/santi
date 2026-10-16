@@ -121,3 +121,17 @@ async fn the_sample_needs_a_signed_in_caller(pool: PgPool) {
     assert_eq!(status, StatusCode::UNAUTHORIZED);
     assert!(api["paths"]["/api/sample-project"]["post"].is_object());
 }
+
+#[sqlx::test]
+async fn a_sample_key_taken_by_another_project_is_a_conflict(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    let digit = char::from_digit(u32::try_from(ana.user_id).unwrap(), 36).unwrap();
+    bob.create_project(&format!("MOB{}", digit.to_ascii_uppercase()), "kanban")
+        .await;
+
+    let (status, problem) = ana.post("/api/sample-project", json!(null)).await;
+
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(problem["type"], "urn:santi:error:already-exists");
+}
