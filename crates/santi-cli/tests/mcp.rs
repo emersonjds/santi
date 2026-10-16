@@ -97,7 +97,7 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         assert_eq!(hints("list_comments").read_only_hint, Some(true));
         assert_eq!(hints("delete_issue").destructive_hint, Some(true));
         assert_eq!(hints("purge_project").destructive_hint, Some(true));
-        assert_eq!(hints("trash_project").destructive_hint, Some(false));
+        assert_eq!(hints("trash_project").destructive_hint, Some(true));
         assert_eq!(hints("archive_project").destructive_hint, Some(false));
         assert_eq!(hints("create_issue").destructive_hint, Some(false));
         let schema = Value::Object((*tool("create_issue").input_schema).clone());
