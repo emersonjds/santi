@@ -122,7 +122,7 @@ Numbers, method and the load script: [docs/perf.md](docs/perf.md).
 
 ## Development
 
-You need Rust 1.97+, Node 20.19+ or 22.12+ with pnpm, and Docker for PostgreSQL.
+You need the latest stable Rust (1.97 or newer), Node 24+ with pnpm, and Docker (OrbStack) for PostgreSQL.
 
 ```bash
 docker compose up -d postgres                      # PostgreSQL only, on localhost:5440
