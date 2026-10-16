@@ -36,8 +36,24 @@ impl Client {
         Ok(Client { http, base, token })
     }
 
-    pub fn url(&self) -> &str {
-        self.base.as_str()
+    /// The server URL without its user and password, for messages.
+    pub fn shown_url(&self) -> Url {
+        let mut url = self.base.clone();
+        url.set_username("").ok();
+        url.set_password(None).ok();
+        url
+    }
+
+    /// `http://` to anything but this machine sends the token in the clear.
+    pub fn is_plain_http_to_another_host(&self) -> bool {
+        let host = self.base.host_str().unwrap_or_default();
+        let loopback = host
+            .trim_matches(['[', ']'])
+            .parse::<std::net::IpAddr>()
+            .map_or(host.eq_ignore_ascii_case("localhost"), |ip| {
+                ip.is_loopback()
+            });
+        self.base.scheme() == "http" && !loopback
     }
 
     /// The same server, acting as another user (Streamable HTTP passes each caller's token).
@@ -237,7 +253,10 @@ impl Client {
 
     async fn send<T: DeserializeOwned>(&self, request: RequestBuilder) -> Result<T, Error> {
         let network = |error: reqwest::Error| {
-            Error::Network(format!("cannot reach santi at {}: {error}", self.base))
+            Error::Network(format!(
+                "cannot reach santi at {}: {error}",
+                self.shown_url()
+            ))
         };
         let response = request.send().await.map_err(network)?;
         let status = response.status();
@@ -246,8 +265,10 @@ impl Client {
             return Err(Error::Api(problem_from(status.as_u16(), &body)));
         }
         let body = if body.is_empty() { &b"null"[..] } else { &body };
-        serde_json::from_slice(body)
-            .map_err(|error| Error::Other(format!("unexpected answer from {}: {error}", self.base)))
+        serde_json::from_slice(body).map_err(|error| {
+            let url = self.shown_url();
+            Error::Other(format!("unexpected answer from {url}: {error}"))
+        })
     }
 }
 

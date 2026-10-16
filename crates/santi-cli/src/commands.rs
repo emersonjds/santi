@@ -1,4 +1,4 @@
-use std::io::{BufRead, Write};
+use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
 use santi_types::boards::{Backlog, BoardView, Card};
@@ -88,11 +88,23 @@ async fn login(
         Error::Other("no home directory for the config file; set XDG_CONFIG_HOME".into())
     })?;
     let url = url.unwrap_or_else(|| config::DEFAULT_URL.into());
+    let client = Client::new(&url, None)?;
+    if client.is_plain_http_to_another_host() {
+        eprintln!(
+            "santi: warning: {} is plain HTTP to another host; the token travels unencrypted. Use https://.",
+            client.shown_url()
+        );
+    }
+    let question = "API token (account menu → API tokens): ";
     let token = match token {
         Some(token) => token,
-        None => ask("API token (account menu → API tokens): ")?,
+        None if std::io::stdin().is_terminal() => {
+            eprint!("{question}");
+            rpassword::read_password().map_err(|error| Error::Other(error.to_string()))?
+        }
+        None => ask(question)?,
     };
-    let me = Client::new(&url, Some(token.clone()))?.me().await?;
+    let me = client.with_token(Some(token.clone())).me().await?;
     config::save(
         &path,
         &Config {
@@ -155,7 +167,11 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
                 priority: fields.priority,
                 assignee_id: fields.assignee,
                 points: fields.points,
-                labels: Some(fields.labels).filter(|labels| !labels.is_empty()),
+                labels: match fields.labels.as_slice() {
+                    [] => None,
+                    [none] if none == "none" => Some(vec![]),
+                    _ => Some(fields.labels),
+                },
                 parent,
                 sprint_id: None,
             };
@@ -185,8 +201,7 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
         }
         IssuesCommand::Delete { issue, yes } => {
             if !yes && !confirm(&format!("Delete {issue} and its subtasks?"))? {
-                println!("Kept {issue}");
-                return Ok(());
+                return Err(Error::Declined(format!("Kept {issue}")));
             }
             client.delete_issue(&issue).await?;
             show(json, &(), |()| format!("Deleted {issue}"))
@@ -245,8 +260,7 @@ async fn import(
     show(json, &preview, preview_text)?;
     let question = format!("Import {} rows into {project}?", preview.row_count);
     if !yes && !confirm(&question)? {
-        println!("Nothing imported");
-        return Ok(());
+        return Err(Error::Declined("Nothing imported".into()));
     }
     let result = client
         .import(project, csv, &suggested_mapping(&preview))

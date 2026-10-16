@@ -18,7 +18,8 @@ pub struct Cli {
     /// Server URL [default: from `santi login`, else http://127.0.0.1:8080]
     #[arg(long, global = true, env = "SANTI_URL")]
     pub url: Option<String>,
-    /// Personal API token (`santi_…`) [default: from `santi login`]
+    /// Personal API token (`santi_…`) [default: from `santi login`]. Flags are visible in `ps`:
+    /// prefer SANTI_TOKEN, or `santi login` without --token to type it in
     #[arg(long, global = true, env = "SANTI_TOKEN", hide_env_values = true)]
     pub token: Option<String>,
     /// Print the API's JSON instead of text
@@ -160,7 +161,7 @@ pub struct Fields {
     /// Assignee user id, or `none`
     #[arg(long, value_parser = nullable_number::<i64>)]
     pub assignee: Option<Nullable<i64>>,
-    /// Repeat for several labels
+    /// Repeat for several labels; `--label none` clears them on edit
     #[arg(long = "label")]
     pub labels: Vec<String>,
 }

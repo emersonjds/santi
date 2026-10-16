@@ -11,6 +11,8 @@ pub enum Error {
     Network(String),
     /// Bad input caught before any request.
     Usage(String),
+    /// The user answered no to a confirmation.
+    Declined(String),
     Other(String),
 }
 
@@ -26,6 +28,7 @@ impl Error {
             },
             Error::Network(_) => 6,
             Error::Usage(_) => 2,
+            Error::Declined(_) => 10,
             Error::Other(_) => 1,
         }
     }
@@ -35,7 +38,10 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let problem = match self {
             Error::Api(problem) => problem,
-            Error::Network(text) | Error::Usage(text) | Error::Other(text) => {
+            Error::Network(text)
+            | Error::Usage(text)
+            | Error::Declined(text)
+            | Error::Other(text) => {
                 return f.write_str(text);
             }
         };
@@ -97,6 +103,7 @@ mod tests {
         assert_eq!(codes, [3, 3, 4, 5, 5, 5, 1]);
         assert_eq!(Error::Network("down".into()).exit_code(), 6);
         assert_eq!(Error::Usage("bad key".into()).exit_code(), 2);
+        assert_eq!(Error::Declined("Kept WEB-1".into()).exit_code(), 10);
         assert_eq!(Error::Other("disk".into()).exit_code(), 1);
     }
 

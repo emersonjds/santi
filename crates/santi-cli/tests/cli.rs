@@ -59,7 +59,8 @@ fn login_saves_url_and_token_then_commands_use_them() {
         .args(["login", "--url", &server().url, "--token", &token])
         .assert()
         .success()
-        .stdout(contains("Logged in to"));
+        .stdout(contains("Logged in to"))
+        .stderr(contains("plain HTTP").not());
     let file = santi.config.path().join("santi/config.toml");
     let mode = std::fs::metadata(&file).unwrap().permissions().mode();
     assert_eq!(mode & 0o777, 0o600);
@@ -135,6 +136,50 @@ fn a_broken_config_file_is_skipped_when_flags_give_url_and_token() {
 }
 
 #[test]
+fn login_warns_before_sending_a_token_over_plain_http_to_another_host() {
+    Santi::new()
+        .bare()
+        .args([
+            "login",
+            "--url",
+            "http://santi.invalid",
+            "--token",
+            "santi_x",
+        ])
+        .assert()
+        .code(6)
+        .stderr(contains("warning: http://santi.invalid/ is plain HTTP"));
+}
+
+#[test]
+fn token_flag_help_points_at_safer_inputs() {
+    Santi::new()
+        .bare()
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(contains("visible in `ps`"));
+}
+
+#[test]
+fn network_errors_hide_url_credentials() {
+    Santi::new()
+        .bare()
+        .args([
+            "whoami",
+            "--url",
+            "http://alice:hunter2@127.0.0.1:9",
+            "--token",
+            "santi_x",
+        ])
+        .assert()
+        .code(6)
+        .stderr(contains("http://127.0.0.1:9/"))
+        .stderr(contains("hunter2").not())
+        .stderr(contains("alice").not());
+}
+
+#[test]
 fn unreachable_server_exits_6() {
     Santi::new()
         .bare()
@@ -189,6 +234,12 @@ fn issue_lifecycle_from_create_to_delete() {
     ]));
     assert_eq!(edited["points"], 5.0);
     assert_eq!(edited["labels"], serde_json::json!(["auth"]));
+    let unlabeled = json(
+        santi
+            .with(&token)
+            .args(["issues", "edit", "CLI-1", "--label", "none"]),
+    );
+    assert_eq!(unlabeled["labels"], serde_json::json!([]));
 
     santi
         .with(&token)
@@ -244,8 +295,16 @@ fn issue_lifecycle_from_create_to_delete() {
         .args(["issues", "delete", "CLI-1"])
         .write_stdin("n\n")
         .assert()
-        .success()
-        .stdout(contains("Kept CLI-1"));
+        .code(10)
+        .stdout("")
+        .stderr(contains("Kept CLI-1"));
+    santi
+        .with(&token)
+        .args(["issues", "delete", "CLI-1", "--json"])
+        .write_stdin("n\n")
+        .assert()
+        .code(10)
+        .stdout("");
     santi
         .with(&token)
         .args(["issues", "delete", "CLI-1", "--yes"])
@@ -337,12 +396,18 @@ fn sprint_planning_from_create_to_complete() {
     let issue = json(santi.with(&token).args(["issues", "show", "SPR-1"]));
     assert_eq!(issue["sprint_id"], Value::Null);
 
-    json(santi.with(&token).args(["sprints", "create", "SPR"]));
-    santi
-        .with(&token)
-        .args(["plan", "SPR-1", "--backlog"])
-        .assert()
-        .success();
+    let next = json(santi.with(&token).args(["sprints", "create", "SPR"]));
+    let next = next["id"].as_i64().unwrap().to_string();
+    let planned = json(
+        santi
+            .with(&token)
+            .args(["plan", "SPR-1", "--sprint", &next]),
+    );
+    assert_eq!(planned["sprint_id"].to_string(), next);
+    let unplanned = json(santi.with(&token).args(["plan", "SPR-1", "--backlog"]));
+    assert_eq!(unplanned["sprint_id"], Value::Null);
+    let issue = json(santi.with(&token).args(["issues", "show", "SPR-1"]));
+    assert_eq!(issue["sprint_id"], Value::Null);
 }
 
 #[test]
@@ -359,9 +424,20 @@ fn import_previews_then_asks_before_writing() {
         .args(["import", "IMP", csv])
         .write_stdin("n\n")
         .assert()
-        .success()
+        .code(10)
         .stdout(contains("linear"))
-        .stdout(contains("Nothing imported"));
+        .stderr(contains("Nothing imported"));
+    let declined = santi
+        .with(&token)
+        .args(["import", "IMP", csv, "--json"])
+        .write_stdin("n\n")
+        .assert()
+        .code(10)
+        .get_output()
+        .stdout
+        .clone();
+    let preview: Value = serde_json::from_slice(&declined).unwrap();
+    assert_eq!(preview["source"], "linear");
     santi
         .with(&token)
         .args(["import", "IMP", csv])
