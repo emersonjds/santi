@@ -128,7 +128,8 @@ Commands: `login`, `whoami`, `projects list`, `issues list|show|create|edit|move
 `search`, `comment`, `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `santi help <command>`
 has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
 `SANTI_URL`/`SANTI_TOKEN`, then the config file. Errors print the server's message; exit codes are
-2 usage, 3 auth, 4 not found, 5 rejected input or conflict, 6 server unreachable, 1 anything else.
+2 usage, 3 auth, 4 not found, 5 rejected input or conflict, 6 server unreachable, 10 confirmation
+declined (stdout stays empty, so `--json` output is still valid JSON), 1 anything else.
 
 `santi mcp` serves the same actions as MCP tools for agents, over stdio or Streamable HTTP
 (`santi mcp --http 127.0.0.1:8765`). Setup for Claude Code, VS Code, Zed, Cursor, Windsurf,

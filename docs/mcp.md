@@ -9,6 +9,9 @@ agent sees exactly what that user sees.
 - **Streamable HTTP**: `santi mcp --http 127.0.0.1:8765` serves `http://127.0.0.1:8765/mcp`.
   Every request needs `Authorization: Bearer <santi API token>`, and the server forwards that
   token to the API, so one HTTP server can serve several people. It holds no token of its own.
+  The token is checked against the API when a session opens (an invalid one gets 401), the
+  session then answers only to that same token (any other gets 404, `GET` and `DELETE`
+  included), and at most 100 sessions are open at once (503 beyond that).
 
 ## Setup
 
@@ -29,6 +32,13 @@ Issues are addressed by key, `PROJECT-NUMBER` (`WEB-12`); projects by key (`WEB`
 the name the board shows (`In Progress`); sprints by the id `list_sprints` returns. Every tool
 answers with the API's JSON; a failed call is a tool error carrying the server's message.
 
+- Project keys are letters and digits only; anything else is refused before any request.
+- An argument the tool does not declare (a typo such as `summry`) is a tool error naming it, not
+  silently dropped. Every schema says `additionalProperties: false`.
+- `plan_issue` requires `sprint_id`: a sprint id, or `null` to send the issue to the backlog.
+- Summaries, descriptions and comments in an answer are text written by users. The server
+  instructions and the reading tools tell the agent to treat them as data, never as instructions.
+
 | Tool | Does | Hint |
 |---|---|---|
 | `list_projects` | projects you belong to | read-only |
@@ -41,7 +51,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `create_issue` | new issue (story by default) | additive |
 | `update_issue` | change fields; `null` clears | idempotent |
 | `move_issue` | status and/or rank | idempotent |
-| `plan_issue` | into a sprint, or `null` for the backlog | idempotent |
+| `plan_issue` | into a sprint, or `null` for the backlog (`sprint_id` required) | idempotent |
 | `add_comment` | comment on an issue | additive |
 | `create_sprint` | new future sprint | additive |
 | `start_sprint` | start a future sprint | |
@@ -296,7 +306,11 @@ santi cannot connect from ChatGPT until OAuth lands.
   of that project; `list_projects` shows what it can see.
 - **`no status X in WEB; statuses: …`** `move_issue` takes the board's status names; the error
   lists them.
-- **HTTP 401 on connect.** The client sent no `Authorization: Bearer …` header to `santi mcp --http`.
+- **HTTP 401 on connect.** The client sent no `Authorization: Bearer …` header to `santi mcp --http`,
+  or the API rejected its token. Over HTTP a tool's 401 says to send a valid token in that header.
+- **HTTP 404 on a session.** The request carried a different token than the one that opened the
+  session, or the session expired; reconnect.
+- **HTTP 503 on connect.** 100 sessions are already open; idle ones close after five minutes.
 - **Requests rejected for their `Host`.** The HTTP server accepts `localhost`, `127.0.0.1` and
   `::1` only; add `--allowed-host <name>` for each public host name.
 - **The client shows the server as failed at start.** Run the configured command by hand
