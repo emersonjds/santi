@@ -20,13 +20,7 @@ pub struct TestApp {
 
 impl TestApp {
     pub fn anonymous(pool: PgPool) -> Self {
-        let router = santi_server::app(
-            santi_server::AppState {
-                pool,
-                limits: Default::default(),
-            },
-            None,
-        );
+        let router = santi_server::app(santi_server::AppState::new(pool), None);
         TestApp {
             router,
             token: None,
@@ -40,7 +34,7 @@ impl TestApp {
 
     /// Registers a new user on the same router and signs in with a fresh API token.
     pub async fn another_user(&self, email: &str) -> Self {
-        let register = json!({ "email": email, "password": PASSWORD, "display_name": email, "accept_terms": true });
+        let register = json!({ "email": email, "password": PASSWORD, "display_name": email, "accept_terms": true, "confirm_age": true });
         let response = self
             .send(json_request(
                 Method::POST,

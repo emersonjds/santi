@@ -24,11 +24,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         trusted_proxies,
         per_address,
     ));
+    // D45: self-hosters may run without the hosted instance's terms and privacy pages.
+    let legal_pages = std::env::var("SANTI_LEGAL_PAGES").as_deref() != Ok("off");
+    let legal = santi_server::Legal::from_web_dir(legal_pages, std::path::Path::new(&web_dir));
+    // Expired sessions and stale invites, hourly; the first run happens at start.
+    let purge_pool = pool.clone();
+    tokio::spawn(async move {
+        let mut hourly = tokio::time::interval(std::time::Duration::from_secs(60 * 60));
+        loop {
+            hourly.tick().await;
+            if let Err(error) = santi_server::purge_expired(&purge_pool).await {
+                eprintln!("purge failed: {error}");
+            }
+        }
+    });
     let listener = tokio::net::TcpListener::bind(address).await?;
     axum::serve(
         listener,
         santi_server::app(
-            santi_server::AppState { pool, limits },
+            santi_server::AppState {
+                pool,
+                limits,
+                legal: std::sync::Arc::new(legal),
+            },
             Some(std::path::Path::new(&web_dir)),
         )
         .into_make_service_with_connect_info::<std::net::SocketAddr>(),

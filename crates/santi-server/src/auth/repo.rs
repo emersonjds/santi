@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
-use santi_types::auth::{ApiToken, User};
+use santi_types::auth::{ApiToken, LegalAcceptance, User};
 use sqlx::PgConnection;
 
-use super::domain::TERMS_VERSION;
+use super::domain::{AGE_DECLARATION, PRIVACY_VERSION, TERMS_VERSION};
 use super::extract::CurrentUser;
 
 pub struct UserWithHash {
@@ -20,13 +20,11 @@ pub async fn insert_user(
 ) -> Result<User, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "INSERT INTO app_user (email, display_name, password_hash, terms_accepted_at, terms_version)
-         VALUES ($1, $2, $3, now(), $4)
+        "INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, $2, $3)
          RETURNING id, email, display_name",
         email,
         display_name,
-        password_hash,
-        TERMS_VERSION
+        password_hash
     )
     .fetch_one(&mut *conn)
     .await
@@ -242,20 +240,54 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     Ok(())
 }
 
-pub struct TermsAcceptance {
-    pub terms_version: Option<String>,
-    pub terms_accepted_at: Option<DateTime<Utc>>,
-}
-
-pub async fn find_terms(
+/// D45: records the current Terms of Use, Privacy Policy and the age declaration in one statement.
+pub async fn insert_acceptances(
     conn: &mut PgConnection,
     user_id: i64,
-) -> Result<TermsAcceptance, sqlx::Error> {
-    sqlx::query_as!(
-        TermsAcceptance,
-        "SELECT terms_version, terms_accepted_at FROM app_user WHERE id = $1",
-        user_id
+    terms_hash: Option<&str>,
+    privacy_hash: Option<&str>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO legal_acceptance (user_id, document, version, text_hash)
+         VALUES ($1, 'terms', $2, $3), ($1, 'privacy', $4, $5), ($1, 'age', $6, NULL)",
+        user_id,
+        TERMS_VERSION,
+        terms_hash,
+        PRIVACY_VERSION,
+        privacy_hash,
+        AGE_DECLARATION
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+pub async fn has_current_acceptance(
+    conn: &mut PgConnection,
+    user_id: i64,
+) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT count(DISTINCT document) = 2 AS "current!" FROM legal_acceptance
+           WHERE user_id = $1
+             AND ((document = 'terms' AND version = $2) OR (document = 'privacy' AND version = $3))"#,
+        user_id,
+        TERMS_VERSION,
+        PRIVACY_VERSION
     )
     .fetch_one(&mut *conn)
+    .await
+}
+
+pub async fn list_acceptances(
+    conn: &mut PgConnection,
+    user_id: i64,
+) -> Result<Vec<LegalAcceptance>, sqlx::Error> {
+    sqlx::query_as!(
+        LegalAcceptance,
+        "SELECT document, version, text_hash, accepted_at FROM legal_acceptance
+         WHERE user_id = $1 ORDER BY id",
+        user_id
+    )
+    .fetch_all(&mut *conn)
     .await
 }

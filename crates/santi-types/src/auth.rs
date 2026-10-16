@@ -7,9 +7,48 @@ pub struct Register {
     pub email: String,
     pub password: String,
     pub display_name: String,
-    /// Must be true: the person agrees to the Terms of Use and the Privacy Policy (D45).
+    /// Must be true when the instance requires its legal documents (D45): the person agrees to
+    /// the Terms of Use and the Privacy Policy.
     #[serde(default)]
     pub accept_terms: bool,
+    /// Must be true alongside `accept_terms`: the person declares being 18 or older.
+    #[serde(default)]
+    pub confirm_age: bool,
+}
+
+/// The instance's legal documents (D45). `required: false` when the operator turned them off.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct LegalDocuments {
+    pub required: bool,
+    pub terms_version: String,
+    pub privacy_version: String,
+}
+
+/// Whether the caller accepted the current versions; the app asks again when they change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct LegalStatus {
+    pub required: bool,
+    pub terms_version: String,
+    pub privacy_version: String,
+    pub accepted: bool,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct AcceptLegal {
+    #[serde(default)]
+    pub accept_terms: bool,
+    #[serde(default)]
+    pub confirm_age: bool,
+}
+
+/// One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct LegalAcceptance {
+    pub document: String,
+    pub version: String,
+    /// SHA-256 of the page the person was shown, when the server had it.
+    pub text_hash: Option<String>,
+    pub accepted_at: DateTime<Utc>,
 }
 
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
@@ -57,9 +96,8 @@ pub struct DeleteAccount {
 pub struct AccountExport {
     pub exported_at: DateTime<Utc>,
     pub user: User,
-    /// Which Terms of Use the person accepted, and when; null for accounts made before them.
-    pub terms_version: Option<String>,
-    pub terms_accepted_at: Option<DateTime<Utc>>,
+    /// Every acceptance of the Terms of Use, the Privacy Policy and the age declaration.
+    pub legal_acceptances: Vec<LegalAcceptance>,
     pub api_tokens: Vec<ApiToken>,
     pub projects: Vec<ProjectExport>,
     /// Projects the caller is a plain member of: named here, owned by their admins.

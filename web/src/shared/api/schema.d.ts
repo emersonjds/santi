@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["legal_documents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -110,6 +126,22 @@ export interface paths {
         get: operations["export_account"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["legal_status"];
+        put?: never;
+        post: operations["accept_legal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -568,6 +600,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptLegal: {
+            accept_terms?: boolean;
+            confirm_age?: boolean;
+        };
         /**
          * @description Everything santi holds about the caller (D45): the account, its API tokens (names only) and
          *     every project the caller administers, in full.
@@ -576,13 +612,11 @@ export interface components {
             api_tokens: components["schemas"]["ApiToken"][];
             /** Format: date-time */
             exported_at: string;
+            /** @description Every acceptance of the Terms of Use, the Privacy Policy and the age declaration. */
+            legal_acceptances: components["schemas"]["LegalAcceptance"][];
             /** @description Projects the caller is a plain member of: named here, owned by their admins. */
             other_projects: components["schemas"]["Project"][];
             projects: components["schemas"]["ProjectExport"][];
-            /** Format: date-time */
-            terms_accepted_at?: string | null;
-            /** @description Which Terms of Use the person accepted, and when; null for accounts made before them. */
-            terms_version?: string | null;
             user: components["schemas"]["User"];
         };
         AddMember: {
@@ -901,6 +935,28 @@ export interface components {
         };
         /** @enum {string} */
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
+        /** @description One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`. */
+        LegalAcceptance: {
+            /** Format: date-time */
+            accepted_at: string;
+            document: string;
+            /** @description SHA-256 of the page the person was shown, when the server had it. */
+            text_hash?: string | null;
+            version: string;
+        };
+        /** @description The instance's legal documents (D45). `required: false` when the operator turned them off. */
+        LegalDocuments: {
+            privacy_version: string;
+            required: boolean;
+            terms_version: string;
+        };
+        /** @description Whether the caller accepted the current versions; the app asks again when they change. */
+        LegalStatus: {
+            accepted: boolean;
+            privacy_version: string;
+            required: boolean;
+            terms_version: string;
+        };
         Login: {
             email: string;
             password: string;
@@ -1042,8 +1098,13 @@ export interface components {
             sprints: components["schemas"]["Sprint"][];
         };
         Register: {
-            /** @description Must be true: the person agrees to the Terms of Use and the Privacy Policy (D45). */
+            /**
+             * @description Must be true when the instance requires its legal documents (D45): the person agrees to
+             *     the Terms of Use and the Privacy Policy.
+             */
             accept_terms?: boolean;
+            /** @description Must be true alongside `accept_terms`: the person declares being 18 or older. */
+            confirm_age?: boolean;
             display_name: string;
             email: string;
             password: string;
@@ -1400,6 +1461,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `terms-not-accepted` (D45) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description `invite-used` or `invite-expired` */
             410: {
                 headers: {
@@ -1416,6 +1486,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    legal_documents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current versions of the Terms of Use and Privacy Policy, and whether sign-up must accept them (D45) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocuments"];
                 };
             };
         };
@@ -1514,6 +1604,75 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    legal_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `accepted` is false until the caller accepts the current versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    accept_legal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptLegal"];
+            };
+        };
+        responses: {
+            /** @description Accepted; recorded in the append-only acceptance log */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `accept_terms` or `confirm_age` not true */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3544,6 +3703,15 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `terms-not-accepted`: accept the current Terms of Use and Privacy Policy first (`POST /api/me/legal`). Tokens created before keep working (D45) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

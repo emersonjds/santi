@@ -61,7 +61,9 @@ async fn the_export_holds_the_account_and_every_project_it_admins(pool: PgPool) 
     let text = export.to_string();
     assert_eq!(export["user"]["email"], "ana@example.com");
     assert_eq!(export["api_tokens"][0]["name"], "tests");
-    assert!(!text.contains("password") && !text.contains("hash"));
+    assert!(
+        !text.contains("password") && !text.contains("$argon2") && !text.contains("token_hash")
+    );
     let santi = &export["projects"][0];
     assert_eq!(santi["project"]["key"], "SANTI");
     assert_eq!(santi["members"][0]["email"], "ana@example.com");

@@ -17,7 +17,13 @@ use tower::ServiceExt;
 
 fn router(pool: PgPool, trusted_proxies: usize) -> Router {
     let limits = Arc::new(RateLimits::new(trusted_proxies, true));
-    santi_server::app(AppState { pool, limits }, None)
+    santi_server::app(
+        AppState {
+            limits,
+            ..AppState::new(pool)
+        },
+        None,
+    )
 }
 
 fn from_peer(mut request: Request<Body>, peer: [u8; 4]) -> Request<Body> {
@@ -28,7 +34,7 @@ fn from_peer(mut request: Request<Body>, peer: [u8; 4]) -> Request<Body> {
 }
 
 fn register_request(email: &str) -> Request<Body> {
-    let body = json!({ "email": email, "password": PASSWORD, "display_name": "Ana", "accept_terms": true });
+    let body = json!({ "email": email, "password": PASSWORD, "display_name": "Ana", "accept_terms": true, "confirm_age": true });
     json_request(Method::POST, "/api/auth/register", None, Some(body))
 }
 

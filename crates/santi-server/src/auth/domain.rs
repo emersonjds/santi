@@ -9,8 +9,11 @@ use crate::error::{AppError, reject_nul};
 pub const SESSION_COOKIE: &str = "__Host-santi_session";
 pub const SESSION_DAYS: i64 = 30;
 pub const API_TOKEN_PREFIX: &str = "santi_";
-/// The date of the Terms of Use text in `web/terms.html`; bump both together (D45).
+/// Versions of `web/terms.html` and `web/privacy.html` (and their pt-BR pages); bump one when its
+/// text changes and everyone is asked to accept it again (D45).
 pub const TERMS_VERSION: &str = "2026-10-16";
+pub const PRIVACY_VERSION: &str = "2026-10-16";
+pub const AGE_DECLARATION: &str = "18+";
 
 /// Argon2 default parameters with a password nobody knows. Login verifies against it when the
 /// email is unknown, so both failures cost the same time.
@@ -51,6 +54,16 @@ pub fn check_terms(accepted: bool) -> Result<(), AppError> {
         return Err(AppError::invalid(
             "accept_terms",
             "accept the Terms of Use and the Privacy Policy to sign up",
+        ));
+    }
+    Ok(())
+}
+
+pub fn check_age(confirmed: bool) -> Result<(), AppError> {
+    if !confirmed {
+        return Err(AppError::invalid(
+            "confirm_age",
+            "santi is for people 18 or older",
         ));
     }
     Ok(())
@@ -191,9 +204,11 @@ mod tests {
     }
 
     #[test]
-    fn terms_must_be_accepted() {
+    fn terms_and_age_must_be_confirmed() {
         assert!(check_terms(true).is_ok());
         assert!(check_terms(false).is_err());
+        assert!(check_age(true).is_ok());
+        assert!(check_age(false).is_err());
     }
 
     #[test]

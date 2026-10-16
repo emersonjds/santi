@@ -113,6 +113,7 @@ pub async fn create_invite(
         (status = 200, body = Project, description = "Joined; the invite is used up"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown token"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`terms-not-accepted` (D45)"),
         (status = 410, body = Problem, content_type = "application/problem+json", description = "`invite-used` or `invite-expired`"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn accept_invite(
@@ -124,6 +125,7 @@ pub async fn accept_invite(
     state
         .limits
         .check(Action::InviteAccept, address, Some(user.id))?;
+    crate::auth::service::require_current_acceptance(&state.pool, &state.legal, &user).await?;
     Ok(Json(
         service::accept_invite(&state.pool, &user, &token).await?,
     ))
