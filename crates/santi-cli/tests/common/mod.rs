@@ -27,8 +27,7 @@ fn start() -> Server {
         let base = std::env::var("DATABASE_URL").expect("DATABASE_URL points at PostgreSQL");
         let base = PgConnectOptions::from_str(&base).unwrap();
         let admin = PgPool::connect_with(base.clone()).await.unwrap();
-        // One database per test process. Leftovers of earlier runs are dropped; a database still
-        // in use by a concurrent run refuses the DROP and is kept.
+        // A database still in use by a concurrent run refuses the DROP and is kept.
         let leftovers: Vec<String> = sqlx::query_scalar(
             "SELECT datname FROM pg_database WHERE datname LIKE 'santi\\_cli\\_test\\_%'",
         )
