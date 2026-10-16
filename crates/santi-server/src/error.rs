@@ -9,6 +9,8 @@ use santi_types::{FieldError, Problem};
 pub enum AppError {
     BadRequest(String),
     Validation(Vec<FieldError>),
+    /// Valid JSON of the wrong shape: serde's reason is the detail too.
+    WrongShape(FieldError),
     Unauthorized,
     /// Wrong email or password at sign-in; same answer for unknown accounts.
     InvalidCredentials,
@@ -62,6 +64,9 @@ impl AppError {
                 "Invalid input",
                 "One or more fields are invalid.".into(),
             ),
+            AppError::WrongShape(error) => {
+                (422, "validation", "Invalid input", error.message.clone())
+            }
             AppError::Unauthorized => (
                 401,
                 "unauthorized",
@@ -103,6 +108,7 @@ impl AppError {
         };
         let errors = match self {
             AppError::Validation(errors) => errors.clone(),
+            AppError::WrongShape(error) => vec![error.clone()],
             _ => Vec::new(),
         };
         Problem {
@@ -196,10 +202,35 @@ const UNTRANSLATABLE_CHARACTER: &str = "22021";
 impl From<JsonRejection> for AppError {
     fn from(rejection: JsonRejection) -> Self {
         match rejection {
-            JsonRejection::JsonDataError(error) => AppError::invalid("body", &error.body_text()),
+            JsonRejection::JsonDataError(error) => wrong_shape(&error.body_text()),
             rejection => AppError::BadRequest(rejection.body_text()),
         }
     }
+}
+
+/// axum prefixes serde's reason, and serde names the Rust type a non-object body should have been.
+fn wrong_shape(text: &str) -> AppError {
+    let mut reason = text
+        .strip_prefix("Failed to deserialize the JSON body into the target type: ")
+        .unwrap_or(text)
+        .to_string();
+    for rust_type in ["expected struct ", "expected internally tagged enum "] {
+        if let Some((before, after)) = reason.split_once(rust_type) {
+            let rest = after.split_once(' ').map_or("", |(_, rest)| rest);
+            reason = format!("{before}expected a JSON object {rest}")
+                .trim_end()
+                .to_string();
+        }
+    }
+    let field = ["unknown field `", "missing field `"]
+        .iter()
+        .find_map(|marker| reason.split_once(marker)?.1.split_once('`'))
+        .map_or("body", |(name, _)| name)
+        .to_string();
+    AppError::WrongShape(FieldError {
+        field,
+        message: reason,
+    })
 }
 
 impl From<PathRejection> for AppError {
