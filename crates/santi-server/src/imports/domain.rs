@@ -822,7 +822,7 @@ pub fn plan_import(
             problem("description cut to 65536 characters".into());
         }
         let done = categories.get(&status_id) == Some(&StatusCategory::Done);
-        let created = row.created.unwrap_or(now);
+        let created = row.created.unwrap_or(now).min(now);
         let sprint = row.sprints.last().filter(|name| {
             let action = mapping
                 .sprints
@@ -852,14 +852,14 @@ pub fn plan_import(
             parent_key: parent.cloned(),
             sprint: sprint.cloned(),
             created,
-            updated: row.updated.unwrap_or(created).max(created),
+            updated: row.updated.unwrap_or(created).clamp(created, now),
             comments: row
                 .comments
                 .iter()
                 .filter(|comment| !comment.body.is_empty())
                 .map(|comment| {
                     let body: String = comment.body.chars().take(20_000).collect();
-                    (body, comment.created.unwrap_or(created))
+                    (body, comment.created.unwrap_or(created).min(now))
                 })
                 .collect(),
         });
@@ -1365,6 +1365,27 @@ mod tests {
         assert_eq!(errors[0].field, "mapping.statuses.Waiting");
         assert_eq!(errors[0].message, "map this status to a board column first");
         assert!(check_mapping(&mapping, &self::statuses(), &members(), BoardType::Scrum).is_ok());
+    }
+
+    #[test]
+    fn plan_keeps_dates_out_of_the_future() {
+        let csv = "Issue key,Summary,Status,Created,Updated,Comment\n\
+                   A-1,Later,Done,2099-01-01 10:00,2099-01-02 10:00,2099-01-03 10:00;x;hello\n";
+        let export = read_export(csv).unwrap();
+        let now = at(2026, 10, 16, 12, 0);
+
+        let plan = plan_import(
+            &export,
+            &jira_mapping(),
+            &categories(),
+            &HashMap::new(),
+            1,
+            now,
+        );
+
+        let issue = &plan.issues[0];
+        assert_eq!((issue.created, issue.updated), (now, now));
+        assert_eq!(issue.comments, [("hello".to_string(), now)]);
     }
 
     #[test]
