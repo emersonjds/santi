@@ -95,7 +95,7 @@ pub async fn update_issue(
         };
         change_sprint(&mut tx, member, &issue, target).await?;
     }
-    repo::update_fields(&mut tx, &next).await?;
+    repo::update_fields(&mut tx, &next, member.user_id).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
 }
@@ -140,7 +140,7 @@ pub async fn move_issue(
     }
     let (status_id, done_at) = next_status(&mut tx, member, &issue, input.status_id).await?;
     let rank = next_rank(&mut tx, member, &issue, anchor).await?;
-    repo::update_position(&mut tx, issue.id, status_id, &rank, done_at).await?;
+    repo::update_position(&mut tx, issue.id, status_id, &rank, done_at, member.user_id).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
 }

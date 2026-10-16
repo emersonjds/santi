@@ -57,7 +57,10 @@ test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Hi, Perf' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Account (Perf)' })
+  ).toBeVisible()
   const key = `P${unique().slice(-6).toUpperCase()}`
   // In Progress holds a second status, so the drop lands on a status zone (SB-17).
   const review = await page.evaluate(

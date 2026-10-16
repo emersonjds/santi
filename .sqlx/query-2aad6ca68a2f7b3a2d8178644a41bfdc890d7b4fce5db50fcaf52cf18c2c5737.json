@@ -1,0 +1,59 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.key || '-' || i.number AS \"key!\", st.created_at AS \"starred_at?\",\n                  a.viewed_at AS \"viewed_at?\", a.worked_at AS \"worked_at?\"\n           FROM (SELECT issue_id FROM issue_star WHERE user_id = $1\n                 UNION\n                 SELECT issue_id FROM issue_activity WHERE user_id = $1) mine\n           JOIN issue i ON i.id = mine.issue_id\n           JOIN project p ON p.id = i.project_id\n           LEFT JOIN issue_star st ON st.issue_id = i.id AND st.user_id = $1\n           LEFT JOIN issue_activity a ON a.issue_id = i.id AND a.user_id = $1\n           ORDER BY p.key, i.number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "starred_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue_star",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "viewed_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue_activity",
+            "name": "viewed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "worked_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue_activity",
+            "name": "worked_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "2aad6ca68a2f7b3a2d8178644a41bfdc890d7b4fce5db50fcaf52cf18c2c5737"
+}

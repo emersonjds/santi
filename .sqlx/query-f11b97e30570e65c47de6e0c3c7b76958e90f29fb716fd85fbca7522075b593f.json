@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH stars AS (DELETE FROM issue_star WHERE user_id = $1)\n         DELETE FROM issue_activity WHERE user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f11b97e30570e65c47de6e0c3c7b76958e90f29fb716fd85fbca7522075b593f"
+}

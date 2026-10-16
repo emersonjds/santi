@@ -279,7 +279,7 @@ first ten minutes, then the rest. Existing cards that also belong early in that 
 | PB-116 | OR-47 | Project delete to a 60-day trash with restore; archive | Missing | Lifecycle | M | — | SAN-70 |
 | PB-117 | OR-48 | Org rename, transfer projects to another org, org delete | Missing | Lifecycle | M | PB-97 | SAN-70 |
 | PB-118 | OR-49 | Operator option: deactivate inactive orgs after warning emails (off by default) | Not applicable today | Lifecycle | S | SAN-68 | SAN-70 |
-| PB-119 | UI-9, OR-44, IA §4, IA §11 item 11, IA resolved #3 | Home hub: recommended projects, assigned to me, starred, worked on, viewed | Deferred | Home | L | — | SAN-72 |
+| PB-119 | UI-9, OR-44, IA §4, IA §11 item 11, IA resolved #3 | Home hub: recommended projects, assigned to me, starred, worked on, viewed | Done (SAN-72) | Home | L | — | SAN-72 |
 | PB-120 | UI-4, UI-5, UI-7, IA §2 | Sidebar: recent, starred, filters, dashboards, plans, more projects, project row menu, customize per viewer | Deferred | Shell | L | PB-94, PB-96 | SAN-73 |
 | PB-121 | D41 | Importer maps components, versions, resolution, due dates, time, attachments, watchers, custom fields, comment authors as each lands | Dropped | Import | S each | each field's card | SAN-54, SAN-55, SAN-56, P2 |
 

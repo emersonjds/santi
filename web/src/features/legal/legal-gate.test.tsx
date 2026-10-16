@@ -30,7 +30,7 @@ describe('legal gate', () => {
       )
       .toBeVisible()
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .not.toBeInTheDocument()
     await screen.getByRole('button', { name: 'Accept and continue' }).click()
     await expect
@@ -45,7 +45,10 @@ describe('legal gate', () => {
     await screen.getByRole('button', { name: 'Accept and continue' }).click()
 
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
       .toBeVisible()
     const post = requests.find(
       (request) => routeOf(request) === 'POST /api/me/legal'
@@ -71,11 +74,14 @@ describe('legal gate', () => {
       .element(screen.getByRole('status', { name: 'Checking the terms' }))
       .toBeVisible()
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .not.toBeInTheDocument()
     arrive()
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
       .toBeVisible()
   })
 
@@ -97,12 +103,15 @@ describe('legal gate', () => {
       .element(screen.getByRole('alert'))
       .toHaveTextContent('The terms check did not load.')
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .not.toBeInTheDocument()
     fails = false
     await screen.getByRole('button', { name: 'Try again' }).click()
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
       .toBeVisible()
   })
 
@@ -111,7 +120,10 @@ describe('legal gate', () => {
     const { screen } = await renderApp('/')
 
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
       .toBeVisible()
   })
 })

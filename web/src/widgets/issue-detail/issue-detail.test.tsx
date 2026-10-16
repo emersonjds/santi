@@ -52,6 +52,35 @@ describe('issue detail', () => {
     await expect.element(firstCard(screen)).toBeVisible()
   })
 
+  it('records a view when the issue opens over the board', async () => {
+    const { requests } = await openFromBoard()
+
+    await expect
+      .poll(
+        () =>
+          requests.filter(
+            (request) =>
+              routeOf(request) === 'POST /api/projects/WEB/issues/1/view'
+          ).length
+      )
+      .toBe(1)
+  })
+
+  it('records a view when the issue page loads directly', async () => {
+    const requests = inProjects()
+    await renderApp('/p/WEB/issues/1')
+
+    await expect
+      .poll(
+        () =>
+          requests.filter(
+            (request) =>
+              routeOf(request) === 'POST /api/projects/WEB/issues/1/view'
+          ).length
+      )
+      .toBe(1)
+  })
+
   it('shows the full page when the issue URL is loaded directly', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/issues/1')

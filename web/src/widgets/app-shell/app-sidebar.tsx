@@ -140,7 +140,7 @@ export const AppSidebar = () => {
                     onClick={closeDrawer}
                   >
                     <House />
-                    <span>Home</span>
+                    <span>For you</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

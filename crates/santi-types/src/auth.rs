@@ -90,8 +90,8 @@ pub struct DeleteAccount {
     pub password: String,
 }
 
-/// Everything santi holds about the caller (D45): the account, its API tokens (names only) and
-/// every project the caller administers, in full.
+/// Everything santi holds about the caller (D45): the account, its API tokens (names only),
+/// every project the caller administers, in full, and the home's stars and history.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AccountExport {
     pub exported_at: DateTime<Utc>,
@@ -102,6 +102,7 @@ pub struct AccountExport {
     pub projects: Vec<ProjectExport>,
     /// Projects the caller is a plain member of: named here, owned by their admins.
     pub other_projects: Vec<crate::projects::Project>,
+    pub home: crate::home::HomeExport,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
