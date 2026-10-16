@@ -16,8 +16,61 @@ pub fn rank_between(before: Option<&str>, after: Option<&str>) -> String {
             "rank_between needs before < after, got {before} and {after}"
         );
     }
-    let key = midpoint(before.unwrap_or("").as_bytes(), after.map(str::as_bytes));
+    let key = match (before, after) {
+        (Some(before), None) => step(before.as_bytes(), true),
+        (None, Some(after)) => step(after.as_bytes(), false),
+        _ => midpoint(before.unwrap_or("").as_bytes(), after.map(str::as_bytes)),
+    };
     String::from_utf8(key).expect("rank digits are ASCII")
+}
+
+/// D39: an open-ended key steps one unit instead of halving the gap to the edge, so appends
+/// (and moves to the top) grow keys logarithmically. A key with `level` leading edge digits
+/// ('z' going up, '0' going down) carries a counter of `level + 1` digits; when the counter
+/// runs into the edge, the next level starts.
+fn step(key: &[u8], up: bool) -> Vec<u8> {
+    let top = DIGITS.len() - 1;
+    let edge = if up { top } else { 0 };
+    let level = key
+        .iter()
+        .take_while(|digit| digit_value(**digit) == edge)
+        .count();
+    let mut counter: Vec<usize> = (level..=2 * level)
+        .map(|index| key.get(index).map_or(0, |digit| digit_value(*digit)))
+        .collect();
+    loop {
+        if !nudge(&mut counter, up) || counter[0] == edge {
+            let mut next = vec![DIGITS[edge]; level + 1];
+            next.extend(vec![DIGITS[if up { 1 } else { top }]; level + 2]);
+            return next;
+        }
+        if counter[level] != 0 {
+            break;
+        }
+    }
+    let mut next = vec![DIGITS[edge]; level];
+    next.extend(counter.iter().map(|digit| DIGITS[*digit]));
+    next
+}
+
+/// One unit up or down at the last place; false when it carries out of the first digit.
+fn nudge(counter: &mut [usize], up: bool) -> bool {
+    let top = DIGITS.len() - 1;
+    for digit in counter.iter_mut().rev() {
+        match (up, *digit) {
+            (true, value) if value == top => *digit = 0,
+            (false, 0) => *digit = top,
+            (true, value) => {
+                *digit = value + 1;
+                return true;
+            }
+            (false, value) => {
+                *digit = value - 1;
+                return true;
+            }
+        }
+    }
+    false
 }
 
 /// Fractional-index midpoint of two digit strings read as fractions (0.low and 0.high; missing high = 1).
@@ -379,6 +432,42 @@ mod tests {
             after = rank_between(Some("U"), Some(&after));
         }
         assert!(after.len() < 20, "{after}");
+    }
+
+    #[test]
+    fn appending_or_prepending_ten_thousand_keys_stays_short() {
+        let mut appended = vec![rank_between(None, None)];
+        let mut prepended = appended.clone();
+        for _ in 0..10_000 {
+            appended.push(rank_between(appended.last().map(String::as_str), None));
+            prepended.push(rank_between(None, prepended.last().map(String::as_str)));
+        }
+        assert!(appended.windows(2).all(|pair| pair[0] < pair[1]));
+        assert!(prepended.windows(2).all(|pair| pair[0] > pair[1]));
+        for key in appended.iter().chain(&prepended) {
+            assert!(key.len() <= 5 && !key.ends_with('0'), "{key}");
+        }
+        let between = rank_between(Some(&appended[4_000]), Some(&appended[4_001]));
+        assert!(appended[4_000] < between && between < appended[4_001]);
+    }
+
+    #[test]
+    fn open_ended_keys_step_past_any_existing_key() {
+        let cases = [
+            "V", "y", "z", "zyz", "zzV", "zzVzzzz", "1", "0zz", "AB0C", "0V",
+        ];
+        for key in cases {
+            let after = rank_between(Some(key), None);
+            let before = rank_between(None, Some(key));
+            assert!(
+                key < after.as_str() && !after.ends_with('0'),
+                "{key} < {after}"
+            );
+            assert!(
+                before.as_str() < key && !before.ends_with('0'),
+                "{before} < {key}"
+            );
+        }
     }
 
     #[test]
