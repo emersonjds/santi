@@ -10,7 +10,7 @@ RUN --mount=type=cache,id=santi-pnpm,target=/root/.local/share/pnpm/store \
 COPY web/ ./
 RUN pnpm build
 
-FROM rust:1.97-slim-trixie AS server
+FROM rust:slim-trixie AS server
 WORKDIR /src
 ENV SQLX_OFFLINE=true CARGO_PROFILE_RELEASE_STRIP=true
 COPY . .
