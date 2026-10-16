@@ -333,7 +333,7 @@ export const CreateIssueDialog = ({
                     <FormControl>
                       <Input
                         autoComplete='off'
-                        placeholder={`${project}-1`}
+                        placeholder='Optional epic or story key'
                         className='h-11 font-mono md:h-9'
                         {...field}
                       />

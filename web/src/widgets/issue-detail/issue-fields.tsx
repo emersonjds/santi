@@ -275,7 +275,7 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
           <CommitInput
             id={id}
             className='h-11 font-mono md:h-9'
-            placeholder={`${projectKey}-1`}
+            placeholder='None'
             value={issue.parent_key ?? ''}
             onCommit={(text) => {
               const parent = text.toUpperCase() || null
