@@ -8,11 +8,9 @@ react-hook-form + zod, Tailwind and shadcn/ui, organized by Feature-Sliced Desig
 
 ```sh
 pnpm install
-pnpm dev            # http://localhost:5173/app/ — proxies /api, /openapi.json, /health to the server on 8080
-pnpm build          # web/dist; the server serves it at /app when SANTI_WEB_DIR points at it (default web/dist)
+pnpm dev            # http://localhost:5173 — proxies /api, /openapi.json, /health to the server on 8080
+pnpm build          # web/dist; the server serves it at / from SANTI_WEB_DIR (default web/dist)
 ```
-
-Until the htmx UI is removed, the SPA lives under `/app`.
 
 ## Check
 
