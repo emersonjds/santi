@@ -108,18 +108,19 @@ async fn acceptances_record_the_text_hash_append_only_and_outlive_the_account(po
             ("age".into(), None)
         ]
     );
-    assert!(
-        sqlx::query("UPDATE legal_acceptance SET version = 'x'")
-            .execute(&pool)
-            .await
-            .is_err()
-    );
-    assert!(
-        sqlx::query("DELETE FROM legal_acceptance")
-            .execute(&pool)
-            .await
-            .is_err()
-    );
+    for statement in [
+        "UPDATE legal_acceptance SET version = 'x'",
+        "DELETE FROM legal_acceptance",
+        "TRUNCATE legal_acceptance",
+    ] {
+        let refused = sqlx::query(statement).execute(&pool).await.unwrap_err();
+        assert!(
+            refused
+                .to_string()
+                .contains("legal_acceptance is append only"),
+            "{statement}: {refused}"
+        );
+    }
 
     let (deleted, _) = call(
         &on,
