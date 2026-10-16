@@ -1,0 +1,360 @@
+# santi v1 — mechanics coverage
+
+Card: SAN-34. Date: 2026-10-16. Base: `developer` at 96d4b03.
+Question: does every mechanic in the behavior specs work end to end in the shipped product
+(Rust API + React SPA in `web/`)?
+
+## Method
+
+- Rules: every ID in `behavior/scrum-board.md`, `kanban-board.md`, `backlog.md`,
+  `sprint-lifecycle.md`; the santi adoption list and Responsive rules in `ui-layout.md`;
+  decisions D2–D18, D20, D21, D29 (D19 is storage only). A rule is judged as amended by its v1 cut,
+  `decisions.md` and `information-architecture.md` (IA).
+- Evidence: an existing test (Rust `crates/santi-server/tests/<file>::<test>`, web
+  `<file>.test.tsx` "<name>", `web/e2e/<spec>`), the component, or a live check.
+- Live check: throwaway Playwright script against the dev server on :8080 (scrum project, a
+  second status "In review" mapped into the In Progress column, epic, parent, subtask, active
+  sprint, two future sprints), desktop 1280px and phone 375px. Script not committed.
+- The SPA calls 31 of the API's operations; it never calls `POST/PUT/DELETE /board/columns*`,
+  `PUT /board/settings`, `POST/PUT/DELETE /statuses*`, `POST /members`,
+  `PUT/DELETE /members/{user_id}`. There is no issue delete endpoint. `crates/santi-cli` is a
+  14-line stub (no CLI or MCP commands yet).
+
+Status:
+- **UI**: works in the SPA.
+- **API only**: the server enforces or exposes it; the SPA cannot trigger or show it.
+- **Missing**: neither.
+- **Deferred**: cut from v1 ("drop") or marked later in the specs, IA or decisions.
+- **Divergent**: works differently than the spec says.
+
+## Summary
+
+| Source | UI | API only | Missing | Divergent | Deferred | Rows |
+|---|---|---|---|---|---|---|
+| Scrum board | 13 | 7 | 0 | 2 | 10 | 32 |
+| Kanban board | 9 | 6 | 0 | 1 | 13 | 29 |
+| Backlog | 15 | 2 | 1 | 2 | 7 | 27 |
+| Sprint lifecycle | 19 | 1 | 0 | 0 | 10 | 30 |
+| UI layout (adoption + responsive) | 26 | 2 | 9 | 3 | 8 | 48 |
+| Decisions | 14 | 4 | 0 | 2 | 0 | 20 |
+| **Total** | **96** | **22** | **10** | **10** | **48** | **186** |
+
+Decision rows restate spec rules, so a few gaps count twice (SB-17/KB-27/D5, SB-25/UI-12/D3).
+Of the 138 rows that are in v1, 96 work in the SPA (70%); the other 42 are the gaps below.
+
+## Scrum board
+
+| ID | Rule | Status | Evidence | Gap |
+|---|---|---|---|---|
+| SB-1 | New board: to do, in progress, done | UI | `board_settings::new_scrum_project_has_three_default_columns` | |
+| SB-2 | Column holds several statuses; status in one column or unmapped | API only | `board_settings::statuses_start_unmapped_and_can_be_mapped` | No settings page |
+| SB-3 | Unmapped status hidden; new status starts unmapped | API only | `board_view::unmapped_statuses_and_epics_stay_off_the_board` | Nobody can create or unmap a status from the SPA |
+| SB-4 | Add, rename, reorder, delete columns | API only | `board_settings::reorder_keeps_done_rightmost`, `deleting_a_column_moves_its_statuses_to_the_target` | No settings page |
+| SB-5 | Adding a column may create its status | API only | `board_settings::new_column_lands_left_of_done_with_its_status` | No settings page |
+| SB-6 | Status deletable only when unused | API only | `issues::a_status_held_by_an_issue_cannot_be_deleted`, `board_settings::unused_statuses_can_be_deleted` | No settings page |
+| SB-7 | Position decides meaning (D2 strict) | API only | `board_settings::mapping_a_done_status_to_a_middle_column_is_refused`, `new_column_with_a_done_status_is_refused_and_rolled_back` | Guard only reachable through API edits |
+| SB-8 | Only done work counts complete at close | UI | `sprint_lifecycle::completing_sends_open_issues_to_the_backlog`; `e2e/backlog.spec.ts` | |
+| SB-9 | Board = mapped status + active sprint + project | UI | `board_view::scrum_board_shows_the_active_sprint_by_status_and_rank` | |
+| SB-10 | No active sprint: no cards, link to backlog | UI | `board-page.test` "points to the backlog when no sprint is running" | |
+| SB-11 | Header: sprint name, goal, time left | UI | `board-page.test` "draws the running sprint and every card field" | Goal not expandable (see R-4) |
+| SB-12 | Cards follow rank | UI | `e2e/board.spec.ts` "move a card with the keyboard; a reload keeps the new order" | |
+| SB-13 | Subtasks shown (D6: flat card, parent chip, `open/total` on parent) | UI | `board_view::subtasks_are_flat_cards_and_parents_count_them`; live: subtask card + "1/1" on parent | |
+| SB-14 | Sprints on/off toggle | Deferred | dropped: sprints always on | |
+| SB-15 | Parallel sprints | Deferred | dropped; `sprint_lifecycle::start_guards_are_enforced` | |
+| SB-16 | Drag to another column changes status | UI | `sortable-board.test` "moves a card to the next column at once"; `e2e/board.spec.ts` | |
+| SB-17 | Multi-status column splits into one drop zone per status | Divergent | Live: In Progress column holding In Progress + In review showed no zones; the drop set In Progress. `entities/issue/issue-mutations.ts:112` takes the column's first status | Second status reachable only from the issue's Status select |
+| SB-18 | Refused transitions | Deferred | dropped: free transitions; an empty column refuses drops (`sortable-board.test` "refuses a column that has no status to give the card") | |
+| SB-19 | Move keeps the assignee | UI | `MoveIssue` has no assignee field (`web/openapi.json`) | |
+| SB-20 | Re-rank within column; top/bottom action | UI | `sortable-board.test` "reorders inside a column without touching the status"; `card-menu.test` "moves a card to the bottom of another column" | |
+| SB-21 | Multi-select move (v1: CLI/MCP batch) | Deferred | CLI/MCP not built (E3); UI side is UI-22 | |
+| SB-22 | Last subtask done prompts for parent | Deferred | later; D6 silent | |
+| SB-23 | Inline create in a column, takes its status | Divergent | `widgets/board/board.tsx` renders `CreateSlot` only for the first column; `create-issue.test` "creates inline at the foot of the first column" | Other columns have no inline create (IA §4: "at column foot") |
+| SB-24 | Quick filters narrow only | UI | `filter-bar.test` "toggles my issues and recent ones, then clears every filter" | |
+| SB-25 | Filters: assignee, type, label, free text (API also parent) | API only | `board_view::board_quick_filters_combine`; `BoardSearch` holds only `assignee`, `recently_updated` (`entities/issue/board-query.ts`); live filter bar: avatars, "Only my issues", "Recently updated" | Type, label, epic, text unreachable on board and backlog |
+| SB-26 | Predefined and admin filters | Deferred | dropped; "updated in the last day" built per D18 amendment, "assigned to me" = "Only my issues" | |
+| SB-27 | Filters per viewer (D18: URL) | UI | `filter-bar.test` "reads the filters back from a shared link" | |
+| SB-28 | Scrum column limits | Deferred | dropped (Kanban only) | |
+| SB-29 | Swimlanes | Deferred | dropped | |
+| SB-30 | Card fields; extra fields later | UI | `board-page.test` "draws the running sprint and every card field" | |
+| SB-31 | Days-in-column indicator | Deferred | later | |
+| SB-32 | Deleting a board keeps issues | Deferred | no board delete in v1 (D31); holds vacuously | |
+
+## Kanban board
+
+| ID | Rule | Status | Evidence | Gap |
+|---|---|---|---|---|
+| KB-1 | Three default columns | UI | `e2e/board.spec.ts` (kanban, To Do → In Progress) | |
+| KB-2 | Mapping, unmapped pool, column admin as SB-2..6 | API only | see SB-2..6 | No settings page |
+| KB-3 | Done = status category | UI | `issue_moves::done_timer_follows_the_status_category` | |
+| KB-4 | Done column kept; deleting a column asks a target | API only | `board_settings::column_deletion_guards` (409 `rightmost-column`, 422 without target) | No target picker (D16) |
+| KB-5 | At least one status beyond the first column | API only | Held by D2 strict (done pinned to the undeletable rightmost column); no explicit check | Unmap + delete can still leave a single Done column |
+| KB-6 | Scope, mapped, done-hiding (subtasks flat per D6) | UI | `board_view::kanban_hides_done_work_past_the_window` | |
+| KB-7 | No sprint UI on kanban | UI | `app-shell.test` "shows only the board for a kanban project"; `sprints::kanban_projects_have_no_sprints` | |
+| KB-8 | Sprint toggle on kanban | Deferred | dropped | |
+| KB-9 | Rank, drag and top/bottom as SB-12/20 | UI | `e2e/board.spec.ts` | |
+| KB-10 | Global create lands at the bottom | UI | `create-issue.test` "creates the issue, toasts a link to it and shows its card"; `issues::numbers_increase_and_new_issues_rank_last` | |
+| KB-11 | Render cap | Deferred | dropped | |
+| KB-12 | Max limit per column | API only | `board_settings::kanban_columns_take_a_wip_limit_and_scrum_columns_do_not` | Limit shows (KB-14) but can only be set by API |
+| KB-13 | Min limit, counting modes | Deferred | dropped (D7) | |
+| KB-14 | Breach only warns | UI | `board-page.test` "warns on a column over its limit and tells when done work leaves"; `board_view::wip_limit_flags_a_full_column` | |
+| KB-15 | Counts include filtered cards | UI | `board_view::wip_counts_ignore_quick_filters`; header shows `issue_count` | Counts freeze while a card is held (live) |
+| KB-16 | Limits from column menu and settings | API only | `PUT /board/columns/{id}` | No column menu, no settings page |
+| KB-17..KB-21 | Kanban backlog (5 rules) | Deferred | dropped (D9); `project-header.test` "sends a kanban backlog to the board" | |
+| KB-22 | Sub-filter | Deferred | dropped | |
+| KB-23 | Done hidden after 7/14/30 days or never, default 14 | UI | `board_view::kanban_hides_done_work_past_the_window`; note under the last column | Window changes only by `PUT /board/settings` |
+| KB-24 | Window restarts on edit | Deferred | replaced by D8 (timer from entering done) | |
+| KB-25, KB-26 | Releases, versions | Deferred | dropped | |
+| KB-27 | Moves follow SB-16..21 | Divergent | as SB-17 | No per-status drop zones |
+| KB-28 | Days-in-column on by default | Deferred | later | |
+| KB-29 | Filters as SB-24..27 | API only | as SB-25 | |
+
+## Backlog
+
+| ID | Rule | Status | Evidence | Gap |
+|---|---|---|---|---|
+| BL-1 | Active, future (creation order), then no-sprint | UI | `backlog-page.test` "stacks the running sprint, the planned ones, then the backlog"; `backlog::backlog_lists_active_then_future_sprints_then_the_rest` | |
+| BL-2 | Open parent rows only, mapped, not done | UI | `boards/repo.rs:366`; `backlog::reopened_issue_of_a_closed_sprint_returns_to_the_backlog` | |
+| BL-3 | Subtasks nest under parent (D6: parent rows with `open/total`) | Divergent | `widgets/backlog/backlog-row.tsx` never renders `open_subtasks`; live: subtask absent, parent row shows no count | Backlog gives no sign a parent has subtasks |
+| BL-4 | Board shows the sprint incl. done; backlog hides done | UI | `boards/repo.rs`; `section-header.tsx` chips | |
+| BL-5 | One rank for board and backlog | UI | `issue_moves::after_anchor_places_the_issue_right_after_it`; `e2e/board.spec.ts` | |
+| BL-6 | Empty sprint keeps rank; else drop point | UI | `sortable-backlog.test` "drags a row into an empty sprint at once, keeping its rank"; `sprints::issues_move_into_a_sprint_and_back_keeping_rank` | |
+| BL-7 | Drag re-ranks; top/bottom action | UI | `sortable-backlog.test` "reorders inside a section", "moves a row to the top or bottom of another section from its menu" | |
+| BL-8 | Selection sent to top/bottom/sprint (v1: CLI/MCP) | Deferred | CLI/MCP not built (E3); UI side is UI-22 | |
+| BL-9 | Ranking a parent carries its subtasks | Divergent | Sprint carried (`sprints::subtasks_always_share_their_parent_sprint`); rank not: a move writes only the moved issue (D21) | Subtasks keep their own rank on the board |
+| BL-10, BL-11 | Rank needs rank order; instance-wide rank | Deferred | dropped (2 rules) | |
+| BL-12a | Create sprints from the backlog | UI | `sprint-dialogs.test` "creates a sprint, named by the server unless a name is given" | |
+| BL-12b | Reorder future sprints | Deferred | later (backlog cut); sprints list by id (D13) | |
+| BL-13 | Drag between sections changes sprint | UI | `e2e/backlog.spec.ts` "plan a sprint by drag…" | |
+| BL-14 | Add/remove in active sprint = scope change | UI | `issue_mechanics::editing_the_sprint_moves_subtasks_and_records_scope_change` | |
+| BL-15 | Plan while running; start refused | UI | `backlog-page.test` "lets a planned sprint start only when no other runs and it holds an issue" | |
+| BL-16 | New issue placement (IA resolved #2: bottom; sprint kept) | UI | `create-issue.test` "keeps the dialog open for another, with type and sprint kept" | |
+| BL-17 | Inline create at every section foot | UI | `backlog-page.test` "creates inline at the foot of a sprint, into that sprint", "creates inline in the backlog with no sprint" | |
+| BL-18 | Split | Deferred | later | |
+| BL-19 | Row edits (summary, assignee, points, parent, priority) | Missing | `backlog-row.tsx` read-only; live row menu: "Move to…" only | Board card menu has assign and priority; backlog rows have none |
+| BL-20 | Epic panel: list, create, drop to set parent, filter | API only | `Backlog.epics` with `child_count`/`done_child_count`; `parent` filter; SPA uses epics only for the row chip; live: no epic toggle | API has no "no epic" filter value |
+| BL-21 | One parent; epic done = done status | UI | `issues::parent_rules_are_enforced`; Parent field in `issue-fields.tsx` | |
+| BL-22 | Estimation statistic choice | Deferred | dropped: points only | |
+| BL-23 | Points numeric, never on subtasks | UI | `issues::patch_enforces_type_parent_and_points_rules`; Points field | |
+| BL-24 | Section point totals | UI | `backlog-page.test` "stacks … each with its header facts"; `backlog::quick_filters_hide_rows_but_not_totals` | |
+| BL-25 | Time roll-up | Deferred | dropped | |
+| BL-26 | View: epic panel, quick filters, fields | API only | as BL-20 and SB-25 | |
+
+## Sprint lifecycle
+
+| ID | Rule | Status | Evidence | Gap |
+|---|---|---|---|---|
+| SP-1 | No sprints on kanban | UI | `sprints::kanban_projects_have_no_sprints` | |
+| SP-2 | First sprint auto-created | Deferred | dropped | |
+| SP-3 | Any number of future sprints, new one last | UI | `sprint-dialogs.test` "creates a sprint…"; `backlog-page.test` | |
+| SP-4 | Rename, goal, dates before start | UI | `sprint-dialogs.test` "edits name, goal and dates, refusing an end before the start" | |
+| SP-5 | Presets 1/2/3/4 weeks, default 2 (D12) | UI | `sprint-dialogs.test` "starts a sprint today for two weeks unless another length is picked" | |
+| SP-6 | One start step | UI | same | |
+| SP-7 | Start date = now, editable | UI | `sprint_lifecycle::start_defaults_to_today_and_two_weeks`; `sprint-dialogs.test` "proposes the planned dates and closes on Escape" | |
+| SP-8 | Empty sprint cannot start | UI | `sprint_lifecycle::start_guards_are_enforced`; `backlog-page.test` (hint) | |
+| SP-9 | One active sprint | UI | same; hint "Complete X before starting another." | |
+| SP-10 | Started issues on board with header | UI | `board-page.test`; `e2e/backlog.spec.ts` | |
+| SP-11a | Edit future/active sprints | UI | `sprint-dialogs.test` "edits name, goal and dates…" | |
+| SP-11b | Edit closed sprint name and goal | API only | `sprint_lifecycle::closed_and_active_sprints_are_protected` | Closed sprints never appear in the SPA |
+| SP-12 | Scope change recorded | UI | `sprint_lifecycle::scope_facts_are_recorded` | |
+| SP-13 | Add by drag (CLI/MCP later) | UI | `e2e/backlog.spec.ts` | CLI/MCP E3 |
+| SP-14 | Section point total | UI | as BL-24 | |
+| SP-15 | Completion permission | Deferred | dropped | |
+| SP-16 | Completed = done category | UI | `sprint-dialogs.test` "skips the destination when every issue is done (D13)" | |
+| SP-17 | Never blocked; subtask follows parent | UI | `sprint_lifecycle::subtasks_follow_their_parent_at_completion` | |
+| SP-18 | One destination: backlog, future or new sprint | UI | `sprint-dialogs.test` "completes a sprint, sending its open issues to the picked sprint"; `sprint-dialog.tsx:430` | Only from the backlog section header (R-4) |
+| SP-19 | Completed issues leave the board | UI | `e2e/backlog.spec.ts` | |
+| SP-20, SP-21 | Shared and parallel sprints | Deferred | dropped (2 rules) | |
+| SP-22 | Only future sprints deletable; issues back, rank kept | UI | `sprint-dialogs.test` "deletes a planned sprint after asking; the running one has no delete"; `sprints::deleting_a_future_sprint_returns_its_issues_to_the_backlog` | |
+| SP-23, SP-24 | Delete or reopen closed sprints | Deferred | later (2 rules) | |
+| SP-25..SP-27 | Report: per board, outcomes, added flag, parents only | Deferred | facts stored at close (`scope_facts_are_recorded`, `sprints/repo.rs:230`); no read endpoint; Reports tab later (IA §2) (3 rules) | |
+| SP-28 | Burndown | Deferred | dropped | |
+| Create | Default name "Sprint N", never reused (D12) | UI | `sprints::default_names_count_every_sprint_ever_created` | |
+
+## UI layout
+
+Adoption list.
+
+| ID | Rule | Status | Evidence | Gap |
+|---|---|---|---|---|
+| UI-1 | Top bar, sidebar, main; skip links first | UI | live: "Skip to content" first | One skip link, not one per landmark |
+| UI-2 | Top bar order (no switcher, no upgrade) | UI | `widgets/app-shell/top-bar.tsx`; `app-shell.test` | |
+| UI-3 | Search in top bar (project scope, IA §7) | UI | `e2e/search.spec.ts` | |
+| UI-6 | Sidebar collapse, kept per viewer | UI | `shared/ui/sidebar.tsx` (cookie `sidebar_state`, Ctrl/Cmd+B) | |
+| UI-8 | Project tabs incl. Settings for admins | Missing | `project-tabs.tsx` renders Board, Backlog; live: `/p/KEY/settings` → Not Found | |
+| UI-10 | Board header sprint facts | UI | as SB-11 | |
+| UI-11 | Ranked columns, drag changes status | UI | as SB-12, SB-16 | |
+| UI-12 | Quick filters | API only | as SB-25 | |
+| UI-13 | Card anatomy, parent chip | UI | `board-page.test` "draws the running sprint and every card field" | |
+| UI-15 | Card opens detail without leaving | UI | `issue-detail.test` "opens a card in a dialog over the board under the issue URL; Esc goes back" | |
+| UI-16 | Sections stacked | UI | as BL-1 | |
+| UI-17 | Create sprint; Start in future header | UI | `backlog-page.test` | |
+| UI-18 | Sprint header avatars, per-person summary | Missing | `section-header.tsx` has none | Per-person load cut (BL-24); avatars were not |
+| UI-19 | Row fields edited in place | Missing | as BL-19 | |
+| UI-20 | Rows drag within and between sections | UI | as BL-7, BL-13 | |
+| UI-21 | Row menu: top, bottom | UI | `features/move-issue/row-menu.tsx` ("…" per section; no right-click) | |
+| UI-22 | Multi-select (checkbox, Cmd/Shift-click) and toolbar | Missing | live: 0 checkboxes | |
+| UI-23 | Inline create in every section | UI | as BL-17 | |
+| UI-26 | J/K moves selection (panel → modal per D1) | Missing | key handlers in the SPA: `c`, Cmd/Ctrl+K, Cmd/Ctrl+B only | |
+| UI-27 | Two-column detail | UI | `issue-detail.tsx:188` | |
+| UI-28 | Narrow: single column | UI | live 375px: issue page fits, no sideways scroll | |
+| UI-29 | Header: glyph, key, parent; glyph opens type picker | Divergent | `issue-detail.tsx:35-50`; type changes from the Type select in details | Minor |
+| UI-30 | Add related work (subtask) | UI | `issue-detail.test` "lists subtasks and adds one inline" | Sits below the description, not under the summary |
+| UI-32 | Create in top bar and `c` | UI | `create-issue.test` "opens with c, but not while typing" | |
+| UI-33 | Compact create dialog, trimmed fields | UI | `create-issue.test` | |
+| UI-36 | Placement (IA resolved #2: bottom) | UI | as BL-16 | |
+| UI-37 | `?` opens the shortcut sheet | Missing | live: `?` opens nothing; no account menu entry | |
+| UI-38 | `c o a i m e j k n p` | Missing | only `c` (`create-button.tsx:40`) | |
+| D1 | Modal and page on one route | UI | `issue-detail.test` "shows the full page when the issue URL is loaded directly" | |
+| D6 | Flat subtasks with parent chip | UI | as SB-13 | |
+| D10 | Epic panel | API only | as BL-20 | |
+| D18 | Filters in the URL | UI | as SB-27 | |
+| UI-7, UI-14, UI-21 split, UI-24 versions, UI-34, UI-35, UI-39 | Later per adoption | Deferred | 7 rules; a Cmd/Ctrl+K palette exists for jumping to projects only | |
+| UI-25, UI-31 | Issue delete | Deferred | IA resolved #5; no endpoint | |
+
+Responsive (375px).
+
+| ID | Rule | Status | Evidence | Gap |
+|---|---|---|---|---|
+| R-1 | Top bar: toggle, mark, search icon opening a sheet, create, avatar | Divergent | live: full search field in the bar, no sheet; fits 375px | Minor |
+| R-2 | Sidebar as drawer, closes on navigation | UI | `app-shell.test` "opens the sidebar as a drawer on a phone and closes it on navigation" | |
+| R-3 | One column, picker with counts, move by menu | UI | `column-picker.test`; `card-menu.test` "is how a phone moves cards, with no drag handles" | Menu lists columns, not statuses (SB-17) |
+| R-4 | Board header: one line, goal expandable, Complete in overflow | Missing | `board-states.tsx` `SprintStrip` has no menu, goal clamped only; live: no Complete on the board | |
+| R-5 | One filter button with badge, bottom sheet | Missing | live 375px: no Filters button; bar wraps inline | |
+| R-6 | Backlog rows full width, move by menu | UI | `backlog-page.test` "draws a dense row…"; `sortable-backlog.test` "offers Move to… instead of drag on a phone" | |
+| R-7 | Create, detail, sprint dialogs as full-screen sheets | UI | `sprint-dialogs.test` "opens as a full-screen sheet on a phone"; `issue-dialog.tsx:22`; `create-issue-dialog.tsx:203` | Epic panel missing (D10) |
+| R-8 | 44px targets, 16px inputs, no hover-only, no sideways scroll | Divergent | live: no sideways scroll on board, backlog, issue; inputs ≥ 16px. Under 44px: card "…" 40×40 (`card-menu.tsx` `size-10`), assignee avatars 40×40 (`filter-bar.tsx`), issue summary 343×32 (`issue-detail.tsx:74`). Hover-only: "Updated …" on the card key, over-limit title | See bugs |
+
+## Decisions
+
+| ID | Mechanic | Status | Evidence | Gap |
+|---|---|---|---|---|
+| D2 | Done = category, done only in the rightmost column | UI | close and hiding use the category (SB-8, KB-3) | Mapping guard reachable only by API |
+| D3 | AND across kinds, OR within | API only | `board_view::board_quick_filters_combine`; `comments_search::search_combines_filters_and_within_or_across_and` | SPA has one kind (assignee) on board/backlog |
+| D4 | Drop position wins, one order | UI | `issue_moves::*anchor*`; `sortable-board.test`, `sortable-backlog.test` | |
+| D5 | Inline create, bottom, column status | Divergent | as SB-23 | First column only |
+| D6 | Flat subtasks; parent `open/total`; backlog parent rows with count | Divergent | board UI; backlog row lacks the count (BL-3) | |
+| D7 | One max per column, warn only | API only | display UI (KB-14); setting API only (KB-12) | |
+| D8 | Done hidden after window from entering done | UI | `issue_moves::done_timer_follows_the_status_category`, `moving_between_done_statuses_keeps_the_timer` | Window set by API only |
+| D9 | No kanban backlog | UI | `project-header.test` "sends a kanban backlog to the board" | |
+| D10 | Epic panel | API only | as BL-20 | |
+| D11 | Point totals on section headers | UI | as BL-24 | |
+| D12 | Sprint N, presets, date check | UI | `sprints::sprint_edits_validate_dates`; `sprint-dialogs.test` | |
+| D13 | Empty start refused; no destination step when all done | UI | `sprint-dialogs.test` "skips the destination when every issue is done (D13)" | |
+| D14 | Only future sprints deleted | UI | as SP-22 | |
+| D15 | Overdue stays active, flagged | UI | `sprint_lifecycle::an_overdue_sprint_stays_active_and_is_flagged`; `backlog-page.test` "flags an overdue sprint and shows planned dates" | |
+| D16 | Column delete needs target; empty column refuses drops | API only | `board_settings::column_deletion_guards`; `sortable-board.test` "refuses a column that has no status to give the card" | No target picker |
+| D17 | No live updates | UI | by design: reload | |
+| D18 | Filters in URL; recently updated | UI | `filter-bar.test`; `issue_mechanics::recently_updated_filter_keeps_issues_touched_in_the_last_day` | |
+| D20 | `KEY-N`, never reused | UI | `issues::concurrent_creates_get_distinct_numbers_and_ranks` | |
+| D21 | Fractional rank, one-row moves | UI | `issue_moves::anchors_at_both_ends` | |
+| D29 | Keyset pages on search | UI | `search-page.test` "loads the next page on demand" | |
+
+## Gap groups, ranked
+
+Ranked by what blocks a small team using the MVP every day.
+
+1. **Board settings page** — L.
+   Rules: SB-2..SB-7, KB-2, KB-4, KB-5, KB-12, KB-16, KB-23 (window), D2 guard, D7, D8, D16, UI-8.
+   API: none; `/board/columns*`, `/statuses*`, `/board/settings` exist and are tested.
+   UI: `/p/{key}/settings` (admins; members get the 403 page, IA §9), Settings tab + sidebar
+   link; columns (add with status, rename, reorder, delete with target picker, WIP max on
+   kanban), statuses (add, rename, category, column or unmapped pool, delete when unused), done
+   window; a column header menu to set the limit (KB-16).
+   Why: today every team is stuck with To Do / In Progress / Done. Adding "In review" or a WIP
+   limit needs curl.
+2. **Complete sprint from the board** — S.
+   Rules: R-4, SP-18 (entry point), UI-10.
+   API: none.
+   UI: overflow menu in the board's sprint strip opening the existing complete dialog. That
+   dialog reads future sprints from `BacklogContext`, so on the board it needs `sprintsQuery`
+   instead. Goal expandable on tap.
+   Why: the sprint ends where the team looks every day (the board); today they must go to the
+   backlog to close it.
+3. **Small fixes** — S.
+   Rules: R-8, BL-3/D6 count, inline subtask Esc.
+   API: none.
+   UI: 44px card menu trigger, filter avatars and issue summary at 375px; `open/total` chip on
+   backlog rows; Esc and a Cancel on the "Add subtask" field.
+   Why: real bugs against adopted rules, each a few lines.
+4. **Members management** — S.
+   Rules: IA §3 `/settings/members`, IA §9.
+   API: none; `POST /members`, `PUT/DELETE /members/{user_id}`, last-admin guard exist
+   (`projects::admin_changes_roles_and_removes_members`, `projects::the_last_admin_stays`).
+   UI: members page: role select, remove, add by email, invite link box moved from the header;
+   "A project needs at least one admin." hint.
+   Why: nobody can remove someone who left or promote a second admin.
+5. **Complete quick filters + phone filter sheet** — M.
+   Rules: SB-25, KB-29, D3, UI-12, BL-26 (filters), R-5.
+   API: none for type, label, parent, `q` on board and backlog. A label list for the dropdown
+   can come from the loaded cards.
+   UI: extend `BoardSearch`/`parseBoardSearch` and `FilterBar` with Type, Label, Epic dropdowns
+   and a text box; "Filters (n)" with a bottom sheet at 375px.
+   Why: a 6-person board with 40 cards needs "bugs only" or "this epic"; today it is assignee
+   only.
+6. **Status drop zones and drag feedback** — M.
+   Rules: SB-17, KB-27, SB-23/D5, KB-15 (live counts).
+   API: none; `move` takes `status_id`.
+   UI: when a column holds more than one status, show one droppable zone per status while a
+   card hovers. Recount headers during hover. "Move to…" lists statuses. Inline create at
+   every column foot with that column's status.
+   Why: once group 1 lets a team add a second status to a column, dragging can't reach it.
+   Do it right after group 1.
+7. **Epic panel** — M.
+   Rules: BL-20, D10, UI-24 (epics), R-7 (epic sheet), BL-26 (panel).
+   API: add a "no epic" filter value (e.g. `parent=none`); the rest exists (`Backlog.epics`,
+   `PATCH parent`, `POST issues` type epic).
+   UI: `?panel=epics` toggle; list with key, summary, child count, progress; create epic;
+   drop a row on an epic or on "No epic" (plus a "Set epic" menu item for phones); select to
+   filter.
+   Why: epics can be created, but there is no place to see them or plan by them.
+8. **Issue delete** — M.
+   Rules: UI-25, UI-31 (IA resolved #5 deferred it).
+   API: `DELETE /issues/{n}`. Subtasks cascade or are refused; a delete from the active sprint
+   records a "removed" scope fact; comments go too. Needs adversarial review.
+   UI: card menu, row menu and issue "…" with confirm.
+   Why: duplicates and typos can only be parked in Done today; they pollute search and reports.
+9. **Backlog row editing** — M.
+   Rules: BL-19, UI-19, BL-9.
+   API: BL-9 needs a move that also re-anchors subtasks, or record BL-9 as dropped under D6.
+   UI: row menu gets Assign, Set priority, Points, Epic, like the board card menu. Inline
+   summary edit on wide screens.
+   Why: grooming means touching 20 rows; one modal per row is slow.
+10. **Keyboard paths** — M.
+    Rules: UI-26 (J/K), UI-37, UI-38.
+    API: none.
+    UI: `?` sheet (and account menu entry); `j/k` selection on board and backlog; `o` open,
+    `a`/`i` assign, `m` comment, `e` edit, `n/p` columns.
+    Why: power users live on the keyboard; only `c` exists.
+11. **Multi-select and bulk moves** — L.
+    Rules: UI-22, SB-21, BL-8, BL-19 bulk.
+    API: optional batch move; N single moves work at human scale (one lock per project, D21).
+    UI: checkbox, Cmd-click, Shift-range; toolbar: send to sprint, top, bottom, assign, status.
+    Why: sprint planning moves 10–15 rows at once.
+12. **Reorder future sprints** — S.
+    Rules: BL-12b (later).
+    API: sprint `position` plus a reorder endpoint (today the order is by id, D13).
+    UI: Move up/down in the sprint menu.
+    Why: matters only for teams that plan two or more sprints ahead.
+13. **Closed sprints and report** — M.
+    Rules: SP-11b, SP-25..SP-27 (view later).
+    API: read endpoint for a closed sprint's stored facts.
+    UI: closed sprint list with outcomes and added-after-start flags; edit name and goal.
+    Why: the retro needs "what slipped"; the data is already stored.
+
+## Divergent rules that are bugs
+
+- **SB-17**: drop into a multi-status column always takes its first status. Repro: map a
+  second in-progress status ("In review") into In Progress with
+  `PUT /api/projects/{key}/statuses/{id}`, then drag a To Do card onto that column. No zones
+  appear and the issue lands in "In Progress". `entities/issue/issue-mutations.ts:112`.
+- **R-8**: targets under 44px at 375px: card "…" 40×40 (`features/issue-quick-actions/card-menu.tsx`,
+  trigger `size-10`); filter avatars 40×40 (`widgets/board/filter-bar.tsx`); issue summary
+  343×32 (`widgets/issue-detail/issue-detail.tsx:74`, `h-auto py-1`).
+- **Inline subtask field**: Esc does nothing and there is no Cancel. Once "Add subtask" is
+  open it stays until you leave the issue. Repro: open an issue, Add subtask, press Esc.
+  `widgets/issue-detail/issue-subtasks.tsx`.
+- **BL-3/D6**: backlog parent rows drop the `open/total` subtask count D6 promises, and
+  subtasks don't appear in the backlog. A planner can't see that a story has open subtasks.
+  `widgets/backlog/backlog-row.tsx`.
+- **SB-23/D5**: inline create exists only at the foot of the first board column.
+  `widgets/board/board.tsx` (`column === first`).
