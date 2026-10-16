@@ -7,11 +7,26 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  COVERAGE_IGNORE: 'main\.rs$'
+  COVERAGE_IGNORE: '/main\.rs$'
 
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: santi
+          POSTGRES_PASSWORD: santi
+          POSTGRES_DB: santi
+        ports:
+          - 5440:5432
+        options: >-
+          --health-cmd "pg_isready -U santi -d santi"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgres://santi:santi@localhost:5440/santi
+      SQLX_OFFLINE: "true"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -21,12 +36,30 @@ jobs:
       - uses: taiki-e/install-action@cargo-llvm-cov
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
+      - run: sqlx migrate run --source crates/santi-server/migrations
+      - run: cargo sqlx prepare --workspace --check
       - run: >
           cargo llvm-cov --workspace --ignore-filename-regex "$COVERAGE_IGNORE"
           --fail-under-lines 90 --fail-under-functions 90 --fail-under-regions 90
 
   branch-coverage:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: santi
+          POSTGRES_PASSWORD: santi
+          POSTGRES_DB: santi
+        ports:
+          - 5440:5432
+        options: >-
+          --health-cmd "pg_isready -U santi -d santi"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgres://santi:santi@localhost:5440/santi
+      SQLX_OFFLINE: "true"
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
@@ -38,4 +71,7 @@ jobs:
           cargo llvm-cov --workspace --branch --ignore-filename-regex "$COVERAGE_IGNORE"
           --json --summary-only --output-path coverage.json
       - name: Enforce 90% branch coverage
-        run: jq -e '.data[0].totals.branches | .count == 0 or .percent >= 90' coverage.json
+        run: |
+          jq -r '.data[0].files[] | select(.summary.branches.count > .summary.branches.covered)
+            | "\(.filename): \(.summary.branches.covered)/\(.summary.branches.count) branches"' coverage.json
+          jq -e '.data[0].totals.branches | .count == 0 or .percent >= 90' coverage.json

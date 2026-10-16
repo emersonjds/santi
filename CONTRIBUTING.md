@@ -18,6 +18,18 @@ tracker into this repository. Describe behavior in your own words in
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/) in English, one concern per commit.
 - Write the test first, watch it fail, then make it pass.
 
+## Database
+
+santi needs PostgreSQL 17. Start it on OrbStack and point the tools at it:
+
+    docker --context orbstack compose up -d --wait
+    export DATABASE_URL=postgres://santi:santi@localhost:5440/santi
+    cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
+    sqlx migrate run --source crates/santi-server/migrations
+
+Tests create a throwaway database per test (`#[sqlx::test]`). After changing any SQL, refresh the
+offline query data with `cargo sqlx prepare --workspace` and commit `.sqlx/`.
+
 ## Quality gate
 
 CI runs these on every push; run them locally first:
@@ -32,15 +44,15 @@ Coverage must stay at or above 90% for lines, regions and functions (stable tool
 and branches (nightly). Locally, with [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov):
 
 ```bash
-cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$'
+cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
-On a Homebrew Rust toolchain (no rustup), point it at Homebrew's LLVM:
+On a Homebrew Rust toolchain (no rustup), point it at Homebrew's LLVM matching rustc's major version (`rustc -vV`, LLVM 22 for Rust 1.97):
 
 ```bash
-LLVM_COV="$(brew --prefix llvm)/bin/llvm-cov" \
-LLVM_PROFDATA="$(brew --prefix llvm)/bin/llvm-profdata" \
-cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$'
+LLVM_COV="$(brew --prefix llvm@22)/bin/llvm-cov" \
+LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
+cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
 ## Conduct and security

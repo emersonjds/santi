@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: santi
+      POSTGRES_PASSWORD: santi
+      POSTGRES_DB: santi
+    ports:
+      - "5440:5432"
+    volumes:
+      - santi-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U santi -d santi"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  santi-postgres:
