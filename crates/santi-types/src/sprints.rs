@@ -29,6 +29,7 @@ pub struct Sprint {
     pub overdue: bool,
 }
 
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct CreateSprint {
     /// Defaults to `Sprint N`, N counting every sprint ever created on the board (D12).
@@ -49,6 +50,7 @@ pub struct UpdateSprint {
     pub end_date: Option<NaiveDate>,
 }
 
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct StartSprint {
     /// Defaults to today.
@@ -65,6 +67,7 @@ pub struct CompleteSprint {
 }
 
 /// Where every unfinished issue goes when the sprint closes (D13).
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "to", rename_all = "snake_case")]
 pub enum OpenIssuesDestination {

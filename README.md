@@ -34,9 +34,9 @@ whole thing ships as one container image. No per-seat pricing, no telemetry.
   board settings for columns and statuses.
 - **Phones:** the UI works down to 375 px wide; the board shows one column at a time.
 - **API tokens** for scripts, and an **importer** for CSV exports from other trackers.
+- **CLI and MCP:** the `santi` command line and `santi mcp`, an MCP server for AI agents.
 
-Planned, not in 0.1.0: the `santi` command-line client and its MCP server for agents,
-multi-select on the backlog, email notifications.
+Planned: multi-select on the backlog, email notifications.
 
 ## Quick start
 
@@ -56,6 +56,8 @@ docker compose logs -f santi    # server logs
 docker compose down             # stop (data kept)
 docker compose down -v          # stop and delete the data
 ```
+
+To host it for a team, see [Deploy on Railway](docs/deploy/railway.md).
 
 Change the ports with `SANTI_PORT` (default 8080) and `SANTI_DB_PORT` (default 5440, bound to
 localhost only), e.g. `SANTI_PORT=9000 docker compose up -d`.
@@ -108,6 +110,34 @@ Everything the UI does goes through the JSON API, so scripts can do it too.
 curl -H "Authorization: Bearer santi_…" http://localhost:8080/api/projects
 ```
 
+## CLI and MCP
+
+The `santi` binary is a client of the same API, authenticated with an API token.
+
+```bash
+cargo install --path crates/santi-cli
+santi login --url http://localhost:8080       # asks for the token, saves ~/.config/santi/config.toml (0600)
+santi projects list
+santi issues create WEB --summary "Fix login" --type bug
+santi issues move WEB-12 --status "In Progress"
+santi board WEB
+santi sprints start WEB 3
+santi search WEB "login" --status in_progress --json
+```
+
+Commands: `login`, `whoami`, `projects list`, `issues list|show|create|edit|move|delete`,
+`board`, `backlog`, `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`,
+`search`, `comment`, `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `santi help <command>`
+has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
+`SANTI_URL`/`SANTI_TOKEN`, then the config file. Errors print the server's message; exit codes are
+2 usage, 3 auth, 4 not found, 5 rejected input or conflict, 6 server unreachable, 10 confirmation
+declined (stdout stays empty, so `--json` output is still valid JSON), 1 anything else.
+
+`santi mcp` serves the same actions as MCP tools for agents, over stdio or Streamable HTTP
+(`santi mcp --http 127.0.0.1:8765`). Setup for Claude Code, VS Code, Zed, Cursor, Windsurf,
+JetBrains, Claude Desktop, Codex, Gemini CLI, Cline, Continue and remote connectors:
+[docs/mcp.md](docs/mcp.md).
+
 ## Performance
 
 santi is built to stay fast on real backlogs. Budgets, measured with 5,000 issues, 50 users and
@@ -122,7 +152,7 @@ Numbers, method and the load script: [docs/perf.md](docs/perf.md).
 
 ## Development
 
-You need Rust 1.97+, Node 20.19+ or 22.12+ with pnpm, and Docker for PostgreSQL.
+You need the latest stable Rust (1.97 or newer), Node 24+ with pnpm, and Docker (OrbStack) for PostgreSQL.
 
 ```bash
 docker compose up -d postgres                      # PostgreSQL only, on localhost:5440
