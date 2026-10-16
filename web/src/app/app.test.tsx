@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { renderApp } from '@/test/render-app'
 import {
+  ALICE,
   inProjects,
   problem,
   routeOf,
@@ -97,6 +98,42 @@ describe('app', () => {
       .toBeVisible()
     expect(requests.map(routeOf)).toContain('POST /api/auth/logout')
     expect(queryClient.getQueryData(['session'])).toBeNull()
+  })
+
+  it('stays signed in with a toast when the server refuses to sign out', async () => {
+    signedIn({
+      'POST /api/auth/logout': { status: 500, body: problem(500, 'Boom.') },
+    })
+    const { screen, router, queryClient } = await renderApp('/')
+
+    await screen.getByRole('button', { name: 'Account' }).click()
+    await screen.getByRole('menuitem', { name: 'Sign out' }).click()
+
+    await expect
+      .element(screen.getByText("Couldn't sign out. Try again."))
+      .toBeVisible()
+    expect(router.state.location.pathname).toBe('/')
+    expect(queryClient.getQueryData(['session'])).toEqual(ALICE)
+  })
+
+  it('stays signed in with a toast when signing out is offline', async () => {
+    signedIn()
+    const answer = globalThis.fetch
+    vi.stubGlobal('fetch', (request: Request) =>
+      routeOf(request) === 'POST /api/auth/logout'
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : answer(request)
+    )
+    const { screen, router, queryClient } = await renderApp('/')
+
+    await screen.getByRole('button', { name: 'Account' }).click()
+    await screen.getByRole('menuitem', { name: 'Sign out' }).click()
+
+    await expect
+      .element(screen.getByText("Couldn't sign out. Try again."))
+      .toBeVisible()
+    expect(router.state.location.pathname).toBe('/')
+    expect(queryClient.getQueryData(['session'])).toEqual(ALICE)
   })
 
   it('links sign in and sign up to each other', async () => {
