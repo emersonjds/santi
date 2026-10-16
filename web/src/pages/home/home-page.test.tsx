@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderApp } from '@/test/render-app'
-import { WEB, inProjects, problem, signedIn } from '@/test/stub-api'
+import { WEB, inProjects, problem, routeOf, signedIn } from '@/test/stub-api'
 
 describe('home', () => {
   it('greets the user and lists their projects with type and role', async () => {
@@ -19,6 +19,20 @@ describe('home', () => {
         screen.getByRole('main').getByRole('link', { name: /Operations/ })
       )
       .toHaveTextContent('Kanban')
+  })
+
+  it('fetches a project when its row is hovered, before the click', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp('/')
+
+    await screen
+      .getByRole('main')
+      .getByRole('link', { name: /Website/ })
+      .hover()
+
+    await expect
+      .poll(() => requests.map(routeOf))
+      .toContain('GET /api/projects/WEB/members')
   })
 
   it('shows skeleton rows while the projects load', async () => {
