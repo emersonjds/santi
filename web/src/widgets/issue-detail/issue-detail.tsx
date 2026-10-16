@@ -71,7 +71,7 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
         aria-label='Summary'
         required
         maxLength={255}
-        className='h-auto border-transparent px-2 py-1 text-xl font-semibold shadow-none hover:border-input md:text-xl'
+        className='h-auto border-transparent px-2 py-1 text-xl font-semibold shadow-none hover:border-input max-md:min-h-11 md:text-xl'
         value={issue.summary}
         onCommit={(summary) =>
           edit.mutate({ change: { summary }, shown: { summary } })

@@ -79,7 +79,7 @@ describe('backlog page', () => {
     expect(order).toEqual(['Sprint 4', 'Sprint 5', 'Sprint 6', 'Backlog'])
   })
 
-  it('draws a dense row: type, key, summary, epic, status, points and assignee', async () => {
+  it('draws a dense row: type, key, summary, epic, status, subtasks, points and assignee', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/backlog')
 
@@ -103,6 +103,11 @@ describe('backlog page', () => {
     await expect
       .element(bug.getByTitle('Assigned to Bob Stone'))
       .toHaveTextContent('BS')
+    // D6: a parent row counts its open subtasks, like its board card.
+    await expect
+      .element(bug.getByTitle('1 of 2 subtasks open'))
+      .toHaveTextContent('1/2')
+    expect(row.getByTitle(/subtasks open/).elements()).toHaveLength(0)
   })
 
   it('lets a planned sprint start only when no other runs and it holds an issue', async () => {

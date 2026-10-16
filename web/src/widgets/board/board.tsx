@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Ellipsis } from 'lucide-react'
+import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { BoardContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
@@ -16,7 +17,7 @@ import {
   boardSettingsQuery,
 } from '@/entities/issue/board-query'
 import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
-import type { BoardColumn, BoardView, Card } from '@/shared/api/client'
+import type { BoardColumn, BoardView, Card, Sprint } from '@/shared/api/client'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { ColumnPicker, ColumnShell } from './board-column'
 import { BoardSkeleton, NoSprint, SprintStrip } from './board-states'
@@ -43,11 +44,60 @@ const CardMenu = lazy(() =>
   }))
 )
 
+// Lazy: the sprint forms load on the first sprint action (D39).
+const SprintDialog = lazy(() =>
+  import('@/features/sprint/sprint-dialog').then((module) => ({
+    default: module.SprintDialog,
+  }))
+)
+
+const SprintMenu = lazy(() =>
+  import('@/features/sprint/sprint-menu').then((module) => ({
+    default: module.SprintMenu,
+  }))
+)
+
+/** The running sprint with its "…": edit or complete it without going to the backlog (R-4, SP-18). */
+const RunningSprint = ({
+  sprint,
+  projectKey,
+}: {
+  sprint: Sprint
+  projectKey: string
+}) => {
+  const [dialog, setDialog] = useState<SprintAction | null>(null)
+  return (
+    <>
+      <SprintStrip
+        sprint={sprint}
+        menu={
+          <Suspense fallback={<span className='block size-11 md:size-9' />}>
+            <SprintMenu
+              sprint={sprint}
+              onEdit={() => setDialog({ kind: 'edit', sprint })}
+              onComplete={() => setDialog({ kind: 'complete', sprint })}
+            />
+          </Suspense>
+        }
+      />
+      {dialog && (
+        <Suspense fallback={null}>
+          <SprintDialog
+            projectKey={projectKey}
+            action={dialog}
+            onClose={() => setDialog(null)}
+          />
+        </Suspense>
+      )}
+    </>
+  )
+}
+
 // Same box as the menu button, so nothing moves when the menu chunk arrives.
 const MenuPlaceholder = () => (
   <span
     aria-hidden='true'
-    className='grid size-10 place-items-center text-muted-foreground'
+    className='grid size-11 place-items-center text-muted-foreground md:size-10'
   >
     <Ellipsis className='size-4' />
   </span>
@@ -155,7 +205,9 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
 
   return (
     <>
-      {board.sprint && <SprintStrip sprint={board.sprint} />}
+      {board.sprint && (
+        <RunningSprint sprint={board.sprint} projectKey={projectKey} />
+      )}
       <FilterBar projectKey={projectKey} search={search} />
       {(search.assignee || search.recently_updated) &&
         board.columns.every((column) => column.cards.length === 0) && (

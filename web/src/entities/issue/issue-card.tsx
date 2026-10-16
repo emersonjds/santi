@@ -16,6 +16,18 @@ export const EmptySlot = () => (
   </li>
 )
 
+/** D6: a parent's `open/total` subtasks, on its board card and backlog row. */
+export const SubtaskCount = ({ card }: { card: Card }) =>
+  card.total_subtasks > 0 && (
+    <span
+      className='inline-flex items-center gap-1 rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'
+      title={`${card.open_subtasks} of ${card.total_subtasks} subtasks open`}
+    >
+      <ListTree className='size-3.5' aria-hidden='true' />
+      {card.open_subtasks}/{card.total_subtasks}
+    </span>
+  )
+
 type IssueCardProps = { card: Card; projectKey: string; menu?: ReactNode }
 
 export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
@@ -46,15 +58,7 @@ export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
       >
         {card.key}
       </span>
-      {card.total_subtasks > 0 && (
-        <span
-          className='inline-flex items-center gap-1 rounded-full bg-muted px-1.5 text-muted-foreground tabular-nums'
-          title={`${card.open_subtasks} of ${card.total_subtasks} subtasks open`}
-        >
-          <ListTree className='size-3.5' aria-hidden='true' />
-          {card.open_subtasks}/{card.total_subtasks}
-        </span>
-      )}
+      <SubtaskCount card={card} />
       <span className='ms-auto flex items-center gap-2'>
         {card.points != null && (
           <span

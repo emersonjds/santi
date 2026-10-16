@@ -24,6 +24,12 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
       .flatMap((column) => column.statuses)
       .find((status) => status.id === statusId)?.name
 
+  const cancel = () => {
+    setAdding(false)
+    setDraft('')
+    create.reset()
+  }
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
     const summary = draft.trim()
@@ -64,15 +70,27 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
       </ul>
       {adding ? (
         <form onSubmit={submit} className='grid gap-1.5'>
-          <Input
-            aria-label='Subtask summary'
-            placeholder='What needs doing?'
-            autoFocus
-            maxLength={255}
-            className='h-11 md:h-9'
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-          />
+          <div className='flex gap-1.5'>
+            <Input
+              aria-label='Subtask summary'
+              placeholder='What needs doing?'
+              autoFocus
+              maxLength={255}
+              className='h-11 md:h-9'
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => event.key === 'Escape' && cancel()}
+              data-own-escape
+            />
+            <Button
+              type='button'
+              variant='ghost'
+              className='h-11 md:h-9'
+              onClick={cancel}
+            >
+              Cancel
+            </Button>
+          </div>
           {create.error && (
             <p className='text-sm text-destructive'>
               {fieldMessage(create.error)}

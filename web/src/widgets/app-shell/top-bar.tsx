@@ -20,7 +20,7 @@ export const TopBar = () => {
       <SidebarTrigger className='size-11 md:size-9' />
       <Link
         to='/'
-        className='flex h-11 shrink-0 items-center gap-2 font-semibold'
+        className='flex h-11 min-w-11 shrink-0 items-center gap-2 font-semibold'
       >
         <SantiMark className='size-7 text-base' />
         <span className='max-sm:sr-only'>santi</span>

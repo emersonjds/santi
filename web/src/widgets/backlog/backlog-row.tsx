@@ -2,6 +2,7 @@ import { type ReactNode, memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Ellipsis, GripVertical, Layers } from 'lucide-react'
 import { issueNumber } from '@/entities/issue/board-query'
+import { SubtaskCount } from '@/entities/issue/issue-card'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { StatusPill } from '@/entities/issue/status-pill'
 import type { Status } from '@/entities/issue/statuses'
@@ -76,6 +77,7 @@ export const BacklogRow = memo(
             </span>
           )}
           {status && <StatusPill status={status} />}
+          <SubtaskCount card={card} />
           {card.points != null && (
             <span
               className='rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground tabular-nums'

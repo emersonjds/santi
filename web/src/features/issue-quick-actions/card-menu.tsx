@@ -155,7 +155,7 @@ export const CardMenu = ({ card, projectKey }: CardMenuProps) => (
   <DropdownMenu>
     <DropdownMenuTrigger
       aria-label={`Actions for ${card.key}`}
-      className='grid size-10 place-items-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring'
+      className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-10'
     >
       <Ellipsis className='size-4' />
     </DropdownMenuTrigger>

@@ -1,4 +1,4 @@
-import { type ReactNode, use } from 'react'
+import type { ReactNode } from 'react'
 import { z } from 'zod'
 import {
   type FieldValues,
@@ -9,9 +9,9 @@ import {
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
-import { BacklogContext } from '@/entities/issue/board-context'
 import { boardQuery } from '@/entities/issue/board-query'
 import { issueCount } from '@/entities/issue/labels'
+import { sprintsQuery } from '@/entities/project/project-queries'
 import {
   ApiError,
   type BacklogSection,
@@ -49,10 +49,12 @@ import {
 
 export type SprintAction =
   | { kind: 'create' }
+  | { kind: 'start'; sprint: Sprint; section: BacklogSection }
+  // Without a section the action comes from the board, which counts from its own cards.
   | {
-      kind: 'edit' | 'delete' | 'start' | 'complete'
+      kind: 'edit' | 'delete' | 'complete'
       sprint: Sprint
-      section: BacklogSection
+      section?: BacklogSection
     }
 
 const DAY = 86_400_000
@@ -252,7 +254,7 @@ const CreateSprintForm = ({ projectKey, onClose }: FormProps) => {
   )
 }
 
-type SprintFormProps = FormProps & { sprint: Sprint; section: BacklogSection }
+type SprintFormProps = FormProps & { sprint: Sprint; section?: BacklogSection }
 
 const EditSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   const update = useUpdateSprint(projectKey)
@@ -338,7 +340,7 @@ const StartSprintForm = ({
   sprint,
   section,
   onClose,
-}: SprintFormProps) => {
+}: SprintFormProps & { section: BacklogSection }) => {
   const start = useStartSprint(projectKey)
   const startDate = sprint.start_date ?? today()
   const form = useForm<z.infer<typeof startSchema>>({
@@ -443,14 +445,18 @@ const CompleteSprintForm = ({
   onClose,
 }: SprintFormProps) => {
   const complete = useCompleteSprint(projectKey)
-  const backlog = use(BacklogContext)
+  const { data: sprints = [] } = useQuery(sprintsQuery(projectKey))
   // The board holds the sprint's done issues, which the backlog hides (BL-2).
   const { data: board } = useQuery(boardQuery(projectKey, {}))
   const done = board?.columns[board.columns.length - 1]?.cards.length
-  const open = section.issue_count
-  const futures = (backlog?.sections ?? []).flatMap(({ sprint: each }) =>
-    each?.state === 'future' ? [each] : []
-  )
+  // Parent rows only, as the backlog counts them (BL-2): subtasks follow their parent (SP-17).
+  const open =
+    section?.issue_count ??
+    board?.columns
+      .slice(0, -1)
+      .flatMap((column) => column.cards)
+      .filter((card) => card.issue_type !== 'subtask').length
+  const futures = sprints.filter((each) => each.state === 'future')
   const form = useForm({ defaultValues: { open_issues: BACKLOG } })
   const submit = form.handleSubmit((values) =>
     complete
@@ -477,13 +483,13 @@ const CompleteSprintForm = ({
       description={
         open === 0
           ? 'Every issue is done.'
-          : `${done === undefined ? '' : `${issueCount(done)} done · `}${open} open`
+          : `${done === undefined ? '' : `${issueCount(done)} done · `}${open ?? '…'} open`
       }
       onClose={onClose}
     >
       <form onSubmit={submit} className='grid gap-4'>
         {/* D13: one destination for every open issue, asked only when some are open. */}
-        {open > 0 && (
+        {open !== 0 && (
           <fieldset className='grid gap-1'>
             <legend className='mb-2 text-sm font-medium'>
               Unfinished issues go to
@@ -529,9 +535,10 @@ export const SprintDialog = ({
 }: SprintDialogProps) => {
   if (action.kind === 'create')
     return <CreateSprintForm projectKey={projectKey} onClose={onClose} />
-  const props = { projectKey, onClose, ...action }
-  if (action.kind === 'edit') return <EditSprintForm {...props} />
-  if (action.kind === 'delete') return <DeleteSprintForm {...props} />
-  if (action.kind === 'start') return <StartSprintForm {...props} />
-  return <CompleteSprintForm {...props} />
+  const props = { projectKey, onClose }
+  if (action.kind === 'start') return <StartSprintForm {...props} {...action} />
+  if (action.kind === 'edit') return <EditSprintForm {...props} {...action} />
+  if (action.kind === 'delete')
+    return <DeleteSprintForm {...props} {...action} />
+  return <CompleteSprintForm {...props} {...action} />
 }

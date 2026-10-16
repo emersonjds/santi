@@ -33,14 +33,15 @@ Status:
 |---|---|---|---|---|---|---|
 | Scrum board | 13 | 7 | 0 | 2 | 10 | 32 |
 | Kanban board | 9 | 6 | 0 | 1 | 13 | 29 |
-| Backlog | 15 | 2 | 1 | 2 | 7 | 27 |
+| Backlog | 16 | 2 | 1 | 1 | 7 | 27 |
 | Sprint lifecycle | 19 | 1 | 0 | 0 | 10 | 30 |
-| UI layout (adoption + responsive) | 26 | 2 | 9 | 3 | 8 | 48 |
-| Decisions | 14 | 4 | 0 | 2 | 0 | 20 |
-| **Total** | **96** | **22** | **10** | **10** | **48** | **186** |
+| UI layout (adoption + responsive) | 28 | 2 | 8 | 2 | 8 | 48 |
+| Decisions | 15 | 4 | 0 | 1 | 0 | 20 |
+| **Total** | **100** | **22** | **9** | **7** | **48** | **186** |
 
 Decision rows restate spec rules, so a few gaps count twice (SB-17/KB-27/D5, SB-25/UI-12/D3).
-Of the 138 rows that are in v1, 96 work in the SPA (70%); the other 42 are the gaps below.
+Of the 138 rows that are in v1, 100 work in the SPA (72%); the other 38 are the gaps below.
+SAN-44 (branch `feat/SAN-44-small-gaps`) closed R-4, R-8, BL-3 and D6 and added the members page (group 4).
 
 ## Scrum board
 
@@ -114,7 +115,7 @@ Of the 138 rows that are in v1, 96 work in the SPA (70%); the other 42 are the g
 |---|---|---|---|---|
 | BL-1 | Active, future (creation order), then no-sprint | UI | `backlog-page.test` "stacks the running sprint, the planned ones, then the backlog"; `backlog::backlog_lists_active_then_future_sprints_then_the_rest` | |
 | BL-2 | Open parent rows only, mapped, not done | UI | `boards/repo.rs:366`; `backlog::reopened_issue_of_a_closed_sprint_returns_to_the_backlog` | |
-| BL-3 | Subtasks nest under parent (D6: parent rows with `open/total`) | Divergent | `widgets/backlog/backlog-row.tsx` never renders `open_subtasks`; live: subtask absent, parent row shows no count | Backlog gives no sign a parent has subtasks |
+| BL-3 | Subtasks nest under parent (D6: parent rows with `open/total`) | UI | `backlog-page.test` "draws a dense row: type, key, summary, epic, status, subtasks, points and assignee" (`SubtaskCount` shared with the board card) | |
 | BL-4 | Board shows the sprint incl. done; backlog hides done | UI | `boards/repo.rs`; `section-header.tsx` chips | |
 | BL-5 | One rank for board and backlog | UI | `issue_moves::after_anchor_places_the_issue_right_after_it`; `e2e/board.spec.ts` | |
 | BL-6 | Empty sprint keeps rank; else drop point | UI | `sortable-backlog.test` "drags a row into an empty sprint at once, keeping its rank"; `sprints::issues_move_into_a_sprint_and_back_keeping_rank` | |
@@ -161,7 +162,7 @@ Of the 138 rows that are in v1, 96 work in the SPA (70%); the other 42 are the g
 | SP-15 | Completion permission | Deferred | dropped | |
 | SP-16 | Completed = done category | UI | `sprint-dialogs.test` "skips the destination when every issue is done (D13)" | |
 | SP-17 | Never blocked; subtask follows parent | UI | `sprint_lifecycle::subtasks_follow_their_parent_at_completion` | |
-| SP-18 | One destination: backlog, future or new sprint | UI | `sprint-dialogs.test` "completes a sprint, sending its open issues to the picked sprint"; `sprint-dialog.tsx:430` | Only from the backlog section header (R-4) |
+| SP-18 | One destination: backlog, future or new sprint | UI | `sprint-dialogs.test` "completes a sprint, sending its open issues to the picked sprint"; `board-page.test` "completes the running sprint from the header menu (R-4)"; `e2e/board.spec.ts` "complete the running sprint from the board header…" | |
 | SP-19 | Completed issues leave the board | UI | `e2e/backlog.spec.ts` | |
 | SP-20, SP-21 | Shared and parallel sprints | Deferred | dropped (2 rules) | |
 | SP-22 | Only future sprints deletable; issues back, rank kept | UI | `sprint-dialogs.test` "deletes a planned sprint after asking; the running one has no delete"; `sprints::deleting_a_future_sprint_returns_its_issues_to_the_backlog` | |
@@ -181,7 +182,7 @@ Adoption list.
 | UI-3 | Search in top bar (project scope, IA §7) | UI | `e2e/search.spec.ts` | |
 | UI-6 | Sidebar collapse, kept per viewer | UI | `shared/ui/sidebar.tsx` (cookie `sidebar_state`, Ctrl/Cmd+B) | |
 | UI-8 | Project tabs incl. Settings for admins | Missing | `project-tabs.tsx` renders Board, Backlog; live: `/p/KEY/settings` → Not Found | |
-| UI-10 | Board header sprint facts | UI | as SB-11 | |
+| UI-10 | Board header sprint facts | UI | as SB-11; "…" menu with Edit and Complete sprint (R-4) | |
 | UI-11 | Ranked columns, drag changes status | UI | as SB-12, SB-16 | |
 | UI-12 | Quick filters | API only | as SB-25 | |
 | UI-13 | Card anatomy, parent chip | UI | `board-page.test` "draws the running sprint and every card field" | |
@@ -218,11 +219,11 @@ Responsive (375px).
 | R-1 | Top bar: toggle, mark, search icon opening a sheet, create, avatar | Divergent | live: full search field in the bar, no sheet; fits 375px | Minor |
 | R-2 | Sidebar as drawer, closes on navigation | UI | `app-shell.test` "opens the sidebar as a drawer on a phone and closes it on navigation" | |
 | R-3 | One column, picker with counts, move by menu | UI | `column-picker.test`; `card-menu.test` "is how a phone moves cards, with no drag handles" | Menu lists columns, not statuses (SB-17) |
-| R-4 | Board header: one line, goal expandable, Complete in overflow | Missing | `board-states.tsx` `SprintStrip` has no menu, goal clamped only; live: no Complete on the board | |
+| R-4 | Board header: one line, goal expandable, Complete in overflow | UI | `board-page.test` "completes the running sprint from the header menu (R-4)"; `e2e/board.spec.ts`; future sprints from `sprintsQuery` | Goal clamped to two lines, not expandable |
 | R-5 | One filter button with badge, bottom sheet | Missing | live 375px: no Filters button; bar wraps inline | |
 | R-6 | Backlog rows full width, move by menu | UI | `backlog-page.test` "draws a dense row…"; `sortable-backlog.test` "offers Move to… instead of drag on a phone" | |
 | R-7 | Create, detail, sprint dialogs as full-screen sheets | UI | `sprint-dialogs.test` "opens as a full-screen sheet on a phone"; `issue-dialog.tsx:22`; `create-issue-dialog.tsx:203` | Epic panel missing (D10) |
-| R-8 | 44px targets, 16px inputs, no hover-only, no sideways scroll | Divergent | live: no sideways scroll on board, backlog, issue; inputs ≥ 16px. Under 44px: card "…" 40×40 (`card-menu.tsx` `size-10`), assignee avatars 40×40 (`filter-bar.tsx`), issue summary 343×32 (`issue-detail.tsx:74`). Hover-only: "Updated …" on the card key, over-limit title | See bugs |
+| R-8 | 44px targets, 16px inputs, no hover-only, no sideways scroll | UI | `app/touch-targets.test.tsx` measures every control on board, backlog, issue and members pages at 375px (card "…", filter avatars, issue summary, top bar mark and Create, members stack, Projects breadcrumb fixed in SAN-44) | Hover-only: "Updated …" on the card key, over-limit title |
 
 ## Decisions
 
@@ -232,7 +233,7 @@ Responsive (375px).
 | D3 | AND across kinds, OR within | API only | `board_view::board_quick_filters_combine`; `comments_search::search_combines_filters_and_within_or_across_and` | SPA has one kind (assignee) on board/backlog |
 | D4 | Drop position wins, one order | UI | `issue_moves::*anchor*`; `sortable-board.test`, `sortable-backlog.test` | |
 | D5 | Inline create, bottom, column status | Divergent | as SB-23 | First column only |
-| D6 | Flat subtasks; parent `open/total`; backlog parent rows with count | Divergent | board UI; backlog row lacks the count (BL-3) | |
+| D6 | Flat subtasks; parent `open/total`; backlog parent rows with count | UI | board card and backlog row (BL-3) | |
 | D7 | One max per column, warn only | API only | display UI (KB-14); setting API only (KB-12) | |
 | D8 | Done hidden after window from entering done | UI | `issue_moves::done_timer_follows_the_status_category`, `moving_between_done_statuses_keeps_the_timer` | Window set by API only |
 | D9 | No kanban backlog | UI | `project-header.test` "sends a kanban backlog to the board" | |
@@ -262,7 +263,7 @@ Ranked by what blocks a small team using the MVP every day.
    window; a column header menu to set the limit (KB-16).
    Why: today every team is stuck with To Do / In Progress / Done. Adding "In review" or a WIP
    limit needs curl.
-2. **Complete sprint from the board** — S.
+2. **Complete sprint from the board** — S. Done in SAN-44 (goal expand left out).
    Rules: R-4, SP-18 (entry point), UI-10.
    API: none.
    UI: overflow menu in the board's sprint strip opening the existing complete dialog. That
@@ -270,13 +271,15 @@ Ranked by what blocks a small team using the MVP every day.
    instead. Goal expandable on tap.
    Why: the sprint ends where the team looks every day (the board); today they must go to the
    backlog to close it.
-3. **Small fixes** — S.
+3. **Small fixes** — S. Done in SAN-44.
    Rules: R-8, BL-3/D6 count, inline subtask Esc.
    API: none.
    UI: 44px card menu trigger, filter avatars and issue summary at 375px; `open/total` chip on
    backlog rows; Esc and a Cancel on the "Add subtask" field.
    Why: real bugs against adopted rules, each a few lines.
-4. **Members management** — S.
+4. **Members management** — S. Done in SAN-44: `/p/{key}/settings/members` (`members-page.test`,
+   `e2e/projects.spec.ts` "an admin changes a member role…"); add by email and moving the invite box
+   off the header left out.
    Rules: IA §3 `/settings/members`, IA §9.
    API: none; `POST /members`, `PUT/DELETE /members/{user_id}`, last-admin guard exist
    (`projects::admin_changes_roles_and_removes_members`, `projects::the_last_admin_stays`).
@@ -347,14 +350,7 @@ Ranked by what blocks a small team using the MVP every day.
   second in-progress status ("In review") into In Progress with
   `PUT /api/projects/{key}/statuses/{id}`, then drag a To Do card onto that column. No zones
   appear and the issue lands in "In Progress". `entities/issue/issue-mutations.ts:112`.
-- **R-8**: targets under 44px at 375px: card "…" 40×40 (`features/issue-quick-actions/card-menu.tsx`,
-  trigger `size-10`); filter avatars 40×40 (`widgets/board/filter-bar.tsx`); issue summary
-  343×32 (`widgets/issue-detail/issue-detail.tsx:74`, `h-auto py-1`).
-- **Inline subtask field**: Esc does nothing and there is no Cancel. Once "Add subtask" is
-  open it stays until you leave the issue. Repro: open an issue, Add subtask, press Esc.
-  `widgets/issue-detail/issue-subtasks.tsx`.
-- **BL-3/D6**: backlog parent rows drop the `open/total` subtask count D6 promises, and
-  subtasks don't appear in the backlog. A planner can't see that a story has open subtasks.
-  `widgets/backlog/backlog-row.tsx`.
+- Fixed in SAN-44: R-8 targets, the inline subtask field (Esc and Cancel, `issue-detail.test`
+  "drops an open subtask field on Esc or Cancel, leaving the dialog open") and the BL-3/D6 count.
 - **SB-23/D5**: inline create exists only at the foot of the first board column.
   `widgets/board/board.tsx` (`column === first`).

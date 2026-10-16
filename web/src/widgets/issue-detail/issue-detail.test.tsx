@@ -295,6 +295,29 @@ describe('issue detail', () => {
     ])
   })
 
+  it('drops an open subtask field on Esc or Cancel, leaving the dialog open', async () => {
+    const { dialog } = await openFromBoard()
+    const subtasks = dialog.getByRole('region', { name: 'Subtasks' })
+
+    await subtasks.getByRole('button', { name: 'Add subtask' }).click()
+    await subtasks.getByLabelText('Subtask summary').fill('Half a thought')
+    await userEvent.keyboard('{Escape}')
+
+    await expect
+      .element(subtasks.getByLabelText('Subtask summary'))
+      .not.toBeInTheDocument()
+    await expect.element(dialog).toBeVisible()
+
+    await subtasks.getByRole('button', { name: 'Add subtask' }).click()
+    await expect
+      .element(subtasks.getByLabelText('Subtask summary'))
+      .toHaveValue('')
+    await subtasks.getByRole('button', { name: 'Cancel' }).click()
+    await expect
+      .element(subtasks.getByRole('button', { name: 'Add subtask' }))
+      .toBeVisible()
+  })
+
   it('keeps the summary when it is emptied, and drops a cancelled description', async () => {
     const requests = inProjects({ [PATCH]: pending })
     const { screen } = await renderApp('/p/WEB/issues/1')

@@ -19,15 +19,18 @@ const api = <Body>(page: Page, method: string, path: string, body?: unknown) =>
     { method, path, body }
   ) as Promise<Body>
 
-/** A signed-in user with a kanban project holding three new issues in its first column. */
-const kanbanWithIssues = async (page: Page) => {
+const register = async (page: Page) => {
   await page.goto('/register')
   await page.getByLabel('Name').fill('Ada')
   await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
+}
 
+/** A signed-in user with a kanban project holding three new issues in its first column. */
+const kanbanWithIssues = async (page: Page) => {
+  await register(page)
   const key = `B${unique().slice(-6).toUpperCase()}`
   await api(page, 'POST', '/api/projects', {
     key,
@@ -130,4 +133,48 @@ test('"Only my issues" narrows the board and survives a reload', async ({
     page.getByRole('button', { name: 'Only my issues' })
   ).toHaveAttribute('aria-pressed', 'true')
   await expect(todo.getByRole('article')).toHaveCount(1)
+})
+
+test('complete the running sprint from the board header, open work back to the backlog', async ({
+  page,
+}) => {
+  await register(page)
+  const key = `C${unique().slice(-6).toUpperCase()}`
+  await api(page, 'POST', '/api/projects', {
+    key,
+    name: `Close ${key}`,
+    board_type: 'scrum',
+  })
+  const sprint = await api<{ id: number }>(
+    page,
+    'POST',
+    `/api/projects/${key}/sprints`,
+    {}
+  )
+  for (const summary of ['Alpha task', 'Beta task'])
+    await api(page, 'POST', `/api/projects/${key}/issues`, {
+      summary,
+      sprint_id: sprint.id,
+    })
+  const today = new Date().toLocaleDateString('sv')
+  await api(page, 'POST', `/api/projects/${key}/sprints/${sprint.id}/start`, {
+    start_date: today,
+    end_date: today,
+  })
+  await page.goto(`/p/${key}/board`)
+  await expect(column(page, 'To Do').getByRole('article')).toHaveCount(2)
+
+  await page.getByRole('button', { name: 'More for Sprint 1' }).click()
+  await page.getByRole('menuitem', { name: 'Complete sprint' }).click()
+  const complete = page.getByRole('dialog', { name: 'Complete Sprint 1' })
+  await expect(complete).toContainText('0 issues done · 2 open')
+  await expect(complete.getByRole('radio', { name: 'Backlog' })).toBeChecked()
+  await complete.getByRole('button', { name: 'Complete sprint' }).click()
+
+  await expect(complete).toBeHidden()
+  await expect(page.getByText('No sprint is running.')).toBeVisible()
+  await page.getByRole('link', { name: 'Open backlog' }).click()
+  await expect(
+    page.getByRole('region', { name: 'Backlog', exact: true })
+  ).toContainText('Beta task')
 })
