@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { createFileRoute } from '@tanstack/react-router'
 import { LoginPage } from '@/pages/login/login-page'
+import { redirectSignedIn } from '@/entities/session/require-session'
 
 const search = z.object({
   // Same-site paths only: `//host` or `https://…` would send the user off santi.
@@ -13,5 +14,7 @@ const search = z.object({
 
 export const Route = createFileRoute('/login')({
   validateSearch: search,
+  beforeLoad: ({ context, search }) =>
+    redirectSignedIn(context.queryClient, search.redirect),
   component: LoginPage,
 })

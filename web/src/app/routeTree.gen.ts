@@ -14,6 +14,11 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
+import { Route as AuthenticatedPKeyRouteRouteImport } from './routes/_authenticated/p/$key/route'
+import { Route as AuthenticatedPKeyIndexRouteImport } from './routes/_authenticated/p/$key/index'
+import { Route as AuthenticatedPKeySearchRouteImport } from './routes/_authenticated/p/$key/search'
+import { Route as AuthenticatedPKeyBoardRouteImport } from './routes/_authenticated/p/$key/board'
+import { Route as AuthenticatedPKeyBacklogRouteImport } from './routes/_authenticated/p/$key/backlog'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -40,18 +45,53 @@ const AuthenticatedProjectsNewRoute =
     path: '/projects/new',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPKeyRouteRoute = AuthenticatedPKeyRouteRouteImport.update({
+  id: '/p/$key',
+  path: '/p/$key',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPKeyIndexRoute = AuthenticatedPKeyIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedPKeyRouteRoute,
+} as any)
+const AuthenticatedPKeySearchRoute = AuthenticatedPKeySearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AuthenticatedPKeyRouteRoute,
+} as any)
+const AuthenticatedPKeyBoardRoute = AuthenticatedPKeyBoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => AuthenticatedPKeyRouteRoute,
+} as any)
+const AuthenticatedPKeyBacklogRoute =
+  AuthenticatedPKeyBacklogRouteImport.update({
+    id: '/backlog',
+    path: '/backlog',
+    getParentRoute: () => AuthenticatedPKeyRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
+  '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
+  '/p/$key/search': typeof AuthenticatedPKeySearchRoute
+  '/p/$key/': typeof AuthenticatedPKeyIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/': typeof AuthenticatedIndexRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
+  '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
+  '/p/$key/search': typeof AuthenticatedPKeySearchRoute
+  '/p/$key': typeof AuthenticatedPKeyIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -59,20 +99,47 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/_authenticated/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
+  '/_authenticated/p/$key/board': typeof AuthenticatedPKeyBoardRoute
+  '/_authenticated/p/$key/search': typeof AuthenticatedPKeySearchRoute
+  '/_authenticated/p/$key/': typeof AuthenticatedPKeyIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/register' | '/projects/new'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/register'
+    | '/p/$key'
+    | '/projects/new'
+    | '/p/$key/backlog'
+    | '/p/$key/board'
+    | '/p/$key/search'
+    | '/p/$key/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/login' | '/register' | '/' | '/projects/new'
+  to:
+    | '/login'
+    | '/register'
+    | '/'
+    | '/projects/new'
+    | '/p/$key/backlog'
+    | '/p/$key/board'
+    | '/p/$key/search'
+    | '/p/$key'
   id:
     | '__root__'
     | '/_authenticated'
     | '/login'
     | '/register'
     | '/_authenticated/'
+    | '/_authenticated/p/$key'
     | '/_authenticated/projects/new'
+    | '/_authenticated/p/$key/backlog'
+    | '/_authenticated/p/$key/board'
+    | '/_authenticated/p/$key/search'
+    | '/_authenticated/p/$key/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -118,16 +185,73 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/p/$key': {
+      id: '/_authenticated/p/$key'
+      path: '/p/$key'
+      fullPath: '/p/$key'
+      preLoaderRoute: typeof AuthenticatedPKeyRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/p/$key/': {
+      id: '/_authenticated/p/$key/'
+      path: '/'
+      fullPath: '/p/$key/'
+      preLoaderRoute: typeof AuthenticatedPKeyIndexRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
+    '/_authenticated/p/$key/search': {
+      id: '/_authenticated/p/$key/search'
+      path: '/search'
+      fullPath: '/p/$key/search'
+      preLoaderRoute: typeof AuthenticatedPKeySearchRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
+    '/_authenticated/p/$key/board': {
+      id: '/_authenticated/p/$key/board'
+      path: '/board'
+      fullPath: '/p/$key/board'
+      preLoaderRoute: typeof AuthenticatedPKeyBoardRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
+    '/_authenticated/p/$key/backlog': {
+      id: '/_authenticated/p/$key/backlog'
+      path: '/backlog'
+      fullPath: '/p/$key/backlog'
+      preLoaderRoute: typeof AuthenticatedPKeyBacklogRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
   }
 }
 
+interface AuthenticatedPKeyRouteRouteChildren {
+  AuthenticatedPKeyBacklogRoute: typeof AuthenticatedPKeyBacklogRoute
+  AuthenticatedPKeyBoardRoute: typeof AuthenticatedPKeyBoardRoute
+  AuthenticatedPKeySearchRoute: typeof AuthenticatedPKeySearchRoute
+  AuthenticatedPKeyIndexRoute: typeof AuthenticatedPKeyIndexRoute
+}
+
+const AuthenticatedPKeyRouteRouteChildren: AuthenticatedPKeyRouteRouteChildren =
+  {
+    AuthenticatedPKeyBacklogRoute: AuthenticatedPKeyBacklogRoute,
+    AuthenticatedPKeyBoardRoute: AuthenticatedPKeyBoardRoute,
+    AuthenticatedPKeySearchRoute: AuthenticatedPKeySearchRoute,
+    AuthenticatedPKeyIndexRoute: AuthenticatedPKeyIndexRoute,
+  }
+
+const AuthenticatedPKeyRouteRouteWithChildren =
+  AuthenticatedPKeyRouteRoute._addFileChildren(
+    AuthenticatedPKeyRouteRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedPKeyRouteRoute: typeof AuthenticatedPKeyRouteRouteWithChildren
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedPKeyRouteRoute: AuthenticatedPKeyRouteRouteWithChildren,
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
 }
 

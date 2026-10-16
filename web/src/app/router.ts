@@ -12,6 +12,8 @@ export const createAppRouter = (
     history,
     basepath: import.meta.env.BASE_URL,
     defaultPreload: 'intent',
+    // TanStack Query decides freshness; the router only triggers the loaders (D39 prefetch).
+    defaultPreloadStaleTime: 0,
   })
 
 declare module '@tanstack/react-router' {

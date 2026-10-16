@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { renderApp } from '@/test/render-app'
-import { ALICE, problem, stubApi } from '@/test/stub-api'
+import { ALICE, anonymous, problem, routeOf } from '@/test/stub-api'
 
 const signIn = async (
   screen: RenderResult,
@@ -15,7 +15,7 @@ const signIn = async (
 
 describe('sign in', () => {
   it('asks for both fields before calling the server', async () => {
-    const requests = stubApi({})
+    const requests = anonymous()
     const { screen } = await renderApp('/login')
 
     await screen.getByRole('button', { name: 'Sign in' }).click()
@@ -24,11 +24,11 @@ describe('sign in', () => {
       .element(screen.getByText('Enter an email address.'))
       .toBeVisible()
     await expect.element(screen.getByText('Enter your password.')).toBeVisible()
-    expect(requests).toHaveLength(0)
+    expect(requests.map(routeOf)).toEqual(['GET /api/me'])
   })
 
   it('shows the server detail when the credentials are wrong', async () => {
-    stubApi({
+    anonymous({
       'POST /api/auth/login': {
         status: 401,
         body: problem(401, 'Email or password is incorrect.'),
@@ -44,7 +44,7 @@ describe('sign in', () => {
   })
 
   it('signs in and lands on home', async () => {
-    const requests = stubApi({
+    const requests = anonymous({
       'POST /api/auth/login': { status: 200, body: ALICE },
     })
     const { screen } = await renderApp('/login')
@@ -54,14 +54,16 @@ describe('sign in', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'No projects yet' }))
       .toBeVisible()
-    expect(await requests[0].json()).toEqual({
+    expect(
+      await requests.find((request) => request.method === 'POST')?.json()
+    ).toEqual({
       email: 'alice@example.com',
       password: 'correct horse battery',
     })
   })
 
   it('returns to the page that asked for a session', async () => {
-    stubApi({
+    anonymous({
       'GET /api/me': { status: 401, body: problem(401, 'Sign in first.') },
       'POST /api/auth/login': { status: 200, body: ALICE },
     })
@@ -75,7 +77,7 @@ describe('sign in', () => {
   })
 
   it('ignores a redirect to another site', async () => {
-    stubApi({ 'POST /api/auth/login': { status: 200, body: ALICE } })
+    anonymous({ 'POST /api/auth/login': { status: 200, body: ALICE } })
     const { screen, router } = await renderApp(
       '/login?redirect=%2F%2Fevil.example'
     )

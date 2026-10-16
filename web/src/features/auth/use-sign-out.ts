@@ -1,23 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { LogOut } from 'lucide-react'
+import { forgetSession } from '@/entities/session/require-session'
 import { api } from '@/shared/api/client'
-import { Button } from '@/shared/ui/button'
 
-export const SignOutButton = () => {
+export const useSignOut = () => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
 
-  const signOut = async () => {
+  return async () => {
     await api.POST('/api/auth/logout')
-    queryClient.clear()
+    forgetSession(queryClient)
     await navigate({ to: '/login' })
   }
-
-  return (
-    <Button variant='ghost' className='h-11' onClick={signOut}>
-      <LogOut />
-      Sign out
-    </Button>
-  )
 }
