@@ -39,7 +39,7 @@ API answers carry `nosniff` and the referrer policy too. A hashed file under `/a
 
 ```sh
 curl -s -D - -o /dev/null -H 'content-type: application/json' \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"correct horse battery\",\"display_name\":\"Check\",\"accept_terms\":true}" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"correct horse battery\",\"display_name\":\"Check\",\"accept_terms\":true,\"confirm_age\":true}" \
   "$URL/api/auth/register" | grep -iE '^(HTTP|set-cookie)'
 ```
 
@@ -105,8 +105,8 @@ Both lines: `401 401 401 401 401 429`. The real account is locked for 30 s.
 Do it once in Chrome or Firefox on a laptop and once in **Safari on an iPhone** (and Safari on macOS if at hand).
 Safari never keeps a `Secure` cookie on plain `http://`, not even on `localhost`: test it on the HTTPS URL only.
 
-1. Open `$URL` signed out: the landing page shows the *Your data is yours* section; the footer links to *Privacy Policy*, *Terms of Use* and *Send feedback*. On `/privacy` and `/terms` the operator name, contact, region and venue are the real ones, not `[operator name]` placeholders.
-2. *Try santi* → sign-up refuses to continue until *I agree to the Terms of Use and Privacy Policy* is ticked → the empty home shows *New project* and *Start with a sample project*.
+1. Open `$URL` signed out: the landing page shows the *Your data is yours* section; the footer links to *Privacy Policy*, *Terms of Use* and *Send feedback*. On `/privacy` and `/terms` (and `?lang=pt-BR`, reached by the *Português* link) the operator name, contact, region and venue are the real ones, not `[operator name]` placeholders, and the retention promises (access logs 6 months, backups 30 days) match the Railway settings.
+2. *Try santi* → sign-up refuses to continue until *I agree to the Terms of Use and Privacy Policy* and *I am 18 or older* are ticked (both start unticked) → the empty home shows *New project* and *Start with a sample project*.
 3. *Start with a sample project* → the board of *Sample: Mobile app* with Sprint 1 running and cards in every column. Click it again from *New project*: the same board opens, no second project.
 4. Drag a card to another column (on the phone, use the card menu → *Move to…*), reload: it stays there.
 5. Open an issue: subtasks, a comment and the details panel show; add a comment.

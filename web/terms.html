@@ -24,8 +24,14 @@
           <span>santi</span>
         </a>
         <nav aria-label="Main" class="flex items-center gap-1">
-          <a href="/login" class="btn btn-ghost">Sign in</a>
-          <a href="/register" class="btn btn-primary">Try santi</a>
+          <a
+            href="/terms?lang=pt-BR"
+            class="btn btn-ghost"
+            lang="pt-BR"
+            hreflang="pt-BR"
+            >Português</a
+          >
+          <a href="/login" class="btn btn-ghost max-sm:hidden">Sign in</a>
         </nav>
       </div>
     </header>
@@ -67,6 +73,7 @@
 
       <h2>3. Your account</h2>
       <ul>
+        <li>You must be 18 or older; sign-up asks you to confirm it.</li>
         <li>
           Give a real email you can read; you are responsible for what happens
           under your account.
@@ -150,14 +157,16 @@
       <p>
         If these terms change, we will show a notice in the app at least 15 days
         before the new version applies, except for changes required by law. Each
-        version has a date; your account records the version you accepted.
+        version has a date; your account records the version you accepted, and
+        the app asks you to accept a new version before you continue.
       </p>
 
       <h2>11. Governing law and venue</h2>
       <p>
         These terms are governed by the laws of Brazil. Disputes go to the
-        courts of <strong>%VITE_LEGAL_VENUE%</strong>, without prejudice to your
-        right as a consumer to go to the courts where you live.
+        courts of
+        <strong>%VITE_LEGAL_VENUE%</strong>, without prejudice to your right as
+        a consumer to go to the courts where you live.
       </p>
 
       <h2>12. Contact</h2>
@@ -168,15 +177,19 @@
     </main>
 
     <footer class="border-t">
-      <div
-        class="container-page flex flex-wrap gap-x-6 gap-y-2 py-6 text-sm text-muted-foreground"
-      >
-        <a href="/about" class="underline">Home</a>
-        <a href="/privacy" class="underline">Privacy Policy</a>
-        <a href="/terms" class="underline">Terms of Use</a>
-        <span
-          >This text is written in plain language and is not legal advice.</span
-        >
+      <div class="container-page grid gap-2 py-6 text-sm text-muted-foreground">
+        <p>
+          Operated by <strong>%VITE_OPERATOR_NAME%</strong> · Privacy contact:
+          <a href="mailto:%VITE_PRIVACY_EMAIL%" class="underline"
+            >%VITE_PRIVACY_EMAIL%</a
+          >
+        </p>
+        <p class="flex flex-wrap gap-x-6 gap-y-2">
+          <a href="/about" class="underline">Home</a>
+          <a href="/privacy" class="underline">Privacy Policy</a>
+          <a href="/terms" class="underline">Terms of Use</a>
+          <span>Written in plain language; not legal advice.</span>
+        </p>
       </div>
     </footer>
   </body>

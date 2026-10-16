@@ -5,6 +5,8 @@
 @source '../../../landing.html';
 @source '../../../privacy.html';
 @source '../../../terms.html';
+@source '../../../privacy.pt-BR.html';
+@source '../../../terms.pt-BR.html';
 
 @layer base {
   * {
@@ -251,6 +253,18 @@
   }
   .legal .legal-lead {
     @apply text-lg text-foreground;
+  }
+  .legal-table {
+    @apply mt-4 overflow-x-auto rounded-lg border;
+  }
+  .legal-table table {
+    @apply w-full min-w-xl text-left text-sm;
+  }
+  .legal-table th {
+    @apply bg-muted px-3 py-2 font-semibold text-foreground;
+  }
+  .legal-table td {
+    @apply border-t px-3 py-2 align-top text-muted-foreground;
   }
   .legal .legal-note {
     @apply rounded-lg border bg-muted px-4 py-3 text-sm;
