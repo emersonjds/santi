@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from 'sonner'
 import {
   type BoardSettings,
   type BoardView,
@@ -11,6 +10,7 @@ import {
   api,
   dataOrThrow,
 } from '@/shared/api/client'
+import { toast } from '@/shared/lib/toast'
 import {
   type Move,
   cardOf,

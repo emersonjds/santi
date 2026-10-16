@@ -45,4 +45,14 @@ export default [
     limit: '170 KB',
     gzip: true,
   },
+  {
+    name: 'initial JS, /app/p/KEY/issues/N (issue page)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/issues/$number.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
 ]
