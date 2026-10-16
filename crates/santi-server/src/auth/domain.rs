@@ -31,7 +31,8 @@ pub fn normalize_email(email: &str) -> Result<String, AppError> {
         && !domain.contains('@')
         && !email.chars().any(char::is_whitespace)
         && labels.clone().count() >= 2
-        && labels.all(|label| !label.is_empty());
+        && labels.all(|label| !label.is_empty())
+        && !domain.ends_with(".invalid");
     if !valid {
         return Err(AppError::invalid("email", "must be an email address"));
     }
@@ -193,6 +194,7 @@ mod tests {
             assert!(normalize_email(email).is_err(), "{email}");
         }
         assert_eq!(normalize_email("a@b.c").unwrap(), "a@b.c");
+        assert!(normalize_email("deleted-1@deleted.invalid").is_err());
         assert_eq!(normalize_email("a.b@mail.x.io").unwrap(), "a.b@mail.x.io");
     }
 

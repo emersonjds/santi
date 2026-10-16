@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE member m SET role = 'admin'\n         FROM (SELECT DISTINCT ON (o.project_id) o.project_id, o.user_id\n               FROM member mine\n               JOIN member o ON o.project_id = mine.project_id AND o.user_id <> $1\n               JOIN app_user living ON living.id = o.user_id AND living.deleted_at IS NULL\n               WHERE mine.user_id = $1 AND mine.role = 'admin'\n                 AND NOT EXISTS (SELECT 1 FROM member a JOIN app_user u ON u.id = a.user_id\n                                 WHERE a.project_id = mine.project_id AND a.user_id <> $1\n                                   AND a.role = 'admin' AND u.deleted_at IS NULL)\n               ORDER BY o.project_id, o.user_id) heir\n         WHERE m.project_id = heir.project_id AND m.user_id = heir.user_id",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8ac730f555885d0f9b70b50e55efcf6a3ae668512698bce0eb59f1d7da278d68"
+}

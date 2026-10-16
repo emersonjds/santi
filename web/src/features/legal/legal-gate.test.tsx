@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderApp } from '@/test/render-app'
-import { routeOf, signedIn } from '@/test/stub-api'
+import { problem, routeOf, signedIn } from '@/test/stub-api'
 
 const status = (accepted: boolean) => ({
   required: true,
@@ -54,6 +54,56 @@ describe('legal gate', () => {
       accept_terms: true,
       confirm_age: true,
     })
+  })
+
+  it('shows a loader, not the app, until the status arrives', async () => {
+    let arrive = () => {}
+    signedIn({
+      'GET /api/me/legal': {
+        status: 200,
+        body: status(true),
+        until: new Promise<void>((resolve) => (arrive = resolve)),
+      },
+    })
+    const { screen } = await renderApp('/')
+
+    await expect
+      .element(screen.getByRole('status', { name: 'Checking the terms' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .not.toBeInTheDocument()
+    arrive()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .toBeVisible()
+  })
+
+  it('keeps the app closed when the status fails to load', async () => {
+    let fails = true
+    signedIn({
+      'GET /api/me/legal': {
+        get status() {
+          return fails ? 500 : 200
+        },
+        get body() {
+          return fails ? problem(500, 'Boom.') : status(true)
+        },
+      },
+    })
+    const { screen } = await renderApp('/')
+
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent('The terms check did not load.')
+    await expect
+      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .not.toBeInTheDocument()
+    fails = false
+    await screen.getByRole('button', { name: 'Try again' }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .toBeVisible()
   })
 
   it('lets the app through when the terms are current', async () => {

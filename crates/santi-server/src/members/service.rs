@@ -5,6 +5,7 @@ use santi_types::projects::{
 use sqlx::PgPool;
 
 use super::{Member, domain, repo};
+use crate::Legal;
 use crate::auth::{self, extract::CurrentUser};
 use crate::error::AppError;
 use crate::projects;
@@ -14,18 +15,26 @@ pub async fn list_members(pool: &PgPool, member: &Member) -> Result<Vec<MemberIn
     Ok(repo::list_members(&mut conn, member.project_id).await?)
 }
 
+/// Like accepting an invite, joining needs the current legal documents accepted (D45).
 pub async fn add_member(
     pool: &PgPool,
+    legal: &Legal,
     member: &Member,
     input: AddMember,
 ) -> Result<MemberInfo, AppError> {
     domain::require_admin(member)?;
-    let email = input.email.trim().to_lowercase();
+    let email = auth::domain::normalize_email(&input.email)?;
     let mut conn = pool.acquire().await?;
     let user_id = repo::find_user_id_by_email(&mut conn, &email).await?;
     let user_id = user_id.ok_or_else(|| {
         AppError::invalid("email", "no account uses this email; send an invite link")
     })?;
+    if legal.required && !auth::repo::has_current_acceptance(&mut conn, user_id).await? {
+        return Err(AppError::conflict(
+            "terms-not-accepted",
+            "That account has not accepted the current Terms of Use and Privacy Policy yet; send an invite link instead.",
+        ));
+    }
     repo::insert_member(&mut conn, member.project_id, user_id, input.role).await?;
     repo::find_member_info(&mut conn, member.project_id, user_id)
         .await?

@@ -36,7 +36,8 @@ pub async fn find_user_by_email(
 ) -> Result<Option<UserWithHash>, sqlx::Error> {
     sqlx::query_as!(
         UserWithHash,
-        "SELECT id, email, display_name, password_hash FROM app_user WHERE email = $1",
+        "SELECT id, email, display_name, password_hash FROM app_user
+         WHERE email = $1 AND deleted_at IS NULL",
         email
     )
     .fetch_optional(&mut *conn)
@@ -174,7 +175,7 @@ pub async fn lock_memberships(conn: &mut PgConnection, user_id: i64) -> Result<(
     Ok(())
 }
 
-/// Projects nobody else belongs to go with the account (issues, sprints and comments cascade).
+/// Projects no other living account belongs to go with the account (issues, sprints and comments cascade).
 pub async fn delete_solo_projects(
     conn: &mut PgConnection,
     user_id: i64,
@@ -182,7 +183,9 @@ pub async fn delete_solo_projects(
     sqlx::query!(
         "DELETE FROM project p
          WHERE p.id IN (SELECT project_id FROM member WHERE user_id = $1)
-           AND NOT EXISTS (SELECT 1 FROM member o WHERE o.project_id = p.id AND o.user_id <> $1)",
+           AND NOT EXISTS (SELECT 1 FROM member o JOIN app_user u ON u.id = o.user_id
+                           WHERE o.project_id = p.id AND o.user_id <> $1
+                             AND u.deleted_at IS NULL)",
         user_id
     )
     .execute(&mut *conn)
@@ -190,17 +193,19 @@ pub async fn delete_solo_projects(
     Ok(())
 }
 
-/// Where the user is the last admin, the remaining member with the oldest account becomes admin.
+/// Where the user is the last living admin, the remaining living member with the oldest account
+/// becomes admin.
 pub async fn hand_over_admin(conn: &mut PgConnection, user_id: i64) -> Result<(), sqlx::Error> {
     sqlx::query!(
         "UPDATE member m SET role = 'admin'
          FROM (SELECT DISTINCT ON (o.project_id) o.project_id, o.user_id
                FROM member mine
                JOIN member o ON o.project_id = mine.project_id AND o.user_id <> $1
+               JOIN app_user living ON living.id = o.user_id AND living.deleted_at IS NULL
                WHERE mine.user_id = $1 AND mine.role = 'admin'
-                 AND NOT EXISTS (SELECT 1 FROM member a
+                 AND NOT EXISTS (SELECT 1 FROM member a JOIN app_user u ON u.id = a.user_id
                                  WHERE a.project_id = mine.project_id AND a.user_id <> $1
-                                   AND a.role = 'admin')
+                                   AND a.role = 'admin' AND u.deleted_at IS NULL)
                ORDER BY o.project_id, o.user_id) heir
          WHERE m.project_id = heir.project_id AND m.user_id = heir.user_id",
         user_id
@@ -211,7 +216,7 @@ pub async fn hand_over_admin(conn: &mut PgConnection, user_id: i64) -> Result<()
 }
 
 /// Removes the person, keeps the row: issues and comments they wrote in shared projects still
-/// point at it, now named "Deleted user" with an address nobody can sign in with.
+/// point at it, now named "Deleted user" with an address sign-up can never produce (no `@`).
 pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sqlx::Error> {
     sqlx::query!("DELETE FROM member WHERE user_id = $1", user_id)
         .execute(&mut *conn)
@@ -230,7 +235,7 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
         .await?;
     sqlx::query!(
         "UPDATE app_user
-         SET email = 'deleted-' || id || '@deleted.invalid', display_name = 'Deleted user',
+         SET email = 'erased:' || id, deleted_at = now(), display_name = 'Deleted user',
              password_hash = '!'
          WHERE id = $1",
         user_id

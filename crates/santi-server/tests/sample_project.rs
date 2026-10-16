@@ -123,15 +123,22 @@ async fn the_sample_needs_a_signed_in_caller(pool: PgPool) {
 }
 
 #[sqlx::test]
-async fn a_sample_key_taken_by_another_project_is_a_conflict(pool: PgPool) {
+async fn a_sample_key_taken_by_another_project_gets_a_random_one(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     let digit = char::from_digit(u32::try_from(ana.user_id).unwrap(), 36).unwrap();
-    bob.create_project(&format!("MOB{}", digit.to_ascii_uppercase()), "kanban")
-        .await;
+    let taken = format!("MOB{}", digit.to_ascii_uppercase());
+    bob.create_project(&taken, "kanban").await;
 
-    let (status, problem) = ana.post("/api/sample-project", json!(null)).await;
+    let (status, sample) = ana.post("/api/sample-project", json!(null)).await;
+    let (again, second) = ana.post("/api/sample-project", json!(null)).await;
 
-    assert_eq!(status, StatusCode::CONFLICT);
-    assert_eq!(problem["type"], "urn:santi:error:already-exists");
+    assert_eq!(status, StatusCode::CREATED, "{sample}");
+    let key = sample["key"].as_str().unwrap();
+    assert!(
+        key.starts_with("MOB") && key.len() == 10 && key != taken,
+        "{key}"
+    );
+    assert_eq!(again, StatusCode::OK);
+    assert_eq!(second, sample);
 }
