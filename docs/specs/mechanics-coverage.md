@@ -36,9 +36,9 @@ Status:
 | Kanban board | 16 | 0 | 0 | 0 | 13 | 29 |
 | Backlog | 18 | 0 | 1 | 1 | 7 | 27 |
 | Sprint lifecycle | 19 | 1 | 0 | 0 | 10 | 30 |
-| UI layout (adoption + responsive) | 31 | 1 | 6 | 2 | 8 | 48 |
+| UI layout (adoption + responsive) | 34 | 1 | 3 | 2 | 8 | 48 |
 | Decisions | 20 | 0 | 0 | 0 | 0 | 20 |
-| **Total** | **126** | **2** | **7** | **3** | **48** | **186** |
+| **Total** | **129** | **2** | **4** | **3** | **48** | **186** |
 
 Decision rows restate spec rules, so a few gaps count twice (SB-17/KB-27/D5, SB-25/UI-12/D3).
 Of the 138 rows that are in v1, 126 work in the SPA (91%); the other 12 are the gaps below.
@@ -200,7 +200,7 @@ Adoption list.
 | UI-21 | Row menu: top, bottom | UI | `features/move-issue/row-menu.tsx` ("…" per section; no right-click) | |
 | UI-22 | Multi-select (checkbox, Cmd/Shift-click) and toolbar | Missing | live: 0 checkboxes | |
 | UI-23 | Inline create in every section | UI | as BL-17 | |
-| UI-26 | J/K moves selection (panel → modal per D1) | Missing | key handlers in the SPA: `c`, Cmd/Ctrl+K, Cmd/Ctrl+B only | |
+| UI-26 | J/K moves selection (panel → modal per D1) | UI | `shortcuts.test` "moves the focus card by card with j and k…", "opens the focused card with Enter or o, and steps through the board inside the dialog"; `e2e/board.spec.ts` "walk the board with j and k…"; `board-perf.spec.ts` j/k INP 16 ms on 250 cards | Selection is the focused card (D36 ring); a virtualized backlog reveals rows one window at a time |
 | UI-27 | Two-column detail | UI | `issue-detail.tsx:188` | |
 | UI-28 | Narrow: single column | UI | live 375px: issue page fits, no sideways scroll | |
 | UI-29 | Header: glyph, key, parent; glyph opens type picker | Divergent | `issue-detail.tsx:35-50`; type changes from the Type select in details | Minor |
@@ -208,8 +208,8 @@ Adoption list.
 | UI-32 | Create in top bar and `c` | UI | `create-issue.test` "opens with c, but not while typing" | |
 | UI-33 | Compact create dialog, trimmed fields | UI | `create-issue.test` | |
 | UI-36 | Placement (IA resolved #2: bottom) | UI | as BL-16 | |
-| UI-37 | `?` opens the shortcut sheet | Missing | live: `?` opens nothing; no account menu entry | |
-| UI-38 | `c o a i m e j k n p` | Missing | only `c` (`create-button.tsx:40`) | |
+| UI-37 | `?` opens the shortcut sheet | UI | `widgets/app-shell/shortcut-sheet.tsx`; `shortcuts.test` "lists every shortcut on ? and turns them off and back on from there" (switch kept per browser; account menu entry) | |
+| UI-38 | `c o a i m e j k n p` | UI | `shared/lib/shortcuts.ts` (one layer: not in fields, not under another dialog or menu); `shortcuts.test` (n/p, i on a card, row and open issue, a, m, e, g b, g l, /) | `a` and `m` act on the open issue, `e` on a backlog row; n/p do not switch the phone column picker |
 | D1 | Modal and page on one route | UI | `issue-detail.test` "shows the full page when the issue URL is loaded directly" | |
 | D6 | Flat subtasks with parent chip | UI | as SB-13 | |
 | D10 | Epic panel | UI | as BL-20 | |
@@ -334,7 +334,7 @@ Ranked by what blocks a small team using the MVP every day.
    UI: row menu gets Assign, Set priority, Points, Epic, like the board card menu. Inline
    summary edit on wide screens.
    Why: grooming means touching 20 rows; one modal per row is slow.
-10. **Keyboard paths** — M.
+10. **Keyboard paths** — M. Done in SAN-50 (`shortcuts.test`, `e2e/board.spec.ts`, `board-perf.spec.ts`).
     Rules: UI-26 (J/K), UI-37, UI-38.
     API: none.
     UI: `?` sheet (and account menu entry); `j/k` selection on board and backlog; `o` open,
