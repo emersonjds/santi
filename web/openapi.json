@@ -45,6 +45,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Rate limited (D44); wait `Retry-After` seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -108,6 +118,16 @@
             }
           },
           "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -228,6 +248,16 @@
           },
           "410": {
             "description": "`invite-used` or `invite-expired`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1176,6 +1206,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Rate limited (D44); wait `Retry-After` seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
           }
         }
       }
@@ -1248,6 +1288,16 @@
           },
           "422": {
             "description": "Not a known CSV export, or over 10 MB",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3053,6 +3103,16 @@
             }
           },
           "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {

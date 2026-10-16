@@ -14,13 +14,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .connect(&database_url)
         .await?;
     santi_server::migrate(&pool).await?;
+    // D44: Railway's edge is one proxy appending to X-Forwarded-For; locally there is none.
+    let trusted_proxies = match std::env::var("SANTI_TRUSTED_PROXIES") {
+        Ok(count) => count.parse()?,
+        Err(_) => usize::from(std::env::var_os("RAILWAY_PROJECT_ID").is_some()),
+    };
+    let per_address = std::env::var("SANTI_IP_LIMITS").as_deref() != Ok("off");
+    let limits = std::sync::Arc::new(santi_server::rate_limit::RateLimits::new(
+        trusted_proxies,
+        per_address,
+    ));
     let listener = tokio::net::TcpListener::bind(address).await?;
     axum::serve(
         listener,
         santi_server::app(
-            santi_server::AppState { pool },
+            santi_server::AppState { pool, limits },
             Some(std::path::Path::new(&web_dir)),
-        ),
+        )
+        .into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
     .await?;
     Ok(())

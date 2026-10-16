@@ -13,6 +13,7 @@ use crate::AppState;
 use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
 use crate::extract::{JsonBody, PathParams};
+use crate::rate_limit::{Action, ClientIp};
 
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
@@ -112,12 +113,17 @@ pub async fn create_invite(
         (status = 200, body = Project, description = "Joined; the invite is used up"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown token"),
-        (status = 410, body = Problem, content_type = "application/problem+json", description = "`invite-used` or `invite-expired`")))]
+        (status = 410, body = Problem, content_type = "application/problem+json", description = "`invite-used` or `invite-expired`"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn accept_invite(
     State(state): State<AppState>,
+    ClientIp(address): ClientIp,
     user: CurrentUser,
     PathParams(token): PathParams<String>,
 ) -> Result<Json<Project>, AppError> {
+    state
+        .limits
+        .check(Action::InviteAccept, address, Some(user.id))?;
     Ok(Json(
         service::accept_invite(&state.pool, &user, &token).await?,
     ))

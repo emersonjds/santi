@@ -60,6 +60,8 @@ jobs:
     env:
       DATABASE_URL: postgres://santi:santi@localhost:5440/santi
       SQLX_OFFLINE: "true"
+      # rust-toolchain.toml pins stable; branch coverage needs nightly.
+      RUSTUP_TOOLCHAIN: nightly
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly

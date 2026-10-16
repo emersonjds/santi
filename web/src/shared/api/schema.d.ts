@@ -1156,6 +1156,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     logout: {
@@ -1215,6 +1224,15 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1313,6 +1331,15 @@ export interface operations {
             };
             /** @description `invite-used` or `invite-expired` */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1978,6 +2005,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     preview_import: {
@@ -2032,6 +2068,15 @@ export interface operations {
             };
             /** @description Not a known CSV export, or over 10 MB */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3314,6 +3359,15 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
