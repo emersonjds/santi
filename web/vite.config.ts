@@ -11,7 +11,22 @@ const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 export default defineConfig({
   // The Rust server mounts the build at /app until the htmx cutover (IA §3).
   base: '/app/',
-  build: { manifest: true },
+  build: {
+    manifest: true,
+    rolldownOptions: {
+      output: {
+        // Every page loads React, the router and the query cache: one file compresses better than ten (D39).
+        codeSplitting: {
+          groups: [
+            {
+              name: 'framework',
+              test: /node_modules[\\/]\.pnpm[\\/](react|react-dom|scheduler|@tanstack\+(history|query-core|react-query|react-router|react-store|router-core|store))@/,
+            },
+          ],
+        },
+      },
+    },
+  },
   plugins: [
     tanstackRouter({
       target: 'react',

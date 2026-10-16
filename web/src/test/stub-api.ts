@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import type { BoardSettings, BoardView, Card } from '@/shared/api/client'
 
 type Reply = { status: number; body?: unknown; until?: Promise<unknown> }
 
@@ -45,6 +46,10 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
     'GET /api/projects/WEB/members': { status: 200, body: MEMBERS },
     'GET /api/projects/OPS': { status: 200, body: OPS },
     'GET /api/projects/OPS/members': { status: 200, body: MEMBERS },
+    'GET /api/projects/WEB/board': { status: 200, body: WEB_BOARD },
+    'GET /api/projects/WEB/board/settings': { status: 200, body: WEB_SETTINGS },
+    'GET /api/projects/OPS/board': { status: 200, body: OPS_BOARD },
+    'GET /api/projects/OPS/board/settings': { status: 200, body: OPS_SETTINGS },
     ...replies,
   })
 
@@ -93,3 +98,134 @@ export const MEMBERS = [
     role: 'member',
   },
 ]
+
+type CardFixture = Partial<Card> & Pick<Card, 'key' | 'summary' | 'column_id'>
+
+/** A board card with quiet defaults: a medium story, unassigned, unestimated. */
+export const card = (fields: CardFixture): Card => ({
+  id: Number(fields.key.split('-')[1]),
+  issue_type: 'story',
+  priority: 'medium',
+  status_id: fields.column_id * 10,
+  labels: [],
+  open_subtasks: 0,
+  total_subtasks: 0,
+  rank: fields.key,
+  updated_at: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+  assignee_id: null,
+  assignee_name: null,
+  parent_key: null,
+  points: null,
+  sprint_id: null,
+  ...fields,
+})
+
+// Swedish dates read YYYY-MM-DD in local time, like the server's sprint dates.
+const inDays = (days: number) =>
+  new Date(Date.now() + days * 86_400_000).toLocaleDateString('sv')
+
+const column = (
+  id: number,
+  name: string,
+  cards: Card[],
+  wip_limit?: number
+) => ({
+  id,
+  name,
+  cards,
+  issue_count: cards.length,
+  wip_limit: wip_limit ?? null,
+  over_limit: wip_limit !== undefined && cards.length > wip_limit,
+})
+
+export const WEB_BOARD: BoardView = {
+  board_type: 'scrum',
+  sprint: {
+    id: 4,
+    name: 'Sprint 4',
+    goal: 'Ship the board',
+    state: 'active',
+    overdue: false,
+    start_date: inDays(-4),
+    end_date: inDays(3),
+  },
+  columns: [
+    column(1, 'To do', [
+      card({ key: 'WEB-1', summary: 'Write the release notes', column_id: 1 }),
+      card({
+        key: 'WEB-2',
+        summary: 'Fix the login redirect loop',
+        column_id: 1,
+        issue_type: 'bug',
+        priority: 'urgent',
+        points: 3,
+        assignee_id: 2,
+        assignee_name: 'Bob Stone',
+        open_subtasks: 1,
+        total_subtasks: 2,
+      }),
+    ]),
+    column(2, 'In progress', [
+      card({
+        key: 'WEB-3',
+        summary: 'Keep the redirect target',
+        column_id: 2,
+        issue_type: 'subtask',
+        parent_key: 'WEB-2',
+        assignee_id: 1,
+        assignee_name: 'Alice',
+      }),
+    ]),
+    column(3, 'Done', []),
+  ],
+}
+
+const statuses = (columnId: number, ...names: string[]) =>
+  names.map((name, index) => ({
+    id: columnId * 10 + index,
+    name,
+    category: columnId === 3 ? ('done' as const) : ('todo' as const),
+    column_id: columnId,
+  }))
+
+export const WEB_SETTINGS: BoardSettings = {
+  board_type: 'scrum',
+  done_window_days: null,
+  unmapped: [],
+  columns: [
+    { id: 1, name: 'To do', position: 0, statuses: statuses(1, 'To do') },
+    {
+      id: 2,
+      name: 'In progress',
+      position: 1,
+      statuses: statuses(2, 'In progress', 'In review'),
+    },
+    { id: 3, name: 'Done', position: 2, statuses: statuses(3, 'Done') },
+  ],
+}
+
+export const OPS_BOARD: BoardView = {
+  board_type: 'kanban',
+  sprint: null,
+  columns: [
+    column(1, 'To do', [
+      card({ key: 'OPS-1', summary: 'Rotate the certificates', column_id: 1 }),
+    ]),
+    column(
+      2,
+      'Doing',
+      [
+        card({ key: 'OPS-2', summary: 'Patch the gateway', column_id: 2 }),
+        card({ key: 'OPS-3', summary: 'Resize the volume', column_id: 2 }),
+      ],
+      1
+    ),
+    column(3, 'Done', [], 5),
+  ],
+}
+
+export const OPS_SETTINGS: BoardSettings = {
+  ...WEB_SETTINGS,
+  board_type: 'kanban',
+  done_window_days: 14,
+}

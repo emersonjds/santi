@@ -44,6 +44,9 @@
   --type-subtask: #5e6475;
   --success: #0f766e;
   --success-bg: #ccfbf1;
+  --priority-urgent: #b42318;
+  --warning: #92400e;
+  --warning-bg: #fef3c7;
 }
 
 :root[data-theme='dark'] {
@@ -90,6 +93,9 @@
   --type-subtask: #a8a29e;
   --success: #2dd4bf;
   --success-bg: #134e4a;
+  --priority-urgent: #f97066;
+  --warning: #fbbf24;
+  --warning-bg: #3a2a0a;
 }
 
 @theme inline {
@@ -138,4 +144,7 @@
   --color-type-subtask: var(--type-subtask);
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
+  --color-priority-urgent: var(--priority-urgent);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
 }

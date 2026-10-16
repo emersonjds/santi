@@ -34,7 +34,7 @@ describe('project header', () => {
     const { screen, router } = await renderApp('/p/OPS/backlog')
 
     await expect
-      .element(screen.getByRole('heading', { name: 'Board' }))
+      .element(screen.getByRole('region', { name: 'Board' }))
       .toBeVisible()
     expect(router.state.location.pathname).toBe('/p/OPS/board')
     expect(

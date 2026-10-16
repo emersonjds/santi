@@ -1,0 +1,133 @@
+import { type Locator, type Page, expect, test } from '@playwright/test'
+
+const PASSWORD = 'correct horse battery'
+
+const unique = () => `${Date.now()}${Math.random().toString(36).slice(2, 6)}`
+
+/** Calls the API from inside the page, so the session cookie and same-origin checks apply as for the SPA. */
+const api = <Body>(page: Page, method: string, path: string, body?: unknown) =>
+  page.evaluate(
+    async ({ method, path, body }) => {
+      const response = await fetch(path, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      })
+      if (!response.ok) throw new Error(`${method} ${path}: ${response.status}`)
+      return response.json()
+    },
+    { method, path, body }
+  ) as Promise<Body>
+
+/** A signed-in user with a kanban project holding three new issues in its first column. */
+const kanbanWithIssues = async (page: Page) => {
+  await page.goto('/app/register')
+  await page.getByLabel('Name').fill('Ada')
+  await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
+
+  const key = `B${unique().slice(-6).toUpperCase()}`
+  await api(page, 'POST', '/api/projects', {
+    key,
+    name: `Flow ${key}`,
+    board_type: 'kanban',
+  })
+  for (const summary of ['Alpha task', 'Beta task', 'Gamma task'])
+    await api(page, 'POST', `/api/projects/${key}/issues`, { summary })
+  await page.goto(`/app/p/${key}/board`)
+  return key
+}
+
+const column = (page: Page, name: string) =>
+  page.getByRole('region', { name, exact: true })
+
+const dragWithMouse = async (page: Page, from: Locator, to: Locator) => {
+  const start = await from.boundingBox()
+  const end = await to.boundingBox()
+  if (!start || !end) throw new Error('nothing to drag')
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(end.x + end.width / 2, end.y + 40, { steps: 12 })
+  await page.mouse.up()
+}
+
+test('drag a card to another column with the mouse; a reload keeps it there', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  await expect(column(page, 'To Do')).toContainText('Alpha task')
+
+  const moved = page.waitForResponse((response) =>
+    response.url().endsWith(`/issues/1/move`)
+  )
+  await dragWithMouse(
+    page,
+    page.getByRole('button', { name: `Drag ${key}-1`, exact: true }),
+    column(page, 'In Progress').getByRole('list')
+  )
+
+  await expect(column(page, 'In Progress')).toContainText('Alpha task')
+  expect((await moved).status()).toBe(200)
+  await page.reload()
+  await expect(column(page, 'In Progress')).toContainText('Alpha task')
+  await expect(column(page, 'To Do')).not.toContainText('Alpha task')
+})
+
+test('move a card with the keyboard; a reload keeps the new order', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  const handle = page.getByRole('button', {
+    name: `Drag ${key}-1`,
+    exact: true,
+  })
+  await expect(handle).toBeVisible()
+
+  const moved = page.waitForResponse((response) =>
+    response.url().endsWith(`/issues/1/move`)
+  )
+  await handle.focus()
+  await page.keyboard.press('Space')
+  await expect(handle).toHaveAttribute('aria-pressed', 'true')
+  // dnd-kit's keyboard sensor starts listening for arrows one tick after the pickup.
+  await page.waitForTimeout(100)
+  await page.keyboard.press('ArrowDown')
+  // dnd-kit's live region confirms the card is over its neighbour before the drop.
+  await expect(
+    page.getByText(`moved over droppable area ${key}-2`)
+  ).toBeAttached()
+  await page.keyboard.press('Space')
+  expect((await moved).status()).toBe(200)
+
+  await page.reload()
+  await expect(column(page, 'To Do').getByRole('article')).toHaveText([
+    /Beta task/,
+    /Alpha task/,
+    /Gamma task/,
+  ])
+})
+
+test('"Only my issues" narrows the board and survives a reload', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  const me = await api<{ id: number }>(page, 'GET', '/api/me')
+  await api(page, 'PATCH', `/api/projects/${key}/issues/2`, {
+    assignee_id: me.id,
+  })
+  await page.reload()
+
+  await page.getByRole('button', { name: 'Only my issues' }).click()
+
+  const todo = column(page, 'To Do')
+  await expect(todo.getByRole('article')).toHaveCount(1)
+  await expect(todo).toContainText('Beta task')
+  await expect(page).toHaveURL(/assignee=/)
+  await page.reload()
+  await expect(
+    page.getByRole('button', { name: 'Only my issues' })
+  ).toHaveAttribute('aria-pressed', 'true')
+  await expect(todo.getByRole('article')).toHaveCount(1)
+})
