@@ -109,11 +109,24 @@ export const RoleSelect = ({ projectKey, member, locked }: ControlProps) => {
   )
 }
 
-export const RemoveMemberButton = ({
+type ExitCopy = {
+  trigger: string
+  label?: string
+  title: string
+  description: string
+  confirm: string
+}
+
+type ExitProps = ControlProps & { copy: ExitCopy; describedBy?: string }
+
+/** Removing a member and leaving are the same write; leaving takes the caller home. */
+const MemberExitButton = ({
   projectKey,
   member,
   locked,
-}: ControlProps) => {
+  copy,
+  describedBy,
+}: ExitProps) => {
   const [open, setOpen] = useState(false)
   const remove = useMembersWrite(projectKey, member, 'leave', async () =>
     okOrThrow(
@@ -135,18 +148,16 @@ export const RemoveMemberButton = ({
           variant='outline'
           className='h-11 md:h-9'
           disabled={locked}
-          aria-label={`Remove ${member.display_name}`}
+          aria-label={copy.label}
+          aria-describedby={describedBy}
         >
-          Remove
+          {copy.trigger}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove {member.display_name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            They lose access to this project. Issues they reported or hold stay
-            as they are.
-          </AlertDialogDescription>
+          <AlertDialogTitle>{copy.title}</AlertDialogTitle>
+          <AlertDialogDescription>{copy.description}</AlertDialogDescription>
         </AlertDialogHeader>
         <RootError message={remove.error?.message} />
         <AlertDialogFooter>
@@ -159,10 +170,40 @@ export const RemoveMemberButton = ({
               remove.mutate(undefined, { onSuccess: () => setOpen(false) })
             }
           >
-            Remove member
+            {copy.confirm}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   )
 }
+
+export const RemoveMemberButton = (props: ControlProps) => (
+  <MemberExitButton
+    {...props}
+    copy={{
+      trigger: 'Remove',
+      label: `Remove ${props.member.display_name}`,
+      title: `Remove ${props.member.display_name}?`,
+      description:
+        'They lose access to this project. Issues they reported or hold stay as they are.',
+      confirm: 'Remove member',
+    }}
+  />
+)
+
+/** The danger zone: `member` is the caller; the last admin is `locked`, with the reason at `describedBy`. */
+export const LeaveProjectButton = (
+  props: ControlProps & { describedBy?: string }
+) => (
+  <MemberExitButton
+    {...props}
+    copy={{
+      trigger: 'Leave project',
+      title: 'Leave this project?',
+      description:
+        'You lose access until an admin invites you again. Issues you reported or hold stay as they are.',
+      confirm: 'Leave project',
+    }}
+  />
+)
