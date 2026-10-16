@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import { StarProjectButton } from '@/features/star/star-button'
 import { BoardTypeBadge } from '@/entities/project/board-type-badge'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
@@ -9,10 +9,26 @@ const CARDS = 4
 const CARD = 'h-36 rounded-lg border'
 const GRID = 'grid grid-cols-2 gap-3 lg:grid-cols-4'
 
-const assignedLine = (count: number) =>
-  count === 0
-    ? 'Nothing open assigned to you'
-    : `${count} open ${count === 1 ? 'issue' : 'issues'} assigned to you`
+const AssignedCount = ({ project }: { project: MyProject }) => {
+  const { user } = useRouteContext({ from: '/_authenticated' })
+  const count = project.open_assigned
+  if (count === 0)
+    return (
+      <p className='mt-auto text-xs text-muted-foreground'>
+        No open issues assigned to you
+      </p>
+    )
+  return (
+    <Link
+      to='/p/$key/board'
+      params={{ key: project.key }}
+      search={{ assignee: [user.id] }}
+      className='relative z-10 mt-auto inline-flex min-h-11 items-center self-start rounded-sm text-xs text-muted-foreground outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring md:min-h-8'
+    >
+      {count} open {count === 1 ? 'issue' : 'issues'} assigned to you
+    </Link>
+  )
+}
 
 export const ProjectCardsSkeleton = () => (
   <div role='status' aria-label='Loading projects' className={GRID}>
@@ -41,13 +57,11 @@ const ProjectCard = ({ project }: { project: MyProject }) => (
         </Link>
         <span className='text-xs text-muted-foreground'>Software project</span>
       </div>
-    </div>
-    <p className='mt-auto line-clamp-2 text-xs text-muted-foreground'>
-      {assignedLine(project.open_assigned)}
-    </p>
-    <div className='mt-2 flex items-center justify-between'>
-      <BoardTypeBadge type={project.board_type} />
       <StarProjectButton project={project} className='-my-2 -me-2' />
+    </div>
+    <AssignedCount project={project} />
+    <div className='mt-1'>
+      <BoardTypeBadge type={project.board_type} />
     </div>
   </li>
 )
