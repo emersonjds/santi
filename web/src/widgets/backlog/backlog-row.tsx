@@ -1,6 +1,6 @@
 import { type ReactNode, memo } from 'react'
 import { Link } from '@tanstack/react-router'
-import { GripVertical, Layers } from 'lucide-react'
+import { Ellipsis, GripVertical, Layers } from 'lucide-react'
 import { issueNumber } from '@/entities/issue/board-query'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { type Status, StatusPill } from '@/entities/issue/status-pill'
@@ -16,6 +16,16 @@ export const HandleSlot = () => (
     className='relative z-10 hidden h-11 w-6 shrink-0 place-items-center text-subtle-foreground md:grid md:h-9'
   >
     <GripVertical className='size-4' />
+  </span>
+)
+
+// Same box as the menu button, so nothing moves when the menu chunk arrives.
+export const MenuSlot = () => (
+  <span
+    aria-hidden='true'
+    className='grid size-11 place-items-center text-muted-foreground md:size-9'
+  >
+    <Ellipsis className='size-4' />
   </span>
 )
 

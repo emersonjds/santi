@@ -1,7 +1,15 @@
-import { type ReactNode, useCallback, useMemo, useState } from 'react'
+import {
+  type ReactNode,
+  Suspense,
+  lazy,
+  useCallback,
+  useMemo,
+  useState,
+} from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { FilterBar } from '@/widgets/board/filter-bar'
 import { backlogQuery } from '@/entities/issue/backlog-query'
+import { BacklogContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
   boardFilters,
@@ -13,13 +21,26 @@ import type {
   BacklogSection,
   Card,
 } from '@/shared/api/client'
+import { useIsMobile } from '@/shared/lib/use-mobile'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { BacklogRow, HandleSlot } from './backlog-row'
+import { BacklogRow, HandleSlot, MenuSlot } from './backlog-row'
 import { RowList } from './row-list'
 import { SectionHeader } from './section-header'
 
 type BacklogProps = { projectKey: string; search: BoardSearch }
+
+const SortableBacklog = lazy(() =>
+  import('@/features/move-issue/sortable-backlog').then((module) => ({
+    default: module.SortableBacklog,
+  }))
+)
+
+const RowMenu = lazy(() =>
+  import('@/features/move-issue/row-menu').then((module) => ({
+    default: module.RowMenu,
+  }))
+)
 
 /** A section's lane: its sprint id, or `backlog` for the no-sprint section. */
 export const laneOf = (section: BacklogSection) =>
@@ -40,6 +61,7 @@ type SectionsProps = {
 }
 
 const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
+  const narrow = useIsMobile()
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const epics = useMemo(
     () => new Map(backlog.epics.map((epic) => [epic.key, epic])),
@@ -64,7 +86,11 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
         epic={card.parent_key ? epics.get(card.parent_key) : undefined}
         status={statuses.get(card.status_id)}
         handle={handle}
-        menu={null}
+        menu={
+          <Suspense fallback={<MenuSlot />}>
+            <RowMenu card={card} projectKey={projectKey} />
+          </Suspense>
+        }
       />
     ),
     [projectKey, epics, statuses]
@@ -136,24 +162,49 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
     )
   }
 
-  const renderList = (section: BacklogSection) => (
+  const renderList = (
+    section: BacklogSection,
+    cards: Card[],
+    renderItem: (card: Card) => ReactNode
+  ) => (
     <RowList
-      cards={section.cards}
+      cards={cards}
       empty={
         section.sprint
           ? 'Drag issues here to plan this sprint.'
           : 'Create issues here, then drag them into a sprint.'
       }
-      renderItem={(card) => renderRow(card, <HandleSlot />)}
+      renderItem={renderItem}
     />
   )
+  const plain = backlog.sections.map((section) =>
+    renderSection(
+      section,
+      renderList(section, section.cards, (card) =>
+        renderRow(card, <HandleSlot />)
+      )
+    )
+  )
 
+  // Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads.
   return (
-    <div className='grid gap-4'>
-      {backlog.sections.map((section) =>
-        renderSection(section, renderList(section))
-      )}
-    </div>
+    <BacklogContext value={backlog}>
+      <div className='grid gap-4'>
+        {narrow ? (
+          plain
+        ) : (
+          <Suspense fallback={plain}>
+            <SortableBacklog
+              backlog={backlog}
+              projectKey={projectKey}
+              renderSection={renderSection}
+              renderList={renderList}
+              renderRow={renderRow}
+            />
+          </Suspense>
+        )}
+      </div>
+    </BacklogContext>
   )
 }
 

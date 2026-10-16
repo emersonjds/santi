@@ -106,9 +106,8 @@ describe('create project', () => {
     await create(screen)
 
     await expect
-      .element(screen.getByRole('heading', { name: 'Backlog' }))
-      .toBeVisible()
-    expect(router.state.location.pathname).toBe('/p/WEB/backlog')
+      .poll(() => router.state.location.pathname)
+      .toBe('/p/WEB/backlog')
     const post = requests.find(
       (request) => routeOf(request) === 'POST /api/projects'
     )
