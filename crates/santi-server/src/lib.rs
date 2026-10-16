@@ -7,10 +7,12 @@ pub mod issues;
 pub mod members;
 pub mod pagination;
 pub mod projects;
+pub mod rate_limit;
 pub mod seed;
 pub mod sprints;
 
 use std::path::Path;
+use std::sync::Arc;
 
 use axum::extract::{Request, State};
 use axum::http::header::{
@@ -32,10 +34,12 @@ use utoipa_axum::routes;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::error::AppError;
+use crate::rate_limit::RateLimits;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
+    pub limits: Arc<RateLimits>,
 }
 
 #[derive(OpenApi)]

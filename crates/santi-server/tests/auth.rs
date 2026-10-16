@@ -350,3 +350,38 @@ async fn openapi_lists_auth_routes(pool: PgPool) {
         assert!(api["paths"][path].is_object(), "{path} missing");
     }
 }
+
+/// Railway's edge keeps the public `Host` and adds `X-Forwarded-*`; the D22 check compares
+/// `Origin` with that `Host`.
+#[sqlx::test]
+async fn proxied_writes_are_checked_against_the_public_host(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
+    let cookie = session_cookie(&register(&app, "ana@example.com", PASSWORD).await);
+    let proxied = |origin: &str, forwarded_host: &str| {
+        let mut request = with_cookie(Method::POST, "/api/projects", &cookie);
+        *request.body_mut() = Body::from(
+            json!({ "key": "SANTI", "name": "santi", "board_type": "scrum" }).to_string(),
+        );
+        let headers = request.headers_mut();
+        headers.insert(header::CONTENT_TYPE, "application/json".parse().unwrap());
+        headers.insert(header::HOST, "santi.up.railway.app".parse().unwrap());
+        headers.insert(header::ORIGIN, origin.parse().unwrap());
+        headers.insert("x-forwarded-host", forwarded_host.parse().unwrap());
+        headers.insert("x-forwarded-proto", "https".parse().unwrap());
+        headers.insert("x-forwarded-for", "203.0.113.7".parse().unwrap());
+        request
+    };
+
+    let same_origin = app
+        .send(proxied(
+            "https://santi.up.railway.app",
+            "santi.up.railway.app",
+        ))
+        .await;
+    let forged = app
+        .send(proxied("https://evil.example", "evil.example"))
+        .await;
+
+    assert_eq!(same_origin.status(), StatusCode::CREATED);
+    assert_eq!(forged.status(), StatusCode::FORBIDDEN);
+}

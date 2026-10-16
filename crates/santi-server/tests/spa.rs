@@ -15,7 +15,13 @@ const IMMUTABLE: &str = "public, max-age=31536000, immutable";
 
 fn app(web_dir: Option<&Path>) -> Router {
     let pool = PgPool::connect_lazy("postgres://localhost/unused").unwrap();
-    santi_server::app(santi_server::AppState { pool }, web_dir)
+    santi_server::app(
+        santi_server::AppState {
+            pool,
+            limits: Default::default(),
+        },
+        web_dir,
+    )
 }
 
 fn built_spa(name: &str) -> PathBuf {
