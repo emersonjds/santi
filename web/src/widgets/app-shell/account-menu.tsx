@@ -1,5 +1,5 @@
-import { useRouteContext } from '@tanstack/react-router'
-import { LogOut } from 'lucide-react'
+import { Link, useRouteContext } from '@tanstack/react-router'
+import { KeyRound, LogOut } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
 import {
   DropdownMenu,
@@ -28,6 +28,12 @@ export const AccountMenu = () => {
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className='h-11 md:h-8'>
+          <Link to='/account'>
+            <KeyRound />
+            API tokens
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem className='h-11 md:h-8' onSelect={signOut}>
           <LogOut />
           Sign out

@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
+import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
 import { Route as AuthenticatedPKeyRouteRouteImport } from './routes/_authenticated/p/$key/route'
 import { Route as AuthenticatedPKeyIndexRouteImport } from './routes/_authenticated/p/$key/index'
@@ -45,6 +46,11 @@ const InvitesTokenRoute = InvitesTokenRouteImport.update({
   id: '/invites/$token',
   path: '/invites/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProjectsNewRoute =
   AuthenticatedProjectsNewRouteImport.update({
@@ -89,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
   '/projects/new': typeof AuthenticatedProjectsNewRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/account': typeof AuthenticatedAccountRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
+  '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/invites/$token': typeof InvitesTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
@@ -131,6 +140,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/register'
+    | '/account'
     | '/invites/$token'
     | '/p/$key'
     | '/projects/new'
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/register'
+    | '/account'
     | '/invites/$token'
     | '/'
     | '/projects/new'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/login'
     | '/register'
+    | '/_authenticated/account'
     | '/invites/$token'
     | '/_authenticated/'
     | '/_authenticated/p/$key'
@@ -210,6 +222,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/invites/$token'
       preLoaderRoute: typeof InvitesTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/projects/new': {
       id: '/_authenticated/projects/new'
@@ -286,12 +305,14 @@ const AuthenticatedPKeyRouteRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAccountRoute: typeof AuthenticatedAccountRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedPKeyRouteRoute: typeof AuthenticatedPKeyRouteRouteWithChildren
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAccountRoute: AuthenticatedAccountRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedPKeyRouteRoute: AuthenticatedPKeyRouteRouteWithChildren,
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
