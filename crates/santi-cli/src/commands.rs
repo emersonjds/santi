@@ -486,11 +486,12 @@ fn comments_text(comments: &[Comment], now: DateTime<Utc>) -> String {
         .join("\n\n")
 }
 
-/// Whole units, rounded down; a month is 30 days.
+/// Whole units, rounded down; a month is 30 days. A time ahead of the clock shows its date.
 fn ago(then: DateTime<Utc>, now: DateTime<Utc>) -> String {
     let seconds = (now - then).num_seconds();
     let (count, unit) = match seconds {
-        ..60 => return "just now".into(),
+        ..-60 => return then.date_naive().to_string(),
+        -60..60 => return "just now".into(),
         60..3_600 => (seconds / 60, "minute"),
         3_600..86_400 => (seconds / 3_600, "hour"),
         86_400..2_592_000 => (seconds / 86_400, "day"),
@@ -709,6 +710,9 @@ mod tests {
     fn ago_reads_like_a_person_would_say_it() {
         let now: DateTime<Utc> = "2026-10-16T12:00:00Z".parse().unwrap();
         for (seconds, said) in [
+            (-61, "2026-10-16"),
+            (-2 * 86_400, "2026-10-18"),
+            (-60, "just now"),
             (-5, "just now"),
             (0, "just now"),
             (59, "just now"),
