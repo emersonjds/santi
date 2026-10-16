@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.id FROM project p JOIN member m ON m.project_id = p.id AND m.user_id = $1\n         ORDER BY p.id FOR UPDATE OF p",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "525d97cac591cebab80f81cc22970c72212b855fca1e3982c702d848c2e18856"
+}

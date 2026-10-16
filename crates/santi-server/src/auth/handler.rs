@@ -4,7 +4,9 @@ use axum::http::StatusCode;
 use axum::http::header::SET_COOKIE;
 use axum::response::IntoResponse;
 use santi_types::Problem;
-use santi_types::auth::{ApiToken, CreateToken, CreatedToken, Login, Register, User};
+use santi_types::auth::{
+    AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, Login, Register, User,
+};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -20,7 +22,8 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(register))
         .routes(routes!(login))
         .routes(routes!(logout))
-        .routes(routes!(me))
+        .routes(routes!(me, delete_account))
+        .routes(routes!(export_account))
         .routes(routes!(create_token, list_tokens))
         .routes(routes!(delete_token))
 }
@@ -84,6 +87,38 @@ pub async fn logout(
         (status = 401, body = Problem, content_type = "application/problem+json")))]
 pub async fn me(State(state): State<AppState>, user: CurrentUser) -> Result<Json<User>, AppError> {
     Ok(Json(service::me(&state.pool, &user).await?))
+}
+
+#[utoipa::path(get, path = "/api/me/export", tag = "auth",
+    responses(
+        (status = 200, body = AccountExport, description = "The account, its token names and every project the caller administers, in full (D45)"),
+        (status = 401, body = Problem, content_type = "application/problem+json")))]
+pub async fn export_account(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<Json<AccountExport>, AppError> {
+    Ok(Json(service::export_account(&state.pool, &user).await?))
+}
+
+#[utoipa::path(delete, path = "/api/me", tag = "auth", request_body = DeleteAccount,
+    responses(
+        (status = 204, description = "Account deleted and signed out everywhere. Projects only the caller used are deleted; where the caller was the last admin, the member with the oldest account becomes admin; issues and comments in shared projects stay under \"Deleted user\" (D45)"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Wrong password (`password`)"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Too many wrong passwords for this account (D44); wait `Retry-After` seconds")))]
+pub async fn delete_account(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    JsonBody(input): JsonBody<DeleteAccount>,
+) -> Result<impl IntoResponse, AppError> {
+    let email = service::me(&state.pool, &user).await?.email;
+    state.limits.login_attempt(&email)?;
+    service::delete_account(&state.pool, &user, input).await?;
+    state.limits.login_succeeded(&email);
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(SET_COOKIE, domain::expired_session_cookie())],
+    ))
 }
 
 #[utoipa::path(post, path = "/api/tokens", tag = "auth", request_body = CreateToken,
