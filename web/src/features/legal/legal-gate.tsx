@@ -119,16 +119,21 @@ export const LegalGate = ({ children }: { children: ReactNode }) => {
         </Button>
       </div>
     )
-  if (!data)
-    return (
-      <div
-        role='status'
-        aria-label='Checking the terms'
-        className='flex flex-1 items-center justify-center py-16'
-      >
-        <Loader2 className='size-6 animate-spin text-muted-foreground' />
-      </div>
-    )
-  if (!data.accepted) return <AcceptLegal />
-  return children
+  if (data?.accepted === false) return <AcceptLegal />
+  // Mounted but hidden while pending, the page's queries join the route's prefetches; the
+  // wrapper stays put so nothing remounts when the answer arrives.
+  return (
+    <>
+      {!data && (
+        <div
+          role='status'
+          aria-label='Checking the terms'
+          className='flex flex-1 items-center justify-center py-16'
+        >
+          <Loader2 className='size-6 animate-spin text-muted-foreground' />
+        </div>
+      )}
+      <div className={data ? 'contents' : 'hidden'}>{children}</div>
+    </>
+  )
 }

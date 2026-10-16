@@ -33,10 +33,18 @@ export const stubApi = (replies: Record<string, Reply>) => {
   return requests
 }
 
-/** Nobody is signed in; after signing in, the user has no projects. */
+const LEGAL_ACCEPTED = {
+  required: true,
+  terms_version: '2026-10-16',
+  privacy_version: '2026-10-16',
+  accepted: true,
+}
+
+/** Nobody is signed in; after signing in, the user has accepted the current terms and has no projects. */
 export const anonymous = (replies: Record<string, Reply> = {}) =>
   stubApi({
     'GET /api/me': { status: 401, body: problem(401, 'Sign in.') },
+    'GET /api/me/legal': { status: 200, body: LEGAL_ACCEPTED },
     'GET /api/projects': { status: 200, body: [] },
     ...replies,
   })
@@ -45,15 +53,7 @@ export const anonymous = (replies: Record<string, Reply> = {}) =>
 export const signedIn = (replies: Record<string, Reply> = {}) =>
   stubApi({
     'GET /api/me': { status: 200, body: ALICE },
-    'GET /api/me/legal': {
-      status: 200,
-      body: {
-        required: true,
-        terms_version: '2026-10-16',
-        privacy_version: '2026-10-16',
-        accepted: true,
-      },
-    },
+    'GET /api/me/legal': { status: 200, body: LEGAL_ACCEPTED },
     'GET /api/projects': { status: 200, body: [] },
     ...replies,
   })
