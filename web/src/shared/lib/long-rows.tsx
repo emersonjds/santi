@@ -22,7 +22,6 @@ const PlainRows = <Item,>({
 }: LongRowsProps<Item>) =>
   items.map((item) => <li key={itemKey(item)}>{renderItem(item)}</li>)
 
-/** The `li` rows of a list; past 200 only the visible ones are drawn. */
 export const LongRows = <Item,>(props: LongRowsProps<Item>) => {
   const { items, itemKey, renderItem } = props
   if (items.length <= VIRTUAL_AFTER) return <PlainRows {...props} />

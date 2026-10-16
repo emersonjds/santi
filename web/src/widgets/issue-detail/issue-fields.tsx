@@ -28,7 +28,6 @@ import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
 
 // Native selects: no menu chunk to load, the phone's own picker, 44px rows on touch (ui-layout).
-// Wide screens: borderless until hovered or focused, so the column reads as a list of values.
 const GHOST =
   'transition-colors duration-150 ease-out md:h-8 md:border-transparent md:bg-transparent md:shadow-none md:hover:border-input md:hover:bg-background md:focus-visible:border-ring md:focus-visible:bg-background'
 const SELECT = cn(

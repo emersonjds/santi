@@ -16,7 +16,6 @@ import type { Backlog, Card } from '@/shared/api/client'
 
 type Epic = Backlog['epics'][number]
 
-/** The grip's box before the drag layer loads, so nothing moves when it does. */
 export const HandleSlot = () => (
   <span
     aria-hidden='true'
@@ -26,7 +25,6 @@ export const HandleSlot = () => (
   </span>
 )
 
-// Same box as the menu button, so nothing moves when the menu chunk arrives.
 export const MenuSlot = () => (
   <span
     aria-hidden='true'

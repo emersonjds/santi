@@ -91,7 +91,6 @@ const blank = (project: string): NewIssue => ({
   labels: [],
 })
 
-/** Empty fields stay out of the body, so the server applies its defaults (D5). */
 const toBody = (values: NewIssue): CreateIssue => ({
   summary: values.summary,
   issue_type: values.issue_type,

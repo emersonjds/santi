@@ -26,7 +26,6 @@ export const CATEGORY = {
 export const isCategory = (value: string): value is Category =>
   Object.keys(CATEGORY).includes(value)
 
-/** Every mapped status of the board by id. */
 export const statusesById = (settings: BoardSettings | undefined) =>
   new Map(
     (settings?.columns ?? []).flatMap((column) =>
@@ -34,7 +33,6 @@ export const statusesById = (settings: BoardSettings | undefined) =>
     )
   )
 
-/** The statuses a board column holds, in board order. */
 export const statusesOf = (
   settings: BoardSettings | undefined,
   columnId: number | undefined

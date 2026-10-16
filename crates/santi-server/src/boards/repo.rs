@@ -332,8 +332,8 @@ pub async fn board_cards(
     .await
 }
 
-/// Open parent rows for the backlog, in rank order: one query (BL-2, D6, D10); subtask counts
-/// come from one aggregate per project, cheaper than a per-row lookup at backlog size (D39).
+/// Open parent rows for the backlog, in rank order: one query, subtask counts from one aggregate
+/// per project (BL-2, D6, D10, D39).
 /// An issue left in a closed sprint (reopened after close) shows in the no-sprint section.
 pub async fn backlog_cards(
     conn: &mut PgConnection,
