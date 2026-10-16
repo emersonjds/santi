@@ -74,7 +74,7 @@ impl Server {
         let email = format!("user{}@example.com", COUNT.fetch_add(1, Ordering::Relaxed));
         self.block_on(async {
             let http = reqwest::Client::new();
-            let register = json!({ "email": email, "password": "correct horse battery", "display_name": email });
+            let register = json!({ "email": email, "password": "correct horse battery", "display_name": email, "accept_terms": true });
             let response = http
                 .post(format!("{}/api/auth/register", self.url))
                 .json(&register)

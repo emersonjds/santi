@@ -8,7 +8,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 async fn register(app: &TestApp, email: &str, password: &str) -> Response {
-    let body = json!({ "email": email, "password": password, "display_name": "Ana" });
+    let body = json!({ "email": email, "password": password, "display_name": "Ana", "accept_terms": true });
     app.send(json_request(
         Method::POST,
         "/api/auth/register",
@@ -384,4 +384,36 @@ async fn proxied_writes_are_checked_against_the_public_host(pool: PgPool) {
 
     assert_eq!(same_origin.status(), StatusCode::CREATED);
     assert_eq!(forged.status(), StatusCode::FORBIDDEN);
+}
+
+#[sqlx::test]
+async fn sign_up_needs_the_terms_accepted_and_records_which(pool: PgPool) {
+    let app = TestApp::anonymous(pool.clone());
+    let without =
+        json!({ "email": "ana@example.com", "password": PASSWORD, "display_name": "Ana" });
+    let declined = json!({ "email": "ana@example.com", "password": PASSWORD, "display_name": "Ana", "accept_terms": false });
+
+    for body in [without, declined] {
+        let response = app
+            .send(json_request(
+                Method::POST,
+                "/api/auth/register",
+                None,
+                Some(body),
+            ))
+            .await;
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(
+            body_json(response).await["errors"][0]["field"],
+            "accept_terms"
+        );
+    }
+
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let (_, export) = ana.get("/api/me/export").await;
+    assert_eq!(
+        export["terms_version"],
+        santi_server::auth::domain::TERMS_VERSION
+    );
+    assert!(export["terms_accepted_at"].is_string());
 }

@@ -3351,6 +3351,20 @@
               "$ref": "#/components/schemas/ProjectExport"
             }
           },
+          "terms_accepted_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "terms_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Which Terms of Use the person accepted, and when; null for accounts made before them."
+          },
           "user": {
             "$ref": "#/components/schemas/User"
           }
@@ -4834,6 +4848,10 @@
           "display_name"
         ],
         "properties": {
+          "accept_terms": {
+            "type": "boolean",
+            "description": "Must be true: the person agrees to the Terms of Use and the Privacy Policy (D45)."
+          },
           "display_name": {
             "type": "string"
           },

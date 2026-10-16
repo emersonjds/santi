@@ -9,6 +9,8 @@ use crate::error::{AppError, reject_nul};
 pub const SESSION_COOKIE: &str = "__Host-santi_session";
 pub const SESSION_DAYS: i64 = 30;
 pub const API_TOKEN_PREFIX: &str = "santi_";
+/// The date of the Terms of Use text in `web/terms.html`; bump both together (D45).
+pub const TERMS_VERSION: &str = "2026-10-16";
 
 /// Argon2 default parameters with a password nobody knows. Login verifies against it when the
 /// email is unknown, so both failures cost the same time.
@@ -39,6 +41,16 @@ pub fn check_password(password: &str) -> Result<(), AppError> {
         return Err(AppError::invalid(
             "password",
             "must have 10 to 128 characters",
+        ));
+    }
+    Ok(())
+}
+
+pub fn check_terms(accepted: bool) -> Result<(), AppError> {
+    if !accepted {
+        return Err(AppError::invalid(
+            "accept_terms",
+            "accept the Terms of Use and the Privacy Policy to sign up",
         ));
     }
     Ok(())
@@ -176,6 +188,12 @@ mod tests {
         assert!(check_password("short").is_err());
         assert!(check_password(&"x".repeat(129)).is_err());
         assert!(check_password("correct horse").is_ok());
+    }
+
+    #[test]
+    fn terms_must_be_accepted() {
+        assert!(check_terms(true).is_ok());
+        assert!(check_terms(false).is_err());
     }
 
     #[test]

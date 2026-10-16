@@ -18,6 +18,7 @@ pub async fn register(pool: &PgPool, input: Register) -> Result<(User, String), 
     let email = domain::normalize_email(&input.email)?;
     let display_name = domain::check_display_name(&input.display_name)?;
     domain::check_password(&input.password)?;
+    domain::check_terms(input.accept_terms)?;
     let password_hash = hash_in_background(input.password).await?;
     let mut tx = pool.begin().await?;
     let user = repo::insert_user(&mut tx, &email, &display_name, &password_hash).await?;
@@ -100,6 +101,7 @@ pub async fn delete_token(
 pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<AccountExport, AppError> {
     let mut conn = pool.acquire().await?;
     let me = repo::find_user(&mut conn, user.id).await?;
+    let terms = repo::find_terms(&mut conn, user.id).await?;
     let api_tokens = repo::list_api_tokens(&mut conn, user.id).await?;
     let (admin, other_projects): (Vec<Project>, Vec<Project>) =
         projects::repo::list_projects(&mut conn, user.id)
@@ -124,6 +126,8 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
     Ok(AccountExport {
         exported_at: Utc::now(),
         user: me,
+        terms_version: terms.terms_version,
+        terms_accepted_at: terms.terms_accepted_at,
         api_tokens,
         projects: exports,
         other_projects,

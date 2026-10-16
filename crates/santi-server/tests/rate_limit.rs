@@ -28,7 +28,7 @@ fn from_peer(mut request: Request<Body>, peer: [u8; 4]) -> Request<Body> {
 }
 
 fn register_request(email: &str) -> Request<Body> {
-    let body = json!({ "email": email, "password": PASSWORD, "display_name": "Ana" });
+    let body = json!({ "email": email, "password": PASSWORD, "display_name": "Ana", "accept_terms": true });
     json_request(Method::POST, "/api/auth/register", None, Some(body))
 }
 

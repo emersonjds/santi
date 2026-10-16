@@ -7,6 +7,9 @@ pub struct Register {
     pub email: String,
     pub password: String,
     pub display_name: String,
+    /// Must be true: the person agrees to the Terms of Use and the Privacy Policy (D45).
+    #[serde(default)]
+    pub accept_terms: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
@@ -54,6 +57,9 @@ pub struct DeleteAccount {
 pub struct AccountExport {
     pub exported_at: DateTime<Utc>,
     pub user: User,
+    /// Which Terms of Use the person accepted, and when; null for accounts made before them.
+    pub terms_version: Option<String>,
+    pub terms_accepted_at: Option<DateTime<Utc>>,
     pub api_tokens: Vec<ApiToken>,
     pub projects: Vec<ProjectExport>,
     /// Projects the caller is a plain member of: named here, owned by their admins.
