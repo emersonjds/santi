@@ -73,7 +73,8 @@ pub struct CreateToken {
     pub name: String,
 }
 
-/// Returned once at creation; only the hash is stored (D23). No `Debug`, so it never reaches a log.
+/// Returned once at creation; only the hash is stored (D23).
+// No `Debug`: the token never reaches a log.
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
 pub struct CreatedToken {
     pub id: i64,
