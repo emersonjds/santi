@@ -15,9 +15,10 @@ Question: does every mechanic in the behavior specs work end to end in the shipp
 - Live check: throwaway Playwright script against the dev server on :8080 (scrum project, a
   second status "In review" mapped into the In Progress column, epic, parent, subtask, active
   sprint, two future sprints), desktop 1280px and phone 375px. Script not committed.
-- The SPA calls 31 of the API's operations; it never calls `POST/PUT/DELETE /board/columns*`,
+- At SAN-34 the SPA called 31 of the API's operations and never `POST/PUT/DELETE /board/columns*`,
   `PUT /board/settings`, `POST/PUT/DELETE /statuses*`, `POST /members`,
-  `PUT/DELETE /members/{user_id}`. There is no issue delete endpoint. `crates/santi-cli` is a
+  `PUT/DELETE /members/{user_id}`; SAN-44 wired the member edits and SAN-45 the board settings, so
+  only `POST /members` stays unused. There is no issue delete endpoint. `crates/santi-cli` is a
   14-line stub (no CLI or MCP commands yet).
 
 Status:
@@ -31,29 +32,30 @@ Status:
 
 | Source | UI | API only | Missing | Divergent | Deferred | Rows |
 |---|---|---|---|---|---|---|
-| Scrum board | 13 | 7 | 0 | 2 | 10 | 32 |
-| Kanban board | 9 | 6 | 0 | 1 | 13 | 29 |
+| Scrum board | 19 | 1 | 0 | 2 | 10 | 32 |
+| Kanban board | 14 | 1 | 0 | 1 | 13 | 29 |
 | Backlog | 16 | 2 | 1 | 1 | 7 | 27 |
 | Sprint lifecycle | 19 | 1 | 0 | 0 | 10 | 30 |
-| UI layout (adoption + responsive) | 28 | 2 | 8 | 2 | 8 | 48 |
-| Decisions | 15 | 4 | 0 | 1 | 0 | 20 |
-| **Total** | **100** | **22** | **9** | **7** | **48** | **186** |
+| UI layout (adoption + responsive) | 29 | 2 | 7 | 2 | 8 | 48 |
+| Decisions | 17 | 2 | 0 | 1 | 0 | 20 |
+| **Total** | **114** | **9** | **8** | **7** | **48** | **186** |
 
 Decision rows restate spec rules, so a few gaps count twice (SB-17/KB-27/D5, SB-25/UI-12/D3).
-Of the 138 rows that are in v1, 100 work in the SPA (72%); the other 38 are the gaps below.
+Of the 138 rows that are in v1, 114 work in the SPA (83%); the other 24 are the gaps below.
 SAN-44 (branch `feat/SAN-44-small-gaps`) closed R-4, R-8, BL-3 and D6 and added the members page (group 4).
+SAN-45 (branch `feat/SAN-45-board-settings`) added the board settings page (group 1) and the KB-4/KB-5 server guard.
 
 ## Scrum board
 
 | ID | Rule | Status | Evidence | Gap |
 |---|---|---|---|---|
 | SB-1 | New board: to do, in progress, done | UI | `board_settings::new_scrum_project_has_three_default_columns` | |
-| SB-2 | Column holds several statuses; status in one column or unmapped | API only | `board_settings::statuses_start_unmapped_and_can_be_mapped` | No settings page |
-| SB-3 | Unmapped status hidden; new status starts unmapped | API only | `board_view::unmapped_statuses_and_epics_stay_off_the_board` | Nobody can create or unmap a status from the SPA |
-| SB-4 | Add, rename, reorder, delete columns | API only | `board_settings::reorder_keeps_done_rightmost`, `deleting_a_column_moves_its_statuses_to_the_target` | No settings page |
-| SB-5 | Adding a column may create its status | API only | `board_settings::new_column_lands_left_of_done_with_its_status` | No settings page |
-| SB-6 | Status deletable only when unused | API only | `issues::a_status_held_by_an_issue_cannot_be_deleted`, `board_settings::unused_statuses_can_be_deleted` | No settings page |
-| SB-7 | Position decides meaning (D2 strict) | API only | `board_settings::mapping_a_done_status_to_a_middle_column_is_refused`, `new_column_with_a_done_status_is_refused_and_rolled_back` | Guard only reachable through API edits |
+| SB-2 | Column holds several statuses; status in one column or unmapped | UI | `board-settings-page.test` "adds a status to the unmapped pool, then maps it with the column select"; `e2e/settings.spec.ts` (drag a status chip into a column) | |
+| SB-3 | Unmapped status hidden; new status starts unmapped | UI | `board_view::unmapped_statuses_and_epics_stay_off_the_board`; `board-settings-page.test` "adds a status to the unmapped pool…" (Unmapped pool on `/p/KEY/settings`) | |
+| SB-4 | Add, rename, reorder, delete columns | UI | `board-settings-page.test` "renames, and reorders by buttons and by keyboard drag; done stays rightmost", "asks where the statuses go…", "deletes an empty column without asking for a target" | |
+| SB-5 | Adding a column may create its status | UI | `board-settings-page.test` "adds a column with its status left of done at once, and the board picks it up" | |
+| SB-6 | Status deletable only when unused | UI | `issues::a_status_held_by_an_issue_cannot_be_deleted`; `board-settings-page.test` "shows why a status in use stays, and renames one in place" | |
+| SB-7 | Position decides meaning (D2 strict) | UI | `board_settings::mapping_a_done_status_to_a_middle_column_is_refused`; `board-settings-page.test` "explains the done rule inline when the server refuses a mapping (D2)"; the rightmost column is pinned last in the editor | |
 | SB-8 | Only done work counts complete at close | UI | `sprint_lifecycle::completing_sends_open_issues_to_the_backlog`; `e2e/backlog.spec.ts` | |
 | SB-9 | Board = mapped status + active sprint + project | UI | `board_view::scrum_board_shows_the_active_sprint_by_status_and_rank` | |
 | SB-10 | No active sprint: no cards, link to backlog | UI | `board-page.test` "points to the backlog when no sprint is running" | |
@@ -85,24 +87,24 @@ SAN-44 (branch `feat/SAN-44-small-gaps`) closed R-4, R-8, BL-3 and D6 and added 
 | ID | Rule | Status | Evidence | Gap |
 |---|---|---|---|---|
 | KB-1 | Three default columns | UI | `e2e/board.spec.ts` (kanban, To Do → In Progress) | |
-| KB-2 | Mapping, unmapped pool, column admin as SB-2..6 | API only | see SB-2..6 | No settings page |
+| KB-2 | Mapping, unmapped pool, column admin as SB-2..6 | UI | see SB-2..6; `e2e/settings.spec.ts` on a kanban project | |
 | KB-3 | Done = status category | UI | `issue_moves::done_timer_follows_the_status_category` | |
-| KB-4 | Done column kept; deleting a column asks a target | API only | `board_settings::column_deletion_guards` (409 `rightmost-column`, 422 without target) | No target picker (D16) |
-| KB-5 | At least one status beyond the first column | API only | Held by D2 strict (done pinned to the undeletable rightmost column); no explicit check | Unmap + delete can still leave a single Done column |
+| KB-4 | Done column kept; deleting a column asks a target | UI | `board_settings::column_deletion_guards`, `the_board_keeps_a_done_status_and_a_column_before_it` (409 `keep-done-column`); `board-settings-page.test` "asks where the statuses go, and puts the column back when the server refuses" | |
+| KB-5 | At least one status beyond the first column | UI | `board_settings::the_board_keeps_a_done_status_and_a_column_before_it`: the rightmost column keeps a done status and at least one column sits before it (SAN-45) | |
 | KB-6 | Scope, mapped, done-hiding (subtasks flat per D6) | UI | `board_view::kanban_hides_done_work_past_the_window` | |
 | KB-7 | No sprint UI on kanban | UI | `app-shell.test` "shows only the board for a kanban project"; `sprints::kanban_projects_have_no_sprints` | |
 | KB-8 | Sprint toggle on kanban | Deferred | dropped | |
 | KB-9 | Rank, drag and top/bottom as SB-12/20 | UI | `e2e/board.spec.ts` | |
 | KB-10 | Global create lands at the bottom | UI | `create-issue.test` "creates the issue, toasts a link to it and shows its card"; `issues::numbers_increase_and_new_issues_rank_last` | |
 | KB-11 | Render cap | Deferred | dropped | |
-| KB-12 | Max limit per column | API only | `board_settings::kanban_columns_take_a_wip_limit_and_scrum_columns_do_not` | Limit shows (KB-14) but can only be set by API |
+| KB-12 | Max limit per column | UI | `board_settings::kanban_columns_take_a_wip_limit_and_scrum_columns_do_not`; `board-settings-page.test` "sets and clears a WIP limit on a kanban column (D7)"; `e2e/settings.spec.ts` | |
 | KB-13 | Min limit, counting modes | Deferred | dropped (D7) | |
 | KB-14 | Breach only warns | UI | `board-page.test` "warns on a column over its limit and tells when done work leaves"; `board_view::wip_limit_flags_a_full_column` | |
 | KB-15 | Counts include filtered cards | UI | `board_view::wip_counts_ignore_quick_filters`; header shows `issue_count` | Counts freeze while a card is held (live) |
-| KB-16 | Limits from column menu and settings | API only | `PUT /board/columns/{id}` | No column menu, no settings page |
+| KB-16 | Limits from column menu and settings | UI | `board-settings-page.test` "sets and clears a WIP limit on a kanban column (D7)" | No board column header menu; settings only |
 | KB-17..KB-21 | Kanban backlog (5 rules) | Deferred | dropped (D9); `project-header.test` "sends a kanban backlog to the board" | |
 | KB-22 | Sub-filter | Deferred | dropped | |
-| KB-23 | Done hidden after 7/14/30 days or never, default 14 | UI | `board_view::kanban_hides_done_work_past_the_window`; note under the last column | Window changes only by `PUT /board/settings` |
+| KB-23 | Done hidden after 7/14/30 days or never, default 14 | UI | `board_view::kanban_hides_done_work_past_the_window`; `board-settings-page.test` "changes how long done work stays on a kanban board (KB-23)" | |
 | KB-24 | Window restarts on edit | Deferred | replaced by D8 (timer from entering done) | |
 | KB-25, KB-26 | Releases, versions | Deferred | dropped | |
 | KB-27 | Moves follow SB-16..21 | Divergent | as SB-17 | No per-status drop zones |
@@ -181,7 +183,7 @@ Adoption list.
 | UI-2 | Top bar order (no switcher, no upgrade) | UI | `widgets/app-shell/top-bar.tsx`; `app-shell.test` | |
 | UI-3 | Search in top bar (project scope, IA §7) | UI | `e2e/search.spec.ts` | |
 | UI-6 | Sidebar collapse, kept per viewer | UI | `shared/ui/sidebar.tsx` (cookie `sidebar_state`, Ctrl/Cmd+B) | |
-| UI-8 | Project tabs incl. Settings for admins | Missing | `project-tabs.tsx` renders Board, Backlog; live: `/p/KEY/settings` → Not Found | |
+| UI-8 | Project tabs incl. Settings for admins | UI | `board-settings-page.test` "links admins to settings from the tabs and the sidebar; members get 403"; `app-shell.test` | Tab reordering later (IA §2) |
 | UI-10 | Board header sprint facts | UI | as SB-11; "…" menu with Edit and Complete sprint (R-4) | |
 | UI-11 | Ranked columns, drag changes status | UI | as SB-12, SB-16 | |
 | UI-12 | Quick filters | API only | as SB-25 | |
@@ -229,13 +231,13 @@ Responsive (375px).
 
 | ID | Mechanic | Status | Evidence | Gap |
 |---|---|---|---|---|
-| D2 | Done = category, done only in the rightmost column | UI | close and hiding use the category (SB-8, KB-3) | Mapping guard reachable only by API |
+| D2 | Done = category, done only in the rightmost column | UI | close and hiding use the category (SB-8, KB-3); mapping guard shown inline (SB-7) | |
 | D3 | AND across kinds, OR within | API only | `board_view::board_quick_filters_combine`; `comments_search::search_combines_filters_and_within_or_across_and` | SPA has one kind (assignee) on board/backlog |
 | D4 | Drop position wins, one order | UI | `issue_moves::*anchor*`; `sortable-board.test`, `sortable-backlog.test` | |
 | D5 | Inline create, bottom, column status | Divergent | as SB-23 | First column only |
 | D6 | Flat subtasks; parent `open/total`; backlog parent rows with count | UI | board card and backlog row (BL-3) | |
-| D7 | One max per column, warn only | API only | display UI (KB-14); setting API only (KB-12) | |
-| D8 | Done hidden after window from entering done | UI | `issue_moves::done_timer_follows_the_status_category`, `moving_between_done_statuses_keeps_the_timer` | Window set by API only |
+| D7 | One max per column, warn only | UI | display (KB-14); setting on `/p/KEY/settings` (KB-12) | |
+| D8 | Done hidden after window from entering done | UI | `issue_moves::done_timer_follows_the_status_category`, `moving_between_done_statuses_keeps_the_timer`; window select (KB-23) | |
 | D9 | No kanban backlog | UI | `project-header.test` "sends a kanban backlog to the board" | |
 | D10 | Epic panel | API only | as BL-20 | |
 | D11 | Point totals on section headers | UI | as BL-24 | |
@@ -243,7 +245,7 @@ Responsive (375px).
 | D13 | Empty start refused; no destination step when all done | UI | `sprint-dialogs.test` "skips the destination when every issue is done (D13)" | |
 | D14 | Only future sprints deleted | UI | as SP-22 | |
 | D15 | Overdue stays active, flagged | UI | `sprint_lifecycle::an_overdue_sprint_stays_active_and_is_flagged`; `backlog-page.test` "flags an overdue sprint and shows planned dates" | |
-| D16 | Column delete needs target; empty column refuses drops | API only | `board_settings::column_deletion_guards`; `sortable-board.test` "refuses a column that has no status to give the card" | No target picker |
+| D16 | Column delete needs target; empty column refuses drops | UI | `board_settings::column_deletion_guards`; `board-settings-page.test` "asks where the statuses go…"; `sortable-board.test` "refuses a column that has no status to give the card" | |
 | D17 | No live updates | UI | by design: reload | |
 | D18 | Filters in URL; recently updated | UI | `filter-bar.test`; `issue_mechanics::recently_updated_filter_keeps_issues_touched_in_the_last_day` | |
 | D20 | `KEY-N`, never reused | UI | `issues::concurrent_creates_get_distinct_numbers_and_ranks` | |
@@ -254,7 +256,9 @@ Responsive (375px).
 
 Ranked by what blocks a small team using the MVP every day.
 
-1. **Board settings page** — L.
+1. **Board settings page** — L. Done in SAN-45: `/p/{key}/settings` (`board-settings-page.test`,
+   `e2e/settings.spec.ts`); the board column header menu for the limit (KB-16) and changing a
+   status's category (no API field) left out.
    Rules: SB-2..SB-7, KB-2, KB-4, KB-5, KB-12, KB-16, KB-23 (window), D2 guard, D7, D8, D16, UI-8.
    API: none; `/board/columns*`, `/statuses*`, `/board/settings` exist and are tested.
    UI: `/p/{key}/settings` (admins; members get the 403 page, IA §9), Settings tab + sidebar
