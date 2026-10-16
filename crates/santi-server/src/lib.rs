@@ -53,6 +53,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(boards::handler::router())
         .merge(issues::handler::router())
         .merge(sprints::handler::router())
+        .merge(imports::handler::router())
 }
 
 /// The API contract, built without a database; `web/openapi.json` is its committed snapshot (D38).

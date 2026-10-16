@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE issue i SET rank = r.rank\n         FROM unnest($3::text[], $4::text[]) AS r(key, rank)\n         WHERE i.project_id = $1 AND i.external_source = $2 AND i.external_key = r.key",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b1ac24834760a7383b3569c4b4a5ceb83cf214d0bbb09f76198c550d3d6d1a92"
+}

@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue_comment (issue_id, author_id, body, created_at)\n         SELECT i.id, $3, r.body, r.created_at\n         FROM unnest($4::text[], $5::text[], $6::timestamptz[]) AS r(key, body, created_at)\n         JOIN issue i ON i.project_id = $1 AND i.external_source = $2 AND i.external_key = r.key",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8",
+        "TextArray",
+        "TextArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f6d160dc61acc6e69c3ce18f94e94d0a08f5394b776a76c6f1fed4b122a4f28e"
+}

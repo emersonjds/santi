@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, NaiveDate, Utc};
+use santi_types::FieldError;
 use santi_types::boards::{Status, StatusCategory};
 use santi_types::imports::{
     ColumnUse, ImportMapping, ImportPreview, ImportSource, PersonFound, RowProblem, SprintAction,
     SprintFound, StatusFound, TypeFound,
 };
 use santi_types::issues::{IssueType, Priority};
-use santi_types::projects::MemberInfo;
+use santi_types::projects::{BoardType, MemberInfo};
 
 use crate::error::AppError;
 use crate::issues;
@@ -231,6 +232,60 @@ impl Columns {
     fn text(&self, record: &Record, field: &str) -> String {
         self.first(record, field).unwrap_or_default().to_string()
     }
+}
+
+/// The uploaded bytes: at most 10 MB of UTF-8 text in a known export layout.
+pub fn read_file(bytes: &[u8]) -> Result<Export, AppError> {
+    if bytes.len() > MAX_FILE_BYTES {
+        return Err(AppError::invalid("file", "the file is larger than 10 MB"));
+    }
+    let text = std::str::from_utf8(bytes)
+        .map_err(|_| AppError::invalid("file", "the file is not UTF-8 text; export it as CSV"))?;
+    read_export(text)
+}
+
+/// Every id in the mapping belongs to this project; sprints only on a scrum board.
+pub fn check_mapping(
+    mapping: &ImportMapping,
+    statuses: &[Status],
+    members: &[MemberInfo],
+    board_type: BoardType,
+) -> Result<(), AppError> {
+    let mut errors = Vec::new();
+    let mut error = |field: String, message: &str| {
+        errors.push(FieldError {
+            field,
+            message: message.into(),
+        })
+    };
+    for (name, id) in &mapping.statuses {
+        if !statuses.iter().any(|status| status.id == *id) {
+            error(
+                format!("mapping.statuses.{name}"),
+                "no such status in this project",
+            );
+        }
+    }
+    for (name, id) in &mapping.people {
+        if id.is_some_and(|id| !members.iter().any(|member| member.user_id == id)) {
+            error(
+                format!("mapping.people.{name}"),
+                "must be a member of the project",
+            );
+        }
+    }
+    for (name, action) in &mapping.sprints {
+        if board_type == BoardType::Kanban && *action != SprintAction::Skip {
+            error(
+                format!("mapping.sprints.{name}"),
+                "a kanban board has no sprints",
+            );
+        }
+    }
+    if errors.is_empty() {
+        return Ok(());
+    }
+    Err(AppError::Validation(errors))
 }
 
 pub fn read_export(text: &str) -> Result<Export, AppError> {
@@ -734,6 +789,7 @@ pub fn plan_import(
             comments: row
                 .comments
                 .iter()
+                .filter(|comment| !comment.body.is_empty())
                 .map(|comment| {
                     let body: String = comment.body.chars().take(20_000).collect();
                     (body, comment.created.unwrap_or(created))
@@ -817,13 +873,17 @@ fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> 
     sprints
 }
 
-/// Epics, then their children, then subtasks, so every parent exists before its children.
-pub fn insert_order(issues: &[PlannedIssue]) -> Vec<usize> {
-    let tier = |issue_type| match issue_type {
+/// Epics, then their children, then subtasks: each tier's parents are in the one before.
+pub fn tier(issue_type: IssueType) -> u8 {
+    match issue_type {
         IssueType::Epic => 0,
         IssueType::Subtask => 2,
         _ => 1,
-    };
+    }
+}
+
+/// File order within each tier, so every parent exists before its children.
+pub fn insert_order(issues: &[PlannedIssue]) -> Vec<usize> {
     let mut order: Vec<usize> = (0..issues.len()).collect();
     order.sort_by_key(|index| tier(issues[*index].issue_type));
     order

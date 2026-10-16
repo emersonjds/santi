@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT external_key AS \"key!\", issue_type AS \"issue_type: IssueType\"\n           FROM issue\n           WHERE project_id = $1 AND external_source = $2 AND external_key = ANY($3)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "external_key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "issue_type: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      true,
+      false
+    ]
+  },
+  "hash": "3d46a6e87af5d8da34b8056b14a661f264af02c291ed786cffe8cbcbc69c3323"
+}
