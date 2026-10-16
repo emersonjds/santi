@@ -1,0 +1,89 @@
+import { type ReactNode, memo } from 'react'
+import { Link } from '@tanstack/react-router'
+import { GripVertical, Layers } from 'lucide-react'
+import { issueNumber } from '@/entities/issue/board-query'
+import { TypeGlyph } from '@/entities/issue/issue-glyphs'
+import { type Status, StatusPill } from '@/entities/issue/status-pill'
+import type { Backlog, Card } from '@/shared/api/client'
+import { initials } from '@/shared/lib/initials'
+
+type Epic = Backlog['epics'][number]
+
+/** The grip's box before the drag layer loads, so nothing moves when it does. */
+export const HandleSlot = () => (
+  <span
+    aria-hidden='true'
+    className='relative z-10 hidden h-11 w-6 shrink-0 place-items-center text-subtle-foreground md:grid md:h-9'
+  >
+    <GripVertical className='size-4' />
+  </span>
+)
+
+type BacklogRowProps = {
+  card: Card
+  projectKey: string
+  epic?: Epic
+  status?: Status
+  handle: ReactNode
+  menu: ReactNode
+}
+
+/** One dense line on wide screens; on a phone the summary takes two lines and the facts wrap below. */
+export const BacklogRow = memo(
+  ({ card, projectKey, epic, status, handle, menu }: BacklogRowProps) => (
+    <div className='relative flex min-h-11 items-start bg-card ps-1 hover:bg-muted md:items-center'>
+      {handle}
+      <div className='grid min-w-0 flex-1 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 py-2 ps-2 text-sm md:flex md:py-1.5 md:ps-0'>
+        <TypeGlyph type={card.issue_type} />
+        <span className='text-xs tracking-wide text-subtle-foreground tabular-nums'>
+          {card.key}
+        </span>
+        {/* IA §6: a dialog over the backlog, the address bar showing the issue page. */}
+        <Link
+          to='.'
+          search={(prev) => ({ ...prev, issue: issueNumber(card.key) })}
+          mask={{
+            to: '/p/$key/issues/$number',
+            params: { key: projectKey, number: String(issueNumber(card.key)) },
+          }}
+          draggable={false}
+          className='line-clamp-2 min-w-0 outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring md:line-clamp-1 md:flex-1'
+        >
+          {card.summary}
+        </Link>
+        <span className='col-span-3 flex flex-wrap items-center gap-2 md:contents'>
+          {epic && (
+            <span
+              className='inline-flex max-w-40 items-center gap-1 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'
+              title={`Epic ${epic.summary}`}
+            >
+              <Layers
+                className='size-3.5 shrink-0 text-type-epic'
+                aria-hidden='true'
+              />
+              <span className='truncate'>{epic.summary}</span>
+            </span>
+          )}
+          {status && <StatusPill status={status} />}
+          {card.points != null && (
+            <span
+              className='rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground tabular-nums'
+              aria-label={`${card.points} points`}
+            >
+              {card.points}
+            </span>
+          )}
+          {card.assignee_name && (
+            <span
+              className='grid size-6 shrink-0 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
+              title={`Assigned to ${card.assignee_name}`}
+            >
+              {initials(card.assignee_name)}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className='relative z-10'>{menu}</div>
+    </div>
+  )
+)

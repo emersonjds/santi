@@ -1,5 +1,6 @@
 import { vi } from 'vitest'
 import type {
+  Backlog,
   BoardSettings,
   BoardView,
   Card,
@@ -60,6 +61,7 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
     'GET /api/projects/OPS/board': { status: 200, body: OPS_BOARD },
     'GET /api/projects/OPS/board/settings': { status: 200, body: OPS_SETTINGS },
     'GET /api/projects/WEB/sprints': { status: 200, body: WEB_SPRINTS },
+    'GET /api/projects/WEB/backlog': { status: 200, body: WEB_BACKLOG },
     'GET /api/projects/WEB/issues/1': { status: 200, body: WEB_ISSUE },
     'GET /api/projects/WEB/issues/1/comments': {
       status: 200,
@@ -199,11 +201,13 @@ export const WEB_BOARD: BoardView = {
   ],
 }
 
-const statuses = (columnId: number, ...names: string[]) =>
+const CATEGORY = { 1: 'todo', 2: 'in_progress', 3: 'done' } as const
+
+const statuses = (columnId: 1 | 2 | 3, ...names: string[]) =>
   names.map((name, index) => ({
     id: columnId * 10 + index,
     name,
-    category: columnId === 3 ? ('done' as const) : ('todo' as const),
+    category: CATEGORY[columnId],
     column_id: columnId,
   }))
 
@@ -296,3 +300,78 @@ export const WEB_COMMENTS: Comment[] = [
     created_at: hoursAgo(2),
   },
 ]
+
+/** Sprint 4 running (3 open issues), Sprint 5 planned with one, Sprint 6 empty, two issues in no sprint. */
+export const WEB_BACKLOG: Backlog = {
+  epics: [
+    {
+      key: 'WEB-9',
+      summary: 'Checkout revamp',
+      child_count: 1,
+      done_child_count: 0,
+      done: false,
+    },
+  ],
+  sections: [
+    {
+      sprint: WEB_BOARD.sprint,
+      issue_count: 3,
+      total_points: 3,
+      cards: WEB_BOARD.columns
+        .flatMap((each) => each.cards)
+        .map((each) => ({ ...each, sprint_id: 4 })),
+    },
+    {
+      sprint: {
+        id: 5,
+        name: 'Sprint 5',
+        goal: '',
+        state: 'future',
+        overdue: false,
+      },
+      issue_count: 1,
+      total_points: 5,
+      cards: [
+        card({
+          key: 'WEB-4',
+          summary: 'Pay with a saved card',
+          column_id: 1,
+          points: 5,
+          parent_key: 'WEB-9',
+          sprint_id: 5,
+        }),
+      ],
+    },
+    {
+      sprint: {
+        id: 6,
+        name: 'Sprint 6',
+        goal: '',
+        state: 'future',
+        overdue: false,
+      },
+      issue_count: 0,
+      total_points: 0,
+      cards: [],
+    },
+    {
+      sprint: null,
+      issue_count: 2,
+      total_points: 2,
+      cards: [
+        card({
+          key: 'WEB-6',
+          summary: 'Audit the cookie banner',
+          column_id: 1,
+        }),
+        card({
+          key: 'WEB-7',
+          summary: 'Translate the help pages',
+          column_id: 1,
+          issue_type: 'task',
+          points: 2,
+        }),
+      ],
+    },
+  ],
+}
