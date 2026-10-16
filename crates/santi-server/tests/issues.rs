@@ -507,3 +507,39 @@ async fn unknown_body_fields_are_refused_by_name(pool: PgPool) {
     assert_eq!(create, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(comment, StatusCode::UNPROCESSABLE_ENTITY);
 }
+
+#[sqlx::test]
+async fn wrong_shape_bodies_say_why_in_the_detail(pool: PgPool) {
+    let ana = project(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "x" })).await;
+
+    let (_, unknown) = ana
+        .patch(
+            "/api/projects/SANTI/issues/1",
+            json!({ "parent_key": "SANTI-2" }),
+        )
+        .await;
+    let (_, missing) = ana
+        .post("/api/projects/SANTI/issues", json!({ "priority": "low" }))
+        .await;
+    let (not_object, scalar) = ana.post("/api/projects/SANTI/issues", json!(3)).await;
+
+    let detail = |problem: &Value| problem["detail"].as_str().unwrap().to_string();
+    assert!(
+        detail(&unknown).contains("unknown field `parent_key`"),
+        "{unknown}"
+    );
+    assert_eq!(unknown["errors"][0]["field"], "parent_key");
+    assert!(
+        detail(&missing).contains("missing field `summary`"),
+        "{missing}"
+    );
+    assert_eq!(missing["errors"][0]["field"], "summary");
+    assert_eq!(not_object, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        detail(&scalar).contains("expected a JSON object"),
+        "{scalar}"
+    );
+    assert!(!scalar.to_string().contains("CreateIssue"), "{scalar}");
+    assert_eq!(scalar["errors"][0]["field"], "body");
+}
