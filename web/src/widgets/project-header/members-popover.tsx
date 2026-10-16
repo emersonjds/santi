@@ -3,31 +3,18 @@ import { ROLE_LABEL } from '@/entities/project/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { UserAvatar } from '@/entities/user/user-avatar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
-
-const SHOWN = 5
+import { MemberStack, STACK } from './member-stack'
 
 export const MembersPopover = ({ projectKey }: { projectKey: string }) => {
   const { data: members } = useSuspenseQuery(membersQuery(projectKey))
-  const more = members.length - SHOWN
 
   return (
     <Popover>
       <PopoverTrigger
         aria-label={`Members: ${members.length}`}
-        className='flex h-11 items-center -space-x-2 rounded-full px-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+        className={STACK}
       >
-        {members.slice(0, SHOWN).map((member) => (
-          <UserAvatar
-            key={member.user_id}
-            name={member.display_name}
-            className='ring-2 ring-background'
-          />
-        ))}
-        {more > 0 && (
-          <span className='relative inline-flex size-8 items-center justify-center rounded-full bg-muted text-xs font-medium tabular-nums ring-2 ring-background'>
-            +{more}
-          </span>
-        )}
+        <MemberStack members={members} />
       </PopoverTrigger>
       <PopoverContent align='end' className='w-72 p-0'>
         <p className='border-b px-3 py-2 text-sm font-medium'>Members</p>
