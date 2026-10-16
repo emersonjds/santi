@@ -418,7 +418,15 @@
             "in": "query",
             "required": false,
             "schema": {
-              "$ref": "#/components/schemas/HomeView"
+              "type": "string",
+              "description": "The lists of the home (\"For you\").",
+              "enum": [
+                "recommended",
+                "assigned",
+                "starred",
+                "worked",
+                "viewed"
+              ]
             }
           },
           {

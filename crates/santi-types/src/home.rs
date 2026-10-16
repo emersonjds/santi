@@ -39,6 +39,7 @@ pub enum HomeView {
 #[into_params(parameter_in = Query)]
 pub struct HomeQuery {
     #[serde(default)]
+    #[param(inline)]
     pub view: HomeView,
 }
 
