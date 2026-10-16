@@ -9,11 +9,14 @@ pub mod projects;
 pub mod sprints;
 pub mod web;
 
+use std::path::Path;
+
 use axum::extract::State;
 use axum::{Json, Router, middleware};
 use santi_types::{Health, Problem};
 use sqlx::PgPool;
 use tower_http::compression::CompressionLayer;
+use tower_http::services::{ServeDir, ServeFile};
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -36,8 +39,8 @@ pub struct AppState {
 )]
 struct ApiDoc;
 
-pub fn app(state: AppState) -> Router {
-    let (router, api) = OpenApiRouter::with_openapi(ApiDoc::openapi())
+fn api() -> OpenApiRouter<AppState> {
+    OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(routes!(health))
         .merge(auth::handler::router())
         .merge(projects::handler::router())
@@ -45,10 +48,25 @@ pub fn app(state: AppState) -> Router {
         .merge(boards::handler::router())
         .merge(issues::handler::router())
         .merge(sprints::handler::router())
-        .split_for_parts();
-    router
+}
+
+/// The API contract, built without a database; `web/openapi.json` is its committed snapshot (D38).
+pub fn openapi() -> utoipa::openapi::OpenApi {
+    api().split_for_parts().1
+}
+
+/// `web_dir` holds the SPA build; it is mounted at `/app` only when it has an `index.html`,
+/// and every unknown path below `/app` gets that `index.html` (client routes).
+pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
+    let (router, api) = api().split_for_parts();
+    let mut router = router
         .merge(SwaggerUi::new("/docs").url("/openapi.json", api))
-        .merge(web::router())
+        .merge(web::router());
+    if let Some(dir) = web_dir.filter(|dir| dir.join("index.html").is_file()) {
+        let spa = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
+        router = router.nest_service("/app", spa);
+    }
+    router
         .fallback(not_found)
         .layer(middleware::from_fn(auth::extract::reject_cross_site_writes))
         .layer(CompressionLayer::new())
