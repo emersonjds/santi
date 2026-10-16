@@ -92,6 +92,7 @@ pub enum SprintAction {
 
 /// The confirmed mapping; names are as they appear in the file.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ImportMapping {
     /// Status name → santi status id. Rows with an unlisted status fail.
     #[serde(default)]

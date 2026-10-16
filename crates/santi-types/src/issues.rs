@@ -39,6 +39,7 @@ pub enum Priority {
 
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateIssue {
     pub summary: String,
     #[serde(default)]
@@ -74,12 +75,16 @@ pub struct Issue {
     pub issue_type: IssueType,
     pub priority: Priority,
     pub status_id: i64,
+    pub status_name: String,
     pub assignee_id: Option<i64>,
+    pub assignee_name: Option<String>,
     pub reporter_id: i64,
+    pub reporter_name: String,
     pub points: Option<f64>,
     pub labels: Vec<String>,
     pub parent_key: Option<String>,
     pub sprint_id: Option<i64>,
+    pub sprint_name: Option<String>,
     pub rank: String,
     pub done_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
@@ -90,6 +95,7 @@ pub struct Issue {
 /// Absent fields stay as they are; `null` clears a nullable field.
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateIssue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
@@ -191,6 +197,7 @@ mod tests {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct MoveIssue {
     /// New status; absent keeps the current one.
     #[serde(default)]
@@ -215,11 +222,13 @@ pub struct MoveIssue {
 pub struct Comment {
     pub id: i64,
     pub author_id: i64,
+    pub author_name: String,
     pub body: String,
     pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateComment {
     pub body: String,
 }

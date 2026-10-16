@@ -1,16 +1,20 @@
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
+use chrono::{DateTime, Utc};
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
-    CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter, UpdateIssue,
+    Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
+    UpdateIssue,
 };
 use santi_types::projects::Project;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 
-use crate::cli::{Cli, Command, Filter, IssuesCommand, ProjectsCommand, SprintsCommand};
+use crate::cli::{
+    Cli, Command, CommentArgs, Filter, IssuesCommand, PlanArgs, ProjectsCommand, SprintsCommand,
+};
 use crate::client::{Client, ProjectKey};
 use crate::config::{self, Config};
 use crate::error::Error;
@@ -47,17 +51,7 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
         Command::Board { project } => show(json, &client.board(&project).await?, board_text),
         Command::Backlog { project } => show(json, &client.backlog(&project).await?, backlog_text),
         Command::Sprints(command) => sprints(&client, command, json).await,
-        Command::Plan { issue, sprint, .. } => {
-            let changes = UpdateIssue {
-                sprint_id: Some(sprint),
-                ..UpdateIssue::default()
-            };
-            show(
-                json,
-                &client.update_issue(&issue, &changes).await?,
-                issue_line,
-            )
-        }
+        Command::Plan(args) => plan(&client, args, json).await,
         Command::Search {
             project,
             text,
@@ -67,10 +61,7 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
             let found = client.issues(&project, &filter, &status, &page).await?;
             show(json, &found, page_text)
         }
-        Command::Comment { issue, body } => {
-            let comment = client.comment(&issue, &body).await?;
-            show(json, &comment, |_| format!("Commented on {issue}"))
-        }
+        Command::Comment(args) => comment(&client, args, json).await,
         Command::Import { project, file, yes } => import(&client, &project, file, yes, json).await,
         Command::Mcp { http, allowed_host } => match http {
             Some(address) => crate::mcp::serve_http(client, address, allowed_host).await,
@@ -159,6 +150,7 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
             summary,
             fields,
             parent,
+            sprint,
         } => {
             let changes = UpdateIssue {
                 summary,
@@ -173,7 +165,7 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
                     _ => Some(fields.labels),
                 },
                 parent,
-                sprint_id: None,
+                sprint_id: sprint,
             };
             show(
                 json,
@@ -206,7 +198,29 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
             client.delete_issue(&issue).await?;
             show(json, &(), |()| format!("Deleted {issue}"))
         }
+        IssuesCommand::Plan(args) => plan(client, args, json).await,
+        IssuesCommand::Comment(args) => comment(client, args, json).await,
+        IssuesCommand::Comments { issue } => {
+            let comments = client.all_comments(&issue).await?;
+            show(json, &comments, |comments| {
+                comments_text(comments, Utc::now())
+            })
+        }
     }
+}
+
+async fn plan(client: &Client, args: PlanArgs, json: bool) -> Result<(), Error> {
+    let changes = UpdateIssue {
+        sprint_id: Some(args.sprint),
+        ..UpdateIssue::default()
+    };
+    let issue = client.update_issue(&args.issue, &changes).await?;
+    show(json, &issue, issue_line)
+}
+
+async fn comment(client: &Client, args: CommentArgs, json: bool) -> Result<(), Error> {
+    let comment = client.comment(&args.issue, &args.body).await?;
+    show(json, &comment, |_| format!("Commented on {}", args.issue))
 }
 
 async fn sprints(client: &Client, command: SprintsCommand, json: bool) -> Result<(), Error> {
@@ -421,24 +435,71 @@ fn optional<T: ToString>(value: &Option<T>) -> String {
 }
 
 fn issue_text(issue: &Issue) -> String {
-    let mut text = format!(
-        "{}  {}\nType: {}  Priority: {}  Status: #{}  Points: {}\nAssignee: #{}  Parent: {}  Sprint: #{}  Labels: {}",
-        issue.key,
-        issue.summary,
-        issue.issue_type.label(),
-        issue.priority.label(),
-        issue.status_id,
-        optional(&issue.points),
-        optional(&issue.assignee_id),
-        optional(&issue.parent_key),
-        optional(&issue.sprint_id),
-        issue.labels.join(", "),
-    );
+    let points = optional(&issue.points);
+    let labels = match issue.labels.is_empty() {
+        true => "-".into(),
+        false => issue.labels.join(", "),
+    };
+    let fields = [
+        ("Type", issue.issue_type.label().to_string()),
+        ("Priority", issue.priority.label().to_string()),
+        ("Status", issue.status_name.clone()),
+        (
+            "Assignee",
+            issue
+                .assignee_name
+                .as_deref()
+                .map_or("Unassigned".into(), short_name),
+        ),
+        ("Reporter", short_name(&issue.reporter_name)),
+        (
+            "Sprint",
+            issue.sprint_name.clone().unwrap_or("Backlog".into()),
+        ),
+        ("Points", points),
+        ("Parent", optional(&issue.parent_key)),
+        ("Labels", labels),
+    ];
+    let mut text = format!("{}  {}", issue.key, issue.summary);
+    for (label, value) in fields {
+        text.push_str(&format!("\n{:<10}{value}", format!("{label}:")));
+    }
     if !issue.description.is_empty() {
         text.push_str("\n\n");
         text.push_str(&issue.description);
     }
     text
+}
+
+fn comments_text(comments: &[Comment], now: DateTime<Utc>) -> String {
+    if comments.is_empty() {
+        return "(no comments)".into();
+    }
+    comments
+        .iter()
+        .map(|comment| {
+            let author = short_name(&comment.author_name);
+            let age = ago(comment.created_at, now);
+            format!("{author} · {age}\n{}", comment.body)
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
+/// Whole units, rounded down; a month is 30 days. A time ahead of the clock shows its date.
+fn ago(then: DateTime<Utc>, now: DateTime<Utc>) -> String {
+    let seconds = (now - then).num_seconds();
+    let (count, unit) = match seconds {
+        ..-60 => return then.date_naive().to_string(),
+        -60..60 => return "just now".into(),
+        60..3_600 => (seconds / 60, "minute"),
+        3_600..86_400 => (seconds / 3_600, "hour"),
+        86_400..2_592_000 => (seconds / 86_400, "day"),
+        2_592_000..31_536_000 => (seconds / 2_592_000, "month"),
+        _ => (seconds / 31_536_000, "year"),
+    };
+    let plural = if count == 1 { "" } else { "s" };
+    format!("{count} {unit}{plural} ago")
 }
 
 fn page_text(page: &Page<Issue>) -> String {
@@ -588,5 +649,114 @@ mod tests {
             ..card
         };
         assert!(card_line(&unassigned).ends_with("@-"));
+    }
+
+    fn issue() -> Issue {
+        serde_json::from_value(serde_json::json!({
+            "id": 1, "key": "SAN-97", "number": 97, "summary": "CLI and API gaps",
+            "description": "Make it so.", "issue_type": "story", "priority": "high",
+            "status_id": 2, "status_name": "In Progress", "assignee_id": 3,
+            "assignee_name": "EMERSON JUNIOR DANIEL SILVA", "reporter_id": 4,
+            "reporter_name": "Ana Maria Lima", "points": 5.0, "labels": ["dogfood", "cli"],
+            "parent_key": "SAN-90", "sprint_id": 39, "sprint_name": "Sprint 39", "rank": "a",
+            "done_at": null, "created_at": "2026-10-16T00:00:00Z",
+            "updated_at": "2026-10-16T00:00:00Z",
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn issue_text_names_status_people_and_sprint() {
+        assert_eq!(
+            issue_text(&issue()),
+            "SAN-97  CLI and API gaps\n\
+             Type:     Story\n\
+             Priority: High\n\
+             Status:   In Progress\n\
+             Assignee: Emerson Silva\n\
+             Reporter: Ana Lima\n\
+             Sprint:   Sprint 39\n\
+             Points:   5\n\
+             Parent:   SAN-90\n\
+             Labels:   dogfood, cli\n\
+             \n\
+             Make it so."
+        );
+    }
+
+    #[test]
+    fn issue_text_spells_out_what_is_missing() {
+        let bare = Issue {
+            assignee_id: None,
+            assignee_name: None,
+            sprint_id: None,
+            sprint_name: None,
+            points: None,
+            parent_key: None,
+            labels: vec![],
+            description: String::new(),
+            ..issue()
+        };
+        let text = issue_text(&bare);
+        assert!(text.contains("Assignee: Unassigned\n"), "{text}");
+        assert!(text.contains("Sprint:   Backlog\n"), "{text}");
+        assert!(
+            text.ends_with("Points:   -\nParent:   -\nLabels:   -"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn ago_reads_like_a_person_would_say_it() {
+        let now: DateTime<Utc> = "2026-10-16T12:00:00Z".parse().unwrap();
+        for (seconds, said) in [
+            (-61, "2026-10-16"),
+            (-2 * 86_400, "2026-10-18"),
+            (-60, "just now"),
+            (-5, "just now"),
+            (0, "just now"),
+            (59, "just now"),
+            (60, "1 minute ago"),
+            (119, "1 minute ago"),
+            (3_599, "59 minutes ago"),
+            (3_600, "1 hour ago"),
+            (7_200, "2 hours ago"),
+            (86_399, "23 hours ago"),
+            (86_400, "1 day ago"),
+            (29 * 86_400, "29 days ago"),
+            (30 * 86_400, "1 month ago"),
+            (364 * 86_400, "12 months ago"),
+            (365 * 86_400, "1 year ago"),
+            (800 * 86_400, "2 years ago"),
+        ] {
+            let then = now - chrono::TimeDelta::seconds(seconds);
+            assert_eq!(ago(then, now), said, "{seconds}s");
+        }
+    }
+
+    #[test]
+    fn comments_show_author_and_age_then_the_body() {
+        let now: DateTime<Utc> = "2026-10-16T12:00:00Z".parse().unwrap();
+        let comment = |id: i64, author: &str, body: &str, at: &str| Comment {
+            id,
+            author_id: id,
+            author_name: author.into(),
+            body: body.into(),
+            created_at: at.parse().unwrap(),
+        };
+        let comments = [
+            comment(
+                1,
+                "EMERSON JUNIOR DANIEL SILVA",
+                "First\nline two",
+                "2026-10-16T10:00:00Z",
+            ),
+            comment(2, "Ana Lima", "Second", "2026-10-16T11:59:30Z"),
+        ];
+        assert_eq!(
+            comments_text(&comments, now),
+            "Emerson Silva · 2 hours ago\nFirst\nline two\n\nAna Lima · just now\nSecond"
+        );
+        assert_eq!(comments_text(&[], now), "(no comments)");
     }
 }

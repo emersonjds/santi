@@ -129,7 +129,7 @@ async fn resolve_destination(
     destination: OpenIssuesDestination,
 ) -> Result<Option<i64>, AppError> {
     match destination {
-        OpenIssuesDestination::Backlog => Ok(None),
+        OpenIssuesDestination::Backlog {} => Ok(None),
         OpenIssuesDestination::Sprint { sprint_id } => {
             let target = repo::find_sprint(conn, member.board_id, sprint_id).await?;
             let target = target.ok_or_else(|| {
@@ -138,7 +138,7 @@ async fn resolve_destination(
             domain::check_destination(closing.id, &target)?;
             Ok(Some(target.id))
         }
-        OpenIssuesDestination::NewSprint => {
+        OpenIssuesDestination::NewSprint {} => {
             let number = repo::take_sprint_number(conn, member.board_id).await?;
             let name = domain::sprint_name(None, number)?;
             Ok(Some(
