@@ -405,3 +405,38 @@ Market: most trackers let the reporter and admins delete, and ask for confirmati
 Product vote: B — the person who filed a duplicate fixes it without asking an admin; other members' work is safe. A confirm dialog names the subtasks and comments that go with it; no trash in v1.
 Architecture vote: B — one pure check (`issues::domain::check_delete`: admin or `reporter_id`); hard delete in one transaction: lock the row, mark its removal in the running sprint (`record_leave`, issue and subtasks), then one `DELETE` of the issue and its subtasks. The schema does the rest (migration 0011): comments cascade, an epic's children get `parent_id` NULL (`ON DELETE SET NULL`), `sprint_issue.issue_id` becomes NULL so a running sprint keeps its `removed` facts and points; the D20 counter is never decremented, so a number is never reused. A soft delete would add a `deleted_at` predicate to every read model (D39).
 Winner: B, hard delete — accepted: no undo; a deleted issue's sprint facts lose the issue they named (the counts stay); 404 for unknown issues and non-members (D28), 403 for members who are neither admin nor reporter; delete budget 5 statements (D39).
+
+## D41 — Importing from Jira and Linear CSV (SAN-29, E5)
+Context: the real need behind the old compatibility idea is migration (design spec, E5). A team leaving Jira Cloud or Linear needs its open work, history dates, parents and sprints in santi without retyping. Both tools export issues as CSV without admin API keys.
+Options: A) CSV import of each tool's own export B) importers that read each tool's REST/GraphQL API with a token C) A now, B later on the same mapping step
+Market: Atono imports Linear's CSV export, matching people by email and statuses by name; most other importers read the source's API with a user token. Jira Cloud and Linear both let a user export issues as CSV.
+Product vote: C — a file the admin already knows how to produce, a preview that shows what will happen (statuses, people, sprints, types, problem rows), one confirm. API importers bring comments and attachments later without changing that screen.
+Architecture vote: C — CSV keeps the importer offline, credential-free and testable with hand-written fixtures; an API importer later only produces the same `Export` rows. One slice (`imports/`): pure parsing and planning in `domain.rs`, a handful of batched SQL statements in `repo.rs`. B now means OAuth or token storage, pagination and rate limits for a one-off job.
+Winner: C, CSV only in v1 — accepted: the export is the ceiling (no attachments, no history, no links other than parent, Linear exports carry no comments), the file's times without an offset are read as UTC, and the source is told from the header row only.
+
+Format (public interop docs only: Atlassian's "Export issues from Jira Cloud in CSV format" and "Common CSV file questions and known issues" support pages, which give the default `dd/MMM/yy h:mm a` date format; Linear's "Exporting data" docs, which list the columns; Atono's "Import from Linear" guide, which notes creator and assignee are emails). Jira "CSV (all fields)" repeats one column per value for multi-value fields (Labels, Sprint, Comment), so columns are read by position, never by a header-keyed map.
+
+| santi | Jira CSV | Linear CSV |
+|---|---|---|
+| detected by | `Issue key` + `Summary` | `ID` + `Title` |
+| external key | Issue key (Issue id resolves numeric parent refs) | ID |
+| type | Issue Type (Epic, Story, Task, Bug, Sub-task; others → story, editable in the mapping) | none: `Issue`, or `Sub-issue` when it has a parent |
+| summary, description | Summary, Description (wiki text kept as is) | Title, Description (markdown kept) |
+| status | Status, with Status Category as the suggestion | Status; category guessed from the name |
+| priority | Highest/Blocker/Critical → urgent, High/Major → high, Medium, Low/Lowest/Minor/Trivial → low | Urgent, High, Medium, Low; No priority → medium |
+| people | Assignee, Reporter | Assignee, Creator |
+| dates | Created, Updated | Created, Updated (ISO 8601 and JavaScript date strings) |
+| labels | every Labels column | Labels, comma-joined; spaces → `-`, 50 chars, 20 per issue |
+| sprint | last Sprint column (closed if an issue moved on from it) | Cycle Name or `Cycle N` (closed once Cycle End passed) |
+| parent | Parent / Parent id / Parent key / Epic Link | Parent issue |
+| points | Story Points / Story point estimate | Estimate |
+| comments | every Comment column (`date;author;body`), authored by the importing admin | not exported |
+
+Dropped: components, fix versions, resolution, due dates, time tracking, attachments, watchers, custom fields other than points, Linear projects, milestones and initiatives, comment authors.
+
+Flow: `POST /api/projects/{key}/imports/preview` and `POST /api/projects/{key}/imports`, admins only (403 for members, 404 for strangers), `multipart/form-data` with the file (≤ 10 MB, else 422) and, for the import, a JSON `mapping`: status name → status id (unlisted statuses fail their rows), person → member id or none (default: nobody; reporter: the admin), sprint name → `future` / `closed` / `skip` (scrum only; a sprint of the same name on the board is reused), type name → santi type. Every id must belong to the project (422, field `mapping.<kind>.<name>`).
+- Rules that keep the schema's invariants: a subtask whose parent is not a story, task or bug becomes a task; a parent santi does not allow is dropped with a problem row; epics and subtasks never join a sprint directly (D6); a closed sprint keeps only issues in a `done` status, others land in the backlog; subtasks carry no points (D11).
+- Idempotent: migration 0012 adds `issue.external_source` + `external_key` with a unique index per project; rows whose key was imported from the same source are skipped, and the insert is `ON CONFLICT DO NOTHING` on that index, so two imports racing never duplicate.
+- Writes: numbers reserved for the whole file in one statement (D20, file order), sprints in the same transaction; issues in batches of 500 per transaction, inserted tier by tier (epics, children, subtasks) with parents joined by original key; a last transaction ranks the new issues after the project's last rank in file order (D21 open-ended keys) and restores the export's `updated_at`, which the 0009 triggers bumped when children and comments arrived.
+- D39: 5k rows (50 epics, 3,950 stories, 1,000 subtasks, 5k comments) import in ~1.3 s on a laptop (debug build, `tests/imports.rs`), budget 10 s.
+- Known ceilings: an import cut off mid-way leaves its committed batches ranked by tier and with bumped `updated_at` (re-running it imports the rest); the whole file is held in memory (10 MB).
