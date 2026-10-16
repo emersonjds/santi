@@ -41,6 +41,7 @@ pub struct CreateProject {
     derive(sqlx::Type),
     sqlx(type_name = "text", rename_all = "snake_case")
 )]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectState {
     #[default]

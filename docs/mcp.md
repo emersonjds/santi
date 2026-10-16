@@ -49,7 +49,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 
 | Tool | Does | Hint |
 |---|---|---|
-| `list_projects` | projects you belong to | read-only |
+| `list_projects` | projects you belong to; `state` `archived` or `trashed` lists those you administer | read-only |
 | `get_board` | a board: columns and cards | read-only |
 | `get_backlog` | sprint sections, the backlog and epics | read-only |
 | `search_issues` | text (`q`) and filters, paged | read-only |
@@ -66,6 +66,11 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `start_sprint` | start a future sprint | |
 | `complete_sprint` | close the active sprint, open work to the backlog by default | |
 | `delete_issue` | delete with subtasks and comments | destructive |
+| `archive_project` | read-only and out of every list (admins) | |
+| `unarchive_project` | active again (admins) | |
+| `trash_project` | hidden from everyone, purged after 60 days (admins) | |
+| `restore_project` | back from the trash (admins) | |
+| `purge_project` | delete a trashed project for good (admins) | destructive |
 
 ## Clients
 

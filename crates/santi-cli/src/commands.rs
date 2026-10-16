@@ -8,7 +8,7 @@ use santi_types::issues::{
     Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
     UpdateIssue,
 };
-use santi_types::projects::Project;
+use santi_types::projects::{Project, ProjectState};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 
@@ -42,11 +42,7 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
                 format!("{} <{}>", me.display_name, me.email)
             })
         }
-        Command::Projects(ProjectsCommand::List) => {
-            show(json, &client.projects().await?, |projects| {
-                lines(projects, project_line)
-            })
-        }
+        Command::Projects(command) => projects(&client, command, json).await,
         Command::Issues(command) => issues(&client, command, json).await,
         Command::Board { project } => show(json, &client.board(&project).await?, board_text),
         Command::Backlog { project } => show(json, &client.backlog(&project).await?, backlog_text),
@@ -68,6 +64,42 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
             None => crate::mcp::serve_stdio(client).await,
         },
     }
+}
+
+async fn projects(client: &Client, command: ProjectsCommand, json: bool) -> Result<(), Error> {
+    let (project, action, done) = match command {
+        ProjectsCommand::List { state } => {
+            let projects = client.projects(state).await?;
+            return show(json, &projects, |projects| lines(projects, project_line));
+        }
+        ProjectsCommand::Archive { project } => (project, "archive", "Archived"),
+        ProjectsCommand::Unarchive { project } => (project, "unarchive", "Unarchived"),
+        ProjectsCommand::Restore { project } => (project, "restore", "Restored"),
+        ProjectsCommand::Trash { project, yes } => {
+            let question =
+                format!("Move {project} to the trash? It is deleted for good after 60 days.");
+            if !yes && !confirm(&question)? {
+                return Err(Error::Declined(format!("Kept {project}")));
+            }
+            client.change_project(&project, "trash").await?;
+            return show(json, &(), |()| {
+                format!(
+                    "Moved {project} to the trash; `santi projects restore {project}` brings it back"
+                )
+            });
+        }
+        ProjectsCommand::Purge { project, yes } => {
+            let question =
+                format!("Delete {project} and all its issues for good? This cannot be undone.");
+            if !yes && !confirm(&question)? {
+                return Err(Error::Declined(format!("Kept {project}")));
+            }
+            client.purge_project(&project).await?;
+            return show(json, &(), |()| format!("Purged {project}"));
+        }
+    };
+    client.change_project(&project, action).await?;
+    show(json, &(), |()| format!("{done} {project}"))
 }
 
 async fn login(
@@ -379,13 +411,36 @@ fn lines<T>(items: &[T], line: fn(&T) -> String) -> String {
 }
 
 fn project_line(project: &Project) -> String {
-    format!(
+    let line = format!(
         "{:<8} {} ({}, {})",
         project.key,
         project.name,
         name(&project.board_type),
         name(&project.role)
-    )
+    );
+    let by = |who: &Option<String>| {
+        who.as_deref()
+            .map(|who| format!(" by {who}"))
+            .unwrap_or_default()
+    };
+    let day = |at: Option<DateTime<Utc>>| {
+        at.map(|at| at.format("%Y-%m-%d").to_string())
+            .unwrap_or_default()
+    };
+    match project.state {
+        ProjectState::Active => line,
+        ProjectState::Archived => format!(
+            "{line} archived {}{}",
+            day(project.archived_at),
+            by(&project.archived_by)
+        ),
+        ProjectState::Trashed => format!(
+            "{line} trashed {}{}, purged on {}",
+            day(project.trashed_at),
+            by(&project.trashed_by),
+            day(project.purge_at)
+        ),
+    }
 }
 
 fn issue_line(issue: &Issue) -> String {

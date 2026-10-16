@@ -477,3 +477,63 @@ fn import_previews_then_asks_before_writing() {
     let issues = server().get(&token, "/api/projects/IMP/issues");
     assert!(!issues["items"].as_array().unwrap().is_empty());
 }
+
+#[test]
+fn project_lifecycle_from_archive_to_purge() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "LIFE", "scrum");
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+
+    run(&["projects", "archive", "LIFE"])
+        .success()
+        .stdout(contains("Archived LIFE"));
+    run(&["projects", "list"])
+        .success()
+        .stdout(contains("LIFE").not());
+    run(&["projects", "list", "--state", "archived"])
+        .success()
+        .stdout(contains("LIFE").and(contains("archived")));
+    run(&["projects", "unarchive", "LIFE"])
+        .success()
+        .stdout(contains("Unarchived LIFE"));
+    santi
+        .with(&token)
+        .args(["projects", "trash", "LIFE"])
+        .write_stdin("n\n")
+        .assert()
+        .code(10)
+        .stderr(contains("Kept LIFE"));
+    run(&["projects", "trash", "LIFE", "--yes"])
+        .success()
+        .stdout(contains("Moved LIFE to the trash"));
+    let trashed = json(
+        santi
+            .with(&token)
+            .args(["projects", "list", "--state", "trashed"]),
+    );
+    assert_eq!(trashed[0]["key"], "LIFE");
+    assert_eq!(trashed[0]["state"], "trashed");
+    run(&["projects", "list", "--state", "trashed"])
+        .success()
+        .stdout(contains("purged on"));
+    run(&["board", "LIFE"]).code(4);
+    run(&["projects", "restore", "LIFE"])
+        .success()
+        .stdout(contains("Restored LIFE"));
+    run(&["projects", "trash", "LIFE", "--yes"]).success();
+    santi
+        .with(&token)
+        .args(["projects", "purge", "LIFE"])
+        .write_stdin("n\n")
+        .assert()
+        .code(10)
+        .stderr(contains("Kept LIFE"));
+    run(&["projects", "purge", "LIFE", "--yes"])
+        .success()
+        .stdout(contains("Purged LIFE"));
+    run(&["projects", "list", "--state", "trashed"])
+        .success()
+        .stdout("(none)\n");
+    run(&["projects", "list", "--state", "gone"]).failure();
+}
