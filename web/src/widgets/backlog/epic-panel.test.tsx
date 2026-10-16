@@ -208,6 +208,27 @@ describe('epic panel', () => {
       .not.toHaveTextContent('Search revamp')
   })
 
+  it('sends one epic create for a repeated Enter', async () => {
+    const requests = inProjects({ 'POST /api/projects/WEB/issues': pending })
+    const { screen } = await renderApp(PANEL)
+
+    await panelOf(screen).getByRole('button', { name: 'Create epic' }).click()
+    await panelOf(screen)
+      .getByRole('textbox', { name: 'New epic summary' })
+      .fill('Search revamp')
+    await userEvent.keyboard('{Enter}{Enter}{Enter}')
+
+    expect(
+      requests.filter((r) => routeOf(r) === 'POST /api/projects/WEB/issues')
+    ).toHaveLength(1)
+
+    await expect
+      .element(
+        panelOf(screen).getByRole('textbox', { name: 'New epic summary' })
+      )
+      .toHaveValue('')
+  })
+
   it('drops a row onto an epic at once and takes it back when the server refuses', async () => {
     let answer = () => {}
     const requests = inProjects({

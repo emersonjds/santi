@@ -119,9 +119,10 @@ const CreateEpic = ({ projectKey }: { projectKey: string }) => {
     event.preventDefault()
     const text = summary.trim()
     if (!text) return
+    setSummary('')
     create.mutate(
       { summary: text, issue_type: 'epic' },
-      { onSuccess: () => setSummary('') }
+      { onError: () => setSummary(text) }
     )
   }
 

@@ -310,6 +310,22 @@ describe('issue detail', () => {
     ])
   })
 
+  it('sends one subtask create for a repeated Enter', async () => {
+    const requests = inProjects({ [CREATE]: pending })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const subtasks = screen.getByRole('region', { name: 'Subtasks' })
+
+    await subtasks.getByRole('button', { name: 'Add subtask' }).click()
+    await subtasks.getByLabelText('Subtask summary').fill('Check the logs')
+    await userEvent.keyboard('{Enter}{Enter}{Enter}')
+
+    expect(requests.filter((r) => routeOf(r) === CREATE)).toHaveLength(1)
+
+    await expect
+      .element(subtasks.getByLabelText('Subtask summary'))
+      .toHaveValue('')
+  })
+
   it('drops an open subtask field on Esc or Cancel, leaving the dialog open', async () => {
     const { dialog } = await openFromBoard()
     const subtasks = dialog.getByRole('region', { name: 'Subtasks' })

@@ -372,6 +372,34 @@ describe('create issue', () => {
     ])
   })
 
+  it('sends one inline create for a repeated Enter, and gives the summary back on refusal', async () => {
+    let answer = (_: unknown) => {}
+    const requests = inProjects({
+      [CREATE_WEB]: {
+        status: 422,
+        body: problem(422, 'Too long.'),
+        until: new Promise((resolve) => (answer = resolve)),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+    const todo = screen.getByRole('region', { name: 'To do' })
+
+    await todo.getByRole('button', { name: 'Create issue' }).click()
+    await todo.getByLabelText('New issue summary').fill('Tidy the footer')
+    await userEvent.keyboard('{Enter}{Enter}{Enter}')
+
+    expect(requests.filter((r) => routeOf(r) === CREATE_WEB)).toHaveLength(1)
+
+    await expect
+      .element(todo.getByLabelText('New issue summary'))
+      .toHaveValue('')
+    answer(undefined)
+    await expect
+      .element(todo.getByLabelText('New issue summary'))
+      .toHaveValue('Tidy the footer')
+    await expect.element(todo.getByText('Too long.')).toBeVisible()
+  })
+
   it('creates inline at the foot of any column, with its first status (SB-23, D5)', async () => {
     const requests = inProjects({
       [CREATE_WEB]: {

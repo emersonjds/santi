@@ -36,9 +36,10 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
     event.preventDefault()
     const summary = draft.trim()
     if (!summary) return
+    setDraft('')
     create.mutate(
       { summary, issue_type: 'subtask', parent: issue.key },
-      { onSuccess: () => setDraft('') }
+      { onError: () => setDraft(summary) }
     )
   }
 
