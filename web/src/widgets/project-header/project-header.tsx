@@ -1,11 +1,27 @@
+import { Suspense, lazy } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
-import { InviteDialog } from '@/features/project/invite-dialog'
+import { UserPlus } from 'lucide-react'
 import { BoardTypeBadge } from '@/entities/project/board-type-badge'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { projectQuery } from '@/entities/project/project-queries'
+import { Button } from '@/shared/ui/button'
 import { MembersPopover } from './members-popover'
 import { ProjectTabs } from './project-tabs'
+
+// Lazy: only admins open it, and the board route has no initial JS to spare (D39).
+const InviteDialog = lazy(() =>
+  import('@/features/project/invite-dialog').then((module) => ({
+    default: module.InviteDialog,
+  }))
+)
+
+const InviteFallback = () => (
+  <Button variant='outline' className='h-11 md:h-9' disabled>
+    <UserPlus />
+    Invite
+  </Button>
+)
 
 export const ProjectHeader = () => {
   const { key } = useParams({ from: '/_authenticated/p/$key' })
@@ -35,7 +51,9 @@ export const ProjectHeader = () => {
         <div className='ms-auto flex items-center gap-2'>
           <MembersPopover projectKey={project.key} />
           {project.role === 'admin' && (
-            <InviteDialog projectKey={project.key} />
+            <Suspense fallback={<InviteFallback />}>
+              <InviteDialog projectKey={project.key} />
+            </Suspense>
           )}
         </div>
       </div>

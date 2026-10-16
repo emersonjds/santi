@@ -20,6 +20,7 @@ import { Route as AuthenticatedPKeyIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPKeySearchRouteImport } from './routes/_authenticated/p/$key/search'
 import { Route as AuthenticatedPKeyBoardRouteImport } from './routes/_authenticated/p/$key/board'
 import { Route as AuthenticatedPKeyBacklogRouteImport } from './routes/_authenticated/p/$key/backlog'
+import { Route as AuthenticatedPKeyIssuesNumberRouteImport } from './routes/_authenticated/p/$key/issues/$number'
 
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
@@ -77,6 +78,12 @@ const AuthenticatedPKeyBacklogRoute =
     path: '/backlog',
     getParentRoute: () => AuthenticatedPKeyRouteRoute,
   } as any)
+const AuthenticatedPKeyIssuesNumberRoute =
+  AuthenticatedPKeyIssuesNumberRouteImport.update({
+    id: '/issues/$number',
+    path: '/issues/$number',
+    getParentRoute: () => AuthenticatedPKeyRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
   '/p/$key/search': typeof AuthenticatedPKeySearchRoute
   '/p/$key/': typeof AuthenticatedPKeyIndexRoute
+  '/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -100,6 +108,7 @@ export interface FileRoutesByTo {
   '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
   '/p/$key/search': typeof AuthenticatedPKeySearchRoute
   '/p/$key': typeof AuthenticatedPKeyIndexRoute
+  '/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -114,6 +123,7 @@ export interface FileRoutesById {
   '/_authenticated/p/$key/board': typeof AuthenticatedPKeyBoardRoute
   '/_authenticated/p/$key/search': typeof AuthenticatedPKeySearchRoute
   '/_authenticated/p/$key/': typeof AuthenticatedPKeyIndexRoute
+  '/_authenticated/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/p/$key/board'
     | '/p/$key/search'
     | '/p/$key/'
+    | '/p/$key/issues/$number'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/p/$key/board'
     | '/p/$key/search'
     | '/p/$key'
+    | '/p/$key/issues/$number'
   id:
     | '__root__'
     | '/_authenticated'
@@ -152,6 +164,7 @@ export interface FileRouteTypes {
     | '/_authenticated/p/$key/board'
     | '/_authenticated/p/$key/search'
     | '/_authenticated/p/$key/'
+    | '/_authenticated/p/$key/issues/$number'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -240,6 +253,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPKeyBacklogRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
+    '/_authenticated/p/$key/issues/$number': {
+      id: '/_authenticated/p/$key/issues/$number'
+      path: '/issues/$number'
+      fullPath: '/p/$key/issues/$number'
+      preLoaderRoute: typeof AuthenticatedPKeyIssuesNumberRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
   }
 }
 
@@ -248,6 +268,7 @@ interface AuthenticatedPKeyRouteRouteChildren {
   AuthenticatedPKeyBoardRoute: typeof AuthenticatedPKeyBoardRoute
   AuthenticatedPKeySearchRoute: typeof AuthenticatedPKeySearchRoute
   AuthenticatedPKeyIndexRoute: typeof AuthenticatedPKeyIndexRoute
+  AuthenticatedPKeyIssuesNumberRoute: typeof AuthenticatedPKeyIssuesNumberRoute
 }
 
 const AuthenticatedPKeyRouteRouteChildren: AuthenticatedPKeyRouteRouteChildren =
@@ -256,6 +277,7 @@ const AuthenticatedPKeyRouteRouteChildren: AuthenticatedPKeyRouteRouteChildren =
     AuthenticatedPKeyBoardRoute: AuthenticatedPKeyBoardRoute,
     AuthenticatedPKeySearchRoute: AuthenticatedPKeySearchRoute,
     AuthenticatedPKeyIndexRoute: AuthenticatedPKeyIndexRoute,
+    AuthenticatedPKeyIssuesNumberRoute: AuthenticatedPKeyIssuesNumberRoute,
   }
 
 const AuthenticatedPKeyRouteRouteWithChildren =

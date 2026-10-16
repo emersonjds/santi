@@ -8,6 +8,13 @@ export type Project = Schemas['Project']
 export type Member = Schemas['MemberInfo']
 export type BoardType = Schemas['BoardType']
 export type MemberRole = Schemas['MemberRole']
+export type BoardView = Schemas['BoardView']
+export type BoardColumn = Schemas['BoardColumnView']
+export type BoardSettings = Schemas['BoardSettings']
+export type Card = Schemas['Card']
+export type IssueType = Schemas['IssueType']
+export type Priority = Schemas['Priority']
+export type Sprint = Schemas['Sprint']
 
 // The session is an HttpOnly cookie (D22): no token ever reaches this code.
 export const api = createClient<paths>({

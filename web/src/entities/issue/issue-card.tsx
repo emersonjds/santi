@@ -1,0 +1,75 @@
+import { type ReactNode, memo } from 'react'
+import { Link } from '@tanstack/react-router'
+import { ListTree } from 'lucide-react'
+import type { Card } from '@/shared/api/client'
+import { initials } from '@/shared/lib/initials'
+import { issueNumber } from './board-query'
+import { PriorityGlyph, TypeGlyph } from './issue-glyphs'
+import { timeAgo } from './time-ago'
+
+/** The list a column draws its cards in; the drag layer reuses it so nothing shifts when it loads. */
+export const CARD_LIST = 'grid min-h-16 content-start gap-2 px-2 pb-2'
+
+export const EmptySlot = () => (
+  <li className='rounded-md border border-dashed border-input px-3 py-4 text-center text-sm text-subtle-foreground'>
+    Drop issues here
+  </li>
+)
+
+type IssueCardProps = { card: Card; projectKey: string; menu?: ReactNode }
+
+export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
+  <article className='relative grid gap-2 rounded-md border bg-card p-3 pe-11 text-sm shadow-xs hover:border-primary'>
+    {card.parent_key && (
+      <span className='w-fit rounded-sm bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'>
+        {card.parent_key}
+      </span>
+    )}
+    <Link
+      to='/p/$key/issues/$number'
+      params={{ key: projectKey, number: String(issueNumber(card.key)) }}
+      draggable={false}
+      className='line-clamp-2 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-ring'
+    >
+      {card.summary}
+    </Link>
+    <div className='flex min-h-6 items-center gap-2 text-xs'>
+      <TypeGlyph type={card.issue_type} />
+      <span
+        className='tracking-wide text-subtle-foreground tabular-nums'
+        title={`Updated ${timeAgo(card.updated_at)}`}
+      >
+        {card.key}
+      </span>
+      {card.total_subtasks > 0 && (
+        <span
+          className='inline-flex items-center gap-1 rounded-full bg-muted px-1.5 text-muted-foreground tabular-nums'
+          title={`${card.open_subtasks} of ${card.total_subtasks} subtasks open`}
+        >
+          <ListTree className='size-3.5' aria-hidden='true' />
+          {card.open_subtasks}/{card.total_subtasks}
+        </span>
+      )}
+      <span className='ms-auto flex items-center gap-2'>
+        {card.points != null && (
+          <span
+            className='rounded-full bg-muted px-2 font-semibold text-muted-foreground tabular-nums'
+            aria-label={`${card.points} points`}
+          >
+            {card.points}
+          </span>
+        )}
+        <PriorityGlyph priority={card.priority} />
+        {card.assignee_name && (
+          <span
+            className='grid size-6 shrink-0 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
+            title={`Assigned to ${card.assignee_name}`}
+          >
+            {initials(card.assignee_name)}
+          </span>
+        )}
+      </span>
+    </div>
+    {menu && <div className='absolute end-0.5 top-0.5 z-10'>{menu}</div>}
+  </article>
+))
