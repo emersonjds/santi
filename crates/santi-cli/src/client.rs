@@ -134,6 +134,32 @@ impl Client {
         self.send(request.json(&body)).await
     }
 
+    pub async fn comments(
+        &self,
+        key: &IssueKey,
+        page: &PageParams,
+    ) -> Result<Page<Comment>, Error> {
+        let request = self.issue_request(Method::GET, key, Some("comments"));
+        self.send(request.query(&to_query(page))).await
+    }
+
+    /// Every comment, oldest first, following the cursor to the last page.
+    pub async fn all_comments(&self, key: &IssueKey) -> Result<Vec<Comment>, Error> {
+        let mut comments = Vec::new();
+        let mut page = PageParams {
+            limit: Some(200),
+            cursor: None,
+        };
+        loop {
+            let next = self.comments(key, &page).await?;
+            comments.extend(next.items);
+            match next.next_cursor {
+                Some(cursor) => page.cursor = Some(cursor),
+                None => return Ok(comments),
+            }
+        }
+    }
+
     pub async fn sprints(&self, project: &ProjectKey) -> Result<Vec<Sprint>, Error> {
         let request = self.request(Method::GET, &["projects", project.as_str(), "sprints"]);
         self.send(request).await

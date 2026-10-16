@@ -284,11 +284,28 @@ fn issue_lifecycle_from_create_to_delete() {
         .stdout(contains("Commented on CLI-1"));
     santi
         .with(&token)
+        .args(["issues", "comment", "CLI-1", "Also on Firefox"])
+        .assert()
+        .success();
+    santi
+        .with(&token)
+        .args(["issues", "comments", "CLI-1"])
+        .assert()
+        .success()
+        .stdout(contains(" · just now\nRepro on Safari\n\n"))
+        .stdout(contains("Also on Firefox"));
+    let comments = json(santi.with(&token).args(["issues", "comments", "CLI-1"]));
+    assert_eq!(comments[1]["body"], "Also on Firefox");
+    santi
+        .with(&token)
         .args(["issues", "show", "CLI-1"])
         .assert()
         .success()
         .stdout(contains("Fix login"))
-        .stdout(contains("Bug"));
+        .stdout(contains("Type:     Bug"))
+        .stdout(contains("Status:   In Progress"))
+        .stdout(contains("Assignee: Unassigned"))
+        .stdout(contains("Sprint:   Backlog"));
 
     santi
         .with(&token)
@@ -368,6 +385,18 @@ fn sprint_planning_from_create_to_complete() {
         .args(["plan", "SPR-1", "--sprint", &id])
         .assert()
         .success();
+    let unplanned = json(
+        santi
+            .with(&token)
+            .args(["issues", "edit", "SPR-1", "--sprint", "none"]),
+    );
+    assert_eq!(unplanned["sprint_id"], Value::Null);
+    let replanned = json(
+        santi
+            .with(&token)
+            .args(["issues", "plan", "SPR-1", "--sprint", &id]),
+    );
+    assert_eq!(replanned["sprint_name"], "Sprint 1");
     santi
         .with(&token)
         .args(["backlog", "SPR"])
