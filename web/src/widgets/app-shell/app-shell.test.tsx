@@ -63,15 +63,6 @@ describe('app shell', () => {
     expect(router.state.location.pathname).toBe('/projects/new')
   })
 
-  it('keeps + Create disabled until issues can be created', async () => {
-    inProjects()
-    const { screen } = await renderApp('/')
-
-    await expect
-      .element(screen.getByRole('button', { name: 'Create' }))
-      .toBeDisabled()
-  })
-
   it('searches the current project from the top bar', async () => {
     inProjects()
     const { screen, router } = await renderApp('/p/WEB/board')

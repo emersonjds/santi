@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { OPS_BOARD } from '@/test/stub-api'
-import { moveCard, patchCard, planMove } from './board-cache'
+import { OPS_BOARD, WEB_BOARD, card } from '@/test/stub-api'
+import { insertCard, moveCard, patchCard, planMove } from './board-cache'
 import { timeAgo } from './time-ago'
 
 const OPS_1 = OPS_BOARD.columns[0].cards[0]
@@ -54,6 +54,27 @@ describe('board cache', () => {
 
     expect(patched.columns[0].cards[0].priority).toBe('high')
     expect(patched.columns[1]).toBe(OPS_BOARD.columns[1])
+  })
+
+  it('adds a new card at the bottom of its column only when the board shows it', () => {
+    const fresh = card({
+      key: 'OPS-4',
+      summary: 'Renew the domain',
+      column_id: 1,
+    })
+    const added = insertCard(OPS_BOARD, fresh)
+
+    expect(added.columns[0].cards.map((each) => each.key)).toEqual([
+      'OPS-1',
+      'OPS-4',
+    ])
+    expect(added.columns[0].issue_count).toBe(2)
+    expect(insertCard(added, fresh)).toBe(added)
+
+    const planned = card({ key: 'WEB-9', summary: 'Later', column_id: 1 })
+    expect(insertCard(WEB_BOARD, planned)).toBe(WEB_BOARD)
+    const inSprint = insertCard(WEB_BOARD, { ...planned, sprint_id: 4 })
+    expect(inSprint.columns[0].cards).toHaveLength(3)
   })
 
   it('says how long ago something changed', () => {

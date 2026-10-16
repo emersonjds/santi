@@ -8,6 +8,7 @@ import type {
   Sprint,
 } from '@/shared/api/client'
 
+/** `body` may be a function, read on each call: a reply that changes once something was written. */
 type Reply = { status: number; body?: unknown; until?: Promise<unknown> }
 
 /** Answers `fetch` by `"METHOD /path"`; unknown calls get a 404 problem. Returns the requests seen. */
@@ -18,7 +19,8 @@ export const stubApi = (replies: Record<string, Reply>) => {
     const route = `${request.method} ${new URL(request.url).pathname}`
     const reply = replies[route] ?? { status: 404, body: problem(404, route) }
     await reply.until
-    const body = reply.body === undefined ? null : JSON.stringify(reply.body)
+    const value = typeof reply.body === 'function' ? reply.body() : reply.body
+    const body = value === undefined ? null : JSON.stringify(value)
     const type =
       reply.status >= 400 ? 'application/problem+json' : 'application/json'
     return new Response(body, {

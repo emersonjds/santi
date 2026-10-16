@@ -1,6 +1,7 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query'
 import { notFound } from '@tanstack/react-router'
 import { api, dataOrThrow, hasStatus } from '@/shared/api/client'
+import { rememberProject } from './last-project'
 
 export const projectsQuery = queryOptions({
   queryKey: ['projects'],
@@ -45,6 +46,7 @@ export const loadProject = async (queryClient: QueryClient, key: string) => {
       queryClient.ensureQueryData(projectQuery(key)),
       queryClient.ensureQueryData(membersQuery(key)),
     ])
+    rememberProject(key)
     return project
   } catch (error) {
     if (hasStatus(error, 404)) throw notFound()

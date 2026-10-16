@@ -104,15 +104,16 @@ describe('board page', () => {
       .toBe('/p/WEB/backlog')
   })
 
-  it('opens the issue when its card is clicked', async () => {
+  it('opens the issue over the board when its card is clicked, under the issue URL', async () => {
     inProjects()
     const { screen, router } = await renderApp('/p/WEB/board')
 
     await screen.getByRole('link', { name: 'Write the release notes' }).click()
 
     await expect
-      .poll(() => router.state.location.pathname)
+      .poll(() => router.state.location.maskedLocation?.pathname)
       .toBe('/p/WEB/issues/1')
+    expect(router.state.location.search).toEqual({ issue: 1 })
   })
 
   it('holds the board layout with a skeleton while it loads', async () => {

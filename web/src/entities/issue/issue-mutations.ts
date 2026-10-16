@@ -11,7 +11,14 @@ import {
   api,
   dataOrThrow,
 } from '@/shared/api/client'
-import { type Move, moveCard, patchCard, placeCard } from './board-cache'
+import {
+  type Move,
+  cardOf,
+  insertCard,
+  moveCard,
+  patchCard,
+  placeCard,
+} from './board-cache'
 import { boardSettingsQuery, boardsKey, issueNumber } from './board-query'
 import { commentsQuery, issueQuery, subtasksQuery } from './issue-queries'
 
@@ -226,13 +233,25 @@ export const useCreateIssue = (projectKey: string) => {
           body,
         })
       ),
+    // Drawn from the server's answer, before the board refetch comes back.
     onSuccess: (created) => {
       if (created.parent_key)
         queryClient.setQueryData(
           subtasksQuery(projectKey, created.parent_key).queryKey,
           (old) => old && [...old, created]
         )
-      return queryClient.invalidateQueries({ queryKey: boardsKey(projectKey) })
+      const settings = queryClient.getQueryData(
+        boardSettingsQuery(projectKey).queryKey
+      )
+      const queryKey = boardsKey(projectKey)
+      queryClient.setQueriesData<BoardView>({ queryKey }, (board) => {
+        const columnId =
+          columnOf(settings, created.status_id) ?? board?.columns[0]?.id
+        return board && columnId !== undefined
+          ? insertCard(board, cardOf(created, columnId))
+          : board
+      })
+      void queryClient.invalidateQueries({ queryKey })
     },
   })
 }
