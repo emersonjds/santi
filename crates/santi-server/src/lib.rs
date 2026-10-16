@@ -2,6 +2,7 @@ pub mod auth;
 pub mod boards;
 pub mod error;
 pub mod extract;
+pub mod imports;
 pub mod issues;
 pub mod members;
 pub mod pagination;
