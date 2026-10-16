@@ -1,4 +1,4 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { Link, useParams } from '@tanstack/react-router'
 import { SantiMark } from '@/shared/ui/santi-mark'
 import { SidebarTrigger } from '@/shared/ui/sidebar'
@@ -6,6 +6,7 @@ import { AccountButton } from './account-button'
 import { CommandMenu } from './command-menu'
 import { CreateButton } from './create-button'
 import { ProjectSearch } from './project-search'
+import { Shortcuts } from './shortcuts'
 
 // Lazy: the Radix menu and its popper weigh ~20 KB gzip on every first visit (D39).
 const AccountMenu = lazy(() =>
@@ -14,6 +15,7 @@ const AccountMenu = lazy(() =>
 
 export const TopBar = () => {
   const { key } = useParams({ strict: false })
+  const [sheet, setSheet] = useState(false)
 
   return (
     <header className='sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background px-2 sm:px-4'>
@@ -30,9 +32,10 @@ export const TopBar = () => {
         <CommandMenu showTrigger={!key} />
         <CreateButton />
         <Suspense fallback={<AccountButton disabled />}>
-          <AccountMenu />
+          <AccountMenu onShortcuts={() => setSheet(true)} />
         </Suspense>
       </div>
+      <Shortcuts open={sheet} setOpen={setSheet} />
     </header>
   )
 }

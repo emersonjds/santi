@@ -62,6 +62,7 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
       <form onSubmit={submit} className='grid gap-2'>
         <Textarea
           aria-label='Add a comment'
+          aria-keyshortcuts='m'
           placeholder='Add a comment…'
           maxLength={20_000}
           value={draft}

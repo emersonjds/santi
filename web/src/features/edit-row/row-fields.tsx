@@ -36,6 +36,7 @@ export const RowSummary = ({
         <button
           type='button'
           aria-label={`Edit summary of ${card.key}`}
+          aria-keyshortcuts='e'
           onClick={() => setEditing(true)}
           className='relative z-10 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 outline-none group-hover:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring'
         >

@@ -82,6 +82,7 @@ const SearchRow = ({ issue, projectKey, status, assignee }: SearchRowProps) => (
         to: '/p/$key/issues/$number',
         params: { key: projectKey, number: String(issueNumber(issue.key)) },
       }}
+      data-issue-key={issue.key}
       className='line-clamp-2 min-w-0 flex-1 basis-full outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring md:line-clamp-1 md:basis-auto'
     >
       {issue.summary}

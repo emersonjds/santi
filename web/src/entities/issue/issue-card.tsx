@@ -46,7 +46,8 @@ export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
         params: { key: projectKey, number: String(issueNumber(card.key)) },
       }}
       draggable={false}
-      className='line-clamp-2 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-ring'
+      data-issue-key={card.key}
+      className='line-clamp-2 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring'
     >
       {card.summary}
     </Link>

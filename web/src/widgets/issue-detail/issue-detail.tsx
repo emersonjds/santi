@@ -200,7 +200,10 @@ export const IssueDetail = ({
   if (!issue) return <DetailSkeleton />
 
   return (
-    <div className='grid gap-6 md:grid-cols-[minmax(0,1fr)_16rem]'>
+    <div
+      data-issue-view
+      className='grid gap-6 md:grid-cols-[minmax(0,1fr)_16rem]'
+    >
       <div className='grid min-w-0 content-start gap-6'>
         <div className='grid gap-2'>
           <Heading

@@ -12,6 +12,7 @@ import { Layers } from 'lucide-react'
 import { CreateSlot } from '@/widgets/board/create-slot'
 import { FilterBar } from '@/widgets/board/filter-bar'
 import { TOGGLE } from '@/widgets/board/filter-controls'
+import { useAssignKey } from '@/features/issue-quick-actions/assign-key'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { backlogQuery } from '@/entities/issue/backlog-query'
 import { BacklogContext } from '@/entities/issue/board-context'
@@ -21,6 +22,7 @@ import {
   boardFilters,
   boardSettingsQuery,
 } from '@/entities/issue/board-query'
+import { useUpdateRow } from '@/entities/issue/issue-mutations'
 import { type Status, statusesById } from '@/entities/issue/statuses'
 import type {
   Backlog as BacklogView,
@@ -95,6 +97,10 @@ type SectionsProps = {
 
 const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   const narrow = useIsMobile()
+  useAssignKey(
+    () => backlog.sections.flatMap((section) => section.cards),
+    useUpdateRow(projectKey)
+  )
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [dialog, setDialog] = useState<SprintAction | null>(null)
   // Held here, above the drag layer swap, so an open form survives it.
@@ -206,6 +212,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
       <section
         key={lane}
         aria-labelledby={`${id}-title`}
+        data-issue-group={section.sprint?.name ?? 'Backlog'}
         className='rounded-lg bg-muted'
       >
         <SectionHeader

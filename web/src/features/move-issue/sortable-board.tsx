@@ -111,6 +111,7 @@ const SortableCard = ({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -120,7 +121,11 @@ const SortableCard = ({
   })
   return (
     <li
-      ref={setNodeRef}
+      // The card is its own handle; Enter on its link opens the issue instead of picking the card up.
+      ref={(node) => {
+        setNodeRef(node)
+        setActivatorNodeRef(node)
+      }}
       {...attributes}
       {...listeners}
       aria-label={`Drag ${card.key}`}
