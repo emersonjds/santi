@@ -9,6 +9,7 @@ use std::time::{Duration, Instant};
 use axum::extract::{ConnectInfo, FromRequestParts};
 use axum::http::HeaderMap;
 use axum::http::request::Parts;
+use sha2::{Digest, Sha256};
 
 use crate::AppState;
 use crate::error::AppError;
@@ -58,15 +59,20 @@ const LOCK_FROM: u32 = 5;
 const FIRST_LOCK: Duration = Duration::from_secs(30);
 const LONGEST_LOCK: Duration = Duration::from_secs(15 * 60);
 const FORGET_FAILURES_AFTER: Duration = Duration::from_secs(60 * 60);
-/// ponytail: past this many entries a write prunes idle ones (O(n) once in a while);
-/// a shared store (Redis) only if santi runs more than one replica.
-const MAX_ENTRIES: usize = 10_000;
+/// Each table holds at most this many entries (about 100 bytes each); a timer drops idle ones
+/// (`prune`). ponytail: a full table evicts an arbitrary entry, so a flood from many addresses
+/// can reset someone's counters; a shared store (Redis) if that or a second replica matters.
+const MAX_ENTRIES: usize = 100_000;
+
+/// A login lockout entry: the SHA-256 of the normalized email, never the raw input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LoginKey([u8; 32]);
 
 pub struct RateLimits {
     trusted_proxies: usize,
     per_address: bool,
     buckets: Mutex<HashMap<(Action, Subject), Bucket>>,
-    logins: Mutex<HashMap<String, Failures>>,
+    logins: Mutex<HashMap<LoginKey, Failures>>,
 }
 
 impl Default for RateLimits {
@@ -113,12 +119,7 @@ impl RateLimits {
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
         for subject in subjects {
-            if buckets.len() > MAX_ENTRIES {
-                buckets.retain(|(action, _), bucket| {
-                    let (burst, every) = action.rule();
-                    now.duration_since(bucket.at) < every * burst
-                });
-            }
+            make_room(&mut buckets, &(action, subject));
             let bucket = buckets.entry((action, subject)).or_insert(Bucket {
                 tokens: f64::from(burst),
                 at: now,
@@ -137,19 +138,21 @@ impl RateLimits {
 
     /// Counts an attempt before the password is checked, so parallel guesses count too.
     /// Unknown emails count the same way: the answer never says whether an account exists.
-    pub fn login_attempt(&self, email: &str) -> Result<(), AppError> {
+    /// Something that is not an email address is refused (401) before it takes an entry.
+    pub fn login_attempt(&self, email: &str) -> Result<LoginKey, AppError> {
         self.login_attempt_at(email, Instant::now())
     }
 
-    fn login_attempt_at(&self, email: &str, now: Instant) -> Result<(), AppError> {
+    fn login_attempt_at(&self, email: &str, now: Instant) -> Result<LoginKey, AppError> {
+        let email =
+            crate::auth::domain::normalize_email(email).map_err(|_| AppError::Unauthorized)?;
+        let key = LoginKey(Sha256::digest(email.as_bytes()).into());
         let mut logins = self
             .logins
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        if logins.len() > MAX_ENTRIES {
-            logins.retain(|_, failures| !forgotten(failures, now));
-        }
-        let failures = logins.entry(email.to_string()).or_insert(Failures {
+        make_room(&mut logins, &key);
+        let failures = logins.entry(key).or_insert(Failures {
             count: 0,
             locked_until: None,
             at: now,
@@ -167,20 +170,54 @@ impl RateLimits {
             failures.locked_until =
                 Some(now + (FIRST_LOCK * 2u32.pow(doublings)).min(LONGEST_LOCK));
         }
-        Ok(())
+        Ok(key)
     }
 
-    pub fn login_succeeded(&self, email: &str) {
+    pub fn login_succeeded(&self, key: &LoginKey) {
         let mut logins = self
             .logins
             .lock()
             .unwrap_or_else(|poison| poison.into_inner());
-        logins.remove(email);
+        logins.remove(key);
+    }
+
+    /// Drops idle buckets and forgotten failures; called by a timer, never on a request.
+    pub fn prune(&self) {
+        self.prune_at(Instant::now());
+    }
+
+    fn prune_at(&self, now: Instant) {
+        self.buckets
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .retain(|(action, _), bucket| {
+                let (burst, every) = action.rule();
+                now.duration_since(bucket.at) < every * burst
+            });
+        self.logins
+            .lock()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .retain(|_, failures| !forgotten(failures, now));
     }
 
     #[cfg(test)]
     fn bucket_count(&self) -> usize {
         self.buckets.lock().unwrap().len()
+    }
+
+    #[cfg(test)]
+    fn login_count(&self) -> usize {
+        self.logins.lock().unwrap().len()
+    }
+}
+
+/// Keeps a table at `MAX_ENTRIES` before `key` goes in.
+fn make_room<K: Eq + std::hash::Hash + Copy, V>(table: &mut HashMap<K, V>, key: &K) {
+    if table.len() < MAX_ENTRIES || table.contains_key(key) {
+        return;
+    }
+    if let Some(evicted) = table.keys().next().copied() {
+        table.remove(&evicted);
     }
 }
 
@@ -371,13 +408,14 @@ mod tests {
     fn a_successful_login_clears_the_failures() {
         let limits = RateLimits::new(0, true);
         let now = Instant::now();
+        let mut key = None;
         for _ in 0..4 {
-            limits.login_attempt_at("ana@example.com", now).unwrap();
+            key = Some(limits.login_attempt_at("ana@example.com", now).unwrap());
         }
-        limits.login_succeeded("ana@example.com");
+        limits.login_succeeded(&key.unwrap());
 
         for _ in 0..4 {
-            assert!(limits.login_attempt_at("ana@example.com", now).is_ok());
+            assert!(limits.login_attempt_at(" Ana@Example.com", now).is_ok());
         }
     }
 
@@ -445,19 +483,59 @@ mod tests {
     }
 
     #[test]
-    fn idle_entries_are_pruned_once_the_table_grows() {
+    fn malformed_or_huge_emails_are_refused_without_an_entry() {
         let limits = RateLimits::new(0, true);
         let now = Instant::now();
-        for user in 0..(MAX_ENTRIES as i64 + 1) {
+        for attempt in 0..200 {
+            let huge = format!("{}{attempt}@example.com", "a".repeat(64 * 1024));
+            assert_eq!(
+                limits.login_attempt_at(&huge, now),
+                Err(AppError::Unauthorized)
+            );
+        }
+        assert_eq!(
+            limits.login_attempt_at("not an email", now),
+            Err(AppError::Unauthorized)
+        );
+
+        assert_eq!(limits.login_count(), 0);
+    }
+
+    #[test]
+    fn the_tables_stay_bounded_under_a_flood_of_new_keys() {
+        let limits = RateLimits::new(0, true);
+        let now = Instant::now();
+        for user in 0..(MAX_ENTRIES + 50) {
             limits
-                .check_at(Action::Import, None, Some(user), now)
+                .login_attempt_at(&format!("user{user}@example.com"), now)
+                .unwrap();
+            limits
+                .check_at(Action::Import, None, Some(user as i64), now)
                 .unwrap();
         }
-        let refilled = now + Duration::from_secs(60 * 60);
+
+        assert_eq!(limits.login_count(), MAX_ENTRIES);
+        assert_eq!(limits.bucket_count(), MAX_ENTRIES);
+    }
+
+    #[test]
+    fn pruning_drops_idle_entries_and_keeps_live_ones() {
+        let limits = RateLimits::new(0, true);
+        let now = Instant::now();
+        limits.check_at(Action::Import, None, Some(1), now).unwrap();
+        limits.login_attempt_at("ana@example.com", now).unwrap();
+        for _ in 0..5 {
+            limits.login_attempt_at("bob@example.com", now).unwrap();
+        }
+        let later = now + Duration::from_secs(60 * 60);
         limits
-            .check_at(Action::Import, None, Some(-1), refilled)
+            .check_at(Action::Import, None, Some(2), later)
             .unwrap();
+        limits.login_attempt_at("carol@example.com", later).unwrap();
+
+        limits.prune_at(later);
 
         assert_eq!(limits.bucket_count(), 1);
+        assert_eq!(limits.login_count(), 1);
     }
 }
