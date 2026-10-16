@@ -108,6 +108,24 @@ async fn deleting_needs_the_password_and_locks_after_repeated_misses(pool: PgPoo
 }
 
 #[sqlx::test]
+async fn a_locked_login_does_not_block_deleting_the_account(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    for _ in 0..6 {
+        let body = json!({ "email": "ana@example.com", "password": "wrong" });
+        ana.post("/api/auth/login", body).await;
+    }
+    let body = json!({ "email": "ana@example.com", "password": PASSWORD });
+    assert_eq!(
+        ana.post("/api/auth/login", body).await.0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+
+    let (status, _, _) = delete_account(&ana, PASSWORD).await;
+
+    assert_eq!(status, StatusCode::NO_CONTENT);
+}
+
+#[sqlx::test]
 async fn deleting_signs_out_everywhere_and_frees_the_email(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
 
@@ -163,4 +181,124 @@ async fn projects_outlive_the_account_only_when_others_use_them(pool: PgPool) {
     let (_, board) = bob.get("/api/projects/TEAM/board").await;
     assert!(!board.to_string().contains("ana@example.com"));
     bob.create_project("SOLO", "scrum").await;
+}
+
+#[sqlx::test]
+async fn the_address_an_erased_account_gets_cannot_be_squatted(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let squat = format!("deleted-{}@deleted.invalid", ana.user_id);
+    let body = json!({ "email": squat, "password": PASSWORD, "display_name": "Squatter", "accept_terms": true, "confirm_age": true });
+
+    let (refused, problem) = ana.post("/api/auth/register", body).await;
+    sqlx::query(
+        "INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, 'Old squat', 'x')",
+    )
+    .bind(&squat)
+    .execute(&pool)
+    .await
+    .unwrap();
+    let (deleted, _, _) = delete_account(&ana, PASSWORD).await;
+
+    assert_eq!(refused, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+    assert_eq!(problem["errors"][0]["field"], "email");
+    assert_eq!(deleted, StatusCode::NO_CONTENT);
+    let erased: (String, bool) =
+        sqlx::query_as("SELECT email, deleted_at IS NOT NULL FROM app_user WHERE id = $1")
+            .bind(ana.user_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert!(!erased.0.contains('@'), "{}", erased.0);
+    assert!(erased.1);
+}
+
+#[sqlx::test]
+async fn erased_accounts_are_never_found_added_or_heirs(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let carol = ana.another_user("carol@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    delete_account(&carol, PASSWORD).await;
+    ana.create_project("TEAM", "scrum").await;
+    ana.create_project("GHOST", "kanban").await;
+    for email in [
+        format!("deleted-{}@deleted.invalid", carol.user_id),
+        format!("erased:{}", carol.user_id),
+    ] {
+        let body = json!({ "email": email, "role": "admin" });
+        let (status, _) = ana.post("/api/projects/TEAM/members", body).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{email}");
+    }
+    join(&ana, "TEAM", "bob@example.com", "member").await;
+    for key in ["TEAM", "GHOST"] {
+        sqlx::query(
+            "INSERT INTO member (project_id, user_id, role)
+             SELECT id, $2, 'member' FROM project WHERE key = $1",
+        )
+        .bind(key)
+        .bind(carol.user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    }
+
+    let (status, _, _) = delete_account(&ana, PASSWORD).await;
+
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, team) = bob.get("/api/projects/TEAM").await;
+    assert_eq!(team["role"], "admin", "a living member inherits");
+    bob.create_project("GHOST", "scrum").await;
+}
+
+#[sqlx::test(migrations = false)]
+async fn migration_0015_marks_accounts_erased_before_it(pool: PgPool) {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    files.sort();
+    let run = |name: &std::path::Path| std::fs::read_to_string(name).unwrap();
+    let (before, after): (Vec<_>, Vec<_>) = files
+        .iter()
+        .partition(|path| path.file_name().unwrap().to_str().unwrap() < "0015");
+    for file in before {
+        sqlx::raw_sql(sqlx::AssertSqlSafe(run(file)))
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    sqlx::raw_sql(
+        "INSERT INTO app_user (email, display_name, password_hash)
+         VALUES ('ana@x.io', 'Ana', 'h'), ('gone@x.io', 'Gone', 'h'), ('bob@x.io', 'Bob', 'h');
+         UPDATE app_user SET email = 'deleted-' || id || '@deleted.invalid', password_hash = '!'
+         WHERE email = 'gone@x.io';
+         INSERT INTO project (key, name) VALUES ('P1', 'p');
+         INSERT INTO member (project_id, user_id, role)
+         SELECT p.id, u.id, CASE u.password_hash WHEN '!' THEN 'admin' ELSE 'member' END
+         FROM project p, app_user u WHERE u.email <> 'ana@x.io';",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::raw_sql(sqlx::AssertSqlSafe(run(after[0])))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let rows: Vec<(String, bool, Option<String>)> = sqlx::query_as(
+        "SELECT u.email, u.deleted_at IS NOT NULL, m.role
+         FROM app_user u LEFT JOIN member m ON m.user_id = u.id ORDER BY u.id",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        rows,
+        [
+            ("ana@x.io".into(), false, None),
+            ("erased:2".into(), true, None),
+            ("bob@x.io".into(), false, Some("admin".into())),
+        ]
+    );
 }

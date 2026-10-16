@@ -108,18 +108,19 @@ async fn acceptances_record_the_text_hash_append_only_and_outlive_the_account(po
             ("age".into(), None)
         ]
     );
-    assert!(
-        sqlx::query("UPDATE legal_acceptance SET version = 'x'")
-            .execute(&pool)
-            .await
-            .is_err()
-    );
-    assert!(
-        sqlx::query("DELETE FROM legal_acceptance")
-            .execute(&pool)
-            .await
-            .is_err()
-    );
+    for statement in [
+        "UPDATE legal_acceptance SET version = 'x'",
+        "DELETE FROM legal_acceptance",
+        "TRUNCATE legal_acceptance",
+    ] {
+        let refused = sqlx::query(statement).execute(&pool).await.unwrap_err();
+        assert!(
+            refused
+                .to_string()
+                .contains("legal_acceptance is append only"),
+            "{statement}: {refused}"
+        );
+    }
 
     let (deleted, _) = call(
         &on,
@@ -246,4 +247,80 @@ async fn openapi_lists_the_legal_routes(pool: PgPool) {
     assert!(api["paths"]["/api/me/legal"]["get"].is_object());
     assert!(api["paths"]["/api/me/legal"]["post"].is_object());
     assert!(api["paths"]["/api/tokens"]["post"]["responses"]["409"].is_object());
+}
+
+#[sqlx::test]
+async fn accepting_again_records_nothing_new_and_is_rate_limited(pool: PgPool) {
+    let on = router(pool.clone(), true);
+    let off = router(pool.clone(), false);
+    let (_, ana) = register(
+        &on,
+        "ana@example.com",
+        json!({ "accept_terms": true, "confirm_age": true }),
+    )
+    .await;
+    let (_, bob) = register(&off, "bob@example.com", json!({})).await;
+    let accept = json!({ "accept_terms": true, "confirm_age": true });
+    let rows = || async {
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM legal_acceptance")
+            .fetch_one(&pool)
+            .await
+            .unwrap()
+    };
+
+    let (again, status) = call(
+        &on,
+        Method::POST,
+        "/api/me/legal",
+        &ana,
+        Some(accept.clone()),
+    )
+    .await;
+    let (not_required, _) = call(
+        &off,
+        Method::POST,
+        "/api/me/legal",
+        &bob,
+        Some(accept.clone()),
+    )
+    .await;
+
+    assert_eq!(again, StatusCode::OK);
+    assert_eq!(status["accepted"], true);
+    assert_eq!(not_required, StatusCode::OK);
+    assert_eq!(rows().await, 3);
+    let mut answers = Vec::new();
+    for _ in 0..10 {
+        answers.push(
+            call(
+                &on,
+                Method::POST,
+                "/api/me/legal",
+                &ana,
+                Some(accept.clone()),
+            )
+            .await
+            .0,
+        );
+    }
+    assert_eq!(answers.last(), Some(&StatusCode::TOO_MANY_REQUESTS));
+}
+
+#[sqlx::test]
+async fn adding_a_member_by_email_needs_their_current_acceptance(pool: PgPool) {
+    let off = router(pool.clone(), false);
+    let on = router(pool.clone(), true);
+    let (_, bob) = register(&off, "bob@example.com", json!({})).await;
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let add = json!({ "email": "bob@example.com", "role": "member" });
+
+    let (refused, problem) = ana.post("/api/projects/SANTI/members", add.clone()).await;
+    let accept = json!({ "accept_terms": true, "confirm_age": true });
+    call(&on, Method::POST, "/api/me/legal", &bob, Some(accept)).await;
+    let (added, _) = ana.post("/api/projects/SANTI/members", add).await;
+
+    assert_eq!(refused, StatusCode::CONFLICT);
+    assert_eq!(problem["type"], "urn:santi:error:terms-not-accepted");
+    assert_eq!(added, StatusCode::CREATED);
 }

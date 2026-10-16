@@ -19,6 +19,7 @@ use axum::http::header::{
     CACHE_CONTROL, CONTENT_SECURITY_POLICY, REFERRER_POLICY, VARY, X_CONTENT_TYPE_OPTIONS,
 };
 use axum::http::{HeaderValue, Response};
+use axum::middleware::Next;
 use axum::response::IntoResponse;
 use axum::routing::{MethodRouter, any, get, get_service};
 use axum::{Json, Router, middleware};
@@ -183,11 +184,7 @@ fn spa(dir: &Path, legal_pages: bool) -> Router<AppState> {
     for page in ["privacy", "terms"] {
         pages = match legal_pages {
             true => pages.route(&format!("/{page}"), legal_page(dir, page)),
-            false => ["", ".html", ".pt-BR.html"]
-                .iter()
-                .fold(pages, |pages, suffix| {
-                    pages.route(&format!("/{page}{suffix}"), any(not_found))
-                }),
+            false => pages.route(&format!("/{page}"), any(not_found)),
         };
     }
     let pages = pages
@@ -196,7 +193,7 @@ fn spa(dir: &Path, legal_pages: bool) -> Router<AppState> {
             CACHE_CONTROL,
             cache_when_ok("no-cache"),
         ));
-    Router::new()
+    let router = Router::new()
         .nest_service(
             "/assets",
             SetResponseHeader::overriding(assets, CACHE_CONTROL, cache_when_ok(IMMUTABLE)),
@@ -204,11 +201,52 @@ fn spa(dir: &Path, legal_pages: bool) -> Router<AppState> {
         .route("/api", any(not_found))
         .route("/api/", any(not_found))
         .route("/api/{*path}", any(not_found))
-        .merge(pages)
-        .layer(SetResponseHeaderLayer::overriding(
-            CONTENT_SECURITY_POLICY,
-            HeaderValue::from_static(CSP),
-        ))
+        .merge(pages);
+    let router = match legal_pages {
+        true => router,
+        false => router.layer(middleware::from_fn(hide_legal_files)),
+    };
+    router.layer(SetResponseHeaderLayer::overriding(
+        CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static(CSP),
+    ))
+}
+
+/// D45: with the legal pages off, no spelling of their files (percent-encoded, dotted, other
+/// case on a case-insensitive disk) reaches `ServeDir`.
+async fn hide_legal_files(request: Request, next: Next) -> Response<axum::body::Body> {
+    let path = percent_decoded(request.uri().path()).to_lowercase();
+    let file = path
+        .rsplit(['/', '\\'])
+        .find(|segment| !segment.is_empty() && *segment != ".");
+    let legal = file.is_some_and(|file| file.starts_with("privacy.") || file.starts_with("terms."));
+    if legal {
+        return AppError::NotFound.into_response();
+    }
+    next.run(request).await
+}
+
+fn percent_decoded(path: &str) -> String {
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        let escaped = bytes
+            .get(index + 1..index + 3)
+            .and_then(|hex| std::str::from_utf8(hex).ok())
+            .and_then(|hex| u8::from_str_radix(hex, 16).ok());
+        match (bytes[index], escaped) {
+            (b'%', Some(byte)) => {
+                decoded.push(byte);
+                index += 3;
+            }
+            (byte, _) => {
+                decoded.push(byte);
+                index += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&decoded).into_owned()
 }
 
 /// `/privacy` and `/terms` in English, or in Brazilian Portuguese with `?lang=pt-BR` (D45).

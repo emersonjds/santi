@@ -13,7 +13,8 @@ const save = (data: unknown) => {
   link.href = url
   link.download = `santi-export-${new Date().toISOString().slice(0, 10)}.json`
   link.click()
-  URL.revokeObjectURL(url)
+  // Chrome reads the URL after click() returns; revoking at once can cancel the download.
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 /** D45: the account and every project it administers, as one JSON file. */

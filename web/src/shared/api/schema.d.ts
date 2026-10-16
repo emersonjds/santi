@@ -1574,7 +1574,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Too many wrong passwords for this account (D44); wait `Retry-After` seconds */
+            /** @description Too many password attempts for this account (D44); wait `Retry-After` seconds */
             429: {
                 headers: {
                     [name: string]: unknown;
@@ -1654,7 +1654,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted; recorded in the append-only acceptance log */
+            /** @description Accepted; recorded in the append-only acceptance log unless the current versions were already accepted or are not required */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1673,6 +1673,15 @@ export interface operations {
             };
             /** @description `accept_terms` or `confirm_age` not true */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1749,6 +1758,15 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2992,7 +3010,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Already a member */
+            /** @description Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3642,8 +3660,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Another project took the sample's key */
+            /** @description Other projects took the sample's key and three random ones */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account, shared with project creation (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

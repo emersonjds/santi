@@ -365,7 +365,7 @@
             }
           },
           "429": {
-            "description": "Too many wrong passwords for this account (D44); wait `Retry-After` seconds",
+            "description": "Too many password attempts for this account (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -451,7 +451,7 @@
         },
         "responses": {
           "200": {
-            "description": "Accepted; recorded in the append-only acceptance log",
+            "description": "Accepted; recorded in the append-only acceptance log unless the current versions were already accepted or are not required",
             "content": {
               "application/json": {
                 "schema": {
@@ -471,6 +471,16 @@
           },
           "422": {
             "description": "`accept_terms` or `confirm_age` not true",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited per account (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -558,6 +568,16 @@
             }
           },
           "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited per account (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2394,7 +2414,7 @@
             }
           },
           "409": {
-            "description": "Already a member",
+            "description": "Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3259,7 +3279,17 @@
             }
           },
           "409": {
-            "description": "Another project took the sample's key",
+            "description": "Other projects took the sample's key and three random ones",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited per account, shared with project creation (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
