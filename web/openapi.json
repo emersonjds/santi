@@ -3037,6 +3037,55 @@
         }
       }
     },
+    "/api/sample-project": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "create_sample_project",
+        "responses": {
+          "200": {
+            "description": "The caller already has one; nothing changed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created the caller's sample scrum project: a running sprint, a future one, a backlog, epics, subtasks and comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another project took the sample's key",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tokens": {
       "get": {
         "tags": [

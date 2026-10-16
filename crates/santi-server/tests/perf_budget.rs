@@ -157,4 +157,23 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
         "delete: {:?}",
         started.elapsed()
     );
+
+    // The sample project (SAN-62) runs once per user: its whole seed, then the cheap reopen.
+    for (name, budget, ceiling) in [("sample", 150, CEILING * 4), ("sample again", 3, CEILING)] {
+        let mut request = json_request(Method::POST, "/api/sample-project", None, None);
+        request
+            .headers_mut()
+            .insert(header::COOKIE, cookie.parse().unwrap());
+        STATEMENTS.store(0, Ordering::SeqCst);
+        let started = Instant::now();
+        let response = app.send(request).await;
+        let elapsed = started.elapsed();
+        let statements = STATEMENTS.load(Ordering::SeqCst);
+        assert!(response.status().is_success(), "{name}");
+        assert!(
+            (1..=budget).contains(&statements),
+            "{name}: {statements} statements, budget {budget}"
+        );
+        assert!(elapsed < ceiling, "{name}: {elapsed:?}");
+    }
 }

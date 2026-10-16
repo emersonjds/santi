@@ -6,7 +6,7 @@ use santi_types::projects::{CreateProject, Project};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
-use super::service;
+use super::{sample, service};
 use crate::AppState;
 use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
@@ -17,6 +17,26 @@ pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(create_project, list_projects))
         .routes(routes!(get_project))
+        .routes(routes!(create_sample_project))
+}
+
+#[utoipa::path(post, path = "/api/sample-project", tag = "projects",
+    responses(
+        (status = 201, body = Project, description = "Created the caller's sample scrum project: a running sprint, a future one, a backlog, epics, subtasks and comments"),
+        (status = 200, body = Project, description = "The caller already has one; nothing changed"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "Another project took the sample's key")))]
+pub async fn create_sample_project(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<(StatusCode, Json<Project>), AppError> {
+    let (project, created) = sample::create_sample(&state.pool, &user).await?;
+    let status = if created {
+        StatusCode::CREATED
+    } else {
+        StatusCode::OK
+    };
+    Ok((status, Json(project)))
 }
 
 #[utoipa::path(post, path = "/api/projects", tag = "projects", request_body = CreateProject,
