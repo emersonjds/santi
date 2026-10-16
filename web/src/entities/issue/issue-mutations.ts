@@ -299,7 +299,8 @@ export const useEditIssue = (projectKey: string, issue: Issue) => {
 export const useAddComment = (
   projectKey: string,
   number: number,
-  authorId: number
+  authorId: number,
+  authorName: string
 ) => {
   const queryClient = useQueryClient()
   const { queryKey } = commentsQuery(projectKey, number)
@@ -317,6 +318,7 @@ export const useAddComment = (
       const draft: Comment = {
         id: -Date.now(),
         author_id: authorId,
+        author_name: authorName,
         body,
         created_at: new Date().toISOString(),
       }

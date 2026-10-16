@@ -433,3 +433,150 @@ async fn descriptions_are_capped(pool: PgPool) {
     assert_eq!(problem["errors"][0]["field"], "description");
     assert!(stored.is_err(), "the database refuses it too");
 }
+
+#[sqlx::test]
+async fn issue_answers_name_status_people_and_sprint(pool: PgPool) {
+    let ana = project(pool).await;
+    let sprint = ana.create_sprint("SANTI").await;
+    let in_progress = ana.status_id("SANTI", "In Progress").await;
+
+    let created = ana
+        .create_issue(
+            "SANTI",
+            json!({ "summary": "Named", "assignee_id": ana.user_id, "sprint_id": sprint["id"] }),
+        )
+        .await;
+    let (_, fetched) = ana.get("/api/projects/SANTI/issues/1").await;
+    let (_, edited) = ana
+        .patch(
+            "/api/projects/SANTI/issues/1",
+            json!({ "assignee_id": null, "sprint_id": null }),
+        )
+        .await;
+    let (_, moved) = ana
+        .post(
+            "/api/projects/SANTI/issues/1/move",
+            json!({ "status_id": in_progress }),
+        )
+        .await;
+    let (_, found) = ana.get("/api/projects/SANTI/issues?q=named").await;
+
+    for issue in [&created, &fetched] {
+        assert_eq!(issue["status_name"], "To Do");
+        assert_eq!(issue["assignee_name"], "ana@example.com");
+        assert_eq!(issue["reporter_name"], "ana@example.com");
+        assert_eq!(issue["sprint_name"], sprint["name"]);
+    }
+    assert_eq!(edited["assignee_name"], Value::Null);
+    assert_eq!(edited["sprint_name"], Value::Null);
+    assert_eq!(moved["status_name"], "In Progress");
+    assert_eq!(found["items"][0]["status_name"], "In Progress");
+    assert_eq!(found["items"][0]["reporter_name"], "ana@example.com");
+}
+
+#[sqlx::test]
+async fn unknown_body_fields_are_refused_by_name(pool: PgPool) {
+    let ana = project(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "x" })).await;
+
+    let (edit, problem) = ana
+        .patch(
+            "/api/projects/SANTI/issues/1",
+            json!({ "parent_key": "SANTI-2" }),
+        )
+        .await;
+    let (create, _) = ana
+        .post(
+            "/api/projects/SANTI/issues",
+            json!({ "summary": "y", "status": "todo" }),
+        )
+        .await;
+    let (comment, _) = ana
+        .post(
+            "/api/projects/SANTI/issues/1/comments",
+            json!({ "body": "hi", "author_id": 1 }),
+        )
+        .await;
+
+    assert_eq!(edit, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(problem["type"], "urn:santi:error:validation");
+    assert!(
+        problem.to_string().contains("unknown field `parent_key`"),
+        "{problem}"
+    );
+    assert_eq!(create, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(comment, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[sqlx::test]
+async fn wrong_shape_bodies_say_why_in_the_detail(pool: PgPool) {
+    let ana = project(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "x" })).await;
+
+    let (_, unknown) = ana
+        .patch(
+            "/api/projects/SANTI/issues/1",
+            json!({ "parent_key": "SANTI-2" }),
+        )
+        .await;
+    let (_, missing) = ana
+        .post("/api/projects/SANTI/issues", json!({ "priority": "low" }))
+        .await;
+    let (not_object, scalar) = ana.post("/api/projects/SANTI/issues", json!(3)).await;
+
+    let detail = |problem: &Value| problem["detail"].as_str().unwrap().to_string();
+    assert!(
+        detail(&unknown).contains("unknown field `parent_key`"),
+        "{unknown}"
+    );
+    assert_eq!(unknown["errors"][0]["field"], "parent_key");
+    assert!(
+        detail(&missing).contains("missing field `summary`"),
+        "{missing}"
+    );
+    assert_eq!(missing["errors"][0]["field"], "summary");
+    assert_eq!(not_object, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        detail(&scalar).contains("expected a JSON object"),
+        "{scalar}"
+    );
+    assert!(!scalar.to_string().contains("CreateIssue"), "{scalar}");
+    assert_eq!(scalar["errors"][0]["field"], "body");
+}
+
+#[sqlx::test]
+async fn erased_people_read_as_deleted_user(pool: PgPool) {
+    let ana = project(pool).await;
+    let bob = ana.another_user("bob@example.com").await;
+    let (joined, _) = ana
+        .post(
+            "/api/projects/SANTI/members",
+            json!({ "email": "bob@example.com", "role": "member" }),
+        )
+        .await;
+    assert_eq!(joined, StatusCode::CREATED);
+    bob.create_issue("SANTI", json!({ "summary": "Bob's" }))
+        .await;
+    bob.post(
+        "/api/projects/SANTI/issues/1/comments",
+        json!({ "body": "Mine" }),
+    )
+    .await;
+
+    let erased = bob
+        .send(common::json_request(
+            Method::DELETE,
+            "/api/me",
+            bob.token.as_deref(),
+            Some(json!({ "password": common::PASSWORD })),
+        ))
+        .await;
+    assert_eq!(erased.status(), StatusCode::NO_CONTENT);
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    let (_, found) = ana.get("/api/projects/SANTI/issues?q=bob").await;
+    let (_, comments) = ana.get("/api/projects/SANTI/issues/1/comments").await;
+
+    assert_eq!(issue["reporter_name"], "Deleted user");
+    assert_eq!(found["items"][0]["reporter_name"], "Deleted user");
+    assert_eq!(comments["items"][0]["author_name"], "Deleted user");
+}

@@ -70,10 +70,16 @@ pub async fn find_issue(
         Issue,
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
-                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
+                  i.status_id, s.name AS status_name, i.assignee_id, assignee.display_name AS "assignee_name?",
+                  i.reporter_id, reporter.display_name AS reporter_name, i.points, i.labels,
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, sprint.name AS "sprint_name?",
+                  i.rank, i.done_at, i.created_at, i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
+           JOIN status s ON s.id = i.status_id
+           JOIN app_user reporter ON reporter.id = i.reporter_id
+           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id
+           LEFT JOIN sprint ON sprint.id = i.sprint_id
            LEFT JOIN issue parent ON parent.id = i.parent_id
            WHERE i.project_id = $1 AND i.number = $2"#,
         project_id,
@@ -319,8 +325,9 @@ pub async fn insert_comment(
            worked AS (
              INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($2, $1, now())
              ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now())
-         SELECT id AS "id!", author_id AS "author_id!", body AS "body!", created_at AS "created_at!"
-         FROM created"#,
+         SELECT created.id AS "id!", created.author_id AS "author_id!", author.display_name AS author_name,
+                created.body AS "body!", created.created_at AS "created_at!"
+         FROM created JOIN app_user author ON author.id = created.author_id"#,
         issue_id,
         author_id,
         body
@@ -337,8 +344,9 @@ pub async fn list_comments(
 ) -> Result<Vec<Comment>, sqlx::Error> {
     sqlx::query_as!(
         Comment,
-        "SELECT id, author_id, body, created_at FROM issue_comment
-         WHERE issue_id = $1 AND id > $2 ORDER BY id LIMIT $3",
+        "SELECT c.id, c.author_id, author.display_name AS author_name, c.body, c.created_at
+         FROM issue_comment c JOIN app_user author ON author.id = c.author_id
+         WHERE c.issue_id = $1 AND c.id > $2 ORDER BY c.id LIMIT $3",
         issue_id,
         after_id,
         limit
@@ -378,12 +386,17 @@ pub async fn search_issues(
         Issue,
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
-                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
+                  i.status_id, s.name AS status_name, i.assignee_id, assignee.display_name AS "assignee_name?",
+                  i.reporter_id, reporter.display_name AS reporter_name, i.points, i.labels,
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, sprint.name AS "sprint_name?",
+                  i.rank, i.done_at, i.created_at, i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
-           LEFT JOIN issue parent ON parent.id = i.parent_id
            JOIN status s ON s.id = i.status_id
+           JOIN app_user reporter ON reporter.id = i.reporter_id
+           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id
+           LEFT JOIN sprint ON sprint.id = i.sprint_id
+           LEFT JOIN issue parent ON parent.id = i.parent_id
            WHERE i.project_id = $1
              AND i.id > $2
              AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))

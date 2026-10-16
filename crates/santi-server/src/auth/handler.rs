@@ -55,6 +55,7 @@ pub async fn register(
     responses(
         (status = 200, body = User, description = "Signed in; sets the session cookie"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn login(
     State(state): State<AppState>,

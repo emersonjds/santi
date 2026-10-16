@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, author_id, body, created_at FROM issue_comment\n         WHERE issue_id = $1 AND id > $2 ORDER BY id LIMIT $3",
+  "query": "SELECT c.id, c.author_id, author.display_name AS author_name, c.body, c.created_at\n         FROM issue_comment c JOIN app_user author ON author.id = c.author_id\n         WHERE c.issue_id = $1 AND c.id > $2 ORDER BY c.id LIMIT $3",
   "describe": {
     "columns": [
       {
@@ -27,6 +27,17 @@
       },
       {
         "ordinal": 2,
+        "name": "author_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
         "name": "body",
         "type_info": "Text",
         "origin": {
@@ -37,7 +48,7 @@
         }
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -59,8 +70,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "64edf54a71938966f6ab55a7eb7f1fac5c78461757c65d9a3cc6e921e8e12f88"
+  "hash": "d601dbdd198c1b484c6bc7a27c929dc6ad9d5353f48f1666dcf910c36e712a80"
 }
