@@ -24,9 +24,9 @@ describe('app shell', () => {
     await expect
       .element(nav.getByRole('link', { name: /Operations/ }))
       .toBeVisible()
-    expect(nav.getByRole('link', { name: 'Settings' }).elements()).toHaveLength(
-      0
-    )
+    await expect
+      .element(nav.getByRole('link', { name: 'Settings' }))
+      .not.toHaveAttribute('aria-current')
   })
 
   it('shows only the board for a kanban project', async () => {

@@ -16,6 +16,11 @@ export const ProjectTabs = ({ project }: { project: Project }) => {
           Backlog
         </Link>
       )}
+      {project.role === 'admin' && (
+        <Link to='/p/$key/settings' params={params} className={TAB}>
+          Settings
+        </Link>
+      )}
     </nav>
   )
 }

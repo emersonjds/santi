@@ -26,6 +26,7 @@ describe('touch targets at 375px', () => {
     ['/p/WEB/backlog', 'Actions for WEB-6'],
     ['/p/WEB/issues/1', 'Add subtask'],
     ['/p/WEB/settings/members', 'Remove Bob Stone'],
+    ['/p/WEB/settings', 'Delete status In review'],
   ])('%s has none under 44px', async (path, lastToLoad) => {
     await page.viewport(375, 800)
     inProjects()
