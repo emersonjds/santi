@@ -47,7 +47,7 @@ export const MembersPage = () => {
               className='flex flex-wrap items-center gap-3 bg-card px-3 py-2'
             >
               <UserAvatar name={member.display_name} />
-              <span className='grid min-w-0 flex-1'>
+              <span className='grid min-w-48 flex-1'>
                 <span className='truncate font-medium'>
                   {member.display_name}
                 </span>
@@ -55,7 +55,7 @@ export const MembersPage = () => {
                   {member.email}
                 </span>
               </span>
-              <span className='flex flex-wrap items-center gap-2'>
+              <span className='ms-auto flex flex-wrap items-center justify-end gap-2'>
                 <RoleSelect projectKey={key} member={member} locked={locked} />
                 <RemoveMemberButton
                   projectKey={key}
