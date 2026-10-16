@@ -32,19 +32,20 @@ Status:
 
 | Source | UI | API only | Missing | Divergent | Deferred | Rows |
 |---|---|---|---|---|---|---|
-| Scrum board | 21 | 1 | 0 | 0 | 10 | 32 |
-| Kanban board | 15 | 1 | 0 | 0 | 13 | 29 |
+| Scrum board | 22 | 0 | 0 | 0 | 10 | 32 |
+| Kanban board | 16 | 0 | 0 | 0 | 13 | 29 |
 | Backlog | 16 | 2 | 1 | 1 | 7 | 27 |
 | Sprint lifecycle | 19 | 1 | 0 | 0 | 10 | 30 |
-| UI layout (adoption + responsive) | 29 | 2 | 7 | 2 | 8 | 48 |
-| Decisions | 18 | 2 | 0 | 0 | 0 | 20 |
-| **Total** | **118** | **9** | **8** | **3** | **48** | **186** |
+| UI layout (adoption + responsive) | 31 | 1 | 6 | 2 | 8 | 48 |
+| Decisions | 19 | 1 | 0 | 0 | 0 | 20 |
+| **Total** | **123** | **5** | **7** | **3** | **48** | **186** |
 
 Decision rows restate spec rules, so a few gaps count twice (SB-17/KB-27/D5, SB-25/UI-12/D3).
-Of the 138 rows that are in v1, 118 work in the SPA (86%); the other 20 are the gaps below.
+Of the 138 rows that are in v1, 123 work in the SPA (89%); the other 15 are the gaps below.
 SAN-44 (branch `feat/SAN-44-small-gaps`) closed R-4, R-8, BL-3 and D6 and added the members page (group 4).
 SAN-45 (branch `feat/SAN-45-board-settings`) added the board settings page (group 1) and the KB-4/KB-5 server guard.
 SAN-46 (branch `feat/SAN-46-board-drop-zones`) added status drop zones, live counts, inline create in every column and the column header limit (group 6, KB-16).
+SAN-47 (branch `feat/SAN-47-filters`) added type, label, epic and text filters on board and backlog, the phone filter sheet, `parent=none`, `GET /labels` and a server-side status filter on search (group 5).
 
 ## Scrum board
 
@@ -74,7 +75,7 @@ SAN-46 (branch `feat/SAN-46-board-drop-zones`) added status drop zones, live cou
 | SB-22 | Last subtask done prompts for parent | Deferred | later; D6 silent | |
 | SB-23 | Inline create in a column, takes its status | UI | `create-issue.test` "creates inline at the foot of any column, with its first status (SB-23, D5)"; `e2e/board.spec.ts` "create an issue inline in the Done column…" | A multi-status column creates with its first status |
 | SB-24 | Quick filters narrow only | UI | `filter-bar.test` "toggles my issues and recent ones, then clears every filter" | |
-| SB-25 | Filters: assignee, type, label, free text (API also parent) | API only | `board_view::board_quick_filters_combine`; `BoardSearch` holds only `assignee`, `recently_updated` (`entities/issue/board-query.ts`); live filter bar: avatars, "Only my issues", "Recently updated" | Type, label, epic, text unreachable on board and backlog |
+| SB-25 | Filters: assignee, type, label, free text (API also parent) | UI | `filter-bar.test` "filters by type, label and epic, all kept in the URL", "sends the text box to the board once typing pauses"; `board_view::board_filters_by_no_epic_and_matches_text_on_the_key`; `e2e/board.spec.ts` "filter the board by type, label and text…"; Label and Epic show once the project has labels or epics | |
 | SB-26 | Predefined and admin filters | Deferred | dropped; "updated in the last day" built per D18 amendment, "assigned to me" = "Only my issues" | |
 | SB-27 | Filters per viewer (D18: URL) | UI | `filter-bar.test` "reads the filters back from a shared link" | |
 | SB-28 | Scrum column limits | Deferred | dropped (Kanban only) | |
@@ -110,7 +111,7 @@ SAN-46 (branch `feat/SAN-46-board-drop-zones`) added status drop zones, live cou
 | KB-25, KB-26 | Releases, versions | Deferred | dropped | |
 | KB-27 | Moves follow SB-16..21 | UI | as SB-17; counts recount during the drag and restore on cancel | Multi-select (SB-21) is still group 11 |
 | KB-28 | Days-in-column on by default | Deferred | later | |
-| KB-29 | Filters as SB-24..27 | API only | as SB-25 | |
+| KB-29 | Filters as SB-24..27 | UI | as SB-25; backlog: `backlog-page.test` "sends type, label, epic and text from a shared link to the backlog" | |
 
 ## Backlog
 
@@ -135,13 +136,13 @@ SAN-46 (branch `feat/SAN-46-board-drop-zones`) added status drop zones, live cou
 | BL-17 | Inline create at every section foot | UI | `backlog-page.test` "creates inline at the foot of a sprint, into that sprint", "creates inline in the backlog with no sprint" | |
 | BL-18 | Split | Deferred | later | |
 | BL-19 | Row edits (summary, assignee, points, parent, priority) | Missing | `backlog-row.tsx` read-only; live row menu: "Move to…" only | Board card menu has assign and priority; backlog rows have none |
-| BL-20 | Epic panel: list, create, drop to set parent, filter | API only | `Backlog.epics` with `child_count`/`done_child_count`; `parent` filter; SPA uses epics only for the row chip; live: no epic toggle | API has no "no epic" filter value |
+| BL-20 | Epic panel: list, create, drop to set parent, filter | API only | `Backlog.epics` with `child_count`/`done_child_count`; `parent` filter with `parent=none` for "no epic" (SAN-47); Epic select in the filter bar; SPA uses epics only for the row chip and the filter | No epic panel (group 7) |
 | BL-21 | One parent; epic done = done status | UI | `issues::parent_rules_are_enforced`; Parent field in `issue-fields.tsx` | |
 | BL-22 | Estimation statistic choice | Deferred | dropped: points only | |
 | BL-23 | Points numeric, never on subtasks | UI | `issues::patch_enforces_type_parent_and_points_rules`; Points field | |
 | BL-24 | Section point totals | UI | `backlog-page.test` "stacks … each with its header facts"; `backlog::quick_filters_hide_rows_but_not_totals` | |
 | BL-25 | Time roll-up | Deferred | dropped | |
-| BL-26 | View: epic panel, quick filters, fields | API only | as BL-20 and SB-25 | |
+| BL-26 | View: epic panel, quick filters, fields | API only | quick filters as SB-25 (SAN-47); epic panel as BL-20 | Epic panel (group 7) |
 
 ## Sprint lifecycle
 
@@ -187,7 +188,7 @@ Adoption list.
 | UI-8 | Project tabs incl. Settings for admins | UI | `board-settings-page.test` "links admins to settings from the tabs and the sidebar; members get 403"; `app-shell.test` | Tab reordering later (IA §2) |
 | UI-10 | Board header sprint facts | UI | as SB-11; "…" menu with Edit and Complete sprint (R-4) | |
 | UI-11 | Ranked columns, drag changes status | UI | as SB-12, SB-16 | |
-| UI-12 | Quick filters | API only | as SB-25 | |
+| UI-12 | Quick filters | UI | as SB-25 | |
 | UI-13 | Card anatomy, parent chip | UI | `board-page.test` "draws the running sprint and every card field" | |
 | UI-15 | Card opens detail without leaving | UI | `issue-detail.test` "opens a card in a dialog over the board under the issue URL; Esc goes back" | |
 | UI-16 | Sections stacked | UI | as BL-1 | |
@@ -223,7 +224,7 @@ Responsive (375px).
 | R-2 | Sidebar as drawer, closes on navigation | UI | `app-shell.test` "opens the sidebar as a drawer on a phone and closes it on navigation" | |
 | R-3 | One column, picker with counts, move by menu | UI | `column-picker.test`; `card-menu.test` "is how a phone moves cards, with no drag handles" | Menu lists columns, not statuses (SB-17) |
 | R-4 | Board header: one line, goal expandable, Complete in overflow | UI | `board-page.test` "completes the running sprint from the header menu (R-4)"; `e2e/board.spec.ts`; future sprints from `sprintsQuery` | Goal clamped to two lines, not expandable |
-| R-5 | One filter button with badge, bottom sheet | Missing | live 375px: no Filters button; bar wraps inline | |
+| R-5 | One filter button with badge, bottom sheet | UI | `filter-bar.test` "gives a phone one Filters button that opens the controls in a sheet"; `e2e/board.spec.ts` "on a phone, the Filters sheet applies a filter"; desktop keeps one row, "More filters" popover below 1280px | |
 | R-6 | Backlog rows full width, move by menu | UI | `backlog-page.test` "draws a dense row…"; `sortable-backlog.test` "offers Move to… instead of drag on a phone" | |
 | R-7 | Create, detail, sprint dialogs as full-screen sheets | UI | `sprint-dialogs.test` "opens as a full-screen sheet on a phone"; `issue-dialog.tsx:22`; `create-issue-dialog.tsx:203` | Epic panel missing (D10) |
 | R-8 | 44px targets, 16px inputs, no hover-only, no sideways scroll | UI | `app/touch-targets.test.tsx` measures every control on board, backlog, issue and members pages at 375px (card "…", filter avatars, issue summary, top bar mark and Create, members stack, Projects breadcrumb fixed in SAN-44) | Hover-only: "Updated …" on the card key, over-limit title |
@@ -233,7 +234,7 @@ Responsive (375px).
 | ID | Mechanic | Status | Evidence | Gap |
 |---|---|---|---|---|
 | D2 | Done = category, done only in the rightmost column | UI | close and hiding use the category (SB-8, KB-3); mapping guard shown inline (SB-7) | |
-| D3 | AND across kinds, OR within | API only | `board_view::board_quick_filters_combine`; `comments_search::search_combines_filters_and_within_or_across_and` | SPA has one kind (assignee) on board/backlog |
+| D3 | AND across kinds, OR within | UI | `board_view::board_quick_filters_combine`; `comments_search::search_combines_filters_and_within_or_across_and`, `search_filters_by_status_category_and_no_epic`; `filter-bar.test` "filters by type, label and epic…" (two types OR-ed, label and epic AND-ed) | |
 | D4 | Drop position wins, one order | UI | `issue_moves::*anchor*`; `sortable-board.test`, `sortable-backlog.test` | |
 | D5 | Inline create, bottom, column status | UI | as SB-23 | |
 | D6 | Flat subtasks; parent `open/total`; backlog parent rows with count | UI | board card and backlog row (BL-3) | |
@@ -291,7 +292,8 @@ Ranked by what blocks a small team using the MVP every day.
    UI: members page: role select, remove, add by email, invite link box moved from the header;
    "A project needs at least one admin." hint.
    Why: nobody can remove someone who left or promote a second admin.
-5. **Complete quick filters + phone filter sheet** — M.
+5. **Complete quick filters + phone filter sheet** — M. Done in SAN-47 (`filter-bar.test`,
+   `backlog-page.test`, `search-page.test`, `e2e/board.spec.ts`).
    Rules: SB-25, KB-29, D3, UI-12, BL-26 (filters), R-5.
    API: none for type, label, parent, `q` on board and backlog. A label list for the dropdown
    can come from the loaded cards.
@@ -310,7 +312,7 @@ Ranked by what blocks a small team using the MVP every day.
    Do it right after group 1.
 7. **Epic panel** — M.
    Rules: BL-20, D10, UI-24 (epics), R-7 (epic sheet), BL-26 (panel).
-   API: add a "no epic" filter value (e.g. `parent=none`); the rest exists (`Backlog.epics`,
+   API: none; `parent=none` ("no epic") came in SAN-47, the rest exists (`Backlog.epics`,
    `PATCH parent`, `POST issues` type epic).
    UI: `?panel=epics` toggle; list with key, summary, child count, progress; create epic;
    drop a row on an epic or on "No epic" (plus a "Set epic" menu item for phones); select to
