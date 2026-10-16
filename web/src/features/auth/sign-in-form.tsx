@@ -18,7 +18,7 @@ import {
 } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { PasswordInput } from '@/shared/ui/password-input'
-import { RootError } from './root-error'
+import { RootError } from '@/shared/ui/root-error'
 
 const schema = z.object({
   email: z.email('Enter an email address.'),

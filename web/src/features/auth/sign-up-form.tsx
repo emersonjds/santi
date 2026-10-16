@@ -18,7 +18,7 @@ import {
 } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { PasswordInput } from '@/shared/ui/password-input'
-import { RootError } from './root-error'
+import { RootError } from '@/shared/ui/root-error'
 
 // Mirrors the server rules in auth/domain.rs; the server stays the authority.
 const schema = z.object({

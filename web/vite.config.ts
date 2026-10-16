@@ -22,6 +22,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  // Split route chunks hide their imports from the dependency scan; a dependency found mid-test reloads Vitest.
+  optimizeDeps: { entries: ['src/**/*.tsx'] },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -49,7 +51,7 @@ export default defineConfig({
         'src/app/routes/**',
         'src/app/main.tsx',
         'src/app/styles/**',
-        'src/shared/ui/!(password-input|santi-mark).tsx',
+        'src/shared/ui/!(password-input|root-error|santi-mark).tsx',
         'src/shared/lib/use-mobile.tsx',
         'src/test/**',
       ],
