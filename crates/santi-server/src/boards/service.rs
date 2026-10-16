@@ -198,12 +198,13 @@ pub async fn update_status(
 
 pub async fn delete_status(pool: &PgPool, member: &Member, status_id: i64) -> Result<(), AppError> {
     require_admin(member)?;
-    let mut conn = pool.acquire().await?;
-    let deleted = repo::delete_status(&mut conn, member.project_id, status_id).await?;
+    let mut tx = pool.begin().await?;
+    repo::lock_board(&mut tx, member.board_id).await?;
+    let deleted = repo::delete_status(&mut tx, member.project_id, status_id).await?;
     if !deleted {
         return Err(AppError::NotFound);
     }
-    Ok(())
+    commit_if_layout_valid(tx, member.board_id).await
 }
 
 async fn require_column(
@@ -228,6 +229,7 @@ async fn commit_if_layout_valid(
 ) -> Result<(), AppError> {
     let layout = repo::load_layout(&mut tx, board_id).await?;
     domain::check_done_mapping(&layout)?;
+    domain::check_board_shape(&layout)?;
     tx.commit().await?;
     Ok(())
 }
