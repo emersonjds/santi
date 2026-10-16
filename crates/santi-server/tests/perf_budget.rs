@@ -58,7 +58,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [(&str, Method, &str, Option<Value>, usize); 7] = [
+    let budgets: [(&str, Method, &str, Option<Value>, usize); 8] = [
         ("board", Method::GET, "/api/projects/PERF/board", None, 4),
         ("kanban", Method::GET, "/api/projects/FLOW/board", None, 4),
         (
@@ -78,7 +78,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
         (
             "search",
             Method::GET,
-            "/api/projects/PERF/issues?q=search%20index&type=bug&limit=50",
+            "/api/projects/PERF/issues?q=search%20index&type=bug&status=todo&parent=none&limit=50",
             None,
             2,
         ),
@@ -89,6 +89,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             Some(json!({ "after": "PERF-520" })),
             9,
         ),
+        ("labels", Method::GET, "/api/projects/PERF/labels", None, 2),
         ("me", Method::GET, "/api/me", None, 2),
     ];
     for (name, method, uri, body, budget) in budgets {

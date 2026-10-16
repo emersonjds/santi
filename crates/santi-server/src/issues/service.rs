@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, Page,
-    PageParams, UpdateIssue,
+    PageParams, StatusFilter, UpdateIssue,
 };
 use sqlx::{PgConnection, PgPool};
 
@@ -217,10 +217,14 @@ pub async fn search_issues(
     pool: &PgPool,
     member: &Member,
     filter: IssueFilter,
+    status: StatusFilter,
     page: PageParams,
 ) -> Result<Page<Issue>, AppError> {
     let limit = pagination::page_limit(page.limit)?;
-    let query = domain::to_search_query(&member.project_key, &filter, Utc::now())?;
+    let query = domain::SearchQuery {
+        categories: status.status,
+        ..domain::to_search_query(&member.project_key, &filter, Utc::now())?
+    };
     let mut conn = pool.acquire().await?;
     let issues = repo::search_issues(
         &mut conn,
@@ -233,6 +237,11 @@ pub async fn search_issues(
     Ok(pagination::into_page(issues, limit, |issue: &Issue| {
         issue.id
     }))
+}
+
+pub async fn list_labels(pool: &PgPool, member: &Member) -> Result<Vec<String>, AppError> {
+    let mut conn = pool.acquire().await?;
+    Ok(repo::list_labels(&mut conn, member.project_id).await?)
 }
 
 pub async fn add_comment(

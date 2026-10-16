@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use santi_types::boards::{
     BacklogSection, BoardColumnView, BoardSettings, Card, Column, Status, StatusCategory,
 };
-use santi_types::issues::IssueFilter;
+use santi_types::issues::{IssueFilter, NO_PARENT};
 use santi_types::projects::BoardType;
 use santi_types::sprints::Sprint;
 
@@ -206,17 +206,19 @@ pub fn matches_filter(card: &Card, filter: &IssueFilter, now: DateTime<Utc>) -> 
     let label_matches =
         filter.label.is_empty() || card.labels.iter().any(|label| filter.label.contains(label));
     let parent_matches = filter.parent.is_empty()
-        || card
-            .parent_key
-            .as_ref()
-            .is_some_and(|key| filter.parent.contains(key));
+        || filter
+            .parent
+            .iter()
+            .any(|parent| card.parent_key.as_deref().unwrap_or(NO_PARENT) == parent);
     let text = filter
         .q
         .as_deref()
         .map(str::trim)
         .filter(|text| !text.is_empty());
-    let text_matches =
-        text.is_none_or(|text| card.summary.to_lowercase().contains(&text.to_lowercase()));
+    let text_matches = text.is_none_or(|text| {
+        let text = text.to_lowercase();
+        card.summary.to_lowercase().contains(&text) || card.key.to_lowercase().contains(&text)
+    });
     let recent_matches = issues::domain::updated_since(filter.recently_updated, now)
         .is_none_or(|since| card.updated_at > since);
     assignee_matches

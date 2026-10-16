@@ -308,6 +308,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_labels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/members": {
         parameters: {
             query?: never;
@@ -1286,9 +1302,9 @@ export interface operations {
                 assignee?: number[];
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
-                /** @description Parent issue keys, e.g. an epic's `SANTI-3`. */
+                /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary, ignoring case. */
+                /** @description Free text matched against the summary or the key, ignoring case. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
@@ -1353,9 +1369,9 @@ export interface operations {
                 assignee?: number[];
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
-                /** @description Parent issue keys, e.g. an epic's `SANTI-3`. */
+                /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary, ignoring case. */
+                /** @description Free text matched against the summary or the key, ignoring case. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
@@ -1785,12 +1801,13 @@ export interface operations {
                 assignee?: number[];
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
-                /** @description Parent issue keys, e.g. an epic's `SANTI-3`. */
+                /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary, ignoring case. */
+                /** @description Free text matched against the summary or the key, ignoring case. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
+                status?: components["schemas"]["StatusCategory"][];
                 /** @description 1 to 200, default 50. */
                 limit?: number;
                 cursor?: number;
@@ -2160,6 +2177,45 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_labels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Labels in use, once each, alphabetical */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

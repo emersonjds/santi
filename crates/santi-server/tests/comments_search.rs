@@ -153,6 +153,55 @@ async fn search_filters_by_parent_and_pages(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn search_filters_by_status_category_and_no_epic(pool: PgPool) {
+    let ana = project(pool).await;
+    let done = ana.status_id("SANTI", "Done").await;
+    let doing = ana.status_id("SANTI", "In Progress").await;
+    ana.create_issue("SANTI", json!({ "summary": "Epic", "issue_type": "epic" }))
+        .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Shipped", "status_id": done, "parent": "SANTI-1" }),
+    )
+    .await;
+    ana.create_issue("SANTI", json!({ "summary": "Started", "status_id": doing }))
+        .await;
+
+    let (_, finished) = ana.get("/api/projects/SANTI/issues?status=done").await;
+    let (_, open) = ana
+        .get("/api/projects/SANTI/issues?status=todo&status=in_progress")
+        .await;
+    let (_, no_epic) = ana.get("/api/projects/SANTI/issues?parent=none").await;
+    let (_, open_without_epic) = ana
+        .get("/api/projects/SANTI/issues?parent=none&status=in_progress&q=santi-3")
+        .await;
+    let (bad_status, _) = ana.get("/api/projects/SANTI/issues?status=closed").await;
+
+    assert_eq!(keys(&finished), ["SANTI-2"]);
+    assert_eq!(keys(&open), ["SANTI-1", "SANTI-3"]);
+    assert_eq!(keys(&no_epic), ["SANTI-1", "SANTI-3"]);
+    assert_eq!(keys(&open_without_epic), ["SANTI-3"]);
+    assert_eq!(bad_status, StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test]
+async fn labels_list_each_project_label_once_in_order(pool: PgPool) {
+    let ana = project(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "a", "labels": ["ui", "api"] }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "b", "labels": ["ui"] }))
+        .await;
+    let bob = ana.another_user("bob@example.com").await;
+
+    let (status, labels) = ana.get("/api/projects/SANTI/labels").await;
+    let (outsider, _) = bob.get("/api/projects/SANTI/labels").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(labels, json!(["api", "ui"]));
+    assert_eq!(outsider, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
 async fn search_rejects_bad_query_values(pool: PgPool) {
     let ana = project(pool).await;
 

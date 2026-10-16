@@ -1,6 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use santi_types::boards::StatusCategory;
-use santi_types::issues::{IssueFilter, IssueType, Priority, UpdateIssue};
+use santi_types::issues::{IssueFilter, IssueType, NO_PARENT, Priority, UpdateIssue};
 
 use crate::error::AppError;
 
@@ -341,8 +341,10 @@ pub struct SearchQuery {
     pub types: Vec<IssueType>,
     pub labels: Vec<String>,
     pub parent_numbers: Vec<i64>,
+    pub no_parent: bool,
     pub pattern: Option<String>,
     pub updated_since: Option<DateTime<Utc>>,
+    pub categories: Vec<StatusCategory>,
 }
 
 /// SB-26 and D18: "recently updated" means changed within the last 24 hours.
@@ -358,6 +360,7 @@ pub fn to_search_query(
     let parent_numbers = filter
         .parent
         .iter()
+        .filter(|key| *key != NO_PARENT)
         .map(|key| parse_issue_key("parent", project_key, key))
         .collect::<Result<Vec<i64>, AppError>>()?;
     Ok(SearchQuery {
@@ -365,8 +368,10 @@ pub fn to_search_query(
         types: filter.issue_type.clone(),
         labels: filter.label.clone(),
         parent_numbers,
+        no_parent: filter.parent.iter().any(|key| key == NO_PARENT),
         pattern: like_pattern(filter.q.as_deref()),
         updated_since: updated_since(filter.recently_updated, now),
+        categories: Vec::new(),
     })
 }
 

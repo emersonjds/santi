@@ -170,6 +170,27 @@ async fn board_quick_filters_combine(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn board_filters_by_no_epic_and_matches_text_on_the_key(pool: PgPool) {
+    let ana = project(pool, "kanban").await;
+    ana.create_issue("SANTI", json!({ "summary": "Epic", "issue_type": "epic" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Child", "parent": "SANTI-1" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Orphan" }))
+        .await;
+
+    let (_, no_epic) = ana.get("/api/projects/SANTI/board?parent=none").await;
+    let (_, either) = ana
+        .get("/api/projects/SANTI/board?parent=none&parent=SANTI-1")
+        .await;
+    let (_, by_key) = ana.get("/api/projects/SANTI/board?q=santi-3").await;
+
+    assert_eq!(column_keys(&no_epic, 0), ["SANTI-3"]);
+    assert_eq!(column_keys(&either, 0), ["SANTI-2", "SANTI-3"]);
+    assert_eq!(column_keys(&by_key, 0), ["SANTI-3"]);
+}
+
+#[sqlx::test]
 async fn unmapped_statuses_and_epics_stay_off_the_board(pool: PgPool) {
     let ana = project(pool, "kanban").await;
     let doing = ana.status_id("SANTI", "In Progress").await;
