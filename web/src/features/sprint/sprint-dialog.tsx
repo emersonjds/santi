@@ -20,6 +20,7 @@ import {
 } from '@/shared/api/client'
 import { showProblem } from '@/shared/lib/show-problem'
 import { toast } from '@/shared/lib/toast'
+import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import { Button } from '@/shared/ui/button'
 import {
   Dialog,
@@ -114,20 +115,24 @@ type ShellProps = {
   children: ReactNode
 }
 
-const Shell = ({ title, description, onClose, children }: ShellProps) => (
-  <Dialog open onOpenChange={(open) => open || onClose()}>
-    <DialogContent
-      className={SHEET}
-      {...(!description && { 'aria-describedby': undefined })}
-    >
-      <DialogHeader>
-        <DialogTitle>{title}</DialogTitle>
-        {description && <DialogDescription>{description}</DialogDescription>}
-      </DialogHeader>
-      {children}
-    </DialogContent>
-  </Dialog>
-)
+const Shell = ({ title, description, onClose, children }: ShellProps) => {
+  const returnFocus = useReturnFocus()
+  return (
+    <Dialog open onOpenChange={(open) => open || onClose()}>
+      <DialogContent
+        onCloseAutoFocus={returnFocus}
+        className={SHEET}
+        {...(!description && { 'aria-describedby': undefined })}
+      >
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 const Actions = ({
   label,

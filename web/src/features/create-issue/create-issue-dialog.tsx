@@ -16,6 +16,7 @@ import {
 } from '@/entities/project/project-queries'
 import { ApiError, type CreateIssue } from '@/shared/api/client'
 import { showProblem } from '@/shared/lib/show-problem'
+import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import { Button } from '@/shared/ui/button'
 import {
   Dialog,
@@ -209,6 +210,7 @@ export const CreateIssueDialog = ({
     enabled: scrum,
   })
   const create = useCreateIssue(project)
+  const returnFocus = useReturnFocus()
 
   const submit = async (values: NewIssue) => {
     try {
@@ -240,7 +242,10 @@ export const CreateIssueDialog = ({
 
   return (
     <Dialog open onOpenChange={(open) => open || onClose()}>
-      <DialogContent className='max-h-[calc(100svh-2rem)] overflow-y-auto max-md:top-0 max-md:left-0 max-md:h-svh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 sm:max-w-xl'>
+      <DialogContent
+        onCloseAutoFocus={returnFocus}
+        className='max-h-[calc(100svh-2rem)] overflow-y-auto max-md:top-0 max-md:left-0 max-md:h-svh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 sm:max-w-xl'
+      >
         <DialogHeader>
           <DialogTitle>Create issue</DialogTitle>
           <DialogDescription>

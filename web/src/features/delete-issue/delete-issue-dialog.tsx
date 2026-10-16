@@ -3,6 +3,7 @@ import { issueNumber } from '@/entities/issue/board-query'
 import { useDeleteIssue } from '@/entities/issue/issue-mutations'
 import { commentsQuery, subtasksQuery } from '@/entities/issue/issue-queries'
 import type { IssueType } from '@/shared/api/client'
+import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -37,6 +38,7 @@ export const DeleteIssueDialog = ({
   onDeleted,
 }: DeleteIssueDialogProps) => {
   const remove = useDeleteIssue(projectKey)
+  const returnFocus = useReturnFocus()
   const parent = PARENTS.has(issueType)
   const subtasks = useQuery({
     ...subtasksQuery(projectKey, issueKey),
@@ -59,7 +61,7 @@ export const DeleteIssueDialog = ({
 
   return (
     <AlertDialog open onOpenChange={(open) => open || onClose()}>
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={returnFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{`Delete ${issueKey}?`}</AlertDialogTitle>
           <AlertDialogDescription>

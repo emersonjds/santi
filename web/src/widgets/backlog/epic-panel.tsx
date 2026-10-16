@@ -6,6 +6,7 @@ import { EPIC_DROP } from '@/entities/issue/backlog-cache'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { type Backlog, fieldMessage } from '@/shared/api/client'
 import { useIsMobile } from '@/shared/lib/use-mobile'
+import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import { cn } from '@/shared/lib/utils'
 import { Input } from '@/shared/ui/input'
 import {
@@ -161,6 +162,7 @@ export const EpicPanel = ({
   onClose,
 }: EpicPanelProps) => {
   const narrow = useIsMobile()
+  const returnFocus = useReturnFocus()
   const pick = { selected, closes: narrow }
   const body = (
     <div className='grid gap-2'>
@@ -201,6 +203,7 @@ export const EpicPanel = ({
       <Sheet open onOpenChange={(open) => open || onClose()}>
         <SheetContent
           side='right'
+          onCloseAutoFocus={returnFocus}
           className='w-full overflow-y-auto sm:max-w-none'
         >
           <SheetHeader className='pb-0'>
