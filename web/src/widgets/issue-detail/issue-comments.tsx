@@ -5,7 +5,7 @@ import { commentsQuery } from '@/entities/issue/issue-queries'
 import { timeAgo } from '@/entities/issue/time-ago'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
-import { UserAvatar } from '@/entities/user/user-avatar'
+import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
 import { Button } from '@/shared/ui/button'
 import { Textarea } from '@/shared/ui/textarea'
 
@@ -41,9 +41,10 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
               <UserAvatar name={nameOf(comment.author_id)} />
               <div className='grid min-w-0 gap-1'>
                 <p className='text-sm'>
-                  <span className='font-medium'>
-                    {nameOf(comment.author_id)}
-                  </span>{' '}
+                  <PersonName
+                    name={nameOf(comment.author_id)}
+                    className='font-medium'
+                  />{' '}
                   <time
                     dateTime={comment.created_at}
                     className='text-xs text-subtle-foreground'
