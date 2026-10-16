@@ -68,8 +68,11 @@ search params; redirects (`303` in the table) become client redirects. The serve
 `/openapi.json`, `/docs`, `/health` and the built assets, and answers every other GET with
 `index.html`. The SPA writes through `/api/*` only (OpenAPI is the contract); the "Writes and
 fragments" table below is the htmx UI and is removed at the cutover, along with `HX-Request`
-blocks and form POSTs. Until parity the htmx UI serves these paths in production and the SPA
-runs from the Vite dev server.
+blocks and form POSTs. Until parity the htmx UI keeps these paths and the SPA is mounted at
+`/app` (SAN-38): the same routes under that prefix (`/app/login`, `/app/register`, `/app/`,
+`/app/projects/new`), served from `SANTI_WEB_DIR` only when that build exists, with
+`index.html` for every unknown path below `/app`. Vite (`base: '/app/'`) and the router basepath
+follow the prefix; the cutover sets both to `/` and drops the mount.
 
 Pages
 

@@ -43,12 +43,12 @@ The name "Jira" appears only in documentation that describes the importer.
 
 ## Architecture
 
-Cargo workspace with three crates (see `decisions.md` D1, D25; every `Dn` in this spec points to `docs/specs/decisions.md`):
+Cargo workspace with three crates (see `decisions.md` D1, D25; every `Dn` in this spec points to `docs/specs/decisions.md`), plus the React SPA in `web/` (D37, D38):
 
 | Crate | Role |
 |---|---|
 | `santi-types` | Request/response DTOs (serde), shared by every other crate |
-| `santi-server` | HTTP API (axum), persistence (sqlx + PostgreSQL 17), server-rendered web UI (askama + htmx) |
+| `santi-server` | HTTP API (axum), persistence (sqlx + PostgreSQL 17), serves the web UI: the built React SPA from `SANTI_WEB_DIR` (D37, D38) and, until the cutover, the askama + htmx pages |
 | `santi-cli` | `santi` binary: subcommands and `santi mcp` (stdio MCP server, `rmcp`) |
 
 ### Server
@@ -82,9 +82,14 @@ Every manual action maps to an MCP tool and a CLI subcommand:
 
 ### Web
 
-Server-rendered askama templates with htmx, organized by Feature-Sliced Design layer
-(`app → widgets → features → entities → shared`, includes only downward). No WASM and
-no npm: vendored htmx, one `app.js` and one `app.css` embedded in the binary (D1, D25, D26).
+React SPA in `web/` on shadcn-admin (D37, superseding D1, D26, D35 for the UI): Vite, TanStack
+Router and Query, react-hook-form + zod, Tailwind with the D36 tokens, Feature-Sliced Design
+(`app → pages → widgets → features → entities → shared`, imports only downward). It calls
+`/api/*` only, through `openapi-fetch` typed from the committed `web/openapi.json` snapshot.
+The repository stays one monorepo with split boundaries (D38): the server serves the build from
+`SANTI_WEB_DIR` at runtime, so `cargo` needs no Node. Until parity the SPA is mounted at `/app`
+and the askama + htmx pages (`web.rs`, `templates/`) keep serving the other paths; the cutover
+removes them.
 Mobile first at 375px, 44px touch targets, form fields at 16px or larger.
 Drag and drop uses the native HTML5 API, with a keyboard-accessible "move to…" action
 as the equivalent path. Quick filters live in the URL (D3, D18); no real-time push in v1 (D17).
