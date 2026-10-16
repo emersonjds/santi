@@ -1,7 +1,14 @@
 # santi
 
 Free, open-source agile tracker in Rust: Scrum/Kanban boards, backlog, sprints; web, CLI and MCP.
-Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`. Jira: project `SAN` (`.jira`).
+Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`.
+
+## Backlog: santi runs on santi
+
+- Cards live in project `SAN` on https://santi-production-bc0c.up.railway.app (the old tracker is a read-only archive; do not create or move cards there).
+- Read and move cards through the `santi` MCP (local scope) or the CLI (`santi backlog SAN`, `santi issues create SAN …`, `santi issues edit|move SAN-<n> …`); both use the token saved by `santi login`.
+- Card flow: To Do → In Progress when a branch starts → Done after the merge to `developer`. Branches keep `SAN-<n>`.
+- Gaps found while using it become cards in `SAN` (label `dogfood`).
 
 ## Clean room (non-negotiable)
 
