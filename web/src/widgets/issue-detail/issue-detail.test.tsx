@@ -99,7 +99,9 @@ describe('issue detail', () => {
     await expect.element(screen.getByText('Then the backlog.')).toBeVisible()
     await expect.element(screen.getByLabelText('Status')).toHaveValue('10')
     await expect.element(screen.getByLabelText('Sprint')).toHaveValue('4')
-    await expect.element(screen.getByLabelText('Labels')).toHaveValue('docs')
+    await expect
+      .element(screen.getByRole('button', { name: 'Remove label docs' }))
+      .toBeVisible()
     await expect
       .element(screen.getByRole('region', { name: 'Details' }))
       .toHaveTextContent(/Reporter\s*Alice/)
@@ -292,8 +294,8 @@ describe('issue detail', () => {
     await screen.getByLabelText('Assignee').selectOptions('Unassigned')
     await screen.getByLabelText('Points').fill('5')
     await userEvent.keyboard('{Enter}')
-    await screen.getByLabelText('Labels').fill('docs release')
-    await userEvent.keyboard('{Enter}')
+    await screen.getByRole('button', { name: 'Add label' }).click()
+    await userEvent.keyboard('release{Enter}{Escape}')
     await screen.getByLabelText('Epic').selectOptions('WEB-9 Checkout revamp')
     await screen.getByLabelText('Sprint').selectOptions('Backlog')
 

@@ -110,6 +110,35 @@ describe('backlog page', () => {
     expect(row.getByTitle(/subtasks open/).elements()).toHaveLength(0)
   })
 
+  it('shows two labels on a row, then how many more', async () => {
+    withBacklog(
+      backlogOf(
+        {
+          ...ACTIVE,
+          cards: ACTIVE.cards.map((each) =>
+            each.key === 'WEB-2'
+              ? { ...each, labels: ['ui', 'docs', 'api'] }
+              : each
+          ),
+        },
+        PLANNED,
+        EMPTY,
+        NO_SPRINT
+      )
+    )
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    const bug = screen
+      .getByRole('region', { name: 'Sprint 4' })
+      .getByRole('listitem')
+      .nth(1)
+    await expect.element(bug.getByTitle('ui', { exact: true })).toBeVisible()
+    await expect.element(bug.getByTitle('docs', { exact: true })).toBeVisible()
+    await expect
+      .element(bug.getByText('+1', { exact: true }))
+      .toHaveAttribute('title', 'api')
+  })
+
   it('lets a planned sprint start only when no other runs and it holds an issue', async () => {
     withBacklog(backlogOf(PLANNED, EMPTY, NO_SPRINT))
     const { screen } = await renderApp('/p/WEB/backlog')
