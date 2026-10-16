@@ -54,6 +54,9 @@ pub struct CreateIssue {
     /// Parent issue key, e.g. `SANTI-3`.
     #[serde(default)]
     pub parent: Option<String>,
+    /// Plan the issue into this sprint; subtasks always take their parent's sprint (D6).
+    #[serde(default)]
+    pub sprint_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
@@ -155,6 +158,14 @@ pub struct MoveIssue {
     /// Place right before this issue key.
     #[serde(default)]
     pub before: Option<String>,
+    /// Absent keeps the sprint; `null` sends the issue (and its subtasks) to the backlog.
+    #[serde(
+        default,
+        deserialize_with = "crate::nullable_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Option<i64>)]
+    pub sprint_id: Option<Option<i64>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

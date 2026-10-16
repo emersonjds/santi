@@ -5,8 +5,8 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use santi_types::FieldError;
-use santi_types::boards::{BoardColumnView, BoardView};
-use santi_types::issues::{CreateIssue, IssueType, MoveIssue};
+use santi_types::boards::{BoardView, Card};
+use santi_types::issues::{CreateIssue, IssueFilter, IssueType, MoveIssue};
 use santi_types::projects::{
     BoardType, CreateInvite, CreateProject, Invite, MemberInfo, MemberRole, Project,
 };
@@ -88,16 +88,11 @@ impl ProjectPage {
     }
 
     fn issue_path(&self, key: &str) -> String {
-        let number = key.rsplit_once('-').map_or(key, |(_, number)| number);
-        format!("/p/{}/issues/{number}", self.project.key)
+        crate::web::issue_path(&self.project.key, key)
     }
 
     fn initials(&self, name: &str) -> String {
-        name.split_whitespace()
-            .take(2)
-            .filter_map(|word| word.chars().next())
-            .flat_map(char::to_uppercase)
-            .collect()
+        crate::web::initials(name)
     }
 }
 
@@ -230,7 +225,7 @@ async fn load_project_page(
         project: service::get_project(&state.pool, member).await?,
         members: members::service::list_members(&state.pool, member).await?,
         invite,
-        board: boards::service::board_view(&state.pool, member).await?,
+        board: boards::service::board_view(&state.pool, member, &IssueFilter::default()).await?,
         draft,
         move_error: None,
     })
@@ -312,10 +307,11 @@ async fn to_move(
         Some(first.id)
     };
     let (after, before) = if card.after.is_empty() && card.before.is_empty() {
-        let board = boards::service::board_view(&state.pool, member).await?;
+        let board =
+            boards::service::board_view(&state.pool, member, &IssueFilter::default()).await?;
         let target = board.columns.iter().find(|target| target.id == column.id);
         target.map_or((None, None), |target| {
-            place_anchor(target, &issue.key, &card.place)
+            place_anchor(&target.cards, &issue.key, &card.place)
         })
     } else {
         (
@@ -327,16 +323,17 @@ async fn to_move(
         status_id,
         after,
         before,
+        sprint_id: None,
     })
 }
 
-/// "top" lands before the column's first other card; anything else after its last one.
-fn place_anchor(
-    column: &BoardColumnView,
+/// "top" lands before the first other card of the column or section; anything else after its last one.
+pub(crate) fn place_anchor(
+    cards: &[Card],
     moving_key: &str,
     place: &str,
 ) -> (Option<String>, Option<String>) {
-    let mut others = column.cards.iter().filter(|card| card.key != moving_key);
+    let mut others = cards.iter().filter(|card| card.key != moving_key);
     if place == "top" {
         return (None, others.next().map(|card| card.key.clone()));
     }

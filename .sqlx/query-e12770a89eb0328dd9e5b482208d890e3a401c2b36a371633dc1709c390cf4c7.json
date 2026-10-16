@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE issue SET sprint_id = $2 WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e12770a89eb0328dd9e5b482208d890e3a401c2b36a371633dc1709c390cf4c7"
+}

@@ -488,7 +488,31 @@ a.button, a.button:hover { color: var(--on-accent); }
   font: inherit;
   font-size: 1rem;
 }
-#board > .alert { margin-top: 20px; }
+#board > .alert, #backlog > .alert { margin-top: 20px; }
+
+/* Backlog: sprint sections then the unplanned list; rows drag between them */
+.sprint-create { margin-top: 12px; }
+.button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.button.danger { background: var(--danger); }
+.backlog-section { margin-top: 20px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+.sprint-head { display: grid; gap: 6px; padding: 12px; }
+.sprint-head h2 { font-size: 1.125rem; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sprint-meta { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); font-size: 0.875rem; }
+.sprint-goal { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sprint-head .alert { margin-top: 0; }
+.sprint-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.sheet[open] { flex-basis: 100%; }
+.sheet form input, .sheet form textarea, .sheet fieldset label { font: inherit; font-size: 16px; }
+.sheet form input, .sheet form textarea { min-height: 44px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.sheet fieldset { display: grid; gap: 4px; border: 0; padding: 0; margin: 0; }
+.sheet fieldset label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.badge.overdue { color: var(--danger); border-color: var(--danger); }
+.board-sprint { padding: 0 0 12px; }
+.backlog-rows { display: grid; gap: 8px; min-height: 56px; margin: 0; padding: 0 12px 12px; list-style: none; }
+.drop-hint { padding: 12px; border: 1px dashed var(--border); border-radius: 8px; color: var(--muted); font-size: 0.875rem; }
+@media (min-width: 640px) {
+  .plan-issue { grid-template-columns: minmax(0, 1fr) 140px 160px auto; }
+}
 
 /* Search and comments */
 .search { display: flex; gap: 8px; margin-top: 12px; }

@@ -27,6 +27,16 @@
 <path d="M12 2v20"/><path d="m15 19-3 3-3-3"/><path d="m19 9 3 3-3 3"/><path d="M2 12h20"/><path d="m5 9-3 3 3 3"/><path d="m9 5 3-3 3 3"/>
 {%- else if name == "circle-alert" -%}
 <circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+{%- else if name == "list" -%}
+<path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/>
+{%- else if name == "play" -%}
+<polygon points="6 3 20 12 6 21 6 3"/>
+{%- else if name == "circle-check" -%}
+<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+{%- else if name == "pencil" -%}
+<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>
+{%- else if name == "trash" -%}
+<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
 {%- endif -%}
 </svg>
 {% endmacro %}

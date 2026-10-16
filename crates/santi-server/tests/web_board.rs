@@ -9,7 +9,7 @@ use sqlx::PgPool;
 /// Ana with project SANTI: an API client for setup and a browser cookie for the pages.
 async fn board_owner(pool: PgPool) -> (TestApp, String) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
-    ana.create_project("SANTI", "scrum").await;
+    ana.create_project("SANTI", "kanban").await;
     let body = format!("email=ana%40example.com&password={PASSWORD}");
     let response = ana.send(form("/login", &body, None)).await;
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
