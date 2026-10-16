@@ -12,15 +12,17 @@ pub mod sprints;
 
 use std::path::Path;
 
-use axum::extract::State;
+use axum::extract::{Request, State};
 use axum::http::header::{
-    CACHE_CONTROL, CONTENT_SECURITY_POLICY, REFERRER_POLICY, X_CONTENT_TYPE_OPTIONS,
+    CACHE_CONTROL, CONTENT_SECURITY_POLICY, REFERRER_POLICY, VARY, X_CONTENT_TYPE_OPTIONS,
 };
 use axum::http::{HeaderValue, Response};
-use axum::routing::any;
+use axum::response::IntoResponse;
+use axum::routing::{any, get, get_service};
 use axum::{Json, Router, middleware};
 use santi_types::{Health, Problem};
 use sqlx::PgPool;
+use tower::ServiceExt;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::{SetResponseHeader, SetResponseHeaderLayer};
@@ -90,10 +92,32 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
 /// Swagger UI under `/docs` runs inline scripts, so the policy covers the SPA only.
 const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
-/// Hashed `/assets/*` are cached for good; `index.html` is revalidated so a deploy shows at once.
+/// Hashed `/assets/*` are cached for good; pages are revalidated so a deploy shows at once.
+/// `/` is the landing page without a session cookie and the app with one (D37 amendment);
+/// `/about` is always the landing page.
 fn spa(dir: &Path) -> Router<AppState> {
     let assets = ServeDir::new(dir.join("assets"));
-    let pages = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
+    let index = ServeFile::new(dir.join("index.html"));
+    let landing = ServeFile::new(dir.join("landing.html"));
+    let home = {
+        let (index, landing) = (index.clone(), landing.clone());
+        move |request: Request| async move {
+            let page = match auth::domain::session_token(request.headers()) {
+                Some(_) => index,
+                None => landing,
+            };
+            let Ok(response) = page.oneshot(request).await;
+            ([(VARY, "cookie")], response).into_response()
+        }
+    };
+    let pages = Router::new()
+        .route("/", get(home))
+        .route("/about", get_service(landing))
+        .fallback_service(ServeDir::new(dir).fallback(index))
+        .layer(SetResponseHeaderLayer::overriding(
+            CACHE_CONTROL,
+            cache_when_ok("no-cache"),
+        ));
     Router::new()
         .nest_service(
             "/assets",
@@ -102,11 +126,7 @@ fn spa(dir: &Path) -> Router<AppState> {
         .route("/api", any(not_found))
         .route("/api/", any(not_found))
         .route("/api/{*path}", any(not_found))
-        .fallback_service(SetResponseHeader::overriding(
-            pages,
-            CACHE_CONTROL,
-            cache_when_ok("no-cache"),
-        ))
+        .merge(pages)
         .layer(SetResponseHeaderLayer::overriding(
             CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(CSP),
