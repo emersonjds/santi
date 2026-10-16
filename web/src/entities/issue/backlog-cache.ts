@@ -11,7 +11,7 @@ export type RowMove = {
 
 const sprintOf = (section: BacklogSection) => section.sprint?.id ?? null
 
-/** Anchors on the row above, or below for the top slot; an empty sprint needs none, so the rank stays (BL-6). */
+/** BL-6: an empty sprint takes the row without an anchor. */
 export const planRowMove = (
   backlog: Backlog,
   card: Card,

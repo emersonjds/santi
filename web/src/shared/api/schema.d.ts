@@ -885,7 +885,7 @@ export interface components {
         CreateToken: {
             name: string;
         };
-        /** @description Returned once at creation; only the hash is stored (D23). No `Debug`, so it never reaches a log. */
+        /** @description Returned once at creation; only the hash is stored (D23). */
         CreatedToken: {
             /** Format: int64 */
             id: number;

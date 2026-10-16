@@ -17,7 +17,6 @@ const WipBadge = ({ limit, over }: { limit: number; over: boolean }) => (
   </span>
 )
 
-/** Columns share a wide board, 18rem to 26rem each; past that the board scrolls sideways. */
 export const COLUMN_WIDTH = 'w-full shrink-0 md:max-w-104 md:min-w-72 md:flex-1'
 
 /** 375px: one column at a time, picked here and kept in `?column=` (IA §10). */
@@ -52,7 +51,6 @@ export const ColumnPicker = ({
 
 type ColumnShellProps = {
   column: BoardColumn
-  /** Hidden below 768px: only the picked column shows on a phone. */
   narrowHidden: boolean
   /** KB-16: the admin's "…" next to the limit. */
   menu?: ReactNode

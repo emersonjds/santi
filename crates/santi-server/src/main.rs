@@ -3,7 +3,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = std::env::var("DATABASE_URL")?;
     let address = std::env::var("SANTI_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".into());
     let web_dir = std::env::var("SANTI_WEB_DIR").unwrap_or_else(|_| "web/dist".into());
-    // D39: sqlx defaults to 10 connections, which caps throughput long before PostgreSQL does.
+    // D39
     let cores = std::thread::available_parallelism().map_or(4, usize::from) as u32;
     let pool_size = match std::env::var("SANTI_DB_POOL") {
         Ok(size) => size.parse()?,
@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         trusted_proxies,
         per_address,
     ));
-    // D44: idle counters leave the tables once a minute, off the request path.
+    // D44
     let prune_limits = limits.clone();
     tokio::spawn(async move {
         let mut every_minute = tokio::time::interval(std::time::Duration::from_secs(60));
@@ -33,10 +33,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             prune_limits.prune();
         }
     });
-    // D45: self-hosters may run without the hosted instance's terms and privacy pages.
+    // D45
     let legal_pages = std::env::var("SANTI_LEGAL_PAGES").as_deref() != Ok("off");
     let legal = santi_server::Legal::from_web_dir(legal_pages, std::path::Path::new(&web_dir));
-    // Expired sessions and stale invites, hourly; the first run happens at start.
+    // D45: purge.
     let purge_pool = pool.clone();
     tokio::spawn(async move {
         let mut hourly = tokio::time::interval(std::time::Duration::from_secs(60 * 60));

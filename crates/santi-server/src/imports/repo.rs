@@ -82,8 +82,8 @@ pub struct ImportedIssue {
     pub updated: DateTime<Utc>,
 }
 
-/// One statement per tier: parents are found by their original key, so they must be inserted by
-/// an earlier statement. Subtasks take their parent's sprint (D6). Returns the keys inserted.
+/// One statement per tier, parents joined by original key (D41); subtasks take their parent's
+/// sprint (D6). Returns the keys inserted.
 pub async fn insert_issues(
     conn: &mut PgConnection,
     project_id: i64,

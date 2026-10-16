@@ -8,7 +8,6 @@ export const legalDocumentsQuery = queryOptions({
   staleTime: Infinity,
 })
 
-/** Whether the signed-in user accepted the current versions. */
 export const legalStatusQuery = queryOptions({
   queryKey: ['session', 'legal'],
   queryFn: async () => dataOrThrow(await api.GET('/api/me/legal')),

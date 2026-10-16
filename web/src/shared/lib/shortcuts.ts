@@ -25,8 +25,7 @@ const isTyping = (target: EventTarget | null) =>
   (target.isContentEditable ||
     ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
 
-// The issue dialog keeps the shortcuts; a menu, a popover or any other dialog owns the keys.
-const OTHER_LAYER =
+const KEY_OWNING_LAYER =
   '[role=dialog]:not([data-issue-dialog]), [role=alertdialog], [role=menu], [role=listbox]'
 
 const isShortcut = (event: KeyboardEvent) =>
@@ -35,7 +34,7 @@ const isShortcut = (event: KeyboardEvent) =>
   !event.ctrlKey &&
   !event.altKey &&
   !isTyping(event.target) &&
-  !document.querySelector(OTHER_LAYER) &&
+  !document.querySelector(KEY_OWNING_LAYER) &&
   shortcutsOn()
 
 /** Calls `onKey` for a plain key press meant as a shortcut; it calls `preventDefault` on the keys it takes. */
@@ -50,7 +49,6 @@ export const useShortcuts = (onKey: (event: KeyboardEvent) => void) => {
   }, [])
 }
 
-/** The issue links of the page under any dialog, in reading order: board columns left to right, backlog sections top down. */
 // ponytail: DOM order only; a virtualized backlog (> 200 rows) draws the next rows as the focus scrolls, so j reaches them one window at a time.
 export const issueLinks = () =>
   [...document.querySelectorAll<HTMLElement>('main [data-issue-key]')].filter(
