@@ -62,7 +62,8 @@ pub async fn add_member(
         (status = 200, body = MemberInfo),
         (status = 403, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`last-admin`")))]
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`last-admin`"),
+        (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn set_role(
     State(state): State<AppState>,
     member: Member,
@@ -97,7 +98,8 @@ pub async fn remove_member(
     responses(
         (status = 201, body = Invite, description = "The token is shown only in this response; valid 7 days"),
         (status = 403, body = Problem, content_type = "application/problem+json"),
-        (status = 404, body = Problem, content_type = "application/problem+json")))]
+        (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn create_invite(
     State(state): State<AppState>,
     member: Member,
