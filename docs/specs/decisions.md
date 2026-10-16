@@ -350,3 +350,24 @@ CSRF: unchanged D22 middleware (`reject_cross_site_writes`). The SPA is served b
 Serving: until parity the SPA runs from Vite in dev only, and production keeps the htmx UI. At cutover the server keeps `/api/*`, `/openapi.json`, `/docs`, `/health`, serves the built `web/dist` (hashed `/assets/*` immutable), and answers every other GET with `index.html`; unknown `/api/*` stays a D24 404.
 
 License: shadcn-admin is MIT (Copyright (c) 2024 Sat Naing). `web/LICENSE-shadcn-admin` keeps its notice verbatim and `web/README.md` credits the template; santi's own code stays MIT OR Apache-2.0.
+
+## D38 — Repository layout: monorepo now, split-ready
+Context: D37 puts the SPA in `web/`, and the owner plans to move it to its own repository later. The question is where it lives now, how self-hosters run it, and what keeps the later move cheap.
+Options: A) monorepo, `web/` next to `crates/`, independent toolchains, no split rules B) separate `santi-web` repository now C) monorepo now with split boundaries and a written split procedure
+Market: Gitea and Plane keep API and web UI in one repository and ship one deployable; Mattermost merged its separate webapp repository back into its server monorepo in 2023 because cross-repo changes were too slow; Twenty is an Nx monorepo. Teams split when the front gets its own release train or team.
+Product vote: C — one PR carries the API change and the screen that uses it, so MVP features land in one review; contributors clone one repository; self-hosters pull one image. The split stays a mechanical step for later.
+Architecture vote: C — A drifts: nothing stops shared imports, one mixed CI job and one mixed changelog, and the split becomes a refactor. B now doubles every feature into two lockstep PRs while the API still changes weekly, and two deployables push toward two origins: cross-origin needs CORS with credentials and `SameSite=None` cookies, which drops D22's `__Host-` + `Lax` cookie and makes every SPA write `Sec-Fetch-Site: cross-site`, rejected by the D22 middleware, or else a reverse proxy just to get one origin back. C keeps one origin and makes the move a command.
+Winner: C — accepted: two toolchains in one repository (cargo, pnpm) and a contract snapshot to keep fresh in every API PR.
+
+Boundaries (what makes the split mechanical):
+- Nothing under `web/` imports or reads outside `web/`; no crate reads `web/` source. The only shared artifact is the contract.
+- Contract: `web/openapi.json` is a committed snapshot of the server's OpenAPI. A server test renders the spec (from a DB-free `santi_server::openapi()`) and fails when the snapshot differs (`UPDATE_OPENAPI=1` rewrites it); the web job regenerates `src/shared/api/schema.d.ts` from the snapshot and fails on a diff. An API change and its regenerated types land in the same PR.
+- `web/` owns its `package.json`, `pnpm-lock.yaml`, `CHANGELOG.md`, `README.md`, `LICENSE-shadcn-admin` and version; CI gets a separate `web` job (`working-directory: web`: typecheck, lint, Vitest coverage, build) plus an `e2e` job (server + Postgres + built SPA + Playwright).
+- Commits touching `web/` touch only `web/` (scope `web`, e.g. `feat(web): …`), except the contract PR that changes the server and `web/openapi.json` + generated types together.
+- The server serves the built SPA at runtime from `SANTI_WEB_DIR` (default `web/dist`) through `tower-http` `ServeDir` with an `index.html` fallback; it does not embed it at compile time, so `cargo build` and `cargo test` need no Node and survive the split unchanged. Upgrade: embed the build (`rust-embed`) when a single-file binary release is wanted.
+
+Packaging: one image, one service, one origin. A multi-stage `Dockerfile` builds `web/dist` with Node, the server with cargo, and copies both into the final image with `SANTI_WEB_DIR` set; `compose.yaml` stays server + Postgres. One release tag `vX.Y.Z` for the image; `web/CHANGELOG.md` lists UI changes separately. After a split the image still bundles a pinned `santi-web` release build, so the origin and D22 do not change.
+
+Split procedure: `git subtree split --prefix=web -b web-split`, push `web-split` to the new `santi-web` repository as `main`, move the `web` CI job there, delete `web/` here, keep the snapshot test writing `openapi.json` at this repository's root, and have the image build download the `santi-web` release `dist` by pinned version. The web repository updates its snapshot from server releases.
+
+Split trigger: never before the cutover (htmx removed) and v1.0.0 (API under semver). After that, split at the first of: a UI change needs a release without a server release; regular contributors work only in `web/`; the SPA build gets a second consumer (CDN-hosted or desktop shell).
