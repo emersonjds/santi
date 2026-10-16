@@ -27,14 +27,25 @@ fn start() -> Server {
         let base = std::env::var("DATABASE_URL").expect("DATABASE_URL points at PostgreSQL");
         let base = PgConnectOptions::from_str(&base).unwrap();
         let admin = PgPool::connect_with(base.clone()).await.unwrap();
-        // One database per test binary, recreated on each run.
-        let name = format!("santi_cli_test_{}", env!("CARGO_CRATE_NAME"));
-        for sql in [
-            format!("DROP DATABASE IF EXISTS {name} WITH (FORCE)"),
-            format!("CREATE DATABASE {name}"),
-        ] {
-            admin.execute(AssertSqlSafe(sql)).await.unwrap();
+        // One database per test process. Leftovers of earlier runs are dropped; a database still
+        // in use by a concurrent run refuses the DROP and is kept.
+        let leftovers: Vec<String> = sqlx::query_scalar(
+            "SELECT datname FROM pg_database WHERE datname LIKE 'santi\\_cli\\_test\\_%'",
+        )
+        .fetch_all(&admin)
+        .await
+        .unwrap();
+        for database in leftovers {
+            let drop = format!("DROP DATABASE IF EXISTS {database}");
+            admin.execute(AssertSqlSafe(drop)).await.ok();
         }
+        let name = format!(
+            "santi_cli_test_{}_{}",
+            env!("CARGO_CRATE_NAME"),
+            std::process::id()
+        );
+        let create = format!("CREATE DATABASE {name}");
+        admin.execute(AssertSqlSafe(create)).await.unwrap();
         let pool = PgPool::connect_with(base.database(&name)).await.unwrap();
         santi_server::migrate(&pool).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

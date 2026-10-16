@@ -269,7 +269,7 @@ fn streamable_http_requires_a_bearer_and_acts_as_its_user() {
     server().project(&token, "HTP", "kanban");
     let config = tempfile::tempdir().unwrap();
     server().block_on(async {
-        let (_child, endpoint) = http_server(&config).await;
+        let (mut child, endpoint) = http_server(&config).await;
 
         let initialize = json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "test", "version": "1" } } });
         let anonymous = reqwest::Client::new()
@@ -297,5 +297,12 @@ fn streamable_http_requires_a_bearer_and_acts_as_its_user() {
         let denied = call(&client, "list_projects", json!({})).await;
         assert_eq!(denied.is_error, Some(true));
         client.cancel().await.unwrap();
+
+        // Ctrl-C shuts the server down cleanly.
+        let pid = child.id().unwrap().to_string();
+        let interrupted = std::process::Command::new("kill").args(["-INT", &pid]).status();
+        assert!(interrupted.unwrap().success());
+        let exit = tokio::time::timeout(std::time::Duration::from_secs(10), child.wait()).await;
+        assert!(exit.unwrap().unwrap().success());
     });
 }
