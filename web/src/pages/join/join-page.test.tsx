@@ -144,6 +144,9 @@ describe('join a project', () => {
       screen.getByRole('checkbox', { name: /I agree to the Terms of Use/ })
     )
     await userEvent.click(
+      screen.getByRole('checkbox', { name: 'I am 18 or older' })
+    )
+    await userEvent.click(
       screen.getByRole('button', { name: 'Create account' })
     )
 

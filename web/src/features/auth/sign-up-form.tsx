@@ -1,9 +1,19 @@
+import { type ReactNode, useEffect } from 'react'
 import { z } from 'zod'
-import { useForm } from 'react-hook-form'
+import { type ControllerRenderProps, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2, UserPlus } from 'lucide-react'
+import {
+  AGE_REQUIRED,
+  TERMS_REQUIRED,
+  TermsLabel,
+} from '@/features/legal/terms-label'
+import {
+  legalDocumentsQuery,
+  useLegalRequired,
+} from '@/entities/session/legal-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { api } from '@/shared/api/client'
 import { showProblem } from '@/shared/lib/show-problem'
@@ -32,18 +42,55 @@ const schema = z.object({
     .string()
     .min(10, 'Use at least 10 characters.')
     .max(128, 'Use at most 128 characters.'),
-  accept_terms: z
-    .boolean()
-    .refine(Boolean, 'Accept the Terms of Use and the Privacy Policy.'),
+  accept_terms: z.boolean().refine(Boolean, TERMS_REQUIRED),
+  confirm_age: z.boolean().refine(Boolean, AGE_REQUIRED),
 })
 
 type SignUp = z.infer<typeof schema>
 
-const FIELDS = ['display_name', 'email', 'password', 'accept_terms'] as const
+const FIELDS = [
+  'display_name',
+  'email',
+  'password',
+  'accept_terms',
+  'confirm_age',
+] as const
+
+type ConsentProps = {
+  value: boolean
+  onChange: (checked: boolean) => void
+  field: Omit<
+    ControllerRenderProps<SignUp, 'accept_terms' | 'confirm_age'>,
+    'value' | 'onChange'
+  >
+  children: ReactNode
+}
+
+const Consent = ({ value, onChange, field, children }: ConsentProps) => (
+  <FormItem>
+    <div className='flex min-h-11 items-start gap-3'>
+      <FormControl>
+        <input
+          type='checkbox'
+          className='mt-0.5 size-5 shrink-0 accent-primary'
+          checked={value}
+          onChange={(event) => onChange(event.target.checked)}
+          {...field}
+        />
+      </FormControl>
+      <FormLabel className='block leading-snug font-normal'>
+        {children}
+      </FormLabel>
+    </div>
+    <FormMessage />
+  </FormItem>
+)
 
 export const SignUpForm = ({ redirectTo = '/' }: { redirectTo?: string }) => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { data: legal } = useQuery(legalDocumentsQuery)
+  const legalRequired = useLegalRequired(legal?.required)
   const form = useForm<SignUp>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -51,8 +98,16 @@ export const SignUpForm = ({ redirectTo = '/' }: { redirectTo?: string }) => {
       email: '',
       password: '',
       accept_terms: false,
+      confirm_age: false,
     },
   })
+
+  // Without legal pages there is nothing to accept; the server ignores both fields then.
+  useEffect(() => {
+    if (legalRequired) return
+    form.setValue('accept_terms', true)
+    form.setValue('confirm_age', true)
+  }, [form, legalRequired])
 
   const signUp = async (body: SignUp) => {
     const { data, error } = await api.POST('/api/auth/register', { body })
@@ -112,46 +167,28 @@ export const SignUpForm = ({ redirectTo = '/' }: { redirectTo?: string }) => {
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name='accept_terms'
-          render={({ field: { value, onChange, ...field } }) => (
-            <FormItem>
-              <div className='flex min-h-11 items-start gap-3'>
-                <FormControl>
-                  <input
-                    type='checkbox'
-                    className='mt-0.5 size-5 shrink-0 accent-primary'
-                    checked={value}
-                    onChange={(event) => onChange(event.target.checked)}
-                    {...field}
-                  />
-                </FormControl>
-                <FormLabel className='block leading-snug font-normal'>
-                  I agree to the{' '}
-                  <a
-                    href='/terms'
-                    target='_blank'
-                    rel='noreferrer'
-                    className='text-primary underline'
-                  >
-                    Terms of Use
-                  </a>{' '}
-                  and{' '}
-                  <a
-                    href='/privacy'
-                    target='_blank'
-                    rel='noreferrer'
-                    className='text-primary underline'
-                  >
-                    Privacy Policy
-                  </a>
-                </FormLabel>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {legalRequired && (
+          <>
+            <FormField
+              control={form.control}
+              name='accept_terms'
+              render={({ field: { value, onChange, ...field } }) => (
+                <Consent value={value} onChange={onChange} field={field}>
+                  <TermsLabel />
+                </Consent>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='confirm_age'
+              render={({ field: { value, onChange, ...field } }) => (
+                <Consent value={value} onChange={onChange} field={field}>
+                  I am 18 or older
+                </Consent>
+              )}
+            />
+          </>
+        )}
         <RootError message={form.formState.errors.root?.message} />
         <Button className='h-11' disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting ? (
