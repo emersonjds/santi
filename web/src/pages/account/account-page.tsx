@@ -4,6 +4,10 @@ import { DeleteAccountButton } from '@/features/account/delete-account-button'
 import { ExportDataButton } from '@/features/account/export-data-button'
 import { CreateTokenForm } from '@/features/api-token/create-token-form'
 import { RevokeTokenButton } from '@/features/api-token/revoke-token-button'
+import {
+  legalDocumentsQuery,
+  useLegalRequired,
+} from '@/entities/session/legal-queries'
 import { tokensQuery } from '@/entities/user/api-tokens'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
@@ -54,6 +58,8 @@ const TokenList = () => {
 
 export const AccountPage = () => {
   const { user } = useRouteContext({ from: '/_authenticated' })
+  const { data: legal } = useQuery(legalDocumentsQuery)
+  const legalPages = useLegalRequired(legal?.required)
 
   return (
     <div className='mx-auto grid w-full max-w-2xl gap-8 px-4 py-8'>
@@ -90,10 +96,15 @@ export const AccountPage = () => {
           </h2>
           <p className='text-sm text-muted-foreground'>
             Your data is yours: download everything santi holds about you and
-            the projects you run, or delete your account.{' '}
-            <a href='/privacy' className='text-primary underline'>
-              Privacy Policy
-            </a>
+            the projects you run, or delete your account.
+            {legalPages && (
+              <>
+                {' '}
+                <a href='/privacy' className='text-primary underline'>
+                  Privacy Policy
+                </a>
+              </>
+            )}
           </p>
         </div>
         <div className='flex flex-wrap gap-2'>

@@ -5,6 +5,10 @@ import react from '@vitejs/plugin-react'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { playwright } from '@vitest/browser-playwright'
+import {
+  missingLegalSettings,
+  withoutLegalLinks,
+} from './src/shared/config/legal-build'
 
 const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 
@@ -27,8 +31,26 @@ const legalPlaceholders = {
   VITE_HOSTING_REGION: 'EU West (Railway europe-west4)',
   VITE_LEGAL_VENUE: '[city and state], Brazil',
 }
+const missing = missingLegalSettings(process.env)
+if (missing.length > 0)
+  throw new Error(
+    `Set ${missing.join(' and ')} for the legal pages (docs/deploy/railway.md), or VITE_LEGAL_PAGES=off.`
+  )
 for (const [name, placeholder] of Object.entries(legalPlaceholders))
   process.env[name] ||= placeholder
+
+// D45: a self-hosted build without the hosted instance's terms and privacy pages.
+const legalPages = process.env.VITE_LEGAL_PAGES !== 'off'
+const legalLinks: Plugin = {
+  name: 'santi-legal-links',
+  transformIndexHtml: (html) => (legalPages ? html : withoutLegalLinks(html)),
+}
+const legalInputs = {
+  privacy: path.resolve(import.meta.dirname, 'privacy.html'),
+  terms: path.resolve(import.meta.dirname, 'terms.html'),
+  'privacy-pt': path.resolve(import.meta.dirname, 'privacy.pt-BR.html'),
+  'terms-pt': path.resolve(import.meta.dirname, 'terms.pt-BR.html'),
+}
 
 const seoFiles: Plugin = {
   name: 'santi-seo-files',
@@ -54,10 +76,7 @@ export default defineConfig({
       input: {
         main: path.resolve(import.meta.dirname, 'index.html'),
         landing: path.resolve(import.meta.dirname, 'landing.html'),
-        privacy: path.resolve(import.meta.dirname, 'privacy.html'),
-        terms: path.resolve(import.meta.dirname, 'terms.html'),
-        'privacy-pt': path.resolve(import.meta.dirname, 'privacy.pt-BR.html'),
-        'terms-pt': path.resolve(import.meta.dirname, 'terms.pt-BR.html'),
+        ...(legalPages && legalInputs),
       },
       output: {
         // Every page loads React, the router and the query cache: one file compresses better than ten (D39).
@@ -82,6 +101,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     seoFiles,
+    legalLinks,
   ],
   // Split route chunks hide their imports from the dependency scan; a dependency found mid-test reloads Vitest.
   optimizeDeps: { entries: ['src/**/*.tsx'] },
