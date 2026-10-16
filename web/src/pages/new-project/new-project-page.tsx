@@ -1,17 +1,13 @@
-import { Link } from '@tanstack/react-router'
-import { AppHeader } from '@/widgets/app-header/app-header'
+import { CreateProjectForm } from '@/features/project/create-project-form'
 
 export const NewProjectPage = () => (
-  <>
-    <AppHeader />
-    <main className='mx-auto flex max-w-md flex-col gap-4 px-4 py-16'>
-      <h1 className='text-xl font-semibold'>New project</h1>
-      <p className='text-muted-foreground'>
-        Creating a project from this screen is coming soon.
-      </p>
-      <Link to='/' className='text-primary underline'>
-        Back to home
-      </Link>
-    </main>
-  </>
+  <div className='mx-auto w-full max-w-xl px-4 py-8'>
+    <h1 className='text-2xl font-semibold tracking-tight'>New project</h1>
+    <p className='mt-1.5 text-muted-foreground'>
+      You will be its admin and can invite your team next.
+    </p>
+    <div className='mt-6'>
+      <CreateProjectForm />
+    </div>
+  </div>
 )

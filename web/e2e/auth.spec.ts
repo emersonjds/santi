@@ -35,7 +35,8 @@ test('sign out, then sign back in', async ({ page }) => {
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(home(page)).toBeVisible()
 
-  await page.getByRole('button', { name: 'Sign out' }).click()
+  await page.getByRole('button', { name: 'Account' }).click()
+  await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await page.goto('/app/')
   await expect(page).toHaveURL(/\/app\/login\?redirect=/)
