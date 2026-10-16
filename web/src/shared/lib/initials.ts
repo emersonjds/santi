@@ -1,9 +1,23 @@
-/** "Bob Stone" → "BS": at most two letters, for avatars without a picture. */
+const words = (name: string) => name.split(/\s+/).filter(Boolean)
+
+/** SAN-100: title case only when the whole name is in capitals; the stored name never changes. */
+export const fullName = (name: string) => {
+  const tidy = words(name).join(' ')
+  if (tidy !== tidy.toUpperCase() || tidy === tidy.toLowerCase()) return tidy
+  return tidy
+    .toLowerCase()
+    .replace(/(^|[\s'’-])\p{L}/gu, (start) => start.toUpperCase())
+}
+
+/** "Emerson Junior Daniel Silva" → "Emerson Silva": first and last word. */
+export const shortName = (name: string) => {
+  const parts = words(fullName(name))
+  return parts.length > 2 ? `${parts[0]} ${parts.at(-1)}` : parts.join(' ')
+}
+
+/** "Bob Stone" → "BS", for avatars without a picture. */
 export const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
+  words(shortName(name))
     .map((word) => word.charAt(0).toUpperCase())
     .join('')
 

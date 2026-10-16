@@ -384,11 +384,36 @@ fn issue_line(issue: &Issue) -> String {
 
 fn card_line(card: &Card) -> String {
     let (kind, priority) = (card.issue_type.label(), card.priority.label());
-    let assignee = card.assignee_name.as_deref().unwrap_or("-");
+    let assignee = card.assignee_name.as_deref().map_or("-".into(), short_name);
     format!(
         "  {:<10} {kind:<8} {priority:<7} {}  @{assignee}",
         card.key, card.summary
     )
+}
+
+/// SAN-100: first and last word; title case only when the whole name is in capitals.
+fn short_name(name: &str) -> String {
+    let words: Vec<&str> = name.split_whitespace().collect();
+    let short = match words.as_slice() {
+        [first, .., last] if words.len() > 2 => format!("{first} {last}"),
+        _ => words.join(" "),
+    };
+    let shouting = short.chars().any(char::is_alphabetic) && !short.chars().any(char::is_lowercase);
+    if !shouting {
+        return short;
+    }
+    let mut word_start = true;
+    short
+        .chars()
+        .flat_map(|letter| {
+            let cased: Vec<char> = match word_start {
+                true => letter.to_uppercase().collect(),
+                false => letter.to_lowercase().collect(),
+            };
+            word_start = letter.is_whitespace() || matches!(letter, '-' | '\'' | '’');
+            cased
+        })
+        .collect()
 }
 
 fn optional<T: ToString>(value: &Option<T>) -> String {
@@ -521,4 +546,47 @@ fn problem_lines(problems: &[santi_types::imports::RowProblem]) -> Vec<String> {
         .iter()
         .map(|problem| format!("  line {}: {}", problem.line, problem.message))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn short_name_keeps_first_and_last_word() {
+        for (name, short) in [
+            ("Alice", "Alice"),
+            ("Bob Stone", "Bob Stone"),
+            ("Emerson Junior Daniel Silva", "Emerson Silva"),
+            ("EMERSON JUNIOR DANIEL SILVA", "Emerson Silva"),
+            ("  Bob   Stone  ", "Bob Stone"),
+            ("Ana McDonald da Silva", "Ana Silva"),
+            ("JOÃO ÁVILA", "João Ávila"),
+            ("CAÇA ÇARAN", "Caça Çaran"),
+            ("MARIA-JOSÉ D’ÁVILA", "Maria-José D’Ávila"),
+            ("42", "42"),
+            ("", ""),
+        ] {
+            assert_eq!(short_name(name), short, "{name:?}");
+        }
+    }
+
+    #[test]
+    fn card_line_shows_the_assignee_short() {
+        let card: Card = serde_json::from_value(serde_json::json!({
+            "id": 1, "key": "WEB-1", "summary": "Ship it", "issue_type": "story",
+            "priority": "high", "status_id": 1, "column_id": 1, "assignee_id": 2,
+            "assignee_name": "EMERSON JUNIOR DANIEL SILVA", "reporter_id": 2,
+            "points": null, "labels": [], "parent_key": null, "sprint_id": null,
+            "open_subtasks": 0, "total_subtasks": 0, "rank": "a",
+            "updated_at": "2026-10-16T00:00:00Z",
+        }))
+        .unwrap();
+        assert!(card_line(&card).ends_with("Ship it  @Emerson Silva"));
+        let unassigned = Card {
+            assignee_name: None,
+            ..card
+        };
+        assert!(card_line(&unassigned).ends_with("@-"));
+    }
 }

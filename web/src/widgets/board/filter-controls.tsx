@@ -10,6 +10,7 @@ import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { UserAvatar } from '@/entities/user/user-avatar'
+import { fullName } from '@/shared/lib/initials'
 import { Input } from '@/shared/ui/input'
 import { NativeSelect } from '@/shared/ui/native-select'
 
@@ -46,7 +47,7 @@ export const AssigneeToggles = ({ projectKey, search }: FilterProps) => {
           })}
           role='button'
           aria-pressed={assignee.includes(member.user_id)}
-          aria-label={`Issues of ${member.display_name}`}
+          aria-label={`Issues of ${fullName(member.display_name)}`}
           className='shrink-0 rounded-full p-1 ring-2 ring-transparent outline-none hover:z-10 focus-visible:ring-ring aria-pressed:z-10 aria-pressed:ring-primary md:p-0.5'
         >
           <UserAvatar
