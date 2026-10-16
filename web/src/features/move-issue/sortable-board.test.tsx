@@ -81,7 +81,14 @@ describe('moving cards by drag and drop', () => {
     await expect
       .element(doing.getByRole('group', { name: 'In progress' }))
       .toBeVisible()
+    // The live region names the zone (`zone:<column>:<status>`) once the card is over it.
+    await expect
+      .element(screen.getByText(/droppable area zone:2:20\./))
+      .toBeInTheDocument()
     await userEvent.keyboard('{ArrowDown}')
+    await expect
+      .element(screen.getByText(/droppable area zone:2:21\./))
+      .toBeInTheDocument()
     await userEvent.keyboard('[Space]')
 
     await expect.poll(() => bodyOf(requests, MOVE)).toEqual({ status_id: 21 })

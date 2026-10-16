@@ -134,7 +134,9 @@ const SortableCard = ({
       className={cn(
         'touch-manipulation rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring',
         isDragging &&
-          'bg-accent outline-2 outline-offset-0 outline-primary outline-dashed'
+          'bg-accent outline-2 outline-offset-0 outline-primary outline-dashed',
+        // Out of the flow under the zones, so they keep their size while the card hovers them.
+        isDragging && zoned && 'invisible absolute'
       )}
     >
       <div className={cn(isDragging && 'invisible')}>{renderCard(card)}</div>
@@ -188,8 +190,8 @@ type LaneProps = {
   statuses: Status[]
   /** A card from another column is held: this column takes it by status, not by position. */
   zoned: boolean
-  /** The held card hovers this column: its zones show. */
-  hovered: boolean
+  /** The held card's key; once it sits in a zoned lane, the zones show. */
+  heldKey?: string
   renderCard: (card: Card) => ReactNode
 }
 
@@ -198,9 +200,11 @@ const Lane = ({
   cards,
   statuses,
   zoned,
-  hovered,
+  heldKey,
   renderCard,
 }: LaneProps) => {
+  const hovered = zoned && cards.some((card) => card.key === heldKey)
+  const empty = cards.every((card) => hovered && card.key === heldKey)
   const { setNodeRef } = useDroppable({
     id: `${COLUMN}${columnId}`,
     disabled: zoned,
@@ -227,7 +231,7 @@ const Lane = ({
               renderCard={renderCard}
             />
           ))}
-          {cards.length === 0 && <EmptySlot />}
+          {empty && <EmptySlot />}
         </ol>
         {several && (
           <div className='pointer-events-none absolute inset-0 z-10 flex flex-col gap-2 px-2 pb-2'>
@@ -236,7 +240,7 @@ const Lane = ({
                 key={status.id}
                 columnId={columnId}
                 status={status}
-                shown={zoned && hovered}
+                shown={hovered}
                 enabled={zoned}
               />
             ))}
@@ -342,7 +346,7 @@ export const SortableBoard = ({
             cards={cards}
             statuses={statuses}
             zoned={zoned}
-            hovered={cards.some((card) => card.key === held?.key)}
+            heldKey={held?.key}
             renderCard={renderCard}
           />
         )
