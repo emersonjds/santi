@@ -11,17 +11,25 @@ import {
   SignalMedium,
 } from 'lucide-react'
 import type { IssueType, Priority } from '@/shared/api/client'
-import { PRIORITY_LABEL } from './labels'
+import { PRIORITY_LABEL, TYPE_LABEL } from './labels'
 
 type Glyph = { label: string; icon: LucideIcon; color: string }
 
 // D36: glyph and text first, color second; of the priorities only urgent is colored.
 const TYPES = {
-  story: { label: 'Story', icon: BookOpen, color: 'text-type-story' },
-  task: { label: 'Task', icon: ClipboardCheck, color: 'text-type-task' },
-  bug: { label: 'Bug', icon: Bug, color: 'text-type-bug' },
-  epic: { label: 'Epic', icon: Layers, color: 'text-type-epic' },
-  subtask: { label: 'Subtask', icon: ListTree, color: 'text-type-subtask' },
+  story: { label: TYPE_LABEL.story, icon: BookOpen, color: 'text-type-story' },
+  task: {
+    label: TYPE_LABEL.task,
+    icon: ClipboardCheck,
+    color: 'text-type-task',
+  },
+  bug: { label: TYPE_LABEL.bug, icon: Bug, color: 'text-type-bug' },
+  epic: { label: TYPE_LABEL.epic, icon: Layers, color: 'text-type-epic' },
+  subtask: {
+    label: TYPE_LABEL.subtask,
+    icon: ListTree,
+    color: 'text-type-subtask',
+  },
 } satisfies Record<IssueType, Glyph>
 
 const PRIORITIES = {

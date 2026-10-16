@@ -5,7 +5,7 @@ import type { Problem } from '@/shared/api/client'
 export const showProblem = <Values extends FieldValues>(
   setError: UseFormSetError<Values>,
   fields: readonly Path<Values>[],
-  problem: Problem
+  problem: Pick<Problem, 'detail' | 'errors'>
 ) => {
   let shownOnField = false
   for (const error of problem.errors ?? []) {

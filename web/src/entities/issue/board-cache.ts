@@ -1,4 +1,4 @@
-import type { BoardColumn, BoardView, Card } from '@/shared/api/client'
+import type { BoardColumn, BoardView, Card, Issue } from '@/shared/api/client'
 
 /** A card going to `toIndex` among the visible cards of a column, with the D4 anchor the server places it by. */
 export type Move = {
@@ -70,3 +70,58 @@ export const patchCard = (
       : column
   ),
 })
+
+/** After a status change: the card joins the column holding its new status, among its neighbours by rank. */
+export const placeCard = (
+  board: BoardView,
+  key: string,
+  columnId: number | undefined
+): BoardView => {
+  const card = board.columns
+    .flatMap((column) => column.cards)
+    .find((each) => each.key === key)
+  const target = board.columns.find((column) => column.id === columnId)
+  if (!card || !target || card.column_id === target.id) return board
+  const toIndex = target.cards.filter((other) => other.rank < card.rank).length
+  return moveCard(board, { card, toColumnId: target.id, toIndex })
+}
+
+/** A new issue as a card; the assignee's name arrives with the next board refresh. */
+export const cardOf = (issue: Issue, columnId: number): Card => ({
+  id: issue.id,
+  key: issue.key,
+  summary: issue.summary,
+  issue_type: issue.issue_type,
+  priority: issue.priority,
+  status_id: issue.status_id,
+  column_id: columnId,
+  labels: issue.labels,
+  open_subtasks: 0,
+  total_subtasks: 0,
+  rank: issue.rank,
+  updated_at: issue.updated_at,
+  assignee_id: issue.assignee_id,
+  assignee_name: null,
+  parent_key: issue.parent_key,
+  points: issue.points,
+  sprint_id: issue.sprint_id,
+})
+
+/** A new card at the bottom of its column (D5), when the board shows it: kanban always, scrum in the running sprint. */
+export const insertCard = (board: BoardView, card: Card): BoardView => {
+  const shown =
+    board.board_type === 'kanban' ||
+    (board.sprint != null && card.sprint_id === board.sprint.id)
+  const known = board.columns.some((column) =>
+    column.cards.some((other) => other.key === card.key)
+  )
+  if (!shown || known) return board
+  return {
+    ...board,
+    columns: board.columns.map((column) =>
+      column.id === card.column_id
+        ? recount({ ...column, cards: [...column.cards, card] }, 1)
+        : column
+    ),
+  }
+}

@@ -1,6 +1,13 @@
-import { type ReactNode, Suspense, lazy, memo, useCallback } from 'react'
+import {
+  type ReactNode,
+  Suspense,
+  lazy,
+  memo,
+  useCallback,
+  useState,
+} from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, Plus } from 'lucide-react'
 import { BoardContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
@@ -34,6 +41,51 @@ const CardMenu = lazy(() =>
     default: module.CardMenu,
   }))
 )
+
+const InlineCreate = lazy(() =>
+  import('@/features/create-issue/inline-create').then((module) => ({
+    default: module.InlineCreate,
+  }))
+)
+
+const CREATE_ROW =
+  'mx-2 mb-2 flex h-11 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground md:h-9'
+
+type ColumnCreateProps = {
+  board: BoardView
+  projectKey: string
+  open: boolean
+  setOpen: (open: boolean) => void
+}
+
+/** D5: inline create at the foot of the first column; the form loads on the first click. */
+const ColumnCreate = ({
+  board,
+  projectKey,
+  open,
+  setOpen,
+}: ColumnCreateProps) => {
+  if (!open)
+    return (
+      <button
+        type='button'
+        className={`${CREATE_ROW} outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring`}
+        onClick={() => setOpen(true)}
+      >
+        <Plus className='size-4' />
+        Create issue
+      </button>
+    )
+  return (
+    <Suspense fallback={<div className={CREATE_ROW} />}>
+      <InlineCreate
+        board={board}
+        projectKey={projectKey}
+        onClose={() => setOpen(false)}
+      />
+    </Suspense>
+  )
+}
 
 // Same box as the menu button, so nothing moves when the menu chunk arrives.
 const MenuPlaceholder = () => (
@@ -69,6 +121,9 @@ type ColumnsProps = {
 /** Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads. */
 const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
   const narrow = useIsMobile()
+  // Held here, above the drag layer swap, so an open form survives it.
+  const [creating, setCreating] = useState(false)
+  const [first] = board.columns
   const last = board.columns[board.columns.length - 1]
   const renderCard = useCallback(
     (card: Card) => <BoardCard card={card} projectKey={projectKey} />,
@@ -80,7 +135,19 @@ const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
       column={column}
       narrowHidden={column.id !== shown}
       footer={
-        doneWindow != null && column === last && <DoneNote days={doneWindow} />
+        <>
+          {column === first && (
+            <ColumnCreate
+              board={board}
+              projectKey={projectKey}
+              open={creating}
+              setOpen={setCreating}
+            />
+          )}
+          {doneWindow != null && column === last && (
+            <DoneNote days={doneWindow} />
+          )}
+        </>
       }
     >
       {list}

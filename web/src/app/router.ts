@@ -14,6 +14,8 @@ export const createAppRouter = (
     defaultPreload: 'intent',
     // TanStack Query decides freshness; the router only triggers the loaders (D39 prefetch).
     defaultPreloadStaleTime: 0,
+    // A masked issue dialog (IA §6) reloads as the full issue page.
+    unmaskOnReload: true,
   })
 
 declare module '@tanstack/react-router' {

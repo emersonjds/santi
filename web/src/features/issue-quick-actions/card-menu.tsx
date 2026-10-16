@@ -5,10 +5,10 @@ import { toast } from 'sonner'
 import { planMove } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
 import { useMoveIssue, useUpdateIssue } from '@/entities/issue/issue-mutations'
-import { PRIORITY_LABEL } from '@/entities/issue/labels'
+import { PRIORITY_LABEL, isPriority } from '@/entities/issue/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
-import type { Card, Priority } from '@/shared/api/client'
+import type { Card } from '@/shared/api/client'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,8 +31,6 @@ const ROW = 'max-md:min-h-11'
 
 const PLACES = ['top', 'bottom'] as const
 const UNASSIGNED = 'none'
-
-const isPriority = (value: string): value is Priority => value in PRIORITY_LABEL
 
 const MoveTo = ({ card, projectKey }: CardMenuProps) => {
   const board = use(BoardContext)

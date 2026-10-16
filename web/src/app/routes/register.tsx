@@ -1,8 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { RegisterPage } from '@/pages/register/register-page'
-import { redirectSignedIn } from '@/entities/session/require-session'
+import {
+  parseRedirect,
+  redirectSignedIn,
+} from '@/entities/session/require-session'
 
 export const Route = createFileRoute('/register')({
-  beforeLoad: ({ context }) => redirectSignedIn(context.queryClient),
+  validateSearch: parseRedirect,
+  beforeLoad: ({ context, search }) =>
+    redirectSignedIn(context.queryClient, search.redirect),
   component: RegisterPage,
 })

@@ -38,7 +38,7 @@ type SignUp = z.infer<typeof schema>
 
 const FIELDS = ['display_name', 'email', 'password'] as const
 
-export const SignUpForm = () => {
+export const SignUpForm = ({ redirectTo = '/' }: { redirectTo?: string }) => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const form = useForm<SignUp>({
@@ -50,7 +50,7 @@ export const SignUpForm = () => {
     const { data, error } = await api.POST('/api/auth/register', { body })
     if (error) return showProblem(form.setError, FIELDS, error)
     queryClient.setQueryData(sessionQuery.queryKey, data)
-    await navigate({ to: '/', replace: true })
+    await navigate({ to: redirectTo, replace: true })
   }
 
   return (

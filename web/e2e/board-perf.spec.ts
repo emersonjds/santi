@@ -106,6 +106,25 @@ test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
   ).toContainText('Urgent priority')
   const menu = await worstInteraction(page, 'menu: set priority')
 
+  await page.getByRole('link', { name: 'Card number 3', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: `${key}-3` })
+  await expect(dialog.getByLabel('Summary')).toHaveValue('Card number 3')
+  const open = await worstInteraction(page, 'open the issue dialog')
+
+  await dialog.getByLabel('Priority').selectOption('High')
+  await page.keyboard.press('Escape')
+  await expect(
+    page
+      .getByRole('region', { name: 'To Do', exact: true })
+      .getByRole('article')
+      .filter({
+        has: page.getByRole('link', { name: 'Card number 3', exact: true }),
+      })
+  ).toContainText('High priority')
+  const field = await worstInteraction(page, 'issue dialog: edit priority')
+
   expect(drop).toBeLessThan(INP_BUDGET)
   expect(menu).toBeLessThan(INP_BUDGET)
+  expect(open).toBeLessThan(INP_BUDGET)
+  expect(field).toBeLessThan(INP_BUDGET)
 })

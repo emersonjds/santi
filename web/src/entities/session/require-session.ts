@@ -21,3 +21,13 @@ export const forgetSession = (queryClient: QueryClient) => {
   queryClient.clear()
   queryClient.setQueryData(sessionQuery.queryKey, null)
 }
+
+/** `?redirect=`, same-site paths only: `//host` or `https://…` would send the user off santi. */
+export const parseRedirect = (
+  search: Record<string, unknown>
+): { redirect?: string } => ({
+  redirect:
+    typeof search.redirect === 'string' && /^\/(?!\/)/.test(search.redirect)
+      ? search.redirect
+      : undefined,
+})

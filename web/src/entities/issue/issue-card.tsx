@@ -25,9 +25,14 @@ export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
         {card.parent_key}
       </span>
     )}
+    {/* IA §6: a dialog over the current view, the address bar showing the issue page. */}
     <Link
-      to='/p/$key/issues/$number'
-      params={{ key: projectKey, number: String(issueNumber(card.key)) }}
+      to='.'
+      search={(prev) => ({ ...prev, issue: issueNumber(card.key) })}
+      mask={{
+        to: '/p/$key/issues/$number',
+        params: { key: projectKey, number: String(issueNumber(card.key)) },
+      }}
       draggable={false}
       className='line-clamp-2 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:ring-2 focus-visible:after:ring-ring'
     >
