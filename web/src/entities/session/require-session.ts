@@ -23,6 +23,7 @@ export const forgetSession = (queryClient: QueryClient) => {
 }
 
 // Browsers read `\` as `/` and drop tabs and newlines from URLs: `/\host` and `/\t/host` leave the site too.
+// eslint-disable-next-line no-control-regex -- control characters are what it looks for.
 const UNSAFE = /[\\\u0000-\u001f\u007f]/
 
 const sameSite = (path: string) =>
