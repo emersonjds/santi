@@ -6,7 +6,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::get;
 use santi_types::FieldError;
 use santi_types::boards::Status;
-use santi_types::issues::{Issue, UpdateIssue};
+use santi_types::issues::{Issue, MoveIssue, UpdateIssue};
 use serde::Deserialize;
 
 use super::service;
@@ -66,7 +66,7 @@ async fn issue_page(
     render(StatusCode::OK, &page)
 }
 
-// ponytail: fields and status are two writes; a refused status keeps the saved fields. One transaction when Task 6 lands the move.
+// ponytail: fields and status are two writes; a refused status keeps the saved fields.
 async fn edit_issue(
     State(state): State<AppState>,
     PageUser(user): PageUser,
@@ -81,7 +81,13 @@ async fn edit_issue(
     };
     let saved = match service::update_issue(&state.pool, &member, number, change).await {
         Ok(issue) if issue.status_id == edit.status_id => Ok(issue),
-        Ok(_) => service::change_status(&state.pool, &member, number, edit.status_id).await,
+        Ok(_) => {
+            let to_status = MoveIssue {
+                status_id: Some(edit.status_id),
+                ..MoveIssue::default()
+            };
+            service::move_issue(&state.pool, &member, number, to_status).await
+        }
         Err(error) => Err(error),
     };
     let (status, errors) = match saved {

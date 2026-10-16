@@ -4,6 +4,7 @@ pub mod error;
 pub mod extract;
 pub mod issues;
 pub mod members;
+pub mod pagination;
 pub mod projects;
 pub mod web;
 

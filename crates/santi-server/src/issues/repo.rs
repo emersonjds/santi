@@ -1,9 +1,9 @@
 use chrono::{DateTime, Utc};
 use santi_types::boards::StatusCategory;
-use santi_types::issues::{Issue, IssueType, Priority};
+use santi_types::issues::{Comment, Issue, IssueType, Priority};
 use sqlx::PgConnection;
 
-use super::domain::EditableIssue;
+use super::domain::{EditableIssue, SearchQuery};
 
 pub struct IssueKind {
     pub id: i64,
@@ -145,21 +145,26 @@ pub async fn update_fields(
     Ok(())
 }
 
-/// Where an issue stands, for a status change.
-pub struct StatusState {
+/// What a move needs to know about the issue, read under a row lock.
+pub struct Position {
     pub id: i64,
+    pub issue_type: IssueType,
+    pub status_id: i64,
     pub category: StatusCategory,
+    pub sprint_id: Option<i64>,
+    pub rank: String,
     pub done_at: Option<DateTime<Utc>>,
 }
 
-pub async fn find_status_state_for_update(
+pub async fn find_position_for_update(
     conn: &mut PgConnection,
     project_id: i64,
     number: i64,
-) -> Result<Option<StatusState>, sqlx::Error> {
+) -> Result<Option<Position>, sqlx::Error> {
     sqlx::query_as!(
-        StatusState,
-        r#"SELECT i.id, s.category AS "category: StatusCategory", i.done_at
+        Position,
+        r#"SELECT i.id, i.issue_type AS "issue_type: IssueType", i.status_id,
+                  s.category AS "category: StatusCategory", i.sprint_id, i.rank, i.done_at
            FROM issue i JOIN status s ON s.id = i.status_id
            WHERE i.project_id = $1 AND i.number = $2
            FOR UPDATE OF i"#,
@@ -170,19 +175,158 @@ pub async fn find_status_state_for_update(
     .await
 }
 
-pub async fn set_status(
+pub async fn find_rank(
+    conn: &mut PgConnection,
+    project_id: i64,
+    number: i64,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT rank FROM issue WHERE project_id = $1 AND number = $2",
+        project_id,
+        number
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// The next rank after `rank` in the project, skipping the issue being moved.
+pub async fn rank_after(
+    conn: &mut PgConnection,
+    project_id: i64,
+    rank: &str,
+    moving_id: i64,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT rank FROM issue WHERE project_id = $1 AND rank > $2 AND id <> $3 ORDER BY rank LIMIT 1",
+        project_id,
+        rank,
+        moving_id
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// The previous rank before `rank` in the project, skipping the issue being moved.
+pub async fn rank_before(
+    conn: &mut PgConnection,
+    project_id: i64,
+    rank: &str,
+    moving_id: i64,
+) -> Result<Option<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT rank FROM issue WHERE project_id = $1 AND rank < $2 AND id <> $3 ORDER BY rank DESC LIMIT 1",
+        project_id,
+        rank,
+        moving_id
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+pub async fn update_position(
     conn: &mut PgConnection,
     issue_id: i64,
     status_id: i64,
+    rank: &str,
     done_at: Option<DateTime<Utc>>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE issue SET status_id = $2, done_at = $3 WHERE id = $1",
+        "UPDATE issue SET status_id = $2, rank = $3, done_at = $4 WHERE id = $1",
         issue_id,
         status_id,
+        rank,
         done_at
     )
     .execute(&mut *conn)
     .await?;
     Ok(())
+}
+
+pub async fn find_id(
+    conn: &mut PgConnection,
+    project_id: i64,
+    number: i64,
+) -> Result<Option<i64>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "SELECT id FROM issue WHERE project_id = $1 AND number = $2",
+        project_id,
+        number
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+pub async fn insert_comment(
+    conn: &mut PgConnection,
+    issue_id: i64,
+    author_id: i64,
+    body: &str,
+) -> Result<Comment, sqlx::Error> {
+    sqlx::query_as!(
+        Comment,
+        "INSERT INTO issue_comment (issue_id, author_id, body) VALUES ($1, $2, $3)
+         RETURNING id, author_id, body, created_at",
+        issue_id,
+        author_id,
+        body
+    )
+    .fetch_one(&mut *conn)
+    .await
+}
+
+pub async fn list_comments(
+    conn: &mut PgConnection,
+    issue_id: i64,
+    after_id: i64,
+    limit: i64,
+) -> Result<Vec<Comment>, sqlx::Error> {
+    sqlx::query_as!(
+        Comment,
+        "SELECT id, author_id, body, created_at FROM issue_comment
+         WHERE issue_id = $1 AND id > $2 ORDER BY id LIMIT $3",
+        issue_id,
+        after_id,
+        limit
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// D3: empty arrays mean "no filter"; within one array any value matches; filters are AND-ed.
+pub async fn search_issues(
+    conn: &mut PgConnection,
+    project_id: i64,
+    query: &SearchQuery,
+    after_id: i64,
+    limit: i64,
+) -> Result<Vec<Issue>, sqlx::Error> {
+    sqlx::query_as!(
+        Issue,
+        r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
+                  i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
+                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at
+           FROM issue i
+           JOIN project p ON p.id = i.project_id
+           LEFT JOIN issue parent ON parent.id = i.parent_id
+           WHERE i.project_id = $1
+             AND i.id > $2
+             AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))
+             AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))
+             AND (cardinality($5::text[]) = 0 OR i.labels && $5)
+             AND (cardinality($6::bigint[]) = 0 OR parent.number = ANY($6))
+             AND ($7::text IS NULL OR i.summary ILIKE $7)
+           ORDER BY i.id
+           LIMIT $8"#,
+        project_id,
+        after_id,
+        &query.assignee_ids[..],
+        &query.types[..] as &[IssueType],
+        &query.labels[..],
+        &query.parent_numbers[..],
+        query.pattern.as_deref(),
+        limit
+    )
+    .fetch_all(&mut *conn)
+    .await
 }
