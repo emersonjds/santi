@@ -1,0 +1,12 @@
+# Railway config as code. Service variables (set in the dashboard, see docs/deploy/railway.md):
+#   DATABASE_URL = ${{Postgres.DATABASE_URL}}    PORT = 8080
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+watchPatterns = ["crates/**", "web/**", ".sqlx/**", "Cargo.toml", "Cargo.lock", "Dockerfile", "railway.toml"]
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

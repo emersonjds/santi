@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1
 # One image, one origin (D38): the SPA build is served by the server from SANTI_WEB_DIR.
+# No BuildKit cache mounts: Railway's builder rejects cache ids without its service prefix.
 
 FROM node:24-trixie-slim AS web
 WORKDIR /web
 RUN corepack enable
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
-RUN --mount=type=cache,id=santi-pnpm,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 COPY web/ ./
 RUN pnpm build
 
@@ -14,9 +14,7 @@ FROM rust:1.97-slim-trixie AS server
 WORKDIR /src
 ENV SQLX_OFFLINE=true CARGO_PROFILE_RELEASE_STRIP=true
 COPY . .
-RUN --mount=type=cache,id=santi-cargo-registry,target=/usr/local/cargo/registry \
-    --mount=type=cache,id=santi-cargo-target,target=/src/target \
-    cargo build --release --locked -p santi-server --bin santi-server \
+RUN cargo build --release --locked -p santi-server --bin santi-server \
     && cp target/release/santi-server /santi-server
 
 # Static busybox gives the distroless image a wget for the healthcheck.
