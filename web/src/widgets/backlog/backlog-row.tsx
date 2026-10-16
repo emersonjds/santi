@@ -7,7 +7,7 @@ import {
   RowSummary,
 } from '@/features/edit-row/row-fields'
 import { issueNumber } from '@/entities/issue/board-query'
-import { SubtaskCount } from '@/entities/issue/issue-card'
+import { LabelChips, SubtaskCount } from '@/entities/issue/issue-card'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { StatusPill } from '@/entities/issue/status-pill'
 import type { Status } from '@/entities/issue/statuses'
@@ -110,6 +110,7 @@ export const BacklogRow = memo(
                 <span className='truncate'>{epic.summary}</span>
               </span>
             )}
+            <LabelChips labels={card.labels} />
             {status && <StatusPill status={status} />}
             <SubtaskCount card={card} />
             {editable ? <RowPoints {...fields} /> : <Points card={card} />}

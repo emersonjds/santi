@@ -180,12 +180,15 @@ test('edit a row summary and its points in place; a reload keeps both', async ({
   const backlog = section(page, 'Backlog')
   await expect(backlog).toContainText('Gamma task')
 
-  await backlog
-    .getByRole('button', { name: `Edit summary of ${key}-2` })
-    .click()
-  await backlog
-    .getByRole('textbox', { name: `Summary of ${key}-2` })
-    .fill('Beta task, renamed')
+  const summary = backlog.getByRole('textbox', { name: `Summary of ${key}-2` })
+  // CI runners: a click landing while the backlog's last queries settle can be lost.
+  await expect(async () => {
+    await backlog
+      .getByRole('button', { name: `Edit summary of ${key}-2` })
+      .click()
+    await expect(summary).toBeVisible({ timeout: 2000 })
+  }).toPass()
+  await summary.fill('Beta task, renamed')
   const renamed = page.waitForResponse(
     (response) => response.request().method() === 'PATCH'
   )
