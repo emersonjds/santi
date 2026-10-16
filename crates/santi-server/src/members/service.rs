@@ -20,7 +20,7 @@ pub async fn add_member(
     input: AddMember,
 ) -> Result<MemberInfo, AppError> {
     domain::require_admin(member)?;
-    let email = input.email.trim().to_lowercase();
+    let email = auth::domain::normalize_email(&input.email)?;
     let mut conn = pool.acquire().await?;
     let user_id = repo::find_user_id_by_email(&mut conn, &email).await?;
     let user_id = user_id.ok_or_else(|| {
