@@ -1,4 +1,4 @@
-# santi
+<h1><img src="web/public/brand/icon-512.png" alt="" width="40" height="40" align="top"> santi</h1>
 
 santi is a free, open-source agile tracker you host yourself. Teams plan work on Scrum or Kanban
 boards, groom a backlog, run sprints and track epics, all from a fast web UI backed by a
@@ -82,6 +82,11 @@ do it for you.
 | `SANTI_ADDR` | `127.0.0.1:8080` (`0.0.0.0:8080` in the image) | address the server listens on |
 | `SANTI_WEB_DIR` | `web/dist` (`/srv/santi/web` in the image) | built web UI to serve at `/` |
 | `SANTI_DB_POOL` | twice the cores, 10–50 | database connections |
+
+Visitors without a session see the landing page at `/` (also at `/about`); signed-in users get the
+app. Its canonical and social links, `robots.txt` and `sitemap.xml` use the public address set at
+build time with `VITE_SITE_URL` (default `http://localhost:8080`), e.g.
+`docker build --build-arg VITE_SITE_URL=https://santi.example.com .`.
 
 ## Importing from Jira or Linear
 
