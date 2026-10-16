@@ -181,6 +181,7 @@ describe('issue detail', () => {
     expect(
       screen.getByRole('button', { name: 'Add subtask' }).elements()
     ).toHaveLength(0)
+    expect(screen.getByLabelText('Epic').elements()).toHaveLength(0)
     await screen.getByLabelText('Sprint').selectOptions('Sprint 5')
 
     await expect
@@ -190,7 +191,22 @@ describe('issue detail', () => {
   })
 
   it('saves the summary, description and every detail field on change', async () => {
-    const requests = inProjects({ [PATCH]: pending })
+    const requests = inProjects({
+      [PATCH]: pending,
+      'GET /api/projects/WEB/issues': {
+        status: 200,
+        body: {
+          items: [
+            issue({
+              key: 'WEB-9',
+              summary: 'Checkout revamp',
+              issue_type: 'epic',
+            }),
+          ],
+          next_cursor: null,
+        },
+      },
+    })
     const { screen } = await renderApp('/p/WEB/issues/1')
 
     const summary = screen.getByLabelText('Summary')
@@ -209,8 +225,7 @@ describe('issue detail', () => {
     await userEvent.keyboard('{Enter}')
     await screen.getByLabelText('Labels').fill('docs release')
     await userEvent.keyboard('{Enter}')
-    await screen.getByLabelText('Parent').fill('WEB-7')
-    await userEvent.keyboard('{Enter}')
+    await screen.getByLabelText('Epic').selectOptions('WEB-9 Checkout revamp')
     await screen.getByLabelText('Sprint').selectOptions('Backlog')
 
     await expect
@@ -223,7 +238,7 @@ describe('issue detail', () => {
         { assignee_id: null },
         { points: 5 },
         { labels: ['docs', 'release'] },
-        { parent: 'WEB-7' },
+        { parent: 'WEB-9' },
         { sprint_id: null },
       ])
     await expect

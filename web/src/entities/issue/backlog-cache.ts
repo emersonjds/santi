@@ -51,13 +51,28 @@ export const moveRow = (backlog: Backlog, move: RowMove): Backlog => {
   return { ...backlog, sections }
 }
 
-/** A new issue at the bottom of its section (D5); epics and subtasks are never rows (D10, BL-3). */
+/** A new issue at the bottom of its section (D5); epics join the panel, subtasks stay out (D10, BL-3). */
 export const insertRow = (backlog: Backlog, card: Card): Backlog => {
-  const known = backlog.sections.some((section) =>
-    section.cards.some((other) => other.key === card.key)
-  )
-  if (known || card.issue_type === 'epic' || card.issue_type === 'subtask')
-    return backlog
+  const known =
+    backlog.epics.some((epic) => epic.key === card.key) ||
+    backlog.sections.some((section) =>
+      section.cards.some((other) => other.key === card.key)
+    )
+  if (known || card.issue_type === 'subtask') return backlog
+  if (card.issue_type === 'epic')
+    return {
+      ...backlog,
+      epics: [
+        ...backlog.epics,
+        {
+          key: card.key,
+          summary: card.summary,
+          child_count: 0,
+          done_child_count: 0,
+          done: false,
+        },
+      ],
+    }
   return {
     ...backlog,
     sections: backlog.sections.map((section) =>
@@ -69,5 +84,32 @@ export const insertRow = (backlog: Backlog, card: Card): Backlog => {
           }
         : section
     ),
+  }
+}
+
+/** dnd-kit id of an epic in the panel; `epic:none` is the no-epic slot. */
+export const EPIC_DROP = 'epic:'
+
+/** A row given an epic (or none, `null`): its chip and both epics' child counts follow (D10). */
+export type EpicChange = { card: Card; epic: string | null }
+
+export const setEpic = (backlog: Backlog, { card, epic }: EpicChange) => {
+  const from = card.parent_key
+  if (from === epic) return backlog
+  return {
+    sections: backlog.sections.map((section) => ({
+      ...section,
+      cards: section.cards.map((other) =>
+        other.key === card.key ? { ...other, parent_key: epic } : other
+      ),
+    })),
+    // ponytail: done counts wait for the refetch; the row's status category isn't in the cache.
+    epics: backlog.epics.map((each) => {
+      if (each.key === epic)
+        return { ...each, child_count: each.child_count + 1 }
+      if (each.key === from)
+        return { ...each, child_count: each.child_count - 1 }
+      return each
+    }),
   }
 }

@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import {
+  type CollisionDetection,
   DndContext,
   type DragEndEvent,
   type DragOverEvent,
@@ -10,6 +11,7 @@ import {
   PointerSensor,
   type UniqueIdentifier,
   closestCorners,
+  pointerWithin,
   useDroppable,
   useSensor,
   useSensors,
@@ -22,8 +24,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { GripVertical } from 'lucide-react'
-import { planRowMove } from '@/entities/issue/backlog-cache'
-import { useMoveRow } from '@/entities/issue/issue-mutations'
+import { EPIC_DROP, planRowMove } from '@/entities/issue/backlog-cache'
+import { useMoveRow, useSetEpic } from '@/entities/issue/issue-mutations'
 import type { Backlog, BacklogSection, Card } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
 
@@ -35,6 +37,26 @@ type Drag = { base: Backlog; lanes: Lanes; held: Card | null }
 const BACKLOG = 'backlog'
 const MEASURE_ALWAYS = { droppable: { strategy: MeasuringStrategy.Always } }
 const SECTION = 'section:'
+
+const isEpic = (id: UniqueIdentifier) => String(id).startsWith(EPIC_DROP)
+
+/** The pointer has to be on an epic to drop there; arrow keys reach the panel with →. */
+const collide: CollisionDetection = (args) => {
+  if (!args.pointerCoordinates) return closestCorners(args)
+  const onEpic = pointerWithin({
+    ...args,
+    droppableContainers: args.droppableContainers.filter(({ id }) =>
+      isEpic(id)
+    ),
+  })
+  if (onEpic.length > 0) return onEpic
+  return closestCorners({
+    ...args,
+    droppableContainers: args.droppableContainers.filter(
+      ({ id }) => !isEpic(id)
+    ),
+  })
+}
 
 const laneKey = (sprintId?: number | null) => String(sprintId ?? BACKLOG)
 const sprintOfLane = (lane: string) => (lane === BACKLOG ? null : Number(lane))
@@ -154,6 +176,8 @@ const Lane = ({
 type SortableBacklogProps = {
   backlog: Backlog
   projectKey: string
+  /** Lays the sections out next to the epic panel, inside this drag context. */
+  frame: (sections: ReactNode) => ReactNode
   renderSection: (section: BacklogSection, list: ReactNode) => ReactNode
   renderList: RenderList
   renderRow: RenderRow
@@ -163,11 +187,13 @@ type SortableBacklogProps = {
 export const SortableBacklog = ({
   backlog,
   projectKey,
+  frame,
   renderSection,
   renderList,
   renderRow,
 }: SortableBacklogProps) => {
   const move = useMoveRow(projectKey)
+  const setEpic = useSetEpic(projectKey)
   const [drag, setDrag] = useState<Drag | null>(null)
   const pending = drag?.base === backlog ? drag : null
   const lanes = pending?.lanes ?? lanesOf(backlog)
@@ -203,6 +229,11 @@ export const SortableBacklog = ({
 
   const end = ({ over: target }: DragEndEvent) => {
     const held = pending?.held
+    if (held && target && isEpic(target.id)) {
+      const epic = String(target.id).slice(EPIC_DROP.length)
+      setDrag(null)
+      return setEpic.mutate({ card: held, epic: epic === 'none' ? null : epic })
+    }
     const to = target ? laneOf(lanes, target.id) : undefined
     if (!held || !target || to === undefined) return setDrag(null)
     const final = placed(lanes[to], held, target.id)
@@ -219,21 +250,23 @@ export const SortableBacklog = ({
       sensors={sensors}
       // Rows measured before the pickup: an arrow pressed right after it already finds its neighbours.
       measuring={MEASURE_ALWAYS}
-      collisionDetection={closestCorners}
+      collisionDetection={collide}
       onDragStart={start}
       onDragOver={over}
       onDragEnd={end}
       onDragCancel={() => setDrag(null)}
     >
-      {backlog.sections.map((section) =>
-        renderSection(
-          section,
-          <Lane
-            section={section}
-            cards={lanes[laneKey(section.sprint?.id)]}
-            renderList={renderList}
-            renderRow={renderRow}
-          />
+      {frame(
+        backlog.sections.map((section) =>
+          renderSection(
+            section,
+            <Lane
+              section={section}
+              cards={lanes[laneKey(section.sprint?.id)]}
+              renderList={renderList}
+              renderRow={renderRow}
+            />
+          )
         )
       )}
       <DragOverlay>

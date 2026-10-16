@@ -34,18 +34,19 @@ Status:
 |---|---|---|---|---|---|---|
 | Scrum board | 22 | 0 | 0 | 0 | 10 | 32 |
 | Kanban board | 16 | 0 | 0 | 0 | 13 | 29 |
-| Backlog | 16 | 2 | 1 | 1 | 7 | 27 |
+| Backlog | 18 | 0 | 1 | 1 | 7 | 27 |
 | Sprint lifecycle | 19 | 1 | 0 | 0 | 10 | 30 |
 | UI layout (adoption + responsive) | 31 | 1 | 6 | 2 | 8 | 48 |
-| Decisions | 19 | 1 | 0 | 0 | 0 | 20 |
-| **Total** | **123** | **5** | **7** | **3** | **48** | **186** |
+| Decisions | 20 | 0 | 0 | 0 | 0 | 20 |
+| **Total** | **126** | **2** | **7** | **3** | **48** | **186** |
 
 Decision rows restate spec rules, so a few gaps count twice (SB-17/KB-27/D5, SB-25/UI-12/D3).
-Of the 138 rows that are in v1, 123 work in the SPA (89%); the other 15 are the gaps below.
+Of the 138 rows that are in v1, 126 work in the SPA (91%); the other 12 are the gaps below.
 SAN-44 (branch `feat/SAN-44-small-gaps`) closed R-4, R-8, BL-3 and D6 and added the members page (group 4).
 SAN-45 (branch `feat/SAN-45-board-settings`) added the board settings page (group 1) and the KB-4/KB-5 server guard.
 SAN-46 (branch `feat/SAN-46-board-drop-zones`) added status drop zones, live counts, inline create in every column and the column header limit (group 6, KB-16).
 SAN-47 (branch `feat/SAN-47-filters`) added type, label, epic and text filters on board and backlog, the phone filter sheet, `parent=none`, `GET /labels` and a server-side status filter on search (group 5).
+SAN-48 (branch `feat/SAN-48-epic-panel`) added the epic panel on the backlog, "Set epic" in the row menu and the epic picker in the issue view (group 7).
 
 ## Scrum board
 
@@ -136,13 +137,13 @@ SAN-47 (branch `feat/SAN-47-filters`) added type, label, epic and text filters o
 | BL-17 | Inline create at every section foot | UI | `backlog-page.test` "creates inline at the foot of a sprint, into that sprint", "creates inline in the backlog with no sprint" | |
 | BL-18 | Split | Deferred | later | |
 | BL-19 | Row edits (summary, assignee, points, parent, priority) | Missing | `backlog-row.tsx` read-only; live row menu: "Move to…" only | Board card menu has assign and priority; backlog rows have none |
-| BL-20 | Epic panel: list, create, drop to set parent, filter | API only | `Backlog.epics` with `child_count`/`done_child_count`; `parent` filter with `parent=none` for "no epic" (SAN-47); Epic select in the filter bar; SPA uses epics only for the row chip and the filter | No epic panel (group 7) |
-| BL-21 | One parent; epic done = done status | UI | `issues::parent_rules_are_enforced`; Parent field in `issue-fields.tsx` | |
+| BL-20 | Epic panel: list, create, drop to set parent, filter | UI | `epic-panel.test` "lists all issues, issues without an epic and each epic…", "creates an epic from the panel", "drops a row onto an epic at once and takes it back…", "sets and clears the epic from the row menu", "filters the backlog by an epic or by no epic…"; `e2e/backlog.spec.ts` "create an epic in the panel, drag two issues onto it and filter by it" | Done counts follow a drop only after the refetch |
+| BL-21 | One parent; epic done = done status | UI | `issues::parent_rules_are_enforced`; Epic picker in `issue-fields.tsx` for stories, tasks and bugs (`issue-detail.test` "saves the summary, description and every detail field on change"); subtasks keep their parent | |
 | BL-22 | Estimation statistic choice | Deferred | dropped: points only | |
 | BL-23 | Points numeric, never on subtasks | UI | `issues::patch_enforces_type_parent_and_points_rules`; Points field | |
 | BL-24 | Section point totals | UI | `backlog-page.test` "stacks … each with its header facts"; `backlog::quick_filters_hide_rows_but_not_totals` | |
 | BL-25 | Time roll-up | Deferred | dropped | |
-| BL-26 | View: epic panel, quick filters, fields | API only | quick filters as SB-25 (SAN-47); epic panel as BL-20 | Epic panel (group 7) |
+| BL-26 | View: epic panel, quick filters, fields | UI | quick filters as SB-25 (SAN-47); epic panel as BL-20, kept in the URL (`?panel=epics`, `epic-panel.test` "opens from the toolbar into the URL…") | |
 
 ## Sprint lifecycle
 
@@ -211,7 +212,7 @@ Adoption list.
 | UI-38 | `c o a i m e j k n p` | Missing | only `c` (`create-button.tsx:40`) | |
 | D1 | Modal and page on one route | UI | `issue-detail.test` "shows the full page when the issue URL is loaded directly" | |
 | D6 | Flat subtasks with parent chip | UI | as SB-13 | |
-| D10 | Epic panel | API only | as BL-20 | |
+| D10 | Epic panel | UI | as BL-20 | |
 | D18 | Filters in the URL | UI | as SB-27 | |
 | UI-7, UI-14, UI-21 split, UI-24 versions, UI-34, UI-35, UI-39 | Later per adoption | Deferred | 7 rules; a Cmd/Ctrl+K palette exists for jumping to projects only | |
 | UI-25, UI-31 | Issue delete | Deferred | IA resolved #5; no endpoint | |
@@ -226,7 +227,7 @@ Responsive (375px).
 | R-4 | Board header: one line, goal expandable, Complete in overflow | UI | `board-page.test` "completes the running sprint from the header menu (R-4)"; `e2e/board.spec.ts`; future sprints from `sprintsQuery` | Goal clamped to two lines, not expandable |
 | R-5 | One filter button with badge, bottom sheet | UI | `filter-bar.test` "gives a phone one Filters button that opens the controls in a sheet"; `e2e/board.spec.ts` "on a phone, the Filters sheet applies a filter"; desktop keeps one row, "More filters" popover below 1280px | |
 | R-6 | Backlog rows full width, move by menu | UI | `backlog-page.test` "draws a dense row…"; `sortable-backlog.test` "offers Move to… instead of drag on a phone" | |
-| R-7 | Create, detail, sprint dialogs as full-screen sheets | UI | `sprint-dialogs.test` "opens as a full-screen sheet on a phone"; `issue-dialog.tsx:22`; `create-issue-dialog.tsx:203` | Epic panel missing (D10) |
+| R-7 | Create, detail, sprint dialogs as full-screen sheets | UI | `sprint-dialogs.test` "opens as a full-screen sheet on a phone"; `issue-dialog.tsx:22`; `create-issue-dialog.tsx:203`; `epic-panel.test` "opens as a full-screen sheet on a phone, which a pick closes" | |
 | R-8 | 44px targets, 16px inputs, no hover-only, no sideways scroll | UI | `app/touch-targets.test.tsx` measures every control on board, backlog, issue and members pages at 375px (card "…", filter avatars, issue summary, top bar mark and Create, members stack, Projects breadcrumb fixed in SAN-44) | Hover-only: "Updated …" on the card key, over-limit title |
 
 ## Decisions
@@ -241,7 +242,7 @@ Responsive (375px).
 | D7 | One max per column, warn only | UI | display (KB-14); setting on `/p/KEY/settings` (KB-12) and the column header (KB-16) | |
 | D8 | Done hidden after window from entering done | UI | `issue_moves::done_timer_follows_the_status_category`, `moving_between_done_statuses_keeps_the_timer`; window select (KB-23) | |
 | D9 | No kanban backlog | UI | `project-header.test` "sends a kanban backlog to the board" | |
-| D10 | Epic panel | API only | as BL-20 | |
+| D10 | Epic panel | UI | as BL-20 | |
 | D11 | Point totals on section headers | UI | as BL-24 | |
 | D12 | Sprint N, presets, date check | UI | `sprints::sprint_edits_validate_dates`; `sprint-dialogs.test` | |
 | D13 | Empty start refused; no destination step when all done | UI | `sprint-dialogs.test` "skips the destination when every issue is done (D13)" | |
@@ -310,7 +311,8 @@ Ranked by what blocks a small team using the MVP every day.
    every column foot with that column's status.
    Why: once group 1 lets a team add a second status to a column, dragging can't reach it.
    Do it right after group 1.
-7. **Epic panel** — M.
+7. **Epic panel** — M. Done in SAN-48 (`epic-panel.test`, `issue-detail.test`,
+   `e2e/backlog.spec.ts`).
    Rules: BL-20, D10, UI-24 (epics), R-7 (epic sheet), BL-26 (panel).
    API: none; `parent=none` ("no epic") came in SAN-47, the rest exists (`Backlog.epics`,
    `PATCH parent`, `POST issues` type epic).

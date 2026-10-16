@@ -26,6 +26,7 @@ Options: A) AND across all B) AND across kinds, OR within one kind C) fully user
 Product vote: B — standard faceted-search behavior (Linear, GitHub Projects): picking two assignees is "either", adding a type filter narrows further. Predictable, no settings screen.
 Architecture vote: B — compiles to one `WHERE` in the board query: each kind is `= ANY($n)` (OR within), kinds are AND-ed, free text is `ILIKE` on summary.
 Winner: B — the market's mental model with the simplest SQL; accepted: no saved or query-based filters.
+Amended (SAN-47): free text also matches the issue key, not only the summary.
 
 ## D4 — Drop position and rank
 Context: SB OQ-6/7, BL OQ-3/11/12; design.md defines rank as one fractional-index order.

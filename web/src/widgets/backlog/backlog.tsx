@@ -7,8 +7,11 @@ import {
   useState,
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { Layers } from 'lucide-react'
 import { CreateSlot } from '@/widgets/board/create-slot'
 import { FilterBar } from '@/widgets/board/filter-bar'
+import { TOGGLE } from '@/widgets/board/filter-controls'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { backlogQuery } from '@/entities/issue/backlog-query'
 import { BacklogContext } from '@/entities/issue/board-context'
@@ -38,6 +41,11 @@ const SortableBacklog = lazy(() =>
   import('@/features/move-issue/sortable-backlog').then((module) => ({
     default: module.SortableBacklog,
   }))
+)
+
+// Lazy: dnd-kit's droppable and the phone sheet load when the panel opens (D39).
+const EpicPanel = lazy(() =>
+  import('./epic-panel').then((module) => ({ default: module.EpicPanel }))
 )
 
 const RowMenu = lazy(() =>
@@ -75,9 +83,11 @@ type SectionsProps = {
   backlog: BacklogView
   projectKey: string
   statuses: Map<number, Status>
+  /** Drawn beside the sections, inside the drag layer, so rows drop onto it. */
+  panel: ReactNode
 }
 
-const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
+const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   const narrow = useIsMobile()
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [dialog, setDialog] = useState<SprintAction | null>(null)
@@ -241,24 +251,30 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
     )
   )
 
+  const frame = (sections: ReactNode) => (
+    <div className='flex items-start gap-4'>
+      <div className='grid min-w-0 flex-1 gap-4'>{sections}</div>
+      {panel}
+    </div>
+  )
+
   // Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads.
   return (
     <BacklogContext value={backlog}>
-      <div className='grid gap-4'>
-        {narrow ? (
-          plain
-        ) : (
-          <Suspense fallback={plain}>
-            <SortableBacklog
-              backlog={backlog}
-              projectKey={projectKey}
-              renderSection={renderSection}
-              renderList={renderList}
-              renderRow={renderRow}
-            />
-          </Suspense>
-        )}
-      </div>
+      {narrow ? (
+        frame(plain)
+      ) : (
+        <Suspense fallback={frame(plain)}>
+          <SortableBacklog
+            backlog={backlog}
+            projectKey={projectKey}
+            frame={frame}
+            renderSection={renderSection}
+            renderList={renderList}
+            renderRow={renderRow}
+          />
+        </Suspense>
+      )}
       {dialog && (
         <Suspense fallback={null}>
           <SprintDialog
@@ -294,18 +310,58 @@ const BacklogBody = ({ projectKey, search }: BacklogProps) => {
   })
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const statuses = useMemo(() => statusesById(settings), [settings])
+  const navigate = useNavigate()
   if (error) throw error
   if (!backlog) return <BacklogSkeleton />
+  const panelOpen = search.panel === 'epics'
   return (
     <>
-      <FilterBar projectKey={projectKey} search={search} text />
+      <div className='flex items-start gap-2'>
+        <FilterBar projectKey={projectKey} search={search} text />
+        <Link
+          to='.'
+          search={(prev) => ({
+            ...prev,
+            panel: panelOpen ? undefined : 'epics',
+          })}
+          role='button'
+          aria-pressed={panelOpen}
+          className={`${TOGGLE} ms-auto gap-1.5`}
+        >
+          <Layers className='size-4' aria-hidden='true' />
+          Epics
+        </Link>
+      </div>
       {countFilters(search) > 0 &&
         backlog.sections.every((section) => section.cards.length === 0) && (
           <p className='text-sm text-muted-foreground'>
             No issues match these filters.
           </p>
         )}
-      <Sections backlog={backlog} projectKey={projectKey} statuses={statuses} />
+      <Sections
+        backlog={backlog}
+        projectKey={projectKey}
+        statuses={statuses}
+        panel={
+          panelOpen && (
+            <Suspense
+              fallback={<div className='hidden w-72 shrink-0 md:block' />}
+            >
+              <EpicPanel
+                epics={backlog.epics}
+                projectKey={projectKey}
+                selected={search.epic}
+                onClose={() =>
+                  void navigate({
+                    to: '.',
+                    search: (prev) => ({ ...prev, panel: undefined }),
+                  })
+                }
+              />
+            </Suspense>
+          )
+        }
+      />
     </>
   )
 }

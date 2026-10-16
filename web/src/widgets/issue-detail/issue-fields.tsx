@@ -1,6 +1,6 @@
 import { type ReactNode, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { boardSettingsQuery } from '@/entities/issue/board-query'
+import { boardSettingsQuery, epicsQuery } from '@/entities/issue/board-query'
 import {
   type IssueChange,
   useEditIssue,
@@ -178,6 +178,38 @@ const SprintField = ({ issue, projectKey }: IssueFieldsProps) => {
   )
 }
 
+/** BL-21: a story, task or bug hangs under one epic; a subtask keeps its parent, an epic has none. */
+const EpicField = ({ issue, projectKey }: IssueFieldsProps) => {
+  const { data: epics = [] } = useQuery(epicsQuery(projectKey))
+  const parent = issue.parent_key ?? ''
+  const unlisted = parent && !epics.some((epic) => epic.key === parent)
+  return (
+    <Field label='Epic' issue={issue} projectKey={projectKey}>
+      {(save, id) => (
+        <select
+          id={id}
+          className={SELECT}
+          value={parent}
+          onChange={(event) => {
+            const picked = event.target.value || null
+            save({ parent: picked }, { parent_key: picked })
+          }}
+        >
+          <option value=''>No epic</option>
+          {unlisted && <option value={parent}>{parent}</option>}
+          {epics.map((epic) => (
+            <option key={epic.key} value={epic.key}>
+              {epic.key} {epic.summary}
+            </option>
+          ))}
+        </select>
+      )}
+    </Field>
+  )
+}
+
+const EPIC_CHILDREN = new Set(['story', 'task', 'bug'])
+
 const pointsOf = (text: string) => (text === '' ? null : Number(text))
 
 /** The right column of the issue view (UI-27): every field saves on change. */
@@ -270,20 +302,7 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
           />
         )}
       </Field>
-      <Field label='Parent' {...field}>
-        {(save, id) => (
-          <CommitInput
-            id={id}
-            className='h-11 font-mono md:h-9'
-            placeholder='None'
-            value={issue.parent_key ?? ''}
-            onCommit={(text) => {
-              const parent = text.toUpperCase() || null
-              save({ parent }, { parent_key: parent })
-            }}
-          />
-        )}
-      </Field>
+      {EPIC_CHILDREN.has(issue.issue_type) && <EpicField {...field} />}
       <Fact label='Created'>
         <When iso={issue.created_at} />
       </Fact>

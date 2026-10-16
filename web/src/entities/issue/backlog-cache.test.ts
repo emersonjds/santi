@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { WEB_BACKLOG, card } from '@/test/stub-api'
-import { insertRow, moveRow, planRowMove } from './backlog-cache'
+import { insertRow, moveRow, planRowMove, setEpic } from './backlog-cache'
 
 const [ACTIVE, PLANNED, EMPTY, NO_SPRINT] = WEB_BACKLOG.sections
 const [WEB_6, WEB_7] = NO_SPRINT.cards
@@ -49,7 +49,7 @@ describe('backlog cache', () => {
     expect(moved.sections[1]).toBe(PLANNED)
   })
 
-  it('adds a new row once, and never an epic or a subtask', () => {
+  it('adds a new row once, an epic to the panel only, and never a subtask', () => {
     const story = card({
       key: 'WEB-12',
       summary: 'New',
@@ -61,11 +61,24 @@ describe('backlog cache', () => {
     expect(keys(3, added)).toEqual(['WEB-6', 'WEB-7', 'WEB-12'])
     expect(added.sections[3]).toMatchObject({ issue_count: 3, total_points: 3 })
     expect(insertRow(added, story)).toBe(added)
-    expect(insertRow(WEB_BACKLOG, { ...story, issue_type: 'epic' })).toBe(
-      WEB_BACKLOG
-    )
+    const epic = insertRow(WEB_BACKLOG, { ...story, issue_type: 'epic' })
+    expect(epic.sections).toBe(WEB_BACKLOG.sections)
+    expect(epic.epics.map((each) => each.key)).toEqual(['WEB-9', 'WEB-12'])
+    expect(insertRow(epic, { ...story, issue_type: 'epic' })).toBe(epic)
     expect(insertRow(WEB_BACKLOG, { ...story, issue_type: 'subtask' })).toBe(
       WEB_BACKLOG
     )
+  })
+  it('moves a row between epics, recounting both, and leaves a no-op alone (D10)', () => {
+    const [WEB_4] = PLANNED.cards
+    expect(setEpic(WEB_BACKLOG, { card: WEB_6, epic: null })).toBe(WEB_BACKLOG)
+
+    const cleared = setEpic(WEB_BACKLOG, { card: WEB_4, epic: null })
+    expect(cleared.sections[1].cards[0].parent_key).toBeNull()
+    expect(cleared.epics[0].child_count).toBe(0)
+
+    const set = setEpic(cleared, { card: WEB_6, epic: 'WEB-9' })
+    expect(set.sections[3].cards[0].parent_key).toBe('WEB-9')
+    expect(set.epics[0].child_count).toBe(1)
   })
 })

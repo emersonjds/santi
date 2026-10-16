@@ -13,7 +13,13 @@ import {
 } from '@/shared/api/client'
 import { useOptimisticWrite } from '@/shared/lib/optimistic-write'
 import { toast } from '@/shared/lib/toast'
-import { type RowMove, insertRow, moveRow } from './backlog-cache'
+import {
+  type EpicChange,
+  type RowMove,
+  insertRow,
+  moveRow,
+  setEpic,
+} from './backlog-cache'
 import { backlogKey } from './backlog-query'
 import {
   type Move,
@@ -23,7 +29,12 @@ import {
   patchCard,
   placeCard,
 } from './board-cache'
-import { boardSettingsQuery, boardsKey, issueNumber } from './board-query'
+import {
+  boardSettingsQuery,
+  boardsKey,
+  epicsQuery,
+  issueNumber,
+} from './board-query'
 import { commentsQuery, issueQuery, subtasksQuery } from './issue-queries'
 import { statusesOf } from './statuses'
 
@@ -58,6 +69,22 @@ export const useMoveRow = (projectKey: string) =>
       ),
     change: moveRow,
     failure: ({ card }) => `Couldn't move ${card.key}`,
+  })
+
+/** BL-20: a row dropped on an epic in the panel, or given one from its menu; `null` clears it. */
+export const useSetEpic = (projectKey: string) =>
+  useOptimisticWrite<Backlog, EpicChange>({
+    queryKey: backlogKey(projectKey),
+    refresh: [boardsKey(projectKey)],
+    write: async ({ card, epic }) =>
+      dataOrThrow(
+        await api.PATCH('/api/projects/{key}/issues/{number}', {
+          params: { path: { key: projectKey, number: issueNumber(card.key) } },
+          body: { parent: epic },
+        })
+      ),
+    change: setEpic,
+    failure: ({ card }) => `Couldn't set the epic of ${card.key}`,
   })
 
 /** The card keeps its status when the column holds it, else takes the column's first one. */
@@ -261,6 +288,10 @@ export const useCreateIssue = (projectKey: string) => {
       )
       void queryClient.invalidateQueries({ queryKey: boardsKey(projectKey) })
       void queryClient.invalidateQueries({ queryKey: backlogKey(projectKey) })
+      if (created.issue_type === 'epic')
+        void queryClient.invalidateQueries({
+          queryKey: epicsQuery(projectKey).queryKey,
+        })
     },
   })
 }
