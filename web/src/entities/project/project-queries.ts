@@ -39,6 +39,15 @@ export const sprintsQuery = (key: string) =>
       ),
   })
 
+export const invitePreviewQuery = (token: string) =>
+  queryOptions({
+    queryKey: ['invites', token],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/api/invites/{token}', { params: { path: { token } } })
+      ),
+  })
+
 /** Project and members for a project page; non-members get the not-found page (D28). */
 export const loadProject = async (queryClient: QueryClient, key: string) => {
   try {

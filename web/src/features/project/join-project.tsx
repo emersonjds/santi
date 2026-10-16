@@ -1,15 +1,30 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
-import { projectQuery, projectsQuery } from '@/entities/project/project-queries'
+import { ROLE_LABEL } from '@/entities/project/labels'
+import {
+  invitePreviewQuery,
+  projectQuery,
+  projectsQuery,
+} from '@/entities/project/project-queries'
 import { api, dataOrThrow, hasStatus } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { RootError } from '@/shared/ui/root-error'
+import { Skeleton } from '@/shared/ui/skeleton'
 
-const USED_OR_EXPIRED =
-  'This invite link was already used or has expired. Ask for a new one.'
+const ASK_AGAIN = 'Ask for a new one.'
+const USED_OR_EXPIRED = `This invite link was already used or has expired. ${ASK_AGAIN}`
+const UNKNOWN = `This invite link does not exist. ${ASK_AGAIN}`
 
-export const JoinProject = ({ token }: { token: string }) => {
+const Row = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className='flex justify-between gap-3 py-2'>
+    <dt className='text-muted-foreground'>{label}</dt>
+    <dd className='font-medium'>{children}</dd>
+  </div>
+)
+
+const JoinButton = ({ token }: { token: string }) => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const join = useMutation({
@@ -40,6 +55,38 @@ export const JoinProject = ({ token }: { token: string }) => {
         {join.isPending && <Loader2 className='animate-spin' />}
         Join project
       </Button>
+    </div>
+  )
+}
+
+/** What the link offers (project, role, inviter, expiry), then the one action; a dead link says why. */
+export const JoinProject = ({ token }: { token: string }) => {
+  const { data: invite, error } = useQuery(invitePreviewQuery(token))
+  if (error)
+    return (
+      <RootError
+        message={
+          hasStatus(error, 410) ? `${error.message} ${ASK_AGAIN}` : UNKNOWN
+        }
+      />
+    )
+  if (!invite) return <Skeleton className='h-36 w-full' />
+
+  return (
+    <div className='grid gap-4'>
+      <section aria-label='Invite'>
+        <p className='text-lg font-semibold'>{invite.project_name}</p>
+        <dl className='divide-y text-sm'>
+          <Row label='Role'>{ROLE_LABEL[invite.role]}</Row>
+          <Row label='Invited by'>{invite.inviter_name}</Row>
+          <Row label='Expires'>
+            {new Date(invite.expires_at).toLocaleDateString(undefined, {
+              dateStyle: 'medium',
+            })}
+          </Row>
+        </dl>
+      </section>
+      <JoinButton token={token} />
     </div>
   )
 }

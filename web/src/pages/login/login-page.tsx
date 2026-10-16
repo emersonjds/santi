@@ -17,7 +17,11 @@ export const LoginPage = () => {
           <h1 className='text-lg leading-none font-semibold'>Sign in</h1>
           <CardDescription>
             New to santi?{' '}
-            <Link to='/register' className='text-primary underline'>
+            <Link
+              to='/register'
+              search={{ redirect }}
+              className='text-primary underline'
+            >
               Create an account
             </Link>
           </CardDescription>
