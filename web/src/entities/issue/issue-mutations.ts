@@ -1,5 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
+  type QueryKey,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query'
+import {
+  type Backlog,
   type BoardSettings,
   type BoardView,
   type Card,
@@ -11,6 +16,8 @@ import {
   dataOrThrow,
 } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
+import { type RowMove, insertRow, moveRow } from './backlog-cache'
+import { backlogKey } from './backlog-query'
 import {
   type Move,
   cardOf,
@@ -22,38 +29,85 @@ import {
 import { boardSettingsQuery, boardsKey, issueNumber } from './board-query'
 import { commentsQuery, issueQuery, subtasksQuery } from './issue-queries'
 
+type OptimisticWrite<View, Variables> = {
+  /** The caches patched at once and rolled back on failure. */
+  queryKey: QueryKey
+  /** Other views the write changes, refetched once it settles. */
+  refresh?: QueryKey
+  write: (variables: Variables) => Promise<unknown>
+  change: (view: View, variables: Variables) => View
+  failure: (variables: Variables) => string
+}
+
 /**
- * D37 optimistic write: patch every board cache of the project, roll back and
+ * D37 optimistic write: patch every cache under `queryKey`, roll back and
  * toast the problem on failure, refetch once settled.
  */
+const useOptimisticWrite = <View, Variables>({
+  queryKey,
+  refresh,
+  write,
+  change,
+  failure,
+}: OptimisticWrite<View, Variables>) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: write,
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey })
+      const snapshot = queryClient.getQueriesData<View>({ queryKey })
+      queryClient.setQueriesData<View>(
+        { queryKey },
+        (view) => view && change(view, variables)
+      )
+      return snapshot
+    },
+    onError: (error, variables, snapshot) => {
+      // A fresh object: the drag layer drops its pending order once the view it was made for changes.
+      for (const [key, view] of snapshot ?? [])
+        queryClient.setQueryData(key, view && { ...view })
+      toast.error(failure(variables), { description: error.message })
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey }),
+        refresh && queryClient.invalidateQueries({ queryKey: refresh }),
+      ]),
+  })
+}
+
 const useBoardWrite = <Variables>(
   projectKey: string,
   write: (variables: Variables) => Promise<unknown>,
   change: (board: BoardView, variables: Variables) => BoardView,
   failure: (variables: Variables) => string
-) => {
-  const queryClient = useQueryClient()
-  const queryKey = boardsKey(projectKey)
-  return useMutation({
-    mutationFn: write,
-    onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey })
-      const snapshot = queryClient.getQueriesData<BoardView>({ queryKey })
-      queryClient.setQueriesData<BoardView>(
-        { queryKey },
-        (board) => board && change(board, variables)
-      )
-      return snapshot
-    },
-    onError: (error, variables, snapshot) => {
-      // A fresh object: the drag layer drops its pending order once the board it was made for changes.
-      for (const [key, board] of snapshot ?? [])
-        queryClient.setQueryData(key, board && { ...board })
-      toast.error(failure(variables), { description: error.message })
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+) =>
+  useOptimisticWrite({
+    queryKey: boardsKey(projectKey),
+    refresh: backlogKey(projectKey),
+    write,
+    change,
+    failure,
   })
-}
+
+/** BL-13: a row dragged or sent within or across backlog sections; the sprint goes only when it changes. */
+export const useMoveRow = (projectKey: string) =>
+  useOptimisticWrite<Backlog, RowMove>({
+    queryKey: backlogKey(projectKey),
+    refresh: boardsKey(projectKey),
+    write: async ({ card, toSprintId, after, before }) =>
+      dataOrThrow(
+        await api.POST('/api/projects/{key}/issues/{number}/move', {
+          params: { path: { key: projectKey, number: issueNumber(card.key) } },
+          body:
+            (card.sprint_id ?? null) === toSprintId
+              ? { after, before }
+              : { sprint_id: toSprintId, after, before },
+        })
+      ),
+    change: moveRow,
+    failure: ({ card }) => `Couldn't move ${card.key}`,
+  })
 
 /** The card keeps its status when the column holds it, else takes the column's first one. */
 const statusFor = (
@@ -183,6 +237,7 @@ export const useEditIssue = (projectKey: string, issue: Issue) => {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: issueKey, exact: true }),
         queryClient.invalidateQueries({ queryKey: boards }),
+        queryClient.invalidateQueries({ queryKey: backlogKey(projectKey) }),
       ]),
   })
 }
@@ -243,15 +298,18 @@ export const useCreateIssue = (projectKey: string) => {
       const settings = queryClient.getQueryData(
         boardSettingsQuery(projectKey).queryKey
       )
-      const queryKey = boardsKey(projectKey)
-      queryClient.setQueriesData<BoardView>({ queryKey }, (board) => {
-        const columnId =
-          columnOf(settings, created.status_id) ?? board?.columns[0]?.id
-        return board && columnId !== undefined
-          ? insertCard(board, cardOf(created, columnId))
-          : board
-      })
-      void queryClient.invalidateQueries({ queryKey })
+      const columnId = (board?: BoardView) =>
+        columnOf(settings, created.status_id) ?? board?.columns[0]?.id ?? 0
+      queryClient.setQueriesData<BoardView>(
+        { queryKey: boardsKey(projectKey) },
+        (board) => board && insertCard(board, cardOf(created, columnId(board)))
+      )
+      queryClient.setQueriesData<Backlog>(
+        { queryKey: backlogKey(projectKey) },
+        (backlog) => backlog && insertRow(backlog, cardOf(created, columnId()))
+      )
+      void queryClient.invalidateQueries({ queryKey: boardsKey(projectKey) })
+      void queryClient.invalidateQueries({ queryKey: backlogKey(projectKey) })
     },
   })
 }

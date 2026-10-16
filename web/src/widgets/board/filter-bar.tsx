@@ -25,7 +25,8 @@ export const FilterBar = ({
   const { data: me } = useSuspenseQuery(sessionQuery)
   const assignee = search.assignee ?? []
   const onlyMine = assignee.length === 1 && assignee[0] === me?.id
-  const link = { to: '/p/$key/board', params: { key: projectKey } } as const
+  // The current page: the board and the backlog share these filters (D18).
+  const link = { to: '.' } as const
 
   return (
     <div

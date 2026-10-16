@@ -7,7 +7,7 @@ import {
   useState,
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
-import { Ellipsis, Plus } from 'lucide-react'
+import { Ellipsis } from 'lucide-react'
 import { BoardContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
@@ -20,6 +20,7 @@ import type { BoardColumn, BoardView, Card } from '@/shared/api/client'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { ColumnPicker, ColumnShell } from './board-column'
 import { BoardSkeleton, NoSprint, SprintStrip } from './board-states'
+import { CreateSlot } from './create-slot'
 import { FilterBar } from './filter-bar'
 
 type BoardProps = { projectKey: string; search: BoardSearch }
@@ -41,51 +42,6 @@ const CardMenu = lazy(() =>
     default: module.CardMenu,
   }))
 )
-
-const InlineCreate = lazy(() =>
-  import('@/features/create-issue/inline-create').then((module) => ({
-    default: module.InlineCreate,
-  }))
-)
-
-const CREATE_ROW =
-  'mx-2 mb-2 flex h-11 items-center gap-1.5 rounded-md px-2 text-sm text-muted-foreground md:h-9'
-
-type ColumnCreateProps = {
-  board: BoardView
-  projectKey: string
-  open: boolean
-  setOpen: (open: boolean) => void
-}
-
-/** D5: inline create at the foot of the first column; the form loads on the first click. */
-const ColumnCreate = ({
-  board,
-  projectKey,
-  open,
-  setOpen,
-}: ColumnCreateProps) => {
-  if (!open)
-    return (
-      <button
-        type='button'
-        className={`${CREATE_ROW} outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring`}
-        onClick={() => setOpen(true)}
-      >
-        <Plus className='size-4' />
-        Create issue
-      </button>
-    )
-  return (
-    <Suspense fallback={<div className={CREATE_ROW} />}>
-      <InlineCreate
-        board={board}
-        projectKey={projectKey}
-        onClose={() => setOpen(false)}
-      />
-    </Suspense>
-  )
-}
 
 // Same box as the menu button, so nothing moves when the menu chunk arrives.
 const MenuPlaceholder = () => (
@@ -137,8 +93,8 @@ const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
       footer={
         <>
           {column === first && (
-            <ColumnCreate
-              board={board}
+            <CreateSlot
+              sprintId={board.sprint?.id}
               projectKey={projectKey}
               open={creating}
               setOpen={setCreating}

@@ -15,6 +15,11 @@ export type Card = Schemas['Card']
 export type IssueType = Schemas['IssueType']
 export type Priority = Schemas['Priority']
 export type Sprint = Schemas['Sprint']
+export type Backlog = Schemas['Backlog']
+export type BacklogSection = Schemas['BacklogSection']
+export type CreateSprint = Schemas['CreateSprint']
+export type UpdateSprint = Schemas['UpdateSprint']
+export type CompleteSprint = Schemas['CompleteSprint']
 export type UpdateIssue = Schemas['UpdateIssue']
 export type Issue = Schemas['Issue']
 export type Comment = Schemas['Comment']
@@ -47,13 +52,21 @@ type Result<Data> = {
   response: Response
 }
 
-export const dataOrThrow = <Data>({ data, error, response }: Result<Data>) => {
-  if (data !== undefined) return data
-  throw new ApiError(
+const problemOf = ({ error, response }: Result<unknown>) =>
+  new ApiError(
     response.status,
     error?.detail ?? response.statusText,
     error?.errors
   )
+
+export const dataOrThrow = <Data>(result: Result<Data>) => {
+  if (result.data !== undefined) return result.data
+  throw problemOf(result)
+}
+
+/** For answers without a body (204): only the status tells success. */
+export const okOrThrow = (result: Result<unknown>) => {
+  if (!result.response.ok) throw problemOf(result)
 }
 
 /** What to say next to a field whose save failed: the server's word on that field, else the detail. */
