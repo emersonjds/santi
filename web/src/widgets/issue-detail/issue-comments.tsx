@@ -15,7 +15,12 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
   const { data: comments = [] } = useQuery(commentsQuery(projectKey, number))
   const { data: members = [] } = useQuery(membersQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
-  const add = useAddComment(projectKey, number, me?.id ?? 0)
+  const add = useAddComment(
+    projectKey,
+    number,
+    me?.id ?? 0,
+    me?.display_name ?? ''
+  )
   const [draft, setDraft] = useState('')
   const nameOf = (userId: number) =>
     members.find((member) => member.user_id === userId)?.display_name ??
