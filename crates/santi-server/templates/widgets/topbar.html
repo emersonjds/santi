@@ -1,0 +1,23 @@
+<header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-canvas px-2 sm:px-4">
+  <a class="grid size-11 shrink-0 place-items-center rounded-md text-text-muted hover:bg-hover hover:text-text lg:hidden" href="#sidebar" aria-label="Open sidebar">{{ ui::icon("panel-left") }}</a>
+  {{ ui::brand("/", "hidden sm:inline") }}
+  {%- if !shell.current.is_empty() %}
+  <form class="min-w-0 flex-1 sm:max-w-sm" method="get" action="/p/{{ shell.current }}/search" role="search">
+    <label class="sr-only" for="top-search">Search issues in {{ shell.current }}</label>
+    <input class="min-h-11 w-full rounded-md border border-control bg-canvas px-3 text-base placeholder:text-text-subtle" id="top-search" type="search" name="q" placeholder="Search {{ shell.current }}">
+  </form>
+  {%- endif %}
+  <a id="create" href="{{ shell.create_href() }}"{% if !shell.projects.is_empty() %} hx-get="{{ shell.create_href() }}" hx-target="#dialog-body" hx-swap="innerHTML"{% endif %} class="ml-auto inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-3 font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed">{{ ui::icon("plus") }}<span class="sr-only sm:not-sr-only">Create</span></a>
+  <details class="relative shrink-0">
+    <summary class="flex min-h-11 min-w-11 items-center gap-2 rounded-md px-1.5 text-text-muted hover:bg-hover hover:text-text" aria-label="Account menu for {{ shell.display_name }}">
+      {{ ui::avatar(shell.display_name) }}
+      <span class="hidden max-w-[16ch] truncate md:inline">{{ shell.display_name }}</span>
+    </summary>
+    <div class="absolute right-0 top-[calc(100%+6px)] w-[min(260px,calc(100vw-32px))] rounded-lg border border-border bg-raised p-2 shadow-lg">
+      <p class="px-2.5 py-2 text-sm text-text-muted">Signed in as <strong class="text-text">{{ shell.display_name }}</strong></p>
+      <form method="post" action="/logout">
+        <button class="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2.5 text-left hover:bg-hover" type="submit">{{ ui::icon("log-out") }}<span>Sign out</span></button>
+      </form>
+    </div>
+  </details>
+</header>

@@ -1,0 +1,68 @@
+use santi_types::projects::BoardType;
+
+use crate::error::AppError;
+
+pub fn check_project_key(key: &str) -> Result<String, AppError> {
+    let key = key.trim().to_uppercase();
+    let mut characters = key.chars();
+    let starts_with_letter = characters
+        .next()
+        .is_some_and(|first| first.is_ascii_uppercase());
+    let rest_is_alphanumeric =
+        characters.all(|character| character.is_ascii_uppercase() || character.is_ascii_digit());
+    let length_ok = (2..=10).contains(&key.len());
+    if !(starts_with_letter && rest_is_alphanumeric && length_ok) {
+        return Err(AppError::invalid(
+            "key",
+            "must be 2 to 10 letters or digits, starting with a letter",
+        ));
+    }
+    Ok(key)
+}
+
+pub fn check_project_name(name: &str) -> Result<String, AppError> {
+    let name = name.trim();
+    if name.is_empty() || name.chars().count() > 100 {
+        return Err(AppError::invalid("name", "must have 1 to 100 characters"));
+    }
+    Ok(name.to_string())
+}
+
+/// KB-23: kanban boards hide done work after 14 days by default; scrum boards never hide.
+pub fn default_done_window(board_type: BoardType) -> Option<i32> {
+    match board_type {
+        BoardType::Kanban => Some(14),
+        BoardType::Scrum => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use santi_types::projects::BoardType;
+
+    #[test]
+    fn project_key_is_trimmed_and_uppercased() {
+        assert_eq!(check_project_key(" santi ").unwrap(), "SANTI");
+    }
+
+    #[test]
+    fn project_key_shape_is_enforced() {
+        for bad in ["S", "1ABC", "AB-C", "ABCDEFGHIJK", ""] {
+            assert!(check_project_key(bad).is_err(), "{bad} should be refused");
+        }
+        assert!(check_project_key("A1").is_ok());
+    }
+
+    #[test]
+    fn project_name_is_required() {
+        assert!(check_project_name("  ").is_err());
+        assert_eq!(check_project_name(" Santi ").unwrap(), "Santi");
+    }
+
+    #[test]
+    fn kanban_hides_done_after_14_days_and_scrum_never() {
+        assert_eq!(default_done_window(BoardType::Kanban), Some(14));
+        assert_eq!(default_done_window(BoardType::Scrum), None);
+    }
+}

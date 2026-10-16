@@ -1,0 +1,119 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, name, goal, state AS \"state: SprintState\", start_date, end_date, started_at, closed_at,\n                  (state = 'active' AND end_date < current_date) AS \"overdue!\"\n           FROM sprint WHERE board_id = $1 AND state <> 'closed'\n           ORDER BY state = 'future', id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "goal",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "goal"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "state: SprintState",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "start_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "start_date"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "end_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "end_date"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "closed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "closed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "overdue!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      null
+    ]
+  },
+  "hash": "02eb88004ff795a16de7741755e7cf5bf19edb7276541ce330daa3a905d453ed"
+}

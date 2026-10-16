@@ -55,6 +55,16 @@ LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
 cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
+## Styles
+
+Styles are Tailwind v4 utilities in the askama templates; tokens live in `crates/santi-server/styles/app.css`.
+Install the standalone CLI (`brew install tailwindcss`, v4.3.3), run `scripts/css.sh --watch` while editing and
+commit the generated `crates/santi-server/static/app.css`; CI fails when it is stale.
+
+## Deploy
+
+Behind a reverse proxy, forward the original `Host` header (nginx: `proxy_set_header Host $host;`); the cross-site write check compares it with `Origin`.
+
 ## Conduct and security
 
 This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).

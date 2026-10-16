@@ -4,7 +4,7 @@ Date: 2026-10-15.
 
 Protocol: the `product` agent votes first on each open question, grounded in how agile tools on the market behave. The `architect` then challenges every vote on complexity, data model, performance, testability and readability, and may replace it with another option only if that option still serves the UX. The winner is recorded with the reason it won and the trade-off accepted; when the votes differ, the option that keeps both UX quality and a clean architecture wins. D19 onward are architecture-only questions (product vote `n/a`). The design spec points here instead of repeating rationale.
 
-## D1 — Web UI stack
+## D1 — Web UI stack (superseded by D37)
 Context: design.md already names Leptos CSR/WASM; goal is code readable in 10s by non-Rust devs, fast, clean UI.
 Options: A) Leptos CSR/WASM B) server-rendered HTML (askama + htmx + vanilla JS drag/drop) C) Leptos SSR
 Market: Linear/Plane/YouTrack ship heavy JS SPAs; small self-hosted OSS boards lean htmx+SortableJS for DnD.
@@ -170,6 +170,7 @@ Options: A) server-side `auth_token` table + HttpOnly cookie B) signed JWT cooki
 Product vote: n/a
 Architecture vote: A — 32 random bytes in a `HttpOnly; Secure; SameSite=Lax` cookie, only the SHA-256 stored; logout, password change and member removal revoke with one `DELETE`; fixed 30-day expiry, new token per login; non-GET requests also need a same-origin `Origin`. B can't revoke without a denylist (a session table again) and adds key rotation.
 Winner: A — instant revocation, nothing to sign; accepted: one indexed lookup per request.
+Accepted: `POST /api/auth/register` answers 409 for a taken email, so it reveals that an account exists; revisit when email verification lands.
 
 ## D23 — API token format and storage
 Context: CLI and MCP act as a user through a personal token.
@@ -185,14 +186,14 @@ Product vote: n/a
 Architecture vote: A — one `AppError` enum maps to `type` (`urn:santi:error:<slug>`, stable for clients), `title`, `status`, `detail`, plus `errors: [{field, message}]` for validation; documented once in OpenAPI. CLI and MCP print `detail` and branch on `type`; HTML routes render the same error as inline messages.
 Winner: A — a standard every HTTP client already understands; accepted: slightly more fields than an ad hoc body.
 
-## D25 — Crate and slice layout (consequence of D1)
+## D25 — Crate and slice layout (consequence of D1; `web.rs` and `templates/` go away at the D37 cutover)
 Context: D1 drops Leptos, so `santi-web` has no WASM to hold.
 Options: A) keep a `santi-web` crate for templates B) pages live in `santi-server`
 Product vote: n/a
 Architecture vote: B — three crates (`santi-types`, `santi-server`, `santi-cli`). Each slice: `domain.rs` (pure rules), `repo.rs` (sqlx), `service.rs` (use cases: membership, transaction, domain + repo), `handler.rs` (JSON + utoipa), `web.rs` (askama HTML); both front doors call `service.rs` only, so no rule is written twice. Templates in `templates/` by FSD layer (`app → widgets → features → entities → shared`, includes only downward).
 Winner: B — handler → service → domain/repo reads the same for HTML and JSON; accepted: one more file per slice.
 
-## D26 — Web asset budget (replaces the WASM bundle question)
+## D26 — Web asset budget (replaces the WASM bundle question; superseded by D37)
 Context: D1 removes WASM; the browser still needs htmx, drag and drop and CSS.
 Options: A) npm bundler pipeline B) vendored files embedded in the binary
 Product vote: n/a
@@ -255,3 +256,118 @@ Market: Linear, GitHub, GitLab and YouTrack expose JSON over HTTP (REST or Graph
 Product vote: A — integrations and scripts speak HTTP + JSON natively (curl, any language's standard library); gRPC raises the contribution bar with protoc, generated code and a second toolchain.
 Architecture vote: A — JSON REST described by OpenAPI (D24 errors included) with gzip/br response compression (`tower-http`); the browser gets HTML through htmx anyway (D1), payloads are a few KB so serialization cost is negligible next to the database and the network, and every call stays debuggable with curl and browser devtools. B would need grpc-web or a proxy for the browser and protoc in every build.
 Winner: A — one wire format for UI, CLI, MCP and scripts; accepted: the contract is typed by OpenAPI plus the shared `santi-types` DTOs instead of protobuf schemas, and gRPC is reconsidered only for high-volume service-to-service traffic, which santi does not have.
+
+## D35 — CSS with Tailwind (amends D26; superseded by D37)
+Context: the hand-written `app.css` slowed down the tracker-style layout pass; the owner asked for Tailwind.
+Options: A) keep hand-written CSS B) Tailwind v4 standalone CLI, output committed C) Tailwind through npm
+Product vote: B — utility classes in the askama templates make layout changes fast and readable next to the markup.
+Architecture vote: B — the standalone binary needs no Node; `static/app.css` is generated (minified) and committed, so `cargo build` still needs nothing extra; CI downloads the binary, regenerates and fails when the committed file is stale. JS stays vendored as in D26, same 50 KB gzip budget.
+Winner: B — fast styling with no Node toolchain; accepted: contributors who change styles install one binary (`brew install tailwindcss`).
+
+## D36 — Visual identity: light theme, brand purple, teal for done (amended 2026-10-15)
+Context: first screens shipped dark with a teal accent. The owner reviewed two mockups: A (dark warm-stone surfaces #0F0F0E / #1A1918 / #262422, teal #2DD4BF accent, deep-teal status button in a light issue modal) and B (light canvas, #FAFAFB sidebar, #F4F5F7 columns, brand purple #4C35D2 from the owner's other product), liked both, and settled on the purple.
+Options: A) dark + teal accent B) light + purple, teal dropped C) hybrid — light + purple as the only brand color, teal kept as the semantic color for done/success, and a dark theme built from A's stone surfaces with the purple shifted lighter
+Market: the reference tracker is light with a blue brand and grey/blue/green status lozenges; Linear brands with a violet accent and ships light and dark from one token set; GitHub marks finished work purple and open work green. Purple is free in the category; blue is taken.
+Product vote: C — light + dense rows is what tracker users expect on day one (B); purple is santi's identity and is never blue; teal survives where the owner liked it, as the "done" signal (status chip, status button, success toast), so done reads as a reward color and not as a second brand.
+UX vote: C — contrast decides the roles. Purple #4C35D2 is 7.64:1 on white both ways (text on white, white on purple; hover #3F2CB0 9.55, pressed #34258F 11.62), AAA for text and buttons. Teal #2DD4BF is 1.86:1 on white, so it can never be text or a button fill on light; teal-700 #0F766E (5.47 on white, white on it 5.47) is the light-theme teal. On dark, #4C35D2 drops to 2.30 on #1A1918 (fails), so dark uses brand-300 #B8ABF1 for text (8.47) and brand-400 #8B78E9 for fills and focus (4.98; dark label #1B1348 on it 4.83). The old subtle grey #8A8F9C is 3.24 on white and fails body text: replaced by #6B7080 (4.94 on white, 4.52 on #F4F5F7). Colour-blind simulation (Machado 2009, full severity): the status trio grey/purple/teal keeps its closest pair at ΔE 15 (protan) and 16 (deutan), to-do vs done, and 27 under tritan; in progress vs done stays above 70 under red-green deficiency. An amber/green trio scores no better (16 under protan), so the trio is safe enough with the glyphs doing the main work. Issue types and priorities are told by glyph first: bug red vs epic amber is only ΔE 9.8 under deutan, so color never carries meaning alone; of the priorities only urgent is colored.
+UI vote: C — one solid purple per view (the primary action), purple tint for selection and the active nav item, teal only for done/success, red only for danger. Board headers uppercase 12px with letter spacing, counts and keys in tabular numerals. Dark theme = A's warm stone surfaces with the purple scale shifted up two steps, so the dark story is the mockup the owner liked, minus the teal accent.
+Architecture vote: C — the Tailwind `@theme` declares the brand scale plus semantic tokens (`--color-canvas`, `--color-primary`, `--color-status-done`, …); templates use semantic tokens only, never raw hex or scale steps. Dark redefines the same semantic tokens under `@media (prefers-color-scheme: dark)` and `[data-theme=dark]`, so no template carries a `dark:` variant and turning dark on later is a CSS-only change.
+Winner: C — light + purple ships with SAN-32; teal is the done/success color; dark tokens are defined now and switched on in a later pass. Accepted: two accent hues to keep apart (purple = act/select, teal = done), done chips need the darker teal-800 text on light (#115E59), and dark-mode QA of every screen is deferred.
+
+Tokens (contrast is against the surface the token sits on; ≥ 4.5 text, ≥ 3 icons and control borders):
+
+| Group | Token | Light | Dark |
+|---|---|---|---|
+| Brand scale | `brand-50…950` | #F3F1FD #ECE8FB #D7D0F7 #B8ABF1 #8B78E9 #5A42E0 #4C35D2 #3F2CB0 #34258F #2C2075 #1B1348 | same scale |
+| Neutral | canvas (page) | #FFFFFF | #0F0F0E |
+| | surface (sidebar) | #FAFAFB | #1A1918 |
+| | sunken (columns, backlog sections) | #F4F5F7 | #1A1918 |
+| | raised (cards, modal, menus) | #FFFFFF | #262422 |
+| | hover row | #EEF0F3 | #33302D |
+| | border (dividers, card edge) | #E4E5E9 | #3A3734 |
+| | control border (inputs, checkboxes) | #8A8F9C (3.24) | #78716C (3.22) |
+| | text | #172033 (16.3) | #EDEBE8 (13.0 on raised) |
+| | text muted | #5E6475 (5.91) | #A8A29E (6.13) |
+| | text subtle (meta, placeholder) | #6B7080 (4.52 on sunken) | #948F8A (4.83) |
+| Primary | fill / label | #4C35D2 / #FFFFFF (7.64) | #8B78E9 / #1B1348 (4.83) |
+| | hover, pressed | #3F2CB0, #34258F | #B8ABF1, #D7D0F7 |
+| | link, active nav text | #4C35D2 | #B8ABF1 (8.47) |
+| | selected / active nav bg | #F3F1FD, strong #ECE8FB | #2C2075 (#B8ABF1 on it 6.45) |
+| | focus ring (2px, 2px offset) | #4C35D2 | #8B78E9 (5.44) |
+| Status | to do — `circle` | #3D4354 on #EEF0F3 (8.64) | #D6D3D1 on #33302D (8.80) |
+| | in progress — `circle-dot` | #3F2CB0 on #ECE8FB (7.96) | #C4B8F5 on #2C2075 (7.34) |
+| | done — `circle-check` | #115E59 on #CCFBF1 (6.73) | #5EEAD4 on #134E4A (6.41) |
+| Issue type | story — `book-open` | #0F766E | #2DD4BF |
+| | task — `clipboard-check` | #475569 | #94A3B8 |
+| | bug — `bug` | #B42318 | #F97066 |
+| | epic — `layers` | #B45309 | #FBBF24 |
+| | subtask — `list-tree` | #5E6475 | #A8A29E |
+| Priority | urgent — `circle-alert` | #B42318 | #F97066 |
+| | high — `signal-high` | #172033 | #EDEBE8 |
+| | medium — `signal-medium` | #5E6475 | #A8A29E |
+| | low — `signal-low` | #6B7080 | #948F8A |
+| Feedback | danger text / fill / tint | #B42318 / #B42318 + white (6.57) / #FEF3F2 | #F97066 / #F97066 + #0F0F0E (6.88) / #3B1512 |
+| | warning text / icon / tint | #92400E on #FEF3C7 (6.37) / #B45309 | #FBBF24 / #FBBF24 / #3A2A0A (8.30) |
+| | success text / tint | #0F766E (5.47) / #CCFBF1 | #2DD4BF (9.43) / #134E4A |
+
+Rules: status, type and priority always show glyph and text; color is the second cue. Warning (WIP over limit, overdue sprint) shares amber with the epic glyph; they never appear in the same slot.
+
+## D37 — Web UI: React SPA on shadcn-admin (supersedes D1, D26, D35 for the web UI)
+Context: the owner decided (binding) to replace the askama + htmx UI with a React SPA built on satnaing/shadcn-admin (MIT, v2.2.1, checked 2026-10-15 at `e16c87f`). The owner maintains React and shadcn daily, and the next screens need rich client behavior that htmx makes awkward: dnd-kit drag and drop with keyboard sensors, optimistic moves, a command palette, stacked dialogs and sheets. The JSON API (D34) already covers every page, so the server keeps one front door after the cutover.
+Options: A) keep htmx (D1) B) React SPA on shadcn-admin C) React SPA from scratch on the shadcn CLI
+Market: Linear, Plane and Height ship React SPAs over their own API; Plane and Twenty are open-source React + Tailwind and are self-hosted as API plus static bundle.
+Product vote: B — the owner ships it fastest, and the template already has the sidebar shell, header, command menu (cmdk), data table, dialogs, sheets, toasts (sonner) and auth screens the IA (`information-architecture.md`) lists; C rebuilds those.
+Architecture vote: B, with the template trimmed — reuse its components as they are; delete what santi has no use for (Clerk, faker data, axios, the demo pages, the JS-readable token cookie in `stores/auth-store.ts`). One contract: the SPA calls `/api/*` only, typed from the server's OpenAPI. A loses the interactions above; C pays again for what the template already tested.
+Winner: B — accepted: a Node toolchain (pnpm) for anyone touching the UI, a second gate (typecheck, lint, Vitest coverage, Playwright), and two UIs in the tree until parity. The htmx UI keeps serving production until the SPA reaches parity; the cutover PR removes `web.rs` files, `templates/`, `static/`, `styles/` and `scripts/css.sh` together.
+
+Stack (template versions, `package.json` at `e16c87f`): Vite ^8.0.8, React ^19.2.5, TypeScript ~6.0.3, TanStack Router ^1.168.22 (file routes, `@tanstack/router-plugin`), TanStack Query ^5.99.0, react-hook-form ^7.72.1 + zod ^4.3.6 (`@hookform/resolvers` ^5.2.2), zustand ^5.0.12, Radix + shadcn components (`new-york`, lucide icons), Tailwind ^4.2.2 via `@tailwindcss/vite`, sonner, cmdk 1.1.1, Vitest ^4.1.4. Added by santi: `@dnd-kit/core` 6.3.1 + `@dnd-kit/sortable` 10.0.0 (stable line; `@dnd-kit/react` 0.5 is pre-1.0), `openapi-typescript` 7.13.0 + `openapi-fetch` 0.17.0, `@playwright/test`. Package manager pnpm (template lockfile). Node ^20.19 or >= 22.12 (Vite 8).
+
+State: server data lives only in TanStack Query; zustand holds client UI state only (sidebar, open dialogs, drag preview), never server data or credentials. Filters stay in the URL (D18) as TanStack Router search params validated by zod. Optimistic writes: `onMutate` patches the board/backlog cache, `onError` rolls back and toasts the D24 `detail`, `onSettled` invalidates; a move sends the D4 anchor (`before`/`after`), never a computed rank.
+
+Testing: Vitest + Testing Library queries. Component tests run in Vitest browser mode (template default: real Chromium through Playwright, `vitest-browser-react`, whose `getByRole`/`getByText` follow Testing Library semantics), because Radix portals and dnd-kit pointer sensors need real layout that jsdom lacks; pure logic in `entities`/`shared` runs in the same suite. API calls are stubbed by passing a `fetch` to the `openapi-fetch` client, no mock server. Playwright end to end for the key flows only, against the real server, Postgres and the built SPA: sign in, create issue, drag a card across columns (and the keyboard "Move to…" path), plan and start a sprint, complete a sprint with open issues. Coverage gate > 90% on statements, branches, functions and lines with `coverage.include: ['src/**']`, so untested files count as 0%; excluded: generated files (`routeTree.gen.ts`, `shared/api/schema.d.ts`), unmodified shadcn primitives in `shared/ui`, and route files (thin, like `main.rs`).
+
+FSD inside `web/src` (`app → pages → widgets → features → entities → shared`, imports only downward, enforced by ESLint `no-restricted-imports` per layer; no extra plugin). Template folders map as:
+
+| FSD layer | Holds | From the template |
+|---|---|---|
+| `app/` | entry, providers, router, query client, global CSS, file routes (`app/routes/`, `routeTree.gen.ts`) | `main.tsx`, `context/*`, `styles/*`, `routes/*` (plugin `routesDirectory: ./src/app/routes`) |
+| `pages/` | one folder per IA page (board, backlog, issue, search, settings, account, login, register, join, home, new project) | `features/*/index.tsx` (the template's "features" are pages) |
+| `widgets/` | shell (sidebar, top bar, project header), filter bar, board columns, backlog sections, epic panel | `components/layout/*`, `command-menu.tsx`, `components/data-table/*` |
+| `features/` | user actions: move issue (dnd-kit), create issue, edit field, start/complete sprint, sign in/out, invite | form and dialog parts of `features/*/components`, `confirm-dialog.tsx`, `sign-out-dialog.tsx` |
+| `entities/` | issue, sprint, project, member, user: query options and display pieces (card, status chip, type glyph) | none, written for santi |
+| `shared/` | `ui/` (shadcn primitives), `lib/` (utils, hooks), `api/` (client + generated types), `config/` | `components/ui/*`, `lib/*`, `hooks/*` |
+
+`components.json` aliases point at `@/shared/ui` and `@/shared/lib/utils`, so `shadcn add` lands in the right layer. Route files only validate params and search, call `ensureQueryData` in the loader and render the page.
+
+Tokens: the D36 semantic tokens fill the shadcn CSS variables in `app/styles` (`--background` canvas, `--sidebar` surface, `--muted` sunken, `--card`/`--popover` raised, `--border`, `--input` control border, `--primary` #4C35D2, `--ring` focus, `--destructive` danger) plus santi tokens in `@theme` (`--color-status-*`, `--color-type-*`, `--color-success`). Components use tokens, never raw hex; the template's theme switch stays hidden until dark QA (D36).
+
+API client: `openapi-typescript` generates one types file from the server's `openapi.json`; `openapi-fetch` (about 6 KB) types every call by path, method, params, body and responses, including the D24 problem bodies. Chosen over orval because it emits no runtime code (nothing generated to cover or exclude beyond one `.d.ts`), it reads OpenAPI 3.1 as utoipa emits it, and query keys and hooks stay hand-written in `entities/*/api.ts` next to the cache patches the optimistic moves need. Accepted: no generated hooks; one `queryOptions` per read is written by hand. `openapi-typescript` 7 declares `typescript ^5` as a peer while the template pins ~6.0.3; it runs only as a codegen CLI, so the peer warning is accepted unless generation fails.
+
+Session: unchanged D22. Login posts to `/api/auth/login`, the server sets the `HttpOnly` `__Host-santi_session` cookie, and the SPA never sees a token. The `_authenticated` layout route's `beforeLoad` runs `ensureQueryData(me)` (`GET /api/me`): 200 caches the user, 401 redirects to `/login?redirect=…`; any later 401 clears the query cache and does the same. Logout posts `/api/auth/logout` and clears the cache.
+
+CSRF: unchanged D22 middleware (`reject_cross_site_writes`). The SPA is served by the same server, so every `fetch` is same-origin, sends `Sec-Fetch-Site: same-origin` and passes; no token, no CORS. In dev, Vite (port 5173) proxies `/api`, `/openapi.json` and `/health` to the server (8080) with `changeOrigin: false`, so the browser stays on one origin and the `Origin`/`Host` fallback also matches. Dev runs in Chromium or Firefox, which accept `Secure` cookies on `http://localhost`.
+
+Serving: until parity the SPA runs from Vite in dev only, and production keeps the htmx UI. At cutover the server keeps `/api/*`, `/openapi.json`, `/docs`, `/health`, serves the built `web/dist` (hashed `/assets/*` immutable), and answers every other GET with `index.html`; unknown `/api/*` stays a D24 404.
+
+License: shadcn-admin is MIT (Copyright (c) 2024 Sat Naing). `web/LICENSE-shadcn-admin` keeps its notice verbatim and `web/README.md` credits the template; santi's own code stays MIT OR Apache-2.0.
+
+## D38 — Repository layout: monorepo now, split-ready
+Context: D37 puts the SPA in `web/`, and the owner plans to move it to its own repository later. The question is where it lives now, how self-hosters run it, and what keeps the later move cheap.
+Options: A) monorepo, `web/` next to `crates/`, independent toolchains, no split rules B) separate `santi-web` repository now C) monorepo now with split boundaries and a written split procedure
+Market: Gitea and Plane keep API and web UI in one repository and ship one deployable; Mattermost merged its separate webapp repository back into its server monorepo in 2023 because cross-repo changes were too slow; Twenty is an Nx monorepo. Teams split when the front gets its own release train or team.
+Product vote: C — one PR carries the API change and the screen that uses it, so MVP features land in one review; contributors clone one repository; self-hosters pull one image. The split stays a mechanical step for later.
+Architecture vote: C — A drifts: nothing stops shared imports, one mixed CI job and one mixed changelog, and the split becomes a refactor. B now doubles every feature into two lockstep PRs while the API still changes weekly, and two deployables push toward two origins: cross-origin needs CORS with credentials and `SameSite=None` cookies, which drops D22's `__Host-` + `Lax` cookie and makes every SPA write `Sec-Fetch-Site: cross-site`, rejected by the D22 middleware, or else a reverse proxy just to get one origin back. C keeps one origin and makes the move a command.
+Winner: C — accepted: two toolchains in one repository (cargo, pnpm) and a contract snapshot to keep fresh in every API PR.
+
+Boundaries (what makes the split mechanical):
+- Nothing under `web/` imports or reads outside `web/`; no crate reads `web/` source. The only shared artifact is the contract.
+- Contract: `web/openapi.json` is a committed snapshot of the server's OpenAPI. A server test renders the spec (from a DB-free `santi_server::openapi()`) and fails when the snapshot differs (`UPDATE_OPENAPI=1` rewrites it); the web job regenerates `src/shared/api/schema.d.ts` from the snapshot and fails on a diff. An API change and its regenerated types land in the same PR.
+- `web/` owns its `package.json`, `pnpm-lock.yaml`, `CHANGELOG.md`, `README.md`, `LICENSE-shadcn-admin` and version; CI gets a separate `web` job (`working-directory: web`: typecheck, lint, Vitest coverage, build) plus an `e2e` job (server + Postgres + built SPA + Playwright).
+- Commits touching `web/` touch only `web/` (scope `web`, e.g. `feat(web): …`), except the contract PR that changes the server and `web/openapi.json` + generated types together.
+- The server serves the built SPA at runtime from `SANTI_WEB_DIR` (default `web/dist`) through `tower-http` `ServeDir` with an `index.html` fallback; it does not embed it at compile time, so `cargo build` and `cargo test` need no Node and survive the split unchanged. Upgrade: embed the build (`rust-embed`) when a single-file binary release is wanted.
+
+Packaging: one image, one service, one origin. A multi-stage `Dockerfile` builds `web/dist` with Node, the server with cargo, and copies both into the final image with `SANTI_WEB_DIR` set; `compose.yaml` stays server + Postgres. One release tag `vX.Y.Z` for the image; `web/CHANGELOG.md` lists UI changes separately. After a split the image still bundles a pinned `santi-web` release build, so the origin and D22 do not change.
+
+Split procedure: `git subtree split --prefix=web -b web-split`, push `web-split` to the new `santi-web` repository as `main`, move the `web` CI job there, delete `web/` here, keep the snapshot test writing `openapi.json` at this repository's root, and have the image build download the `santi-web` release `dist` by pinned version. The web repository updates its snapshot from server releases.
+
+Split trigger: never before the cutover (htmx removed) and v1.0.0 (API under semver). After that, split at the first of: a UI change needs a release without a server release; regular contributors work only in `web/`; the SPA build gets a second consumer (CDN-hosted or desktop shell).

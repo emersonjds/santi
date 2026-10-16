@@ -1,41 +1,10 @@
 mod common;
 
-use axum::body::Body;
-use axum::http::{Request, StatusCode, header};
-use axum::response::Response;
-use common::{PASSWORD, TestApp, session_cookie};
-use http_body_util::BodyExt;
+use axum::http::{StatusCode, header};
+use common::{PASSWORD, TestApp, form, location, page, session_cookie, text};
 use sqlx::PgPool;
 
 const STATIC: &str = concat!("/static/", env!("CARGO_PKG_VERSION"));
-
-/// A browser form post: urlencoded body and the same-origin fetch metadata D22 expects.
-fn form(uri: &str, body: &str, cookie: Option<&str>) -> Request<Body> {
-    let mut builder = Request::post(uri)
-        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .header("sec-fetch-site", "same-origin");
-    if let Some(cookie) = cookie {
-        builder = builder.header(header::COOKIE, cookie);
-    }
-    builder.body(Body::from(body.to_string())).unwrap()
-}
-
-fn page(uri: &str, cookie: Option<&str>) -> Request<Body> {
-    let mut builder = Request::get(uri);
-    if let Some(cookie) = cookie {
-        builder = builder.header(header::COOKIE, cookie);
-    }
-    builder.body(Body::empty()).unwrap()
-}
-
-async fn text(response: Response) -> String {
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    String::from_utf8(bytes.to_vec()).unwrap()
-}
-
-fn location(response: &Response) -> &str {
-    response.headers()[header::LOCATION].to_str().unwrap()
-}
 
 async fn sign_up(app: &TestApp) -> String {
     let body = format!("email=ana%40example.com&display_name=Ana+Lima&password={PASSWORD}");
@@ -84,7 +53,7 @@ async fn register_signs_in_and_redirects_home(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     assert_eq!(location(&response), "/");
     let set_cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
-    assert!(set_cookie.starts_with("santi_session="));
+    assert!(set_cookie.starts_with("__Host-santi_session="));
     assert!(set_cookie.contains("HttpOnly"));
 }
 

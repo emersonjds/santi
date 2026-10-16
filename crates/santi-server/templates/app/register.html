@@ -1,20 +1,15 @@
-{% extends "app/layout.html" %}
+{% extends "app/auth.html" %}
 {% import "shared/ui.html" as ui %}
 {% block title %}Create an account{% endblock %}
-{% block body %}
-<main class="auth">
-  <div class="auth-card">
-    {{ ui::brand("/login") }}
-    <h1>Create your account</h1>
-    <p class="lede">Plan sprints and move work forward with your team.</p>
-    <form class="stack" method="post" action="/register">
-      {{ ui::field("display_name", "Name", "text", display_name, "name", self.error("display_name")) }}
-      {{ ui::field("email", "Email", "email", email, "email", self.error("email")) }}
-      {{ ui::field("password", "Password", "password", "", "new-password", self.error("password")) }}
-      <p class="hint">Use 10 or more characters.</p>
-      <button class="button" type="submit">Create account</button>
-    </form>
-    <p class="switch">Already have an account? <a href="/login">Sign in</a></p>
-  </div>
-</main>
+{% block heading %}Create your account{% endblock %}
+{% block lede %}Plan sprints and move work forward with your team.{% endblock %}
+{% block form %}
+<form class="mt-6 grid gap-4" method="post" action="/register">
+  {{ ui::field("display_name", "Name", "text", display_name, "name", self.error("display_name")) }}
+  {{ ui::field("email", "Email", "email", email, "email", self.error("email")) }}
+  {{ ui::field("password", "Password", "password", "", "new-password", self.error("password")) }}
+  <p class="-mt-2 text-sm text-text-muted">Use 10 or more characters.</p>
+  {{ ui::submit("Create account") }}
+</form>
+<p class="mt-6 text-text-muted">Already have an account? <a class="inline-block py-2.5 font-semibold text-link hover:underline" href="/login">Sign in</a></p>
 {% endblock %}

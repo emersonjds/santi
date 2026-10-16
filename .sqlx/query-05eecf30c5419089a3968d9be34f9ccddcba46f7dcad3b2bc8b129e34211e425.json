@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sprint SET state = 'closed', closed_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "05eecf30c5419089a3968d9be34f9ccddcba46f7dcad3b2bc8b129e34211e425"
+}

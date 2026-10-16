@@ -1,0 +1,189 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.summary,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, s.column_id AS \"column_id!\", i.assignee_id,\n                  assignee.display_name AS \"assignee_name?\", i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id,\n                  sub.open_count AS \"open_subtasks!\", sub.total_count AS \"total_subtasks!\", i.rank\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           JOIN board b ON b.project_id = p.id\n           JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id\n           CROSS JOIN LATERAL (\n               SELECT count(*) AS total_count, count(*) FILTER (WHERE child_status.category <> 'done') AS open_count\n               FROM issue child JOIN status child_status ON child_status.id = child.status_id\n               WHERE child.parent_id = i.id AND child.issue_type = 'subtask'\n           ) sub\n           WHERE i.project_id = $1\n             AND i.issue_type <> 'epic'\n             AND (b.board_type = 'kanban' OR i.sprint_id = $2)\n             AND (b.board_type = 'scrum' OR i.done_at IS NULL OR b.done_window_days IS NULL\n                  OR i.done_at > now() - make_interval(days => b.done_window_days))\n           ORDER BY i.rank",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "issue_type: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "priority: Priority",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "priority"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "status_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "status_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "column_id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "column_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "assignee_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "assignee_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "assignee_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "points",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "points"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "labels",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "labels"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "parent_key",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "sprint_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "sprint_id"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "open_subtasks!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 14,
+        "name": "total_subtasks!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 15,
+        "name": "rank",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "rank"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      false,
+      null,
+      true,
+      null,
+      null,
+      false
+    ]
+  },
+  "hash": "30147dedfb2d034aa37b3a017f71941e9416608cb5a93560ccca031325e9d445"
+}

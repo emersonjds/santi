@@ -1,0 +1,101 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.id, i.issue_type AS \"issue_type: IssueType\", i.status_id,\n                  s.category AS \"category: StatusCategory\", i.sprint_id, i.rank, i.done_at\n           FROM issue i JOIN status s ON s.id = i.status_id\n           WHERE i.project_id = $1 AND i.number = $2\n           FOR UPDATE OF i",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "issue_type: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "status_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "category: StatusCategory",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "sprint_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "sprint_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "rank",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "rank"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "done_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "done_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "63932397fa1bebc1129e6d70f6d833603059c1ab1499fc01ad9a45adb60797e9"
+}
