@@ -141,6 +141,9 @@ describe('join a project', () => {
       .getByLabelText('Password', { exact: true })
       .fill('correct horse battery')
     await userEvent.click(
+      screen.getByRole('checkbox', { name: /I agree to the Terms of Use/ })
+    )
+    await userEvent.click(
       screen.getByRole('button', { name: 'Create account' })
     )
 

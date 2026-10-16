@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
+import { DeleteAccountButton } from '@/features/account/delete-account-button'
+import { ExportDataButton } from '@/features/account/export-data-button'
 import { CreateTokenForm } from '@/features/api-token/create-token-form'
 import { RevokeTokenButton } from '@/features/api-token/revoke-token-button'
 import { tokensQuery } from '@/entities/user/api-tokens'
@@ -80,6 +82,24 @@ export const AccountPage = () => {
         </div>
         <CreateTokenForm />
         <TokenList />
+      </section>
+      <section aria-labelledby='your-data' className='grid gap-4'>
+        <div className='grid gap-1'>
+          <h2 id='your-data' className='text-lg font-semibold'>
+            Your data
+          </h2>
+          <p className='text-sm text-muted-foreground'>
+            Your data is yours: download everything santi holds about you and
+            the projects you run, or delete your account.{' '}
+            <a href='/privacy' className='text-primary underline'>
+              Privacy Policy
+            </a>
+          </p>
+        </div>
+        <div className='flex flex-wrap gap-2'>
+          <ExportDataButton />
+          <DeleteAccountButton />
+        </div>
       </section>
     </div>
   )

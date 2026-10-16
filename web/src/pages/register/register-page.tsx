@@ -31,9 +31,9 @@ export const RegisterPage = () => {
         <CardContent>
           <SignUpForm redirectTo={redirect} />
           <p className='mt-4 text-sm text-muted-foreground'>
-            What we store, and what we do not: read the{' '}
+            We never sell your data.{' '}
             <a href='/privacy' className='text-primary underline'>
-              privacy note
+              Read our privacy policy
             </a>
             .
           </p>

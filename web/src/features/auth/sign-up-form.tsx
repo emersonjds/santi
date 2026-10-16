@@ -32,18 +32,26 @@ const schema = z.object({
     .string()
     .min(10, 'Use at least 10 characters.')
     .max(128, 'Use at most 128 characters.'),
+  accept_terms: z
+    .boolean()
+    .refine(Boolean, 'Accept the Terms of Use and the Privacy Policy.'),
 })
 
 type SignUp = z.infer<typeof schema>
 
-const FIELDS = ['display_name', 'email', 'password'] as const
+const FIELDS = ['display_name', 'email', 'password', 'accept_terms'] as const
 
 export const SignUpForm = ({ redirectTo = '/' }: { redirectTo?: string }) => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const form = useForm<SignUp>({
     resolver: zodResolver(schema),
-    defaultValues: { display_name: '', email: '', password: '' },
+    defaultValues: {
+      display_name: '',
+      email: '',
+      password: '',
+      accept_terms: false,
+    },
   })
 
   const signUp = async (body: SignUp) => {
@@ -100,6 +108,46 @@ export const SignUpForm = ({ redirectTo = '/' }: { redirectTo?: string }) => {
               <FormControl>
                 <PasswordInput autoComplete='new-password' {...field} />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name='accept_terms'
+          render={({ field: { value, onChange, ...field } }) => (
+            <FormItem>
+              <div className='flex min-h-11 items-start gap-3'>
+                <FormControl>
+                  <input
+                    type='checkbox'
+                    className='mt-0.5 size-5 shrink-0 accent-primary'
+                    checked={value}
+                    onChange={(event) => onChange(event.target.checked)}
+                    {...field}
+                  />
+                </FormControl>
+                <FormLabel className='block leading-snug font-normal'>
+                  I agree to the{' '}
+                  <a
+                    href='/terms'
+                    target='_blank'
+                    rel='noreferrer'
+                    className='text-primary underline'
+                  >
+                    Terms of Use
+                  </a>{' '}
+                  and{' '}
+                  <a
+                    href='/privacy'
+                    target='_blank'
+                    rel='noreferrer'
+                    className='text-primary underline'
+                  >
+                    Privacy Policy
+                  </a>
+                </FormLabel>
+              </div>
               <FormMessage />
             </FormItem>
           )}

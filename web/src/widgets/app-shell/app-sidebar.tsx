@@ -4,9 +4,11 @@ import { House, Plus } from 'lucide-react'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { projectsQuery } from '@/entities/project/project-queries'
 import type { Project } from '@/shared/api/client'
+import { FEEDBACK_URL } from '@/shared/lib/links'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupLabel,
@@ -106,6 +108,12 @@ const ProjectItems = ({ onNavigate }: { onNavigate: () => void }) => {
   ))
 }
 
+const ABOUT = [
+  ['Privacy', '/privacy'],
+  ['Terms', '/terms'],
+  ['Feedback', FEEDBACK_URL],
+] as const
+
 export const AppSidebar = () => {
   const { setOpenMobile } = useSidebar()
   const closeDrawer = () => setOpenMobile(false)
@@ -148,6 +156,26 @@ export const AppSidebar = () => {
           </SidebarGroup>
         </nav>
       </SidebarContent>
+      <SidebarFooter>
+        <nav
+          aria-label='About santi'
+          className='flex flex-wrap gap-x-3 px-2 text-xs text-muted-foreground'
+        >
+          {ABOUT.map(([label, href]) => (
+            <a
+              key={label}
+              href={href}
+              className='inline-flex min-h-11 items-center hover:text-foreground hover:underline md:min-h-8'
+              {...(href === FEEDBACK_URL && {
+                target: '_blank',
+                rel: 'noreferrer',
+              })}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+      </SidebarFooter>
     </Sidebar>
   )
 }
