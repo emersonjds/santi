@@ -28,7 +28,7 @@ santi needs PostgreSQL 17. Start it on OrbStack and point the tools at it:
     sqlx migrate run --source crates/santi-server/migrations
 
 Tests create a throwaway database per test (`#[sqlx::test]`). After changing any SQL, refresh the
-offline query data with `cargo sqlx prepare --workspace` and commit `.sqlx/`.
+offline query data with `scripts/sqlx-prepare.sh` (fresh empty database, the same plans CI sees) and commit `.sqlx/`.
 
 ## Quality gate
 
