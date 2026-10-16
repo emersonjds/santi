@@ -47,6 +47,9 @@ describe('legal gate', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
+      .toBeVisible()
     const post = requests.find(
       (request) => routeOf(request) === 'POST /api/me/legal'
     )
@@ -77,6 +80,9 @@ describe('legal gate', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
+      .toBeVisible()
   })
 
   it('keeps the app closed when the status fails to load', async () => {
@@ -104,6 +110,9 @@ describe('legal gate', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
+      .toBeVisible()
   })
 
   it('lets the app through when the terms are current', async () => {
@@ -112,6 +121,9 @@ describe('legal gate', () => {
 
     await expect
       .element(screen.getByRole('heading', { name: 'For you' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Account (Alice)' }))
       .toBeVisible()
   })
 })

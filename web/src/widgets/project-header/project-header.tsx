@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { UserPlus } from 'lucide-react'
+import { useRecordVisit } from '@/entities/home/record-visit'
 import { BoardTypeBadge } from '@/entities/project/board-type-badge'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
@@ -40,6 +41,7 @@ const InviteFallback = () => (
 
 export const ProjectHeader = () => {
   const { key } = useParams({ from: '/_authenticated/p/$key' })
+  useRecordVisit(key)
   const { data: project } = useSuspenseQuery(projectQuery(key))
 
   return (

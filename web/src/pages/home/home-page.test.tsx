@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { userEvent } from 'vitest/browser'
+import { beforeEach, describe, expect, it } from 'vitest'
+import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
 import {
   MY_OPS,
@@ -11,7 +11,9 @@ import {
   signedIn,
 } from '@/test/stub-api'
 
-const page = (items: unknown[], next_cursor: number | null = null) => ({
+const VISIT = 'POST /api/projects/WEB/visit'
+
+const pageOf = (items: unknown[], next_cursor: number | null = null) => ({
   status: 200,
   body: { items, next_cursor },
 })
@@ -57,6 +59,8 @@ const ARCHIVE = homeIssue({
 })
 
 describe('home', () => {
+  beforeEach(() => page.viewport(1280, 800))
+
   it('shows recommended projects as cards and links to every project', async () => {
     inProjects()
     const { screen } = await renderApp('/')
@@ -169,6 +173,72 @@ describe('home', () => {
     await expect.element(tab('Recommended')).toHaveFocus()
   })
 
+  it('opens the focused tab with Space', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/')
+
+    await screen.getByRole('tab', { name: 'Recommended' }).click()
+    await userEvent.keyboard('{End}')
+    await userEvent.keyboard(' ')
+
+    await expect
+      .element(screen.getByRole('tab', { name: 'Viewed' }))
+      .toHaveAttribute('aria-selected', 'true')
+    expect(router.state.location.search).toEqual({ tab: 'viewed' })
+  })
+
+  it('keeps every tab in view on a 375px phone', async () => {
+    await page.viewport(375, 800)
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    for (const name of [
+      'Recommended',
+      'Assigned to me 3',
+      'Starred',
+      'Worked on',
+      'Viewed',
+    ])
+      await expect
+        .element(screen.getByRole('tab', { name }))
+        .toBeInViewport({ ratio: 1 })
+  })
+
+  it('records an issue view on opening it, not on hovering its row', async () => {
+    const VIEW = 'POST /api/projects/WEB/issues/1/view'
+    const requests = inProjects({ 'GET /api/me/issues': pageOf([LOGIN]) })
+    const { screen } = await renderApp('/')
+    const row = screen.getByRole('link', { name: 'Fix the login page' })
+    const seen = (route: string) =>
+      requests.filter((request) => routeOf(request) === route).length
+
+    await row.hover()
+    await expect
+      .poll(() => seen('GET /api/projects/WEB/issues/1'))
+      .toBeGreaterThan(0)
+    expect(seen(VIEW)).toBe(0)
+    await row.click()
+
+    await expect.poll(() => seen(VIEW)).toBe(1)
+  })
+
+  it('records a project visit on opening the project, not on hovering its card', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp('/')
+    const card = screen
+      .getByRole('region', { name: 'Recommended projects' })
+      .getByRole('link', { name: 'Website' })
+    const seen = (route: string) =>
+      requests.filter((request) => routeOf(request) === route).length
+
+    await card.hover()
+    await expect.poll(() => seen('GET /api/projects/WEB')).toBeGreaterThan(0)
+    expect(seen(VISIT)).toBe(0)
+    await card.click()
+
+    await expect.poll(() => seen(VISIT)).toBe(1)
+  })
+
   it.each([
     [
       'recommended',
@@ -266,7 +336,7 @@ describe('home', () => {
     const until = new Promise<void>((resolve) => (answer = resolve))
     inProjects({
       'GET /api/me/projects': { status: 200, body: [MY_WEB, MY_OPS], until },
-      'GET /api/me/issues': { ...page([LOGIN]), until },
+      'GET /api/me/issues': { ...pageOf([LOGIN]), until },
     })
     const { screen } = await renderApp('/')
 
@@ -332,7 +402,7 @@ describe('home', () => {
     await expect
       .element(screen.getByRole('alert'))
       .toHaveTextContent('These issues did not load.')
-    inProjects({ 'GET /api/me/issues': page([LOGIN]) })
+    inProjects({ 'GET /api/me/issues': pageOf([LOGIN]) })
     await screen.getByRole('button', { name: 'Try again' }).click()
     await expect
       .element(screen.getByRole('link', { name: 'Fix the login page' }))

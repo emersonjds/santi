@@ -13,6 +13,9 @@ const register = async (page: Page, name: string, email: string) => {
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: `Account (${name})` })
+  ).toBeVisible()
 }
 
 test('create a scrum project, invite a teammate, and they join through the link', async ({
@@ -71,6 +74,9 @@ test('a signed-in user opening sign in goes home', async ({ page }) => {
   await page.goto('/login')
 
   await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Account (Linus)' })
+  ).toBeVisible()
 })
 
 test('an admin changes a member role and removes them; a member gets 403 on the members page', async ({
