@@ -1,0 +1,226 @@
+/* The public landing page (web/landing.html): static HTML, D36 tokens, shadcn button and card classes ported. */
+@import 'tailwindcss' source(none);
+@import './theme.css';
+
+@source '../../../landing.html';
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-padding-top: 5rem;
+  }
+  body {
+    @apply min-h-svh overflow-x-hidden bg-background text-foreground antialiased;
+  }
+  a,
+  summary,
+  button {
+    @apply rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50;
+  }
+  code,
+  kbd {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.875em] text-foreground;
+  }
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
+  }
+  .container-wide {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6;
+  }
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-30 focus:bg-background focus:p-3;
+  }
+  .site-header {
+    @apply sticky top-0 z-20 border-b bg-background/95;
+  }
+  .lockup {
+    @apply inline-flex min-h-11 items-center gap-2 text-lg font-semibold tracking-tight;
+  }
+  .lockup img {
+    @apply size-7;
+  }
+
+  .btn {
+    @apply inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium whitespace-nowrap transition-colors duration-150 ease-out;
+  }
+  .btn-lg {
+    @apply h-12 px-6 text-base;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover active:bg-primary-pressed;
+  }
+  .btn-outline {
+    @apply border bg-background shadow-xs hover:bg-hover active:bg-muted;
+  }
+  .btn-ghost {
+    @apply px-3 hover:bg-hover active:bg-muted;
+  }
+  .icon {
+    @apply size-4 shrink-0 fill-none stroke-current stroke-2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hero {
+    background: radial-gradient(
+      60rem 28rem at 50% 0,
+      var(--accent),
+      transparent 70%
+    );
+  }
+  .hero-title {
+    @apply mx-auto mt-8 max-w-4xl text-4xl leading-[1.08] font-bold tracking-tight text-balance sm:text-6xl lg:text-7xl;
+  }
+  .hero-lead {
+    @apply mx-auto mt-6 max-w-2xl text-lg text-pretty text-muted-foreground sm:text-xl;
+  }
+  .proof {
+    @apply mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-2 text-sm text-muted-foreground;
+  }
+  .proof li {
+    @apply inline-flex h-9 items-center gap-1.5 rounded-full border bg-background px-3.5;
+  }
+  .link-quiet {
+    @apply relative inline-flex items-center gap-1.5 font-medium text-foreground hover:text-primary;
+  }
+  .link-quiet::before {
+    @apply absolute -inset-x-3.5 -inset-y-[13px] content-[''];
+  }
+
+  .frame {
+    @apply overflow-hidden rounded-xl border bg-card p-1.5 shadow-[0_24px_64px_-24px_rgb(23_32_51/0.28)] sm:rounded-2xl sm:p-2;
+  }
+  .frame img {
+    @apply block h-auto w-full rounded-lg border sm:rounded-xl;
+  }
+
+  .feature {
+    @apply mx-auto grid w-full max-w-6xl items-center gap-10 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[2fr_3fr] lg:gap-16;
+  }
+  .feature + .feature {
+    @apply border-t;
+  }
+  .feature-flip {
+    @apply lg:grid-cols-[3fr_2fr];
+  }
+  .feature-flip .feature-text {
+    @apply lg:order-2;
+  }
+  .eyebrow {
+    @apply text-sm font-semibold tracking-wide text-primary uppercase;
+  }
+  .section-title {
+    @apply mt-3 text-3xl leading-tight font-bold tracking-tight text-balance sm:text-4xl;
+  }
+  .section-lead {
+    @apply mt-4 max-w-2xl text-lg text-pretty text-muted-foreground;
+  }
+  .checks {
+    @apply mt-6 grid gap-3;
+  }
+  .checks li {
+    @apply relative pl-8;
+  }
+  .checks li::before {
+    @apply absolute top-0.5 left-0 size-5 rounded-full bg-accent content-[''];
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234C35D2' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+    background-size: 0.75rem;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  .terminal {
+    @apply overflow-x-auto rounded-xl bg-[#172033] p-5 font-mono text-[13px] leading-7 text-[#edebe8] sm:p-6 sm:text-sm;
+  }
+  .terminal code {
+    @apply bg-transparent p-0 text-inherit;
+  }
+  .terminal .prompt {
+    @apply text-[#b8abf1] select-none;
+  }
+  .terminal .comment {
+    @apply text-[#a8a29e];
+  }
+  .terminal-card {
+    @apply min-w-0 overflow-hidden rounded-xl shadow-[0_24px_64px_-24px_rgb(23_32_51/0.4)];
+  }
+  .terminal-bar {
+    @apply flex items-center justify-between border-b border-white/10 bg-[#0f172a] pl-5 text-sm text-[#a8a29e];
+  }
+  .copy {
+    @apply inline-flex h-11 min-w-24 items-center justify-center px-4 font-medium text-[#edebe8] hover:bg-white/10;
+  }
+
+  .band {
+    @apply border-y bg-muted;
+  }
+  .card {
+    @apply flex flex-col gap-3 rounded-xl border bg-card p-6 text-card-foreground shadow-sm;
+  }
+  .card-title {
+    @apply text-lg font-semibold;
+  }
+  .card-text {
+    @apply text-muted-foreground;
+  }
+  .badge {
+    @apply self-start rounded-md bg-status-progress-bg px-2 py-0.5 text-xs font-medium text-status-progress;
+  }
+  .stat-tile {
+    @apply flex flex-col-reverse gap-1 rounded-xl border bg-card p-5 shadow-sm sm:p-6;
+  }
+  .stat-tile dt {
+    @apply text-sm text-muted-foreground;
+  }
+  .stat-tile dd {
+    @apply text-2xl font-bold tracking-tight whitespace-nowrap tabular-nums sm:text-4xl;
+  }
+  .link {
+    @apply font-medium text-primary underline underline-offset-4;
+  }
+
+  .faq {
+    @apply mx-auto mt-12 max-w-3xl divide-y border-y;
+  }
+  .faq summary {
+    @apply flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 py-4 text-lg font-medium;
+  }
+  .faq summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq summary::after {
+    @apply shrink-0 text-2xl leading-none font-normal text-muted-foreground content-['+'];
+  }
+  .faq details[open] summary::after {
+    @apply content-['−'];
+  }
+  .faq p {
+    @apply pb-5 text-muted-foreground;
+  }
+
+  .cta {
+    @apply rounded-3xl border bg-accent px-6 py-14 text-center sm:py-20;
+  }
+  .footer-title {
+    @apply text-sm font-semibold;
+  }
+  .footer-links {
+    @apply mt-2 grid text-sm text-muted-foreground;
+  }
+  .footer-links a {
+    @apply inline-flex min-h-11 items-center hover:text-foreground;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    transition-duration: 0.01ms !important;
+  }
+}

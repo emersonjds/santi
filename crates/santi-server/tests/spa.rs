@@ -9,6 +9,8 @@ use sqlx::PgPool;
 use tower::ServiceExt;
 
 const INDEX: &str = "<!doctype html><title>santi spa</title>";
+const LANDING: &str = "<!doctype html><title>santi landing</title>";
+const SESSION: &str = "theme=light; __Host-santi_session=abc";
 const IMMUTABLE: &str = "public, max-age=31536000, immutable";
 
 fn app(web_dir: Option<&Path>) -> Router {
@@ -20,6 +22,7 @@ fn built_spa(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("santi-spa-{name}-{}", std::process::id()));
     std::fs::create_dir_all(dir.join("assets")).unwrap();
     std::fs::write(dir.join("index.html"), INDEX).unwrap();
+    std::fs::write(dir.join("landing.html"), LANDING).unwrap();
     std::fs::write(dir.join("assets/main-abc123.js"), "console.log('santi')").unwrap();
     dir
 }
@@ -28,6 +31,15 @@ async fn send(app: &Router, method: Method, uri: &str) -> Response {
     let request = Request::builder()
         .method(method)
         .uri(uri)
+        .body(Body::empty())
+        .unwrap();
+    app.clone().oneshot(request).await.unwrap()
+}
+
+async fn get_with_cookie(app: &Router, uri: &str, cookie: &str) -> Response {
+    let request = Request::builder()
+        .uri(uri)
+        .header(header::COOKIE, cookie)
         .body(Body::empty())
         .unwrap();
     app.clone().oneshot(request).await.unwrap()
@@ -49,17 +61,52 @@ fn cache_control(response: &Response) -> Option<&str> {
 async fn every_client_route_gets_index_html_never_cached() {
     let app = app(Some(&built_spa("routes")));
 
-    for uri in [
-        "/",
-        "/login",
-        "/p/SAN/board",
-        "/p/SAN/search?q=x",
-        "/account",
-    ] {
+    for uri in ["/login", "/p/SAN/board", "/p/SAN/search?q=x", "/account"] {
         let response = send(&app, Method::GET, uri).await;
         assert_eq!(response.status(), StatusCode::OK, "{uri}");
         assert_eq!(cache_control(&response), Some("no-cache"), "{uri}");
         assert_eq!(body(response).await, INDEX, "{uri}");
+    }
+}
+
+#[tokio::test]
+async fn home_without_a_session_is_the_landing_page() {
+    let app = app(Some(&built_spa("landing")));
+
+    for response in [
+        send(&app, Method::GET, "/").await,
+        get_with_cookie(&app, "/", "theme=light").await,
+    ] {
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(cache_control(&response), Some("no-cache"));
+        assert_eq!(response.headers()[header::VARY], "cookie");
+        assert_eq!(body(response).await, LANDING);
+    }
+}
+
+#[tokio::test]
+async fn home_with_a_session_cookie_is_the_app() {
+    let app = app(Some(&built_spa("home-signed-in")));
+
+    let response = get_with_cookie(&app, "/", SESSION).await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(cache_control(&response), Some("no-cache"));
+    assert_eq!(response.headers()[header::VARY], "cookie");
+    assert_eq!(body(response).await, INDEX);
+}
+
+#[tokio::test]
+async fn about_is_always_the_landing_page() {
+    let app = app(Some(&built_spa("about")));
+
+    for response in [
+        send(&app, Method::GET, "/about").await,
+        get_with_cookie(&app, "/about", SESSION).await,
+    ] {
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(cache_control(&response), Some("no-cache"));
+        assert_eq!(body(response).await, LANDING);
     }
 }
 
@@ -152,7 +199,7 @@ fn header<'a>(response: &'a Response, name: &str) -> Option<&'a str> {
 async fn pages_and_assets_carry_the_security_headers() {
     let app = app(Some(&built_spa("headers")));
 
-    for uri in ["/", "/p/SAN/board", "/assets/main-abc123.js"] {
+    for uri in ["/", "/about", "/p/SAN/board", "/assets/main-abc123.js"] {
         let response = send(&app, Method::GET, uri).await;
         assert_eq!(
             header(&response, "content-security-policy"),

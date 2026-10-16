@@ -11,12 +11,15 @@ santi ships as one Docker image (API + web app) plus PostgreSQL. Railway builds 
    - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (reference to the database service; private network)
    - `PORT` = `8080` (the port the image listens on)
    - optional `SANTI_DB_POOL` = `10` (connection pool size; Railway's smaller plans allow few connections)
-4. **Networking**: *Settings* → *Networking* → *Generate Domain*, target port `8080`. The session cookie is
+4. **Public address**: the landing page's canonical/social links, `robots.txt` and `sitemap.xml` use the
+   Railway domain automatically (`RAILWAY_PUBLIC_DOMAIN`). For a custom domain, set the variable
+   `VITE_SITE_URL` = `https://your.domain` and redeploy.
+5. **Networking**: *Settings* → *Networking* → *Generate Domain*, target port `8080`. The session cookie is
    `Secure`, so always use the `https://` domain (Safari works there too).
-5. **Continuous deployment**: *Settings* → *Source*:
+6. **Continuous deployment**: *Settings* → *Source*:
    - branch **`main`** (releases only, per gitflow);
    - enable **Wait for CI**, so Railway deploys only after the GitHub Actions checks pass.
-6. **Staging (optional)**: duplicate the environment as `staging`, point its source branch at `developer`, and give it
+7. **Staging (optional)**: duplicate the environment as `staging`, point its source branch at `developer`, and give it
    its own PostgreSQL.
 
 ## Every deploy
