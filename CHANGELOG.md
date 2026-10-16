@@ -10,6 +10,18 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- **CLI:** the `santi` binary: `login` (URL and token saved to `~/.config/santi/config.toml`,
+  mode 0600), `whoami`, `projects`, `issues list|show|create|edit|move|delete`, `board`, `backlog`,
+  `sprints list|create|start|complete`, `plan`, `search`, `comment` and `import` (preview, then
+  confirm). `--json` on every command; API errors print the server's message with distinct exit
+  codes. URL and token from flags, `SANTI_URL`/`SANTI_TOKEN` or the config file.
+- **MCP server:** `santi mcp` over stdio, or Streamable HTTP with `--http` (bearer token required
+  on every request, passed through to the API). 16 tools for projects, boards, backlog, search,
+  issues, comments, sprints and epics, with JSON Schemas, read-only and destructive hints, and
+  tool errors carrying the server's message. Client setup in `docs/mcp.md`.
+
 ## [0.1.0] - 2026-10-16
 
 First release: the MVP, self-hosted with `docker compose up -d`.

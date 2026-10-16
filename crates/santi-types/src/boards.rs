@@ -6,6 +6,7 @@ use crate::issues::{IssueType, Priority};
 use crate::projects::BoardType;
 use crate::sprints::Sprint;
 
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
