@@ -1239,8 +1239,6 @@ pub mod service;
 `crates/santi-server/src/auth/domain.rs` (above the tests):
 
 ```rust
-use std::sync::LazyLock;
-
 use argon2::Argon2;
 use argon2::password_hash::phc::PasswordHash;
 use argon2::password_hash::{PasswordHasher, PasswordVerifier};
@@ -1311,9 +1309,9 @@ pub fn verify_password(password: &str, stored_hash: &str) -> bool {
 }
 
 /// Verified against when the email is unknown, so both failures take the same time.
+/// Shipped as a constant argon2id hash (`DUMMY_PASSWORD_HASH` in `auth/domain.rs`) with the default parameters.
 pub fn dummy_password_hash() -> String {
-    static DUMMY: LazyLock<String> = LazyLock::new(|| hash_password("not a real password").unwrap_or_default());
-    DUMMY.clone()
+    DUMMY_PASSWORD_HASH.to_string()
 }
 
 pub fn token_from_headers(headers: &HeaderMap) -> Option<&str> {
@@ -1666,15 +1664,7 @@ pub async fn delete_token(State(state): State<AppState>, user: CurrentUser, Path
 }
 ```
 
-`crates/santi-server/src/lib.rs`: add `pub mod auth;`, add `.merge(auth::handler::router())` after `.routes(routes!(health))`, and add the CSRF layer (D22: non-GET browser requests must be same-origin; requests with neither `Origin` nor `Sec-Fetch-Site`, such as the CLI, pass):
-
-```rust
-use axum::response::IntoResponse;
-use tower_http::csrf::{CsrfLayer, ProtectionError};
-
-// in app(), before the CompressionLayer:
-        .layer(CsrfLayer::new().with_rejection_response(|_: ProtectionError| AppError::Forbidden.into_response()))
-```
+`crates/santi-server/src/lib.rs`: add `pub mod auth;`, add `.merge(auth::handler::router())` after `.routes(routes!(health))`, and add the CSRF check (D22: non-GET browser requests must be same-origin; requests with neither `Origin` nor `Sec-Fetch-Site`, such as the CLI, pass). Shipped as a custom middleware, not a tower-http layer: `auth::extract::reject_cross_site_writes` over `auth::domain::is_cross_site_write`, applied with `axum::middleware::from_fn`.
 
 - [ ] **Step 6: Run tests to verify they pass**
 

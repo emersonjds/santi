@@ -170,6 +170,7 @@ Options: A) server-side `auth_token` table + HttpOnly cookie B) signed JWT cooki
 Product vote: n/a
 Architecture vote: A — 32 random bytes in a `HttpOnly; Secure; SameSite=Lax` cookie, only the SHA-256 stored; logout, password change and member removal revoke with one `DELETE`; fixed 30-day expiry, new token per login; non-GET requests also need a same-origin `Origin`. B can't revoke without a denylist (a session table again) and adds key rotation.
 Winner: A — instant revocation, nothing to sign; accepted: one indexed lookup per request.
+Accepted: `POST /api/auth/register` answers 409 for a taken email, so it reveals that an account exists; revisit when email verification lands.
 
 ## D23 — API token format and storage
 Context: CLI and MCP act as a user through a personal token.
