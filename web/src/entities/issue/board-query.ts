@@ -33,6 +33,9 @@ const isId = (value: unknown): value is number =>
 const isText = (value: unknown): value is string =>
   typeof value === 'string' && value.trim() !== ''
 
+// `none`, or a project key (2 to 10 letters or digits) and an issue number.
+const EPIC = /^(?:none|[A-Z][A-Z0-9]{1,9}-[1-9][0-9]*)$/
+
 /** One value or a list of them (`?type=bug` or `?type=["bug"]`), keeping the well-formed ones. */
 const listOf = <Value>(
   value: unknown,
@@ -52,9 +55,15 @@ export const parseBoardSearch = (
     (each): each is IssueType => typeof each === 'string' && isIssueType(each)
   ),
   label: listOf(search.label, isText),
-  epic: isText(search.epic) ? search.epic : undefined,
-  // A number-like `?q=42` arrives parsed as a number.
-  q: search.q === undefined ? undefined : String(search.q).trim() || undefined,
+  epic:
+    typeof search.epic === 'string' && EPIC.test(search.epic)
+      ? search.epic
+      : undefined,
+  // A number-like `?q=42` arrives parsed as a number; Postgres refuses NUL in text.
+  q:
+    search.q === undefined
+      ? undefined
+      : String(search.q).replaceAll('\0', '').trim() || undefined,
   recently_updated: search.recently_updated === true || undefined,
   column: isId(search.column) ? search.column : undefined,
   issue: isId(search.issue) ? search.issue : undefined,

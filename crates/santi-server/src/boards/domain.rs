@@ -443,6 +443,7 @@ mod tests {
             column_id,
             assignee_id: None,
             assignee_name: None,
+            reporter_id: 1,
             points,
             labels: vec![],
             parent_key: None,

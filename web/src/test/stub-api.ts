@@ -138,6 +138,7 @@ export const card = (fields: CardFixture): Card => ({
   updated_at: new Date(Date.now() - 3 * 3_600_000).toISOString(),
   assignee_id: null,
   assignee_name: null,
+  reporter_id: 1,
   parent_key: null,
   points: null,
   sprint_id: null,

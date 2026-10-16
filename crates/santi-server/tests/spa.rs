@@ -138,3 +138,48 @@ async fn without_a_build_every_page_is_a_problem_404() {
         );
     }
 }
+
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+
+fn header<'a>(response: &'a Response, name: &str) -> Option<&'a str> {
+    response
+        .headers()
+        .get(name)
+        .map(|value| value.to_str().unwrap())
+}
+
+#[tokio::test]
+async fn pages_and_assets_carry_the_security_headers() {
+    let app = app(Some(&built_spa("headers")));
+
+    for uri in ["/", "/p/SAN/board", "/assets/main-abc123.js"] {
+        let response = send(&app, Method::GET, uri).await;
+        assert_eq!(
+            header(&response, "content-security-policy"),
+            Some(CSP),
+            "{uri}"
+        );
+        assert_eq!(
+            header(&response, "x-content-type-options"),
+            Some("nosniff"),
+            "{uri}"
+        );
+        assert_eq!(
+            header(&response, "referrer-policy"),
+            Some("strict-origin-when-cross-origin"),
+            "{uri}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn api_answers_are_never_sniffed_or_leak_the_referrer() {
+    for app in [app(Some(&built_spa("api-headers"))), app(None)] {
+        let response = send(&app, Method::GET, "/api/nope").await;
+        assert_eq!(header(&response, "x-content-type-options"), Some("nosniff"));
+        assert_eq!(
+            header(&response, "referrer-policy"),
+            Some("strict-origin-when-cross-origin")
+        );
+    }
+}

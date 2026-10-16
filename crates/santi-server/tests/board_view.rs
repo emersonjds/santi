@@ -80,6 +80,7 @@ async fn scrum_board_shows_the_active_sprint_by_status_and_rank(pool: PgPool) {
         board["columns"][0]["cards"][1]["assignee_name"],
         "ana@example.com"
     );
+    assert_eq!(board["columns"][0]["cards"][1]["reporter_id"], ana.user_id);
 }
 
 #[sqlx::test]

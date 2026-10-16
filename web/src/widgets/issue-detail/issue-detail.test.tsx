@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { inProjects, issue, problem, routeOf } from '@/test/stub-api'
+import { WEB, inProjects, issue, problem, routeOf } from '@/test/stub-api'
 
 const PATCH = 'PATCH /api/projects/WEB/issues/1'
 const MOVE = 'POST /api/projects/WEB/issues/1/move'
@@ -310,6 +310,22 @@ describe('issue detail', () => {
     ])
   })
 
+  it('sends one subtask create for a repeated Enter', async () => {
+    const requests = inProjects({ [CREATE]: pending })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const subtasks = screen.getByRole('region', { name: 'Subtasks' })
+
+    await subtasks.getByRole('button', { name: 'Add subtask' }).click()
+    await subtasks.getByLabelText('Subtask summary').fill('Check the logs')
+    await userEvent.keyboard('{Enter}{Enter}{Enter}')
+
+    expect(requests.filter((r) => routeOf(r) === CREATE)).toHaveLength(1)
+
+    await expect
+      .element(subtasks.getByLabelText('Subtask summary'))
+      .toHaveValue('')
+  })
+
   it('drops an open subtask field on Esc or Cancel, leaving the dialog open', async () => {
     const { dialog } = await openFromBoard()
     const subtasks = dialog.getByRole('region', { name: 'Subtasks' })
@@ -404,9 +420,13 @@ describe('issue detail', () => {
       .toBeVisible()
   })
 
-  it('deletes the issue from its menu and closes onto the board', async () => {
+  it('deletes the issue from its menu and closes onto the board once it lands', async () => {
+    let answer = (_: unknown) => {}
     const { dialog, router, screen } = await openFromBoard({
-      'DELETE /api/projects/WEB/issues/1': pending,
+      'DELETE /api/projects/WEB/issues/1': {
+        status: 204,
+        until: new Promise((resolve) => (answer = resolve)),
+      },
     })
 
     await dialog.getByRole('button', { name: 'More actions' }).click()
@@ -415,13 +435,64 @@ describe('issue detail', () => {
       .getByRole('alertdialog', { name: 'Delete WEB-1?' })
       .getByRole('button', { name: 'Delete issue' })
       .click()
+    await expect
+      .element(screen.getByRole('alertdialog'))
+      .not.toBeInTheDocument()
+    await expect.element(dialog).toBeVisible()
+    answer(undefined)
 
     await expect.element(dialog).not.toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/p/WEB/board')
     expect(router.state.location.search).toEqual({})
+    await expect.element(screen.getByText('WEB-1 deleted')).toBeVisible()
+  })
+
+  it('has no delete for a member on an issue someone else reported', async () => {
+    inProjects({
+      'GET /api/projects/WEB': {
+        status: 200,
+        body: { ...WEB, role: 'member' },
+      },
+      'GET /api/projects/WEB/issues/1': {
+        status: 200,
+        body: issue({ key: 'WEB-1', summary: 'Plan', reporter_id: 2 }),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await expect.element(screen.getByLabelText('Summary')).toHaveValue('Plan')
     await expect
-      .element(screen.getByText('Write the release notes'))
-      .not.toBeInTheDocument()
+      .element(screen.getByRole('button', { name: 'Copy link' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'More actions' }).elements()
+    ).toHaveLength(0)
+  })
+
+  it('stays on the issue page until the delete lands, and after a refusal', async () => {
+    let answer = (_: unknown) => {}
+    inProjects({
+      'DELETE /api/projects/WEB/issues/1': {
+        status: 403,
+        body: problem(403, 'You are not allowed to do this.'),
+        until: new Promise((resolve) => (answer = resolve)),
+      },
+    })
+    const { router, screen } = await renderApp('/p/WEB/issues/1')
+
+    await screen.getByRole('button', { name: 'More actions' }).click()
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    await screen
+      .getByRole('alertdialog', { name: 'Delete WEB-1?' })
+      .getByRole('button', { name: 'Delete issue' })
+      .click()
+    expect(router.state.location.pathname).toBe('/p/WEB/issues/1')
+    answer(undefined)
+
+    await expect
+      .element(screen.getByText('You are not allowed to do this.'))
+      .toBeVisible()
+    expect(router.state.location.pathname).toBe('/p/WEB/issues/1')
   })
 
   it('leaves the issue page for the board once the issue is deleted, saying so', async () => {

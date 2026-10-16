@@ -3,6 +3,7 @@ import { issueNumber } from '@/entities/issue/board-query'
 import { useDeleteIssue } from '@/entities/issue/issue-mutations'
 import { commentsQuery, subtasksQuery } from '@/entities/issue/issue-queries'
 import type { IssueType } from '@/shared/api/client'
+import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -24,7 +25,7 @@ type DeleteIssueDialogProps = {
   issueKey: string
   issueType: IssueType
   onClose: () => void
-  /** Called right after the confirm: the issue view leaves the deleted issue. */
+  /** Called once the server confirms: the issue view leaves the deleted issue. */
   onDeleted?: () => void
 }
 
@@ -37,6 +38,7 @@ export const DeleteIssueDialog = ({
   onDeleted,
 }: DeleteIssueDialogProps) => {
   const remove = useDeleteIssue(projectKey)
+  const returnFocus = useReturnFocus()
   const parent = PARENTS.has(issueType)
   const subtasks = useQuery({
     ...subtasksQuery(projectKey, issueKey),
@@ -52,14 +54,14 @@ export const DeleteIssueDialog = ({
     .join(' and ')
 
   const confirm = () => {
-    remove.mutate(issueKey)
+    // The rejection is already shown by the mutation (rollback and toast).
+    remove.mutateAsync(issueKey).then(onDeleted, () => {})
     onClose()
-    onDeleted?.()
   }
 
   return (
     <AlertDialog open onOpenChange={(open) => open || onClose()}>
-      <AlertDialogContent>
+      <AlertDialogContent onCloseAutoFocus={returnFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{`Delete ${issueKey}?`}</AlertDialogTitle>
           <AlertDialogDescription>

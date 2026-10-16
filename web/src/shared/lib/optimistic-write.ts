@@ -17,7 +17,7 @@ type OptimisticWrite<View, Variables> = {
 
 /**
  * D37 optimistic write: patch every cache under `queryKey`, roll back and
- * toast the problem on failure, refetch once settled.
+ * toast the problem on failure, refetch once the last write under it settles.
  */
 export const useOptimisticWrite = <View, Variables>({
   queryKey,
@@ -28,6 +28,7 @@ export const useOptimisticWrite = <View, Variables>({
 }: OptimisticWrite<View, Variables>) => {
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: queryKey,
     mutationFn: write,
     onMutate: async (variables) => {
       await queryClient.cancelQueries({ queryKey })
@@ -44,7 +45,9 @@ export const useOptimisticWrite = <View, Variables>({
         queryClient.setQueryData(key, view && { ...view })
       toast.error(failure(variables), { description: error.message })
     },
+    // The settling write still counts in `isMutating`; a refetch under a later pending write would undo it on screen.
     onSettled: () =>
+      queryClient.isMutating({ mutationKey: queryKey }) > 1 ||
       Promise.all(
         [queryKey, ...(refresh ?? [])].map((key) =>
           queryClient.invalidateQueries({ queryKey: key })

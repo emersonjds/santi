@@ -13,7 +13,9 @@ pub mod sprints;
 use std::path::Path;
 
 use axum::extract::State;
-use axum::http::header::CACHE_CONTROL;
+use axum::http::header::{
+    CACHE_CONTROL, CONTENT_SECURITY_POLICY, REFERRER_POLICY, X_CONTENT_TYPE_OPTIONS,
+};
 use axum::http::{HeaderValue, Response};
 use axum::routing::any;
 use axum::{Json, Router, middleware};
@@ -21,7 +23,7 @@ use santi_types::{Health, Problem};
 use sqlx::PgPool;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
-use tower_http::set_header::SetResponseHeader;
+use tower_http::set_header::{SetResponseHeader, SetResponseHeaderLayer};
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -72,9 +74,21 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
     };
     router
         .layer(middleware::from_fn(auth::extract::reject_cross_site_writes))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            X_CONTENT_TYPE_OPTIONS,
+            HeaderValue::from_static("nosniff"),
+        ))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            REFERRER_POLICY,
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ))
         .layer(CompressionLayer::new())
         .with_state(state)
 }
+
+/// sonner and Radix's scroll lock add `<style>` tags at runtime: styles need `'unsafe-inline'`.
+/// Swagger UI under `/docs` runs inline scripts, so the policy covers the SPA only.
+const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 /// Hashed `/assets/*` are cached for good; `index.html` is revalidated so a deploy shows at once.
 fn spa(dir: &Path) -> Router<AppState> {
@@ -92,6 +106,10 @@ fn spa(dir: &Path) -> Router<AppState> {
             pages,
             CACHE_CONTROL,
             cache_when_ok("no-cache"),
+        ))
+        .layer(SetResponseHeaderLayer::overriding(
+            CONTENT_SECURITY_POLICY,
+            HeaderValue::from_static(CSP),
         ))
 }
 

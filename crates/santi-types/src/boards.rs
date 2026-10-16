@@ -107,6 +107,8 @@ pub struct Card {
     pub column_id: i64,
     pub assignee_id: Option<i64>,
     pub assignee_name: Option<String>,
+    /// Shows Delete to the reporter as well as admins (D40).
+    pub reporter_id: i64,
     pub points: Option<f64>,
     pub labels: Vec<String>,
     /// Shown as a chip on subtasks and children of epics (D6).

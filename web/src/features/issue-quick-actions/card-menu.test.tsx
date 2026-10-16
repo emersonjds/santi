@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
 import {
+  WEB,
   WEB_BOARD,
   WEB_COMMENTS,
   inProjects,
@@ -57,6 +58,77 @@ describe('card menu', () => {
       .element(screen.getByRole('region', { name: 'In progress' }))
       .toHaveTextContent('Write the release notes')
     await expect.poll(() => bodyOf(requests, MOVE)).toEqual({ status_id: 21 })
+  })
+
+  it('keeps a pending move in place when an earlier one settles', async () => {
+    let settle = (_: unknown) => {}
+    const requests = inProjects({
+      [MOVE]: {
+        status: 200,
+        body: {},
+        until: new Promise((resolve) => (settle = resolve)),
+      },
+      'POST /api/projects/WEB/issues/2/move': {
+        status: 200,
+        body: {},
+        until: new Promise(() => {}),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+    const done = screen.getByRole('region', { name: 'Done' })
+    const boardReads = () =>
+      requests.filter((r) => routeOf(r) === 'GET /api/projects/WEB/board')
+        .length
+
+    for (const key of ['WEB-1', 'WEB-2']) {
+      await openMenu(screen, key)
+      await screen.getByRole('menuitem', { name: 'Move to…' }).click()
+      await screen
+        .getByRole('menuitem', { name: 'Move to the top of Done' })
+        .click()
+    }
+    await expect.element(done).toHaveTextContent('Fix the login redirect loop')
+    const before = boardReads()
+    settle(undefined)
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    expect(boardReads()).toBe(before)
+    await expect.element(done).toHaveTextContent('Fix the login redirect loop')
+  })
+
+  it('offers Delete to a member only on the cards they reported', async () => {
+    inProjects({
+      'GET /api/projects/WEB': {
+        status: 200,
+        body: { ...WEB, role: 'member' },
+      },
+      'GET /api/projects/WEB/board': {
+        status: 200,
+        body: {
+          ...WEB_BOARD,
+          columns: WEB_BOARD.columns.map((column) => ({
+            ...column,
+            cards: column.cards.map((each) =>
+              each.key === 'WEB-2' ? { ...each, reporter_id: 2 } : each
+            ),
+          })),
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await openMenu(screen, 'WEB-2')
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Copy issue key' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('menuitem', { name: 'Delete' }).elements()
+    ).toHaveLength(0)
+    await userEvent.keyboard('{Escape}')
+    await openMenu(screen, 'WEB-1')
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Delete' }))
+      .toBeVisible()
   })
 
   it('assigns a teammate at once', async () => {
@@ -223,7 +295,9 @@ describe('card menu', () => {
     await screen.getByRole('menuitem', { name: 'Delete' }).click()
     await screen.getByRole('button', { name: 'Cancel' }).click()
 
-    await expect.element(screen.getByRole('alertdialog')).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('alertdialog'))
+      .not.toBeInTheDocument()
     await expect
       .element(screen.getByText('Write the release notes'))
       .toBeVisible()

@@ -35,6 +35,7 @@ export const InlineCreate = ({
     event.preventDefault()
     const text = summary.trim()
     if (!text) return
+    setSummary('')
     create.mutate(
       {
         summary: text,
@@ -43,7 +44,7 @@ export const InlineCreate = ({
         status_id: statusesOf(settings, columnId ?? settings?.columns[0]?.id)[0]
           ?.id,
       },
-      { onSuccess: () => setSummary('') }
+      { onError: () => setSummary(text) }
     )
   }
 

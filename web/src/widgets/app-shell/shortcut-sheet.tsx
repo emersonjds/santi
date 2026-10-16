@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { setShortcutsOn, shortcutsOn } from '@/shared/lib/shortcuts'
+import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import {
   Dialog,
   DialogContent,
@@ -47,10 +48,14 @@ const GROUPS = [
 export const ShortcutSheet = ({ onClose }: { onClose: () => void }) => {
   const [on, setOn] = useState(shortcutsOn)
   const id = useId()
+  const returnFocus = useReturnFocus()
 
   return (
     <Dialog open onOpenChange={(open) => open || onClose()}>
-      <DialogContent className='max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl'>
+      <DialogContent
+        onCloseAutoFocus={returnFocus}
+        className='max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl'
+      >
         <DialogTitle>Keyboard shortcuts</DialogTitle>
         <DialogDescription>
           Single keys work anywhere but in a field you are typing in.

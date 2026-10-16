@@ -22,12 +22,22 @@ export const forgetSession = (queryClient: QueryClient) => {
   queryClient.setQueryData(sessionQuery.queryKey, null)
 }
 
+// Browsers read `\` as `/` and drop tabs and newlines from URLs: `/\host` and `/\t/host` leave the site too.
+// eslint-disable-next-line no-control-regex -- control characters are what it looks for.
+const UNSAFE = /[\\\u0000-\u001f\u007f]/
+
+const sameSite = (path: string) =>
+  path.startsWith('/') &&
+  !path.startsWith('//') &&
+  !UNSAFE.test(path) &&
+  new URL(path, location.origin).origin === location.origin
+
 /** `?redirect=`, same-site paths only: `//host` or `https://…` would send the user off santi. */
 export const parseRedirect = (
   search: Record<string, unknown>
 ): { redirect?: string } => ({
   redirect:
-    typeof search.redirect === 'string' && /^\/(?!\/)/.test(search.redirect)
+    typeof search.redirect === 'string' && sameSite(search.redirect)
       ? search.redirect
       : undefined,
 })

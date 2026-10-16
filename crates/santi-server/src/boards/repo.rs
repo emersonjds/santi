@@ -304,7 +304,7 @@ pub async fn board_cards(
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.summary,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
                   i.status_id, s.column_id AS "column_id!", i.assignee_id,
-                  assignee.display_name AS "assignee_name?", i.points, i.labels,
+                  assignee.display_name AS "assignee_name?", i.reporter_id, i.points, i.labels,
                   p.key || '-' || parent.number AS parent_key, i.sprint_id,
                   sub.open_count AS "open_subtasks!", sub.total_count AS "total_subtasks!", i.rank,
                   i.updated_at
@@ -344,7 +344,7 @@ pub async fn backlog_cards(
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.summary,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
                   i.status_id, s.column_id AS "column_id!", i.assignee_id,
-                  assignee.display_name AS "assignee_name?", i.points, i.labels,
+                  assignee.display_name AS "assignee_name?", i.reporter_id, i.points, i.labels,
                   p.key || '-' || parent.number AS parent_key,
                   CASE WHEN sprint.state = 'closed' THEN NULL ELSE i.sprint_id END AS sprint_id,
                   coalesce(sub.open_count, 0) AS "open_subtasks!", coalesce(sub.total_count, 0) AS "total_subtasks!", i.rank,
