@@ -1,0 +1,150 @@
+import { type KeyboardEvent, type ReactNode, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Pencil } from 'lucide-react'
+import { useUpdateRow } from '@/entities/issue/issue-mutations'
+import { membersQuery } from '@/entities/project/project-queries'
+import type { Card } from '@/shared/api/client'
+import { initials } from '@/shared/lib/initials'
+
+type RowFieldProps = { card: Card; projectKey: string }
+
+const INPUT =
+  'relative z-10 h-8 rounded-md border border-input bg-background px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+/** Enter or leaving the field saves; Esc puts the old text back first, so leaving saves nothing. */
+const commitKeys =
+  (old: string) => (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') event.currentTarget.value = old
+    if (event.key === 'Enter' || event.key === 'Escape') {
+      event.preventDefault()
+      event.currentTarget.blur()
+    }
+  }
+
+/** BL-19, UI-19: the pencil swaps the summary link for a field, without opening the issue. */
+export const RowSummary = ({
+  card,
+  projectKey,
+  children,
+}: RowFieldProps & { children: ReactNode }) => {
+  const update = useUpdateRow(projectKey)
+  const [editing, setEditing] = useState(false)
+  if (!editing)
+    return (
+      <>
+        {children}
+        <button
+          type='button'
+          aria-label={`Edit summary of ${card.key}`}
+          onClick={() => setEditing(true)}
+          className='relative z-10 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 outline-none group-hover:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring'
+        >
+          <Pencil className='size-3.5' />
+        </button>
+      </>
+    )
+  return (
+    <input
+      aria-label={`Summary of ${card.key}`}
+      autoFocus
+      required
+      maxLength={255}
+      defaultValue={card.summary}
+      className={`${INPUT} min-w-0 flex-1`}
+      onKeyDown={commitKeys(card.summary)}
+      onBlur={(event) => {
+        const summary = event.currentTarget.value.trim()
+        if (summary && summary !== card.summary)
+          update.mutate({ card, change: { summary }, shown: { summary } })
+        setEditing(false)
+      }}
+    />
+  )
+}
+
+const pointsText = (points?: number | null) =>
+  points == null ? '' : String(points)
+
+/** D11: a row's estimate, cleared by emptying the field. */
+export const RowPoints = ({ card, projectKey }: RowFieldProps) => {
+  const update = useUpdateRow(projectKey)
+  const [editing, setEditing] = useState(false)
+  if (!editing)
+    return (
+      <button
+        type='button'
+        aria-label={
+          card.points == null
+            ? `Add points to ${card.key}`
+            : `${card.points} points`
+        }
+        onClick={() => setEditing(true)}
+        className='relative z-10 min-w-7 rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground tabular-nums outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring'
+      >
+        {card.points ?? '–'}
+      </button>
+    )
+  return (
+    <input
+      aria-label={`Points of ${card.key}`}
+      autoFocus
+      type='number'
+      min={0}
+      step='any'
+      inputMode='decimal'
+      defaultValue={pointsText(card.points)}
+      className={`${INPUT} w-20`}
+      onKeyDown={commitKeys(pointsText(card.points))}
+      onBlur={(event) => {
+        const text = event.currentTarget.value
+        const points = text === '' ? null : Number(text)
+        if (text !== pointsText(card.points) && (points ?? 0) >= 0)
+          update.mutate({ card, change: { points }, shown: { points } })
+        setEditing(false)
+      }}
+    />
+  )
+}
+
+/** The avatar with the browser's own member picker laid over it: no menu chunk to load. */
+export const RowAssignee = ({ card, projectKey }: RowFieldProps) => {
+  const update = useUpdateRow(projectKey)
+  const { data: members = [] } = useQuery(membersQuery(projectKey))
+  return (
+    <span className='relative z-10 grid size-6 shrink-0 place-items-center rounded-full focus-within:ring-2 focus-within:ring-ring'>
+      {card.assignee_name ? (
+        <span
+          className='grid size-6 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
+          title={`Assigned to ${card.assignee_name}`}
+        >
+          {initials(card.assignee_name)}
+        </span>
+      ) : (
+        <span className='size-6 rounded-full border border-dashed border-subtle-foreground' />
+      )}
+      <select
+        aria-label={`Assignee of ${card.key}`}
+        value={card.assignee_id ?? ''}
+        onChange={(event) => {
+          const assignee_id = Number(event.target.value) || null
+          const assignee_name =
+            members.find((member) => member.user_id === assignee_id)
+              ?.display_name ?? null
+          update.mutate({
+            card,
+            change: { assignee_id },
+            shown: { assignee_id, assignee_name },
+          })
+        }}
+        className='absolute inset-0 cursor-pointer appearance-none opacity-0'
+      >
+        <option value=''>Unassigned</option>
+        {members.map((member) => (
+          <option key={member.user_id} value={member.user_id}>
+            {member.display_name}
+          </option>
+        ))}
+      </select>
+    </span>
+  )
+}

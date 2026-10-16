@@ -1,9 +1,19 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { inProjects, routeOf } from '@/test/stub-api'
+import { inProjects, problem, routeOf } from '@/test/stub-api'
 
 const DELETE_7 = 'DELETE /api/projects/WEB/issues/7'
+const PATCH_6 = 'PATCH /api/projects/WEB/issues/6'
+const PATCH_7 = 'PATCH /api/projects/WEB/issues/7'
+const pending = { status: 200, body: {}, until: new Promise(() => {}) }
+
+const bodiesOf = (requests: Request[], route: string) =>
+  Promise.all(
+    requests
+      .filter((request) => routeOf(request) === route)
+      .map((request) => request.clone().json())
+  )
 
 describe('backlog row edits', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -28,5 +38,83 @@ describe('backlog row edits', () => {
       .element(backlog)
       .toHaveTextContent('1 of 1 issues visible · Estimate: 0 of 0')
     expect(requests.map(routeOf)).toContain(DELETE_7)
+  })
+
+  it('edits a summary in place: Enter saves at once, Esc keeps the old one', async () => {
+    const requests = inProjects({ [PATCH_7]: pending })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const backlog = screen.getByRole('region', { name: 'Backlog' })
+
+    await backlog.getByRole('button', { name: 'Edit summary of WEB-7' }).click()
+    await backlog
+      .getByRole('textbox', { name: 'Summary of WEB-7' })
+      .fill('Translate the docs')
+    await userEvent.keyboard('{Enter}')
+
+    await expect
+      .element(backlog.getByRole('link', { name: 'Translate the docs' }))
+      .toBeVisible()
+    expect(await bodiesOf(requests, PATCH_7)).toEqual([
+      { summary: 'Translate the docs' },
+    ])
+
+    await backlog.getByRole('button', { name: 'Edit summary of WEB-6' }).click()
+    await backlog.getByRole('textbox', { name: 'Summary of WEB-6' }).fill('X')
+    await userEvent.keyboard('{Escape}')
+
+    await expect
+      .element(backlog.getByRole('link', { name: 'Audit the cookie banner' }))
+      .toBeVisible()
+    expect(await bodiesOf(requests, PATCH_6)).toEqual([])
+  })
+
+  it('sets points and the assignee in the row, taking back what the server refuses', async () => {
+    const requests = inProjects({
+      [PATCH_7]: pending,
+      [PATCH_6]: {
+        status: 403,
+        body: problem(403, 'You are not allowed to do this.'),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const backlog = screen.getByRole('region', { name: 'Backlog' })
+
+    await backlog.getByRole('button', { name: '2 points' }).click()
+    await backlog.getByRole('spinbutton', { name: 'Points of WEB-7' }).fill('5')
+    await userEvent.keyboard('{Enter}')
+
+    await expect
+      .element(backlog.getByRole('button', { name: '5 points' }))
+      .toBeVisible()
+    await expect.element(backlog).toHaveTextContent('Estimate: 5 of 5')
+    expect(await bodiesOf(requests, PATCH_7)).toEqual([{ points: 5 }])
+
+    await backlog
+      .getByRole('combobox', { name: 'Assignee of WEB-6' })
+      .selectOptions('Bob Stone')
+
+    await expect
+      .element(screen.getByText('You are not allowed to do this.'))
+      .toBeVisible()
+    await expect
+      .element(backlog.getByRole('combobox', { name: 'Assignee of WEB-6' }))
+      .toHaveValue('')
+    expect(await bodiesOf(requests, PATCH_6)).toEqual([{ assignee_id: 2 }])
+  })
+
+  it('leaves row fields to the issue dialog on a phone', async () => {
+    await page.viewport(375, 800)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await expect
+      .element(screen.getByRole('link', { name: 'Audit the cookie banner' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: /Edit summary/ }).elements()
+    ).toHaveLength(0)
+    expect(
+      screen.getByRole('combobox', { name: /Assignee of/ }).elements()
+    ).toHaveLength(0)
   })
 })

@@ -123,6 +123,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
         epic={card.parent_key ? epics.get(card.parent_key) : undefined}
         status={statuses.get(card.status_id)}
         handle={handle}
+        editable={!narrow}
         menu={
           <Suspense fallback={<MenuSlot />}>
             <RowMenu
@@ -134,7 +135,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
         }
       />
     ),
-    [projectKey, epics, statuses]
+    [projectKey, epics, statuses, narrow]
   )
 
   const open =
