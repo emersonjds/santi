@@ -14,6 +14,7 @@ import { backlogQuery } from '@/entities/issue/backlog-query'
 import { BacklogContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
+  countFilters,
   boardFilters,
   boardSettingsQuery,
 } from '@/entities/issue/board-query'
@@ -295,12 +296,10 @@ const BacklogBody = ({ projectKey, search }: BacklogProps) => {
   const statuses = useMemo(() => statusesById(settings), [settings])
   if (error) throw error
   if (!backlog) return <BacklogSkeleton />
-  const filtered = search.assignee || search.recently_updated
-
   return (
     <>
-      <FilterBar projectKey={projectKey} search={search} />
-      {filtered &&
+      <FilterBar projectKey={projectKey} search={search} text />
+      {countFilters(search) > 0 &&
         backlog.sections.every((section) => section.cards.length === 0) && (
           <p className='text-sm text-muted-foreground'>
             No issues match these filters.

@@ -8,7 +8,6 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { FilterBar } from '@/widgets/board/filter-bar'
 import { boardSettingsQuery, issueNumber } from '@/entities/issue/board-query'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
-import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
 import {
   type IssueSearch,
   searchFilters,
@@ -26,12 +25,10 @@ import { membersQuery } from '@/entities/project/project-queries'
 import type { Issue } from '@/shared/api/client'
 import { initials } from '@/shared/lib/initials'
 import { Button } from '@/shared/ui/button'
+import { NativeSelect } from '@/shared/ui/native-select'
 import { Skeleton } from '@/shared/ui/skeleton'
 
 type SearchResultsProps = { projectKey: string; search: IssueSearch }
-
-const SELECT =
-  'h-11 rounded-md border border-input bg-background px-2 text-base md:h-9 md:text-sm'
 
 const CATEGORIES = Object.keys(CATEGORY).filter(
   (value): value is Category => value in CATEGORY
@@ -39,51 +36,28 @@ const CATEGORIES = Object.keys(CATEGORY).filter(
 
 const capitalized = (text: string) => text[0].toUpperCase() + text.slice(1)
 
-const FilterSelects = ({ search }: { search: IssueSearch }) => {
+const StatusSelect = ({ status }: { status?: Category }) => {
   const navigate = useNavigate({ from: '/p/$key/search' })
   return (
-    <>
-      <select
-        aria-label='Type'
-        value={search.type ?? ''}
-        onChange={({ target }) =>
-          void navigate({
-            search: (prev) => ({
-              ...prev,
-              type: isIssueType(target.value) ? target.value : undefined,
-            }),
-          })
-        }
-        className={SELECT}
-      >
-        <option value=''>Any type</option>
-        {Object.entries(TYPE_LABEL).map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label='Status'
-        value={search.status ?? ''}
-        onChange={({ target }) =>
-          void navigate({
-            search: (prev) => ({
-              ...prev,
-              status: CATEGORIES.find((each) => each === target.value),
-            }),
-          })
-        }
-        className={SELECT}
-      >
-        <option value=''>Any status</option>
-        {CATEGORIES.map((category) => (
-          <option key={category} value={category}>
-            {capitalized(CATEGORY[category].label)}
-          </option>
-        ))}
-      </select>
-    </>
+    <NativeSelect
+      aria-label='Status'
+      value={status ?? ''}
+      onChange={({ target }) =>
+        void navigate({
+          search: (prev) => ({
+            ...prev,
+            status: CATEGORIES.find((each) => each === target.value),
+          }),
+        })
+      }
+    >
+      <option value=''>Any status</option>
+      {CATEGORIES.map((category) => (
+        <option key={category} value={category}>
+          {capitalized(CATEGORY[category].label)}
+        </option>
+      ))}
+    </NativeSelect>
   )
 }
 
@@ -159,23 +133,16 @@ export const SearchResults = ({ projectKey, search }: SearchResultsProps) => {
   )
   if (results.error) throw results.error
 
-  // ponytail: the status category filters the loaded pages; a server-side `status` param when results get long.
-  const issues = (results.data?.pages ?? [])
-    .flatMap((each) => each.items)
-    .filter(
-      (issue) =>
-        !search.status ||
-        statuses.get(issue.status_id)?.category === search.status
-    )
+  const issues = (results.data?.pages ?? []).flatMap((each) => each.items)
 
   return (
     <div className='grid gap-3'>
       <FilterBar
         projectKey={projectKey}
         search={search}
-        filtered={Boolean(search.type || search.status)}
+        pageFilters={search.status ? 1 : 0}
       >
-        <FilterSelects search={search} />
+        <StatusSelect status={search.status} />
       </FilterBar>
       {!results.data ? (
         <ResultsSkeleton />

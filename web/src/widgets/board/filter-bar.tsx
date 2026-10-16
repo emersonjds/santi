@@ -1,102 +1,99 @@
-import type { ReactNode } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
-import type { BoardSearch } from '@/entities/issue/board-query'
-import { membersQuery } from '@/entities/project/project-queries'
-import { sessionQuery } from '@/entities/session/session-query'
-import { UserAvatar } from '@/entities/user/user-avatar'
+import { type ReactNode, Suspense, lazy, useState } from 'react'
+import { type BoardSearch, countFilters } from '@/entities/issue/board-query'
+import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
+import {
+  AssigneeToggles,
+  ClearFilters,
+  EpicFilter,
+  LabelFilter,
+  OnlyMineToggle,
+  RecentToggle,
+  TOGGLE,
+  TextFilter,
+  TypeFilter,
+} from './filter-controls'
 
-const TOGGLE =
-  'inline-flex h-11 items-center rounded-md border px-3 text-sm font-medium hover:bg-muted aria-pressed:border-primary aria-pressed:bg-accent aria-pressed:text-accent-foreground md:h-9'
-
-const toggled = (ids: number[], id: number) =>
-  ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id]
-
-const orNothing = (ids: number[]) => (ids.length > 0 ? ids : undefined)
+const FilterSheet = lazy(() =>
+  import('./filter-sheet').then((module) => ({ default: module.FilterSheet }))
+)
 
 type FilterBarProps = {
   projectKey: string
   search: BoardSearch
-  /** Page-specific filters (search: type, status), drawn before Clear. */
+  /** Board and backlog filter by text; on search, `q` is the query itself. */
+  text?: boolean
+  /** Page-specific filters (search: status), drawn before Clear. */
   children?: ReactNode
-  filtered?: boolean
+  /** How many of those page-specific filters are on. */
+  pageFilters?: number
 }
 
-/** D18: every filter is a link to the page URL with that filter flipped. */
+/** D18: every filter lives in the page URL; R-5: one row on desktop, a bottom sheet on a phone. */
 export const FilterBar = ({
   projectKey,
   search,
+  text = false,
   children,
-  filtered = false,
+  pageFilters = 0,
 }: FilterBarProps) => {
-  const { data: members } = useSuspenseQuery(membersQuery(projectKey))
-  const { data: me } = useSuspenseQuery(sessionQuery)
-  const assignee = search.assignee ?? []
-  const onlyMine = assignee.length === 1 && assignee[0] === me?.id
-  // The current page: the board and the backlog share these filters (D18).
-  const link = { to: '.' } as const
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const count =
+    countFilters(text ? search : { ...search, q: undefined }) + pageFilters
+  const props = { projectKey, search }
+  const secondary = (
+    <>
+      <LabelFilter {...props} />
+      <EpicFilter {...props} />
+      <RecentToggle search={search} />
+      {children}
+    </>
+  )
+  const clear = count > 0 && <ClearFilters count={count} keepText={!text} />
 
   return (
-    <div
-      role='group'
-      aria-label='Filters'
-      className='flex flex-wrap items-center gap-2'
-    >
-      <div className='flex max-w-full -space-x-1 overflow-x-auto p-0.5'>
-        {members.map((member) => (
-          <Link
-            key={member.user_id}
-            {...link}
-            search={(prev) => ({
-              ...prev,
-              assignee: orNothing(toggled(assignee, member.user_id)),
-            })}
-            role='button'
-            aria-pressed={assignee.includes(member.user_id)}
-            aria-label={`Issues of ${member.display_name}`}
-            className='shrink-0 rounded-full p-1 ring-2 ring-transparent outline-none hover:z-10 focus-visible:ring-ring aria-pressed:z-10 aria-pressed:ring-primary md:p-0.5'
+    <>
+      <div
+        role='group'
+        aria-label='Filters'
+        className='hidden min-w-0 items-center gap-2 md:flex'
+      >
+        {text && <TextFilter q={search.q} />}
+        <AssigneeToggles {...props} />
+        <OnlyMineToggle search={search} />
+        <TypeFilter search={search} />
+        <div className='hidden xl:contents'>{secondary}</div>
+        <Popover>
+          <PopoverTrigger className={`${TOGGLE} xl:hidden`}>
+            More filters
+          </PopoverTrigger>
+          <PopoverContent
+            align='start'
+            className='flex w-auto flex-col items-start gap-2 p-2'
           >
-            <UserAvatar
-              name={member.display_name}
-              className='size-9 ring-2 ring-background md:size-8'
-            />
-          </Link>
-        ))}
+            {secondary}
+          </PopoverContent>
+        </Popover>
+        {clear}
       </div>
-      <Link
-        {...link}
-        search={(prev) => ({
-          ...prev,
-          assignee: onlyMine || !me ? undefined : [me.id],
-        })}
-        role='button'
-        aria-pressed={onlyMine}
-        className={TOGGLE}
+      <button
+        type='button'
+        className={`${TOGGLE} self-start md:hidden`}
+        onClick={() => setSheetOpen(true)}
       >
-        Only my issues
-      </Link>
-      <Link
-        {...link}
-        search={(prev) => ({
-          ...prev,
-          recently_updated: search.recently_updated ? undefined : true,
-        })}
-        role='button'
-        aria-pressed={search.recently_updated === true}
-        className={TOGGLE}
-      >
-        Recently updated
-      </Link>
-      {children}
-      {(filtered || assignee.length > 0 || search.recently_updated) && (
-        <Link
-          {...link}
-          search={({ column, q }) => ({ column, q })}
-          className='inline-flex h-11 items-center px-2 text-sm font-medium text-primary hover:underline md:h-9'
-        >
-          Clear filters
-        </Link>
+        Filters{count > 0 && ` (${count})`}
+      </button>
+      {sheetOpen && (
+        <Suspense>
+          <FilterSheet open onOpenChange={setSheetOpen}>
+            {text && <TextFilter q={search.q} />}
+            <AssigneeToggles {...props} />
+            <OnlyMineToggle search={search} />
+            <TypeFilter search={search} />
+            {secondary}
+            {clear}
+          </FilterSheet>
+        </Suspense>
       )}
-    </div>
+    </>
   )
 }

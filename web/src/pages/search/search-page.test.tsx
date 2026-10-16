@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import type { Issue } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import { inProjects, issue, routeOf } from '@/test/stub-api'
@@ -32,8 +32,13 @@ const withPages = (
 
 const withResults = (items: Issue[]) => withPages({ items, next_cursor: null })
 
+/** The search itself, not the Epic filter's list of epics. */
 const lastSearch = (requests: Request[]) => {
-  const searches = requests.filter((request) => routeOf(request) === SEARCH)
+  const searches = requests.filter(
+    (request) =>
+      routeOf(request) === SEARCH &&
+      new URL(request.url).searchParams.get('type') !== 'epic'
+  )
   return new URL(searches[searches.length - 1].url).searchParams
 }
 
@@ -63,7 +68,9 @@ describe('search page', () => {
     const requests = withResults(RESULTS)
     const { screen, router } = await renderApp('/p/WEB/search?q=login')
 
-    await screen.getByLabelText('Type').selectOptions('Bug')
+    await screen.getByRole('button', { name: 'Type' }).click()
+    await screen.getByRole('menuitemcheckbox', { name: 'Bug' }).click()
+    await userEvent.keyboard('{Escape}')
     await screen.getByRole('button', { name: 'Recently updated' }).click()
     await screen.getByRole('button', { name: 'Issues of Bob Stone' }).click()
 
@@ -71,7 +78,7 @@ describe('search page', () => {
       .poll(() => router.state.location.search)
       .toEqual({
         q: 'login',
-        type: 'bug',
+        type: ['bug'],
         recently_updated: true,
         assignee: [2],
       })
@@ -93,25 +100,23 @@ describe('search page', () => {
       '/p/WEB/search?q=login&type=bug&status=done'
     )
 
-    await expect.element(screen.getByLabelText('Type')).toHaveValue('bug')
+    await expect
+      .element(screen.getByRole('button', { name: 'Type' }))
+      .toHaveTextContent('Type1')
     await expect.element(screen.getByLabelText('Status')).toHaveValue('done')
   })
 
-  it('narrows the results to a status category', async () => {
-    withResults(RESULTS)
+  it('asks the server for a status category', async () => {
+    const requests = withResults(RESULTS)
     const { screen, router } = await renderApp('/p/WEB/search?q=login')
 
     await screen.getByLabelText('Status').selectOptions('Done')
 
-    await expect
-      .element(screen.getByRole('link', { name: 'Ship the login page' }))
-      .toBeVisible()
-    expect(
-      screen
-        .getByRole('link', { name: 'Fix the login redirect loop' })
-        .elements()
-    ).toHaveLength(0)
+    await expect.poll(() => lastSearch(requests).get('status')).toBe('done')
     expect(router.state.location.search).toEqual({ q: 'login', status: 'done' })
+    await expect
+      .element(screen.getByRole('link', { name: 'Fix the login redirect loop' }))
+      .toBeVisible()
   })
 
   it('says so when nothing matches', async () => {

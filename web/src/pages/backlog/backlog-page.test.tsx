@@ -193,6 +193,22 @@ describe('backlog page', () => {
       .toHaveTextContent('1 of 2 issues visible · Estimate: 2 of 2')
   })
 
+  it('sends type, label, epic and text from a shared link to the backlog', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp(
+      '/p/WEB/backlog?type=%5B%22task%22%5D&label=%5B%22docs%22%5D&epic=WEB-9&q=help'
+    )
+
+    await expect
+      .element(screen.getByRole('searchbox', { name: 'Filter issues' }))
+      .toHaveValue('help')
+    expect(
+      requests
+        .filter((request) => routeOf(request) === 'GET /api/projects/WEB/backlog')
+        .map((request) => new URL(request.url).search)
+    ).toEqual(['?type=task&label=docs&parent=WEB-9&q=help'])
+  })
+
   it('says so when the filters hide every issue', async () => {
     withBacklog(backlogOf({ ...NO_SPRINT, cards: [] }))
     const { screen } = await renderApp('/p/WEB/backlog')

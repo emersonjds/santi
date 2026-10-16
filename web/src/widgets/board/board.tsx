@@ -13,6 +13,7 @@ import { recount } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
+  countFilters,
   boardFilters,
   boardQuery,
   boardSettingsQuery,
@@ -247,8 +248,8 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
       {board.sprint && (
         <RunningSprint sprint={board.sprint} projectKey={projectKey} />
       )}
-      <FilterBar projectKey={projectKey} search={search} />
-      {(search.assignee || search.recently_updated) &&
+      <FilterBar projectKey={projectKey} search={search} text />
+      {countFilters(search) > 0 &&
         board.columns.every((column) => column.cards.length === 0) && (
           <p className='text-sm text-muted-foreground'>
             No issues match these filters.

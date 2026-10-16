@@ -62,6 +62,8 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
     'GET /api/projects/OPS/board/settings': { status: 200, body: OPS_SETTINGS },
     'GET /api/projects/WEB/sprints': { status: 200, body: WEB_SPRINTS },
     'GET /api/projects/WEB/backlog': { status: 200, body: WEB_BACKLOG },
+    'GET /api/projects/WEB/labels': { status: 200, body: ['docs', 'ui'] },
+    'GET /api/projects/OPS/labels': { status: 200, body: [] },
     'GET /api/projects/WEB/issues/1': { status: 200, body: WEB_ISSUE },
     'GET /api/projects/WEB/issues/1/comments': {
       status: 200,
