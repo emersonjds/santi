@@ -276,3 +276,66 @@ test('an admin sets a column limit from its header; a reload keeps it', async ({
   await page.reload()
   await expect(todo.getByTitle('Over the limit of 2')).toHaveText('Max 2')
 })
+
+test('filter the board by type, label and text; a reload keeps every filter', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  await api(page, 'PATCH', `/api/projects/${key}/issues/1`, {
+    issue_type: 'bug',
+    labels: ['ui'],
+  })
+  await api(page, 'PATCH', `/api/projects/${key}/issues/2`, {
+    issue_type: 'bug',
+    labels: ['api'],
+  })
+  await api(page, 'POST', `/api/projects/${key}/issues`, {
+    summary: 'Alpha follow-up',
+    issue_type: 'bug',
+    labels: ['ui'],
+  })
+  await page.reload()
+  const todo = column(page, 'To Do')
+
+  await page.getByRole('button', { name: 'Type' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'Bug' }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Label' }).click()
+  await page.getByRole('menuitemcheckbox', { name: 'ui' }).click()
+  await page.keyboard.press('Escape')
+  await page.getByRole('searchbox', { name: 'Filter issues' }).fill('follow')
+
+  await expect(todo.getByRole('article')).toHaveCount(1)
+  await expect(todo).toContainText('Alpha follow-up')
+  await expect(page).toHaveURL(/q=follow/)
+  await page.reload()
+  await expect(
+    page.getByRole('searchbox', { name: 'Filter issues' })
+  ).toHaveValue('follow')
+  await expect(page.getByRole('button', { name: 'Type' })).toContainText('1')
+  await expect(todo.getByRole('article')).toHaveCount(1)
+  await expect(todo).toContainText('Alpha follow-up')
+})
+
+test('on a phone, the Filters sheet applies a filter', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 })
+  const key = await kanbanWithIssues(page)
+  await api(page, 'PATCH', `/api/projects/${key}/issues/3`, {
+    issue_type: 'task',
+  })
+  await page.reload()
+
+  await page.getByRole('button', { name: 'Filters' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Filters' })
+  await sheet.getByRole('button', { name: 'Type' }).click()
+  await page
+    .getByRole('menuitemcheckbox', { name: 'Task', exact: true })
+    .click()
+  await page.keyboard.press('Escape')
+  await sheet.getByRole('button', { name: 'Done' }).click()
+
+  await expect(page.getByRole('button', { name: 'Filters (1)' })).toBeVisible()
+  const todo = column(page, 'To Do')
+  await expect(todo.getByRole('article')).toHaveCount(1)
+  await expect(todo).toContainText('Gamma task')
+})
