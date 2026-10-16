@@ -1,9 +1,6 @@
-use clap::Parser;
+pub mod cli;
+pub mod client;
+pub mod config;
+pub mod error;
 
-#[derive(Debug, Parser)]
-#[command(
-    name = "santi",
-    version,
-    about = "Agile tracker: boards, backlog and sprints"
-)]
-pub struct Cli {}
+pub use cli::Cli;

@@ -4,6 +4,7 @@ use utoipa::{IntoParams, ToSchema};
 
 use crate::boards::StatusCategory;
 
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
@@ -20,6 +21,7 @@ pub enum IssueType {
     Subtask,
 }
 
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
@@ -35,6 +37,7 @@ pub enum Priority {
     Low,
 }
 
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct CreateIssue {
     pub summary: String,
@@ -85,6 +88,7 @@ pub struct Issue {
 }
 
 /// Absent fields stay as they are; `null` clears a nullable field.
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 pub struct UpdateIssue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -101,6 +105,7 @@ pub struct UpdateIssue {
         skip_serializing_if = "Option::is_none"
     )]
     #[schema(value_type = Option<i64>)]
+    #[cfg_attr(feature = "schemars", schemars(with = "Option<i64>"))]
     pub assignee_id: Option<Option<i64>>,
     #[serde(
         default,
@@ -108,6 +113,7 @@ pub struct UpdateIssue {
         skip_serializing_if = "Option::is_none"
     )]
     #[schema(value_type = Option<f64>)]
+    #[cfg_attr(feature = "schemars", schemars(with = "Option<f64>"))]
     pub points: Option<Option<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub labels: Option<Vec<String>>,
@@ -117,6 +123,7 @@ pub struct UpdateIssue {
         skip_serializing_if = "Option::is_none"
     )]
     #[schema(value_type = Option<String>)]
+    #[cfg_attr(feature = "schemars", schemars(with = "Option<String>"))]
     pub parent: Option<Option<String>>,
     /// Plans the issue (and its subtasks) into a sprint; `null` sends it to the backlog. Scrum only.
     #[serde(
@@ -125,6 +132,7 @@ pub struct UpdateIssue {
         skip_serializing_if = "Option::is_none"
     )]
     #[schema(value_type = Option<i64>)]
+    #[cfg_attr(feature = "schemars", schemars(with = "Option<i64>"))]
     pub sprint_id: Option<Option<i64>>,
 }
 
@@ -223,6 +231,7 @@ pub struct Page<T> {
     pub next_cursor: Option<i64>,
 }
 
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct PageParams {
@@ -234,6 +243,7 @@ pub struct PageParams {
 }
 
 /// Quick filters (D3): repeated values of one key mean "any of them"; different keys must all match.
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct IssueFilter {
@@ -259,6 +269,7 @@ pub struct IssueFilter {
 pub const NO_PARENT: &str = "none";
 
 /// Search only: status categories, any of them (D3).
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct StatusFilter {
