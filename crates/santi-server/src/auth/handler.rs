@@ -62,10 +62,9 @@ pub async fn login(
     JsonBody(input): JsonBody<Login>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::Login, address, None)?;
-    let email = input.email.trim().to_lowercase();
-    state.limits.login_attempt(&email)?;
+    let key = state.limits.login_attempt(&input.email)?;
     let (user, session) = service::login(&state.pool, input).await?;
-    state.limits.login_succeeded(&email);
+    state.limits.login_succeeded(&key);
     Ok(([(SET_COOKIE, domain::session_cookie(&session))], Json(user)))
 }
 
@@ -149,9 +148,9 @@ pub async fn delete_account(
     JsonBody(input): JsonBody<DeleteAccount>,
 ) -> Result<impl IntoResponse, AppError> {
     let email = service::me(&state.pool, &user).await?.email;
-    state.limits.login_attempt(&email)?;
+    let key = state.limits.login_attempt(&email)?;
     service::delete_account(&state.pool, &user, input).await?;
-    state.limits.login_succeeded(&email);
+    state.limits.login_succeeded(&key);
     Ok((
         StatusCode::NO_CONTENT,
         [(SET_COOKIE, domain::expired_session_cookie())],
