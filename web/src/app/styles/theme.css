@@ -47,6 +47,21 @@
   --priority-urgent: #b42318;
   --warning: #92400e;
   --warning-bg: #fef3c7;
+  /* SAN-35 (D36 amendment): hover row, avatar tones, select chevron. */
+  --hover: #eef0f3;
+  --avatar-1: #ece8fb;
+  --avatar-1-foreground: #3f2cb0;
+  --avatar-2: #ccfbf1;
+  --avatar-2-foreground: #115e59;
+  --avatar-3: #fef3c7;
+  --avatar-3-foreground: #92400e;
+  --avatar-4: #ffe4e6;
+  --avatar-4-foreground: #9f1239;
+  --avatar-5: #eef0f3;
+  --avatar-5-foreground: #3d4354;
+  --avatar-6: #fce7f3;
+  --avatar-6-foreground: #9d174d;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235E6475' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 :root[data-theme='dark'] {
@@ -96,6 +111,20 @@
   --priority-urgent: #f97066;
   --warning: #fbbf24;
   --warning-bg: #3a2a0a;
+  --hover: #33302d;
+  --avatar-1: #2c2075;
+  --avatar-1-foreground: #c4b8f5;
+  --avatar-2: #134e4a;
+  --avatar-2-foreground: #5eead4;
+  --avatar-3: #3a2a0a;
+  --avatar-3-foreground: #fbbf24;
+  --avatar-4: #4c0519;
+  --avatar-4-foreground: #fda4af;
+  --avatar-5: #33302d;
+  --avatar-5-foreground: #d6d3d1;
+  --avatar-6: #500724;
+  --avatar-6-foreground: #f9a8d4;
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A8A29E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 @theme inline {
@@ -147,4 +176,17 @@
   --color-priority-urgent: var(--priority-urgent);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
+  --color-hover: var(--hover);
+  --color-avatar-1: var(--avatar-1);
+  --color-avatar-1-foreground: var(--avatar-1-foreground);
+  --color-avatar-2: var(--avatar-2);
+  --color-avatar-2-foreground: var(--avatar-2-foreground);
+  --color-avatar-3: var(--avatar-3);
+  --color-avatar-3-foreground: var(--avatar-3-foreground);
+  --color-avatar-4: var(--avatar-4);
+  --color-avatar-4-foreground: var(--avatar-4-foreground);
+  --color-avatar-5: var(--avatar-5);
+  --color-avatar-5-foreground: var(--avatar-5-foreground);
+  --color-avatar-6: var(--avatar-6);
+  --color-avatar-6-foreground: var(--avatar-6-foreground);
 }

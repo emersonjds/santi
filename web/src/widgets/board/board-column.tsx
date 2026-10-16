@@ -17,6 +17,9 @@ const WipBadge = ({ limit, over }: { limit: number; over: boolean }) => (
   </span>
 )
 
+/** Columns share a wide board, 18rem to 26rem each; past that the board scrolls sideways. */
+export const COLUMN_WIDTH = 'w-full shrink-0 md:max-w-104 md:min-w-72 md:flex-1'
+
 /** 375px: one column at a time, picked here and kept in `?column=` (IA §10). */
 export const ColumnPicker = ({
   projectKey,
@@ -69,7 +72,8 @@ export const ColumnShell = ({
     aria-label={column.name}
     data-issue-group={column.name}
     className={cn(
-      'flex w-full shrink-0 flex-col rounded-lg bg-muted md:w-72',
+      'flex flex-col rounded-lg bg-muted',
+      COLUMN_WIDTH,
       narrowHidden && 'max-md:hidden'
     )}
   >

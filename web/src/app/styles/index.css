@@ -36,3 +36,26 @@
     }
   }
 }
+
+/* One look for every native select: the platform picker stays, its arrow does not.
+   Unlayered, so `px-*` utilities cannot put text under the arrow. */
+select:not([multiple]) {
+  appearance: none;
+  background-image: var(--select-chevron);
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+  padding-inline-end: 2rem;
+}
+
+/* Outside any layer, so it wins over every utility's duration. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
