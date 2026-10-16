@@ -411,3 +411,49 @@ async fn openapi_lists_board_settings_routes(pool: PgPool) {
         assert!(api["paths"][path].is_object(), "{path} missing");
     }
 }
+
+/// Each write re-reads the settings; doing that on a second connection while holding the first
+/// deadlocks a small pool under concurrency.
+#[sqlx::test]
+async fn concurrent_settings_writes_finish_on_a_small_pool(pool: PgPool) {
+    let small = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .acquire_timeout(std::time::Duration::from_secs(3))
+        .connect_with((*pool.connect_options()).clone())
+        .await
+        .unwrap();
+    let ana = TestApp::signed_in(small, "ana@example.com").await;
+    ana.create_project("FLOW", "kanban").await;
+    let doing = ana.column_id("FLOW", "In Progress").await;
+    let mut writes = tokio::task::JoinSet::new();
+    for index in 0..60 {
+        let ana = ana.clone();
+        writes.spawn(async move {
+            match index % 2 {
+                0 => {
+                    ana.put(
+                        "/api/projects/FLOW/board/settings",
+                        json!({ "done_window_days": 30 }),
+                    )
+                    .await
+                    .0
+                }
+                _ => {
+                    let url = format!("/api/projects/FLOW/board/columns/{doing}");
+                    ana.put(&url, json!({ "name": "Doing", "wip_limit": 3 }))
+                        .await
+                        .0
+                }
+            }
+        });
+    }
+
+    let statuses = tokio::time::timeout(std::time::Duration::from_secs(30), writes.join_all())
+        .await
+        .expect("the writes finish");
+
+    assert!(
+        statuses.iter().all(|status| *status == StatusCode::OK),
+        "{statuses:?}"
+    );
+}
