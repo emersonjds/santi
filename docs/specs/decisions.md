@@ -414,6 +414,8 @@ SPA budgets (enforced by the SPA cards): initial JS < 170 KB gzip (`size-limit`,
 
 Amended (SAN-62): `POST /api/sample-project` writes a whole sample project through the use cases (2 sprints, 15 issues, 3 comments, sprint start) once per user: budget 150 statements and 1 s in `tests/perf_budget.rs` (148 measured); a repeat call only looks the project up (3).
 
+Amended (SAN-72): the home reads in one statement per list after the token lookup (budget 2 in `tests/perf_budget.rs`): `GET /api/me/projects`, `GET /api/me/issues?view=…` and `POST /api/me/stars`. Recording costs no extra round trip: the issue GET records the caller's view inside its read (a data-modifying CTE, at most once a minute), create, edit, move and comment record the caller's work in the CTE of the write they already run, and the project GET records the visit the same way, so issue (2) and move (9) keep their budgets. All five lists are one query whose unused branches drop out as one-time filters; paging is by offset (ceiling: the caller's own history; keyset on `(at, id)` if it grows past a few thousand rows).
+
 ## D40 — Issue delete (SAN-49; lifts IA resolved #5)
 Context: UI-25 and UI-31 put Delete in the row and issue menus; duplicates and typos could only be parked in Done. Who may delete, and what happens to children, comments and sprint facts?
 Options: A) admins only B) admins and the issue's reporter C) any member
