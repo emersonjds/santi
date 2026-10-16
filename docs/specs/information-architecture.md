@@ -77,17 +77,23 @@ Pages
 | `GET /login`, `GET /register` | sign in, create account | built |
 | `GET /invites/{token}` | join a project | built |
 | `GET /` | home | built (projects only) |
+| `GET /projects` | projects; tabs Active / Archived / Trash (`?tab=archived\|trash`, SAN-70) | built |
 | `GET /projects/new` | new project | built |
 | `GET /p/{key}` | `303` → `/p/{key}/board` | built |
 | `GET /p/{key}/board` | board (+ `?column={id}` at 375px) | built |
 | `GET /p/{key}/backlog` | backlog (+ `?panel=epics`); kanban → `303` board | built |
 | `GET /p/{key}/issues/{n}` | issue: full page; from board, backlog or search a modal with the URL masked to this path | built |
 | `GET /p/{key}/search` | search results (`?q`, `type`, `status` category, `assignee`, `recently_updated`) | built |
-| `GET /p/{key}/settings` | board settings: columns, statuses, done window | new |
+| `GET /p/{key}/settings` | board settings: columns, statuses, done window (admins); danger zone (everyone, SAN-70) | built |
 | `GET /p/{key}/settings/members` | members, roles, invite links | new (moves off the project page) |
 | `GET /account` | profile and API tokens | built |
 
 Create issue has no route: + Create or `c` opens a dialog.
+
+Project lifecycle API (SAN-70): `POST /api/projects/{key}/archive`, `/unarchive`, `/trash`,
+`/restore` (204; admins), `DELETE /api/projects/{key}` (purge, trashed only),
+`GET /api/projects?state=active|archived|trashed` (archived and trashed: only projects the caller
+administers). Leaving is `DELETE /api/projects/{key}/members/{own id}`.
 
 ## 4. Pages and regions
 
@@ -99,20 +105,25 @@ overlay (modal, sheet, menu).
 | Login / register | none (no shell) | — | centered form | — | Sign in / Create account | switch to the other form |
 | Join project | none | — | project name, role offered | — | Join project | sign in or create account first |
 | Home | "For you" | — | Recommended projects (4 cards: avatar, name, "Software project", board type, open issues assigned to you, star) + "View all projects"; tabs Recommended / Assigned to me (count) / Starred / Worked on / Viewed (`?tab=`), rows grouped Today / Yesterday / This week / This month / Older, "Show more" (SAN-72) | — | open an issue | star an issue or project; New project or sample when there are none |
-| Projects | "Projects" | — | table: star, name, key, type, lead (oldest admin), by name (SAN-72) | — | New project | star, open a project |
+| Projects | "Projects" | tabs Active / Archived / Trash (`?tab=`, SAN-70) | Active: table star, name, key, type, lead (oldest admin), by name (SAN-72). Archived: name, key, archived (time ago + by), Unarchive. Trash: name, key, trashed (time ago + by), days left (from `purge_at`), Restore, Delete forever (type the key). Archived and Trash list only projects the caller administers | Delete forever confirm | New project | star, open a project, unarchive, restore |
 | New project | "New project" | — | name, key (derived, editable), board type Scrum/Kanban with one-line help | — | Create project | Cancel |
 | Board | project header | filter bar | columns; uppercase name, count, WIP `n/max` (kanban); cards | issue modal, card menu, start/complete dialogs | + Create (top bar), inline "Create issue" at column foot | Complete sprint (header, scrum), Settings link (admin) |
 | Backlog | project header | filter bar + Epics toggle | sprint sections, then "Backlog" section | epic panel (right, pushes the list), issue modal, row menu | Create sprint | Start / Complete per sprint, inline create per section |
 | Issue (page or modal) | type glyph, key, parent key, summary | — | main: description, subtasks (+ Add subtask), comments; details: status button, assignee, reporter, priority, points, sprint, labels, parent, dates | status menu, pickers | status button | Assign to me, Copy link, Open as page (modal only), Close |
 | Create issue (modal) | "Create issue" | — | project, type, summary, description, assignee, points, sprint | — | Create | Create another (keep open), Cancel |
 | Search | "Search" + query | filter bar | result rows: type, key, summary, status chip, assignee | issue modal | — | refine filters |
-| Settings — board | project header | — | Columns (order, rename, WIP max kanban, delete), Statuses (name, category, column, unmapped pool), Done window (kanban) | delete-column target picker | Add column | Add status |
+| Settings — board | project header | — | Columns (order, rename, WIP max kanban, delete), Statuses (name, category, column, unmapped pool), Done window (kanban); then the Danger zone | delete-column target picker; danger-zone confirms | Add column | Add status |
+| Settings — danger zone | (end of Settings) | — | rows, label + one-line description left, button right (stacked under 640px): Archive project (outline, admins, active projects), Delete project (destructive, admins: "Moves to trash for 60 days; you can restore it."), Leave project (outline, everyone; disabled for the last admin with the reason as its description) | Archive and Leave: confirm; Delete: type the project key | — | after Archive / Delete: land on `/projects`, toast "Archived {KEY}" / "Moved {KEY} to trash" with Undo for 8 s; Leave: home, "You left {name}." |
 | Settings — members | project header | — | member rows (avatar, name, email, role select, remove); invite link box | — | Create invite link | change role, remove |
 | Account | "Account" | — | profile (read only); API tokens (name, created, revoke) | token shown once | Create token | Revoke, Log out |
 
 Project header (board, backlog, settings): project avatar (initial on brand tint), name, board
 type badge (Scrum / Kanban), active sprint name + "n days left" (scrum; overdue badge, D15),
-member avatars (5 + "+n", opens the member list), Invite (admins), then the tabs.
+member avatars (5 + "+n", opens the member list), Invite (admins), then the tabs. An archived
+project (SAN-70) adds a banner above the tabs, `role="status"`: "This project is archived and
+read-only." with Unarchive for admins (44px on phone). Inline "Create issue" is `aria-disabled`;
++ Create preselects another project; any other write answers 409 `project-archived` and its
+detail shows in the error toast. A trashed project is the not-found page for everyone.
 
 Filter bar (board, backlog, search): search box, assignee avatars (click toggles; "Only mine"),
 Type, Label, Epic dropdowns, "Filters (n)" with Clear. AND across kinds, OR within (D3). Group by
@@ -175,6 +186,8 @@ sprint: dashed drop zone.
 | Start on empty sprint | button disabled, hint "Add an issue before starting." (D13) | — |
 | Epic panel, empty | "No epics yet." | Create epic |
 | Members, only you | "Invite people with a link. Each link works once." | Create invite link |
+| Projects, Archived tab empty | "No archived projects" | — |
+| Projects, Trash tab empty | "Nothing in the trash" | — |
 | Account, no tokens | "Tokens let the santi CLI and agents act as you." | Create token |
 
 First run: register → home (empty) → New project (name, key, type) → backlog (scrum) or board
@@ -186,7 +199,9 @@ First run: register → home (empty) → New project (name, key, type) → backl
 |---|---|---|---|
 | Create, edit, move, rank, comment on issues | yes | yes | — |
 | Create, edit, start, complete, delete future sprints | yes | yes | — (SP-15 dropped; reinstated → SAN-66) |
-| Board settings: columns, statuses, mapping, WIP, done window | yes | no | Settings tab and sidebar link hidden; direct URL → 403 page "Only project admins can change settings." |
+| Board settings: columns, statuses, mapping, WIP, done window | yes | no | Settings tab and sidebar link shown to everyone; members see only the danger zone |
+| Archive, unarchive, delete (trash), restore, delete forever (SAN-70) | yes | no | Archive and Delete rows hidden; Archived and Trash tabs empty; banner without Unarchive |
+| Leave the project (SAN-70) | yes, unless last admin | yes | Leave project in the danger zone |
 | Members: roles, remove, invite links | yes | no | Invite button hidden; member avatars still open a read-only list |
 | Create a project | any signed-in user | — | creator becomes admin |
 
