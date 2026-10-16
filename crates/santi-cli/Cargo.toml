@@ -27,6 +27,7 @@ toml.workspace = true
 santi-server.workspace = true
 sqlx.workspace = true
 assert_cmd = "2"
+predicates = "3"
 rmcp = { workspace = true, features = ["client", "transport-child-process", "transport-streamable-http-client-reqwest"] }
 tempfile = "3"
 
