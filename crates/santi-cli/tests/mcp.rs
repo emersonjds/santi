@@ -315,6 +315,33 @@ fn stdio_rejects_missing_unknown_and_malformed_arguments() {
         )
         .await;
         assert!(flattened.contains("unknown argument `qq`"), "{flattened}");
+        for (tool, arguments, name) in [
+            (
+                "update_issue",
+                json!({ "issue": "ARG-1", "parent_key": "ARG-2" }),
+                "parent_key",
+            ),
+            (
+                "create_issue",
+                json!({ "project": "ARG", "summary": "x", "status": "todo" }),
+                "status",
+            ),
+            (
+                "create_sprint",
+                json!({ "project": "ARG", "goals": "x" }),
+                "goals",
+            ),
+            (
+                "start_sprint",
+                json!({ "project": "ARG", "sprint_id": sprint["id"], "end": "2026-01-01" }),
+                "end",
+            ),
+        ] {
+            let message = rejected(&client, tool, arguments).await;
+            assert!(message.contains(&format!("`{name}`")), "{tool}: {message}");
+        }
+        let untouched = ok(&client, "get_issue", json!({ "issue": "ARG-1" })).await;
+        assert_eq!(untouched["parent_key"], Value::Null);
 
         for project in ["../tokens", "ARG/x", ""] {
             let message = rejected(&client, "get_board", json!({ "project": project })).await;
