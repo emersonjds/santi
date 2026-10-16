@@ -11,7 +11,7 @@ use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 
 use crate::cli::{Cli, Command, Filter, IssuesCommand, ProjectsCommand, SprintsCommand};
-use crate::client::Client;
+use crate::client::{Client, ProjectKey};
 use crate::config::{self, Config};
 use crate::error::Error;
 
@@ -234,7 +234,7 @@ async fn sprints(client: &Client, command: SprintsCommand, json: bool) -> Result
 
 async fn import(
     client: &Client,
-    project: &str,
+    project: &ProjectKey,
     file: PathBuf,
     yes: bool,
     json: bool,

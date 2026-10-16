@@ -56,19 +56,19 @@ impl Client {
         self.send(self.request(Method::GET, &["projects"])).await
     }
 
-    pub async fn board(&self, project: &str) -> Result<BoardView, Error> {
-        let request = self.request(Method::GET, &["projects", project, "board"]);
+    pub async fn board(&self, project: &ProjectKey) -> Result<BoardView, Error> {
+        let request = self.request(Method::GET, &["projects", project.as_str(), "board"]);
         self.send(request).await
     }
 
-    pub async fn backlog(&self, project: &str) -> Result<Backlog, Error> {
-        let request = self.request(Method::GET, &["projects", project, "backlog"]);
+    pub async fn backlog(&self, project: &ProjectKey) -> Result<Backlog, Error> {
+        let request = self.request(Method::GET, &["projects", project.as_str(), "backlog"]);
         self.send(request).await
     }
 
     pub async fn issues(
         &self,
-        project: &str,
+        project: &ProjectKey,
         filter: &IssueFilter,
         status: &StatusFilter,
         page: &PageParams,
@@ -76,7 +76,7 @@ impl Client {
         let mut query = to_query(filter);
         query.extend(to_query(status));
         query.extend(to_query(page));
-        let request = self.request(Method::GET, &["projects", project, "issues"]);
+        let request = self.request(Method::GET, &["projects", project.as_str(), "issues"]);
         self.send(request.query(&query)).await
     }
 
@@ -84,8 +84,12 @@ impl Client {
         self.send(self.issue_request(Method::GET, key, None)).await
     }
 
-    pub async fn create_issue(&self, project: &str, issue: &CreateIssue) -> Result<Issue, Error> {
-        let request = self.request(Method::POST, &["projects", project, "issues"]);
+    pub async fn create_issue(
+        &self,
+        project: &ProjectKey,
+        issue: &CreateIssue,
+    ) -> Result<Issue, Error> {
+        let request = self.request(Method::POST, &["projects", project.as_str(), "issues"]);
         self.send(request.json(issue)).await
     }
 
@@ -114,49 +118,52 @@ impl Client {
         self.send(request.json(&body)).await
     }
 
-    pub async fn sprints(&self, project: &str) -> Result<Vec<Sprint>, Error> {
-        let request = self.request(Method::GET, &["projects", project, "sprints"]);
+    pub async fn sprints(&self, project: &ProjectKey) -> Result<Vec<Sprint>, Error> {
+        let request = self.request(Method::GET, &["projects", project.as_str(), "sprints"]);
         self.send(request).await
     }
 
     pub async fn create_sprint(
         &self,
-        project: &str,
+        project: &ProjectKey,
         sprint: &CreateSprint,
     ) -> Result<Sprint, Error> {
-        let request = self.request(Method::POST, &["projects", project, "sprints"]);
+        let request = self.request(Method::POST, &["projects", project.as_str(), "sprints"]);
         self.send(request.json(sprint)).await
     }
 
     pub async fn start_sprint(
         &self,
-        project: &str,
+        project: &ProjectKey,
         sprint: i64,
         dates: &StartSprint,
     ) -> Result<Sprint, Error> {
         let id = sprint.to_string();
         let request = self.request(
             Method::POST,
-            &["projects", project, "sprints", &id, "start"],
+            &["projects", project.as_str(), "sprints", &id, "start"],
         );
         self.send(request.json(dates)).await
     }
 
     pub async fn complete_sprint(
         &self,
-        project: &str,
+        project: &ProjectKey,
         sprint: i64,
         complete: &CompleteSprint,
     ) -> Result<Sprint, Error> {
         let id = sprint.to_string();
-        let path = ["projects", project, "sprints", &id, "complete"];
+        let path = ["projects", project.as_str(), "sprints", &id, "complete"];
         self.send(self.request(Method::POST, &path).json(complete))
             .await
     }
 
     /// A status id from its id or its name as the board shows it, ignoring case.
-    pub async fn status_id(&self, project: &str, status: &str) -> Result<i64, Error> {
-        let request = self.request(Method::GET, &["projects", project, "board", "settings"]);
+    pub async fn status_id(&self, project: &ProjectKey, status: &str) -> Result<i64, Error> {
+        let request = self.request(
+            Method::GET,
+            &["projects", project.as_str(), "board", "settings"],
+        );
         let settings: BoardSettings = self.send(request).await?;
         let statuses: Vec<_> = settings
             .columns
@@ -179,18 +186,18 @@ impl Client {
 
     pub async fn import_preview(
         &self,
-        project: &str,
+        project: &ProjectKey,
         csv: Vec<u8>,
     ) -> Result<ImportPreview, Error> {
         let form = reqwest::multipart::Form::new().part("file", csv_part(csv));
-        let path = ["projects", project, "imports", "preview"];
+        let path = ["projects", project.as_str(), "imports", "preview"];
         self.send(self.request(Method::POST, &path).multipart(form))
             .await
     }
 
     pub async fn import(
         &self,
-        project: &str,
+        project: &ProjectKey,
         csv: Vec<u8>,
         mapping: &ImportMapping,
     ) -> Result<ImportResult, Error> {
@@ -199,7 +206,7 @@ impl Client {
         let form = reqwest::multipart::Form::new()
             .part("file", csv_part(csv))
             .text("mapping", mapping);
-        let request = self.request(Method::POST, &["projects", project, "imports"]);
+        let request = self.request(Method::POST, &["projects", project.as_str(), "imports"]);
         self.send(request.multipart(form)).await
     }
 
@@ -210,7 +217,7 @@ impl Client {
         action: Option<&str>,
     ) -> RequestBuilder {
         let number = key.number.to_string();
-        let mut path = vec!["projects", &key.project, "issues", &number];
+        let mut path = vec!["projects", key.project.as_str(), "issues", &number];
         path.extend(action);
         self.request(method, &path)
     }
@@ -248,10 +255,39 @@ fn csv_part(csv: Vec<u8>) -> reqwest::multipart::Part {
     reqwest::multipart::Part::bytes(csv).file_name("export.csv")
 }
 
+/// `WEB`: ASCII letters and digits, uppercased, so it is always one plain path segment.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectKey(String);
+
+impl ProjectKey {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for ProjectKey {
+    type Err = String;
+
+    fn from_str(text: &str) -> Result<ProjectKey, String> {
+        if text.is_empty() || !text.chars().all(|c| c.is_ascii_alphanumeric()) {
+            return Err(format!(
+                "`{text}` is not a project key; use letters and digits, e.g. WEB"
+            ));
+        }
+        Ok(ProjectKey(text.to_ascii_uppercase()))
+    }
+}
+
+impl fmt::Display for ProjectKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// `WEB-12`: project key `WEB`, issue number 12.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IssueKey {
-    pub project: String,
+    pub project: ProjectKey,
     pub number: i64,
 }
 
@@ -262,13 +298,11 @@ impl FromStr for IssueKey {
         let invalid = || format!("`{text}` is not an issue key; use PROJECT-NUMBER, e.g. WEB-12");
         let (project, number) = text.rsplit_once('-').ok_or_else(invalid)?;
         let number: i64 = number.parse().map_err(|_| invalid())?;
-        if project.is_empty() || number < 1 || !project.chars().all(|c| c.is_ascii_alphanumeric()) {
+        let project = project.parse().map_err(|_| invalid())?;
+        if number < 1 {
             return Err(invalid());
         }
-        Ok(IssueKey {
-            project: project.to_ascii_uppercase(),
-            number,
-        })
+        Ok(IssueKey { project, number })
     }
 }
 
@@ -314,7 +348,7 @@ mod tests {
         assert_eq!(
             key,
             IssueKey {
-                project: "WEB".into(),
+                project: "WEB".parse().unwrap(),
                 number: 12
             }
         );

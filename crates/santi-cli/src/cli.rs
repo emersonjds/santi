@@ -6,7 +6,7 @@ use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueType, Priority};
 use santi_types::sprints::OpenIssuesDestination;
 
-use crate::client::IssueKey;
+use crate::client::{IssueKey, ProjectKey};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -39,9 +39,9 @@ pub enum Command {
     #[command(subcommand)]
     Issues(IssuesCommand),
     /// Show a project's board
-    Board { project: String },
+    Board { project: ProjectKey },
     /// Show a project's backlog: sprints first, then the backlog
-    Backlog { project: String },
+    Backlog { project: ProjectKey },
     #[command(subcommand)]
     Sprints(SprintsCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
@@ -54,7 +54,7 @@ pub enum Command {
     },
     /// Search a project's issues by summary or key
     Search {
-        project: String,
+        project: ProjectKey,
         text: String,
         #[command(flatten)]
         filter: Filter,
@@ -63,7 +63,7 @@ pub enum Command {
     Comment { issue: IssueKey, body: String },
     /// Import a Jira or Linear CSV export: shows a preview, then asks before importing
     Import {
-        project: String,
+        project: ProjectKey,
         file: PathBuf,
         /// Import without asking
         #[arg(long)]
@@ -90,7 +90,7 @@ pub enum ProjectsCommand {
 pub enum IssuesCommand {
     /// List a project's issues, newest first
     List {
-        project: String,
+        project: ProjectKey,
         #[command(flatten)]
         filter: Filter,
     },
@@ -98,7 +98,7 @@ pub enum IssuesCommand {
     Show { issue: IssueKey },
     /// Create an issue
     Create {
-        project: String,
+        project: ProjectKey,
         #[arg(long)]
         summary: String,
         #[command(flatten)]
@@ -187,10 +187,10 @@ pub struct Filter {
 #[derive(Debug, Subcommand)]
 pub enum SprintsCommand {
     /// List a board's sprints
-    List { project: String },
+    List { project: ProjectKey },
     /// Create a future sprint
     Create {
-        project: String,
+        project: ProjectKey,
         #[arg(long)]
         name: Option<String>,
         #[arg(long)]
@@ -198,7 +198,7 @@ pub enum SprintsCommand {
     },
     /// Start a sprint (dates default to today and two weeks later)
     Start {
-        project: String,
+        project: ProjectKey,
         sprint: i64,
         #[arg(long)]
         start: Option<NaiveDate>,
@@ -207,7 +207,7 @@ pub enum SprintsCommand {
     },
     /// Complete the active sprint; open issues go to --to
     Complete {
-        project: String,
+        project: ProjectKey,
         sprint: i64,
         /// backlog, new (a new sprint) or a future sprint's id
         #[arg(long, default_value = "backlog", value_parser = destination)]
@@ -285,7 +285,7 @@ mod tests {
         else {
             panic!("not create");
         };
-        assert_eq!(project, "WEB");
+        assert_eq!(project.as_str(), "WEB");
         assert_eq!(fields.issue_type, Some(IssueType::Bug));
         assert_eq!(fields.priority, Some(Priority::High));
         assert_eq!(fields.labels, ["ui", "api"]);

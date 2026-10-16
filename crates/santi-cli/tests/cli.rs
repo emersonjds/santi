@@ -277,6 +277,17 @@ fn validation_problems_name_the_field() {
 }
 
 #[test]
+fn project_keys_are_letters_and_digits() {
+    let santi = Santi::new();
+    santi
+        .with("santi_x")
+        .args(["board", "../tokens"])
+        .assert()
+        .code(2)
+        .stderr(contains("project key"));
+}
+
+#[test]
 fn sprint_planning_from_create_to_complete() {
     let santi = Santi::new();
     let token = server().user();

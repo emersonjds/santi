@@ -51,6 +51,13 @@ async fn call(client: &Client, tool: &'static str, arguments: Value) -> CallTool
     client.call_tool(request).await.unwrap()
 }
 
+/// The tool error's text; panics when the call succeeded.
+async fn rejected(client: &Client, tool: &'static str, arguments: Value) -> String {
+    let result = call(client, tool, arguments).await;
+    assert_eq!(result.is_error, Some(true), "{tool}: {}", text(&result));
+    text(&result).to_string()
+}
+
 fn text(result: &CallToolResult) -> &str {
     result.content[0].as_text().unwrap().text.as_str()
 }
@@ -231,6 +238,80 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
             "MCP-1"
         );
 
+        client.cancel().await.unwrap();
+    });
+}
+
+#[test]
+fn stdio_rejects_missing_unknown_and_malformed_arguments() {
+    let token = server().user();
+    server().project(&token, "ARG", "scrum");
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let mut command = santi(&config);
+        command.env("SANTI_TOKEN", &token);
+        let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+
+        let info = client.peer_info().unwrap();
+        assert!(info.instructions.as_deref().unwrap().contains("untrusted"));
+        let tools = client.list_all_tools().await.unwrap();
+        for tool in &tools {
+            let schema = Value::Object((*tool.input_schema).clone());
+            assert_eq!(schema["additionalProperties"], false, "{}", tool.name);
+        }
+        let tool = |name: &str| tools.iter().find(|tool| tool.name == name).unwrap();
+        let plan = Value::Object((*tool("plan_issue").input_schema).clone());
+        assert_eq!(plan["required"], json!(["issue", "sprint_id"]));
+        for name in [
+            "get_issue",
+            "get_board",
+            "get_backlog",
+            "search_issues",
+            "list_epics",
+        ] {
+            let description = tool(name).description.as_deref().unwrap();
+            assert!(description.contains("untrusted"), "{name}: {description}");
+        }
+
+        ok(
+            &client,
+            "create_issue",
+            json!({ "project": "ARG", "summary": "Keep" }),
+        )
+        .await;
+        let sprint = ok(&client, "create_sprint", json!({ "project": "ARG" })).await;
+        ok(
+            &client,
+            "plan_issue",
+            json!({ "issue": "ARG-1", "sprint_id": sprint["id"] }),
+        )
+        .await;
+        let unplanned = rejected(&client, "plan_issue", json!({ "issue": "ARG-1" })).await;
+        assert!(unplanned.contains("sprint_id"), "{unplanned}");
+        let issue = ok(&client, "get_issue", json!({ "issue": "ARG-1" })).await;
+        assert_eq!(issue["sprint_id"], sprint["id"]);
+
+        let typo = rejected(
+            &client,
+            "update_issue",
+            json!({ "issue": "ARG-1", "summry": "Oops" }),
+        )
+        .await;
+        assert!(typo.contains("unknown argument `summry`"), "{typo}");
+        let flattened = rejected(
+            &client,
+            "search_issues",
+            json!({ "project": "ARG", "qq": "x" }),
+        )
+        .await;
+        assert!(flattened.contains("unknown argument `qq`"), "{flattened}");
+
+        for project in ["../tokens", "ARG/x", ""] {
+            let message = rejected(&client, "get_board", json!({ "project": project })).await;
+            assert!(message.contains("project key"), "{message}");
+        }
+        let lower = ok(&client, "get_board", json!({ "project": "arg" })).await;
+        assert!(lower["columns"].is_array());
         client.cancel().await.unwrap();
     });
 }
