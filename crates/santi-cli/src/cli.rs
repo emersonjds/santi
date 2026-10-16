@@ -46,13 +46,7 @@ pub enum Command {
     #[command(subcommand)]
     Sprints(SprintsCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
-    Plan {
-        issue: IssueKey,
-        #[arg(long, required_unless_present = "backlog")]
-        sprint: Option<i64>,
-        #[arg(long, conflicts_with = "sprint")]
-        backlog: bool,
-    },
+    Plan(PlanArgs),
     /// Search a project's issues by summary or key
     Search {
         project: ProjectKey,
@@ -61,7 +55,7 @@ pub enum Command {
         filter: Filter,
     },
     /// Comment on an issue
-    Comment { issue: IssueKey, body: String },
+    Comment(CommentArgs),
     /// Import a Jira or Linear CSV export: shows a preview, then asks before importing
     Import {
         project: ProjectKey,
@@ -111,7 +105,7 @@ pub enum IssuesCommand {
         #[arg(long)]
         sprint: Option<i64>,
     },
-    /// Change an issue's fields; `none` clears assignee, points or parent
+    /// Change an issue's fields; `none` clears assignee, points, parent or sprint
     Edit {
         issue: IssueKey,
         #[arg(long)]
@@ -120,6 +114,9 @@ pub enum IssuesCommand {
         fields: Fields,
         #[arg(long, value_parser = nullable_text)]
         parent: Option<Nullable<String>>,
+        /// Sprint id, or `none` for the backlog
+        #[arg(long, value_parser = nullable_number::<i64>)]
+        sprint: Option<Nullable<i64>>,
     },
     /// Move an issue to a status and/or next to another issue
     Move {
@@ -139,6 +136,27 @@ pub enum IssuesCommand {
         #[arg(long)]
         yes: bool,
     },
+    /// Plan an issue into a sprint, or send it back to the backlog
+    Plan(PlanArgs),
+    /// Comment on an issue
+    Comment(CommentArgs),
+    /// Show an issue's comments, oldest first
+    Comments { issue: IssueKey },
+}
+
+#[derive(Debug, Args)]
+pub struct PlanArgs {
+    pub issue: IssueKey,
+    #[arg(long, required_unless_present = "backlog")]
+    pub sprint: Option<i64>,
+    #[arg(long, conflicts_with = "sprint")]
+    pub backlog: bool,
+}
+
+#[derive(Debug, Args)]
+pub struct CommentArgs {
+    pub issue: IssueKey,
+    pub body: String,
 }
 
 /// A value or `none`; the alias keeps clap from reading `Option<Option<_>>` as "flag with an optional value".
@@ -237,8 +255,8 @@ fn nullable_text(text: &str) -> Result<Option<String>, String> {
 
 fn destination(text: &str) -> Result<OpenIssuesDestination, String> {
     match text {
-        "backlog" => Ok(OpenIssuesDestination::Backlog),
-        "new" => Ok(OpenIssuesDestination::NewSprint),
+        "backlog" => Ok(OpenIssuesDestination::Backlog {}),
+        "new" => Ok(OpenIssuesDestination::NewSprint {}),
         id => id
             .parse()
             .map(|sprint_id| OpenIssuesDestination::Sprint { sprint_id })
@@ -331,12 +349,56 @@ mod tests {
             &["santi", "issues", "edit", "WEB-1", "--points", "lots"],
             &["santi", "plan", "WEB-1"],
             &["santi", "plan", "WEB-1", "--sprint", "2", "--backlog"],
+            &["santi", "issues", "plan", "WEB-1"],
+            &["santi", "issues", "edit", "WEB-1", "--sprint", "next"],
+            &["santi", "issues", "comments", "WEB12"],
             &["santi", "issues", "move", "WEB-1"],
             &["santi", "sprints", "complete", "WEB", "1", "--to", "later"],
         ] {
             let error = Cli::try_parse_from(args).unwrap_err();
             assert_eq!(error.exit_code(), 2, "{args:?}");
         }
+    }
+
+    #[test]
+    fn issues_plan_and_comment_take_the_top_level_arguments() {
+        let Command::Issues(IssuesCommand::Plan(plan)) =
+            parse(&["santi", "issues", "plan", "WEB-1", "--backlog"])
+        else {
+            panic!("not issues plan");
+        };
+        assert!(plan.backlog);
+        assert_eq!(plan.sprint, None);
+        let Command::Plan(plan) = parse(&["santi", "plan", "WEB-1", "--sprint", "3"]) else {
+            panic!("not plan");
+        };
+        assert_eq!(plan.sprint, Some(3));
+        let Command::Issues(IssuesCommand::Comment(comment)) =
+            parse(&["santi", "issues", "comment", "WEB-1", "Looks good"])
+        else {
+            panic!("not issues comment");
+        };
+        assert_eq!(comment.body, "Looks good");
+        let Command::Issues(IssuesCommand::Comments { issue }) =
+            parse(&["santi", "issues", "comments", "web-1"])
+        else {
+            panic!("not issues comments");
+        };
+        assert_eq!(issue.to_string(), "WEB-1");
+    }
+
+    #[test]
+    fn edit_sprint_takes_an_id_or_none() {
+        let sprint = |value: &str| {
+            let Command::Issues(IssuesCommand::Edit { sprint, .. }) =
+                parse(&["santi", "issues", "edit", "WEB-1", "--sprint", value])
+            else {
+                panic!("not edit");
+            };
+            sprint
+        };
+        assert_eq!(sprint("4"), Some(Some(4)));
+        assert_eq!(sprint("none"), Some(None));
     }
 
     #[test]
@@ -349,8 +411,8 @@ mod tests {
             };
             to
         };
-        assert_eq!(to("backlog"), OpenIssuesDestination::Backlog);
-        assert_eq!(to("new"), OpenIssuesDestination::NewSprint);
+        assert_eq!(to("backlog"), OpenIssuesDestination::Backlog {});
+        assert_eq!(to("new"), OpenIssuesDestination::NewSprint {});
         assert_eq!(to("7"), OpenIssuesDestination::Sprint { sprint_id: 7 });
     }
 

@@ -33,6 +33,8 @@ async fn comments_are_added_and_listed_in_order(pool: PgPool) {
     assert_eq!(created, StatusCode::CREATED);
     assert_eq!(comment["body"], "first");
     assert_eq!(comment["author_id"], ana.user_id);
+    assert_eq!(comment["author_name"], "ana@example.com");
+    assert_eq!(page["items"][0]["author_name"], "ana@example.com");
     assert_eq!(page["items"][1]["body"], "second");
     assert_eq!(page["next_cursor"], Value::Null);
 }

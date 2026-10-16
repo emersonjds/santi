@@ -60,6 +60,7 @@ pub struct HomeIssue {
 
 /// A project key (`WEB`) or an issue key (`WEB-12`).
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Star {
     pub key: String,
 }
