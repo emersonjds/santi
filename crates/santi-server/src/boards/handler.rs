@@ -114,7 +114,7 @@ pub async fn create_column(
         (status = 200, body = BoardSettings),
         (status = 403, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`done-column`"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`done-column` or `keep-done-column`"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "Not every column listed exactly once")))]
 pub async fn reorder_columns(
     State(state): State<AppState>,
@@ -156,7 +156,7 @@ pub async fn update_column(
         (status = 400, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`rightmost-column` or `done-column`"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`rightmost-column`, `done-column` or `keep-done-column`"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "`move_statuses_to` missing or not another column")))]
 pub async fn delete_column(
     State(state): State<AppState>,
@@ -194,7 +194,7 @@ pub async fn create_status(
         (status = 200, body = Status, description = "Renamed, mapped or unmapped"),
         (status = 403, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`done-column`"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`done-column` or `keep-done-column`"),
         (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn update_status(
     State(state): State<AppState>,
@@ -215,7 +215,7 @@ pub async fn update_status(
         (status = 204, description = "Deleted"),
         (status = 403, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`in-use`: an issue holds it")))]
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`in-use`: an issue holds it; `keep-done-column`: the last done status")))]
 pub async fn delete_status(
     State(state): State<AppState>,
     member: Member,

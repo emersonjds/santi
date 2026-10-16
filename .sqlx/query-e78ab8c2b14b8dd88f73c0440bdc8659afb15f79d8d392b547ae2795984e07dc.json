@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue_comment (issue_id, author_id, body)\n         SELECT i.id, ($1::bigint[])[1 + (i.number + g) % cardinality($1::bigint[])],\n                'Looked into this; next step noted in comment ' || g\n         FROM issue i CROSS JOIN LATERAL generate_series(1, i.number % 5) g",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e78ab8c2b14b8dd88f73c0440bdc8659afb15f79d8d392b547ae2795984e07dc"
+}

@@ -65,7 +65,7 @@ pub async fn find_issue(
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
                   i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
            LEFT JOIN issue parent ON parent.id = i.parent_id
@@ -112,7 +112,7 @@ pub async fn find_editable_for_update(
     sqlx::query_as!(
         EditableIssue,
         r#"SELECT id, summary, description, issue_type AS "issue_type: IssueType", priority AS "priority: Priority",
-                  assignee_id, points, labels, parent_id
+                  assignee_id, points, labels, parent_id, sprint_id
            FROM issue WHERE project_id = $1 AND number = $2
            FOR UPDATE"#,
         project_id,
@@ -242,6 +242,38 @@ pub async fn update_position(
     Ok(())
 }
 
+pub struct Deletable {
+    pub id: i64,
+    pub reporter_id: i64,
+    pub sprint_id: Option<i64>,
+}
+
+pub async fn find_deletable_for_update(
+    conn: &mut PgConnection,
+    project_id: i64,
+    number: i64,
+) -> Result<Option<Deletable>, sqlx::Error> {
+    sqlx::query_as!(
+        Deletable,
+        "SELECT id, reporter_id, sprint_id FROM issue WHERE project_id = $1 AND number = $2 FOR UPDATE",
+        project_id,
+        number
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// The issue and its subtasks; comments cascade, an epic's children lose their parent (0011).
+pub async fn delete_issue(conn: &mut PgConnection, issue_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM issue WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')",
+        issue_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
 pub async fn find_id(
     conn: &mut PgConnection,
     project_id: i64,
@@ -305,27 +337,50 @@ pub async fn search_issues(
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
                   i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
            LEFT JOIN issue parent ON parent.id = i.parent_id
+           JOIN status s ON s.id = i.status_id
            WHERE i.project_id = $1
              AND i.id > $2
              AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))
              AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))
              AND (cardinality($5::text[]) = 0 OR i.labels && $5)
-             AND (cardinality($6::bigint[]) = 0 OR parent.number = ANY($6))
-             AND ($7::text IS NULL OR i.summary ILIKE $7)
+             AND ((cardinality($6::bigint[]) = 0 AND NOT $7)
+                  OR parent.number = ANY($6)
+                  OR ($7 AND i.parent_id IS NULL))
+             AND ($8::text IS NULL OR i.summary ILIKE $8 OR p.key || '-' || i.number ILIKE $8)
+             AND ($9::timestamptz IS NULL OR i.updated_at > $9)
+             AND (cardinality($10::text[]) = 0 OR s.category = ANY($10))
            ORDER BY i.id
-           LIMIT $8"#,
+           LIMIT $11"#,
         project_id,
         after_id,
         &query.assignee_ids[..],
         &query.types[..] as &[IssueType],
         &query.labels[..],
         &query.parent_numbers[..],
+        query.no_parent,
         query.pattern.as_deref(),
+        query.updated_since,
+        &query.categories[..] as &[StatusCategory],
         limit
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// Every label in use in the project, once each, in alphabetical order.
+pub async fn list_labels(
+    conn: &mut PgConnection,
+    project_id: i64,
+) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT DISTINCT label AS "label!" FROM issue, unnest(labels) AS label
+           WHERE project_id = $1
+           ORDER BY 1"#,
+        project_id
     )
     .fetch_all(&mut *conn)
     .await

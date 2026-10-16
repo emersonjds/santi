@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM issue WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "046143b25fdb8ad315daa33d4219be9c5dff80a576c9983b180f3cfe29696ef9"
+}

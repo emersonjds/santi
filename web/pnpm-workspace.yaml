@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+# openapi-typescript 7 declares typescript ^5 but generates fine with 6 (D37); it only runs as the gen:api CLI.
+peerDependencyRules:
+  allowedVersions:
+    openapi-typescript>typescript: '6'

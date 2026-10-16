@@ -1,5 +1,7 @@
 use chrono::{Duration, Utc};
-use santi_types::projects::{AddMember, CreateInvite, Invite, MemberInfo, Project, SetRole};
+use santi_types::projects::{
+    AddMember, CreateInvite, Invite, InvitePreview, MemberInfo, Project, SetRole,
+};
 use sqlx::PgPool;
 
 use super::{Member, domain, repo};
@@ -92,12 +94,28 @@ pub async fn accept_invite(
     user: &CurrentUser,
     token: &str,
 ) -> Result<Project, AppError> {
+    let token_hash = auth::domain::hash_token(token);
     let mut tx = pool.begin().await?;
-    let grant = repo::take_invite(&mut tx, &auth::domain::hash_token(token))
-        .await?
-        .ok_or(AppError::NotFound)?;
+    let Some(grant) = repo::take_invite(&mut tx, &token_hash).await? else {
+        let invite = repo::find_invite(&mut tx, &token_hash)
+            .await?
+            .ok_or(AppError::NotFound)?;
+        // Same answer as the preview: 410 for a used or expired link.
+        return domain::check_invite_usable(invite.preview.expires_at, invite.used_at, Utc::now())
+            .and(Err(AppError::NotFound));
+    };
     repo::insert_member(&mut tx, grant.project_id, user.id, grant.role).await?;
     let project = projects::repo::find_project(&mut tx, grant.project_id, user.id).await?;
     tx.commit().await?;
     Ok(project)
+}
+
+/// Any signed-in user holding the token may see what it grants; nothing else about the project.
+pub async fn preview_invite(pool: &PgPool, token: &str) -> Result<InvitePreview, AppError> {
+    let mut conn = pool.acquire().await?;
+    let invite = repo::find_invite(&mut conn, &auth::domain::hash_token(token))
+        .await?
+        .ok_or(AppError::NotFound)?;
+    domain::check_invite_usable(invite.preview.expires_at, invite.used_at, Utc::now())?;
+    Ok(invite.preview)
 }

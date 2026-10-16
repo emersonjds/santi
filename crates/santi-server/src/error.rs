@@ -12,6 +12,7 @@ pub enum AppError {
     Forbidden,
     NotFound,
     Conflict { slug: &'static str, detail: String },
+    Gone { slug: &'static str, detail: String },
     Internal(String),
 }
 
@@ -25,6 +26,13 @@ impl AppError {
 
     pub fn conflict(slug: &'static str, detail: &str) -> Self {
         AppError::Conflict {
+            slug,
+            detail: detail.into(),
+        }
+    }
+
+    pub fn gone(slug: &'static str, detail: &str) -> Self {
+        AppError::Gone {
             slug,
             detail: detail.into(),
         }
@@ -60,6 +68,7 @@ impl AppError {
                 "Nothing exists here, or you cannot see it.".into(),
             ),
             AppError::Conflict { slug, detail } => (409, *slug, "Conflict", detail.clone()),
+            AppError::Gone { slug, detail } => (410, *slug, "Gone", detail.clone()),
             AppError::Internal(_) => (
                 500,
                 "internal",
@@ -79,6 +88,26 @@ impl AppError {
             errors,
         }
     }
+}
+
+/// PostgreSQL text cannot store U+0000; a value holding it is refused before it reaches the database.
+pub fn reject_nul(field: &str, text: &str) -> Result<(), AppError> {
+    if text.contains('\0') {
+        return Err(AppError::invalid(field, "must not contain NUL characters"));
+    }
+    Ok(())
+}
+
+/// For an insert under a row read earlier: a foreign key failure means that row was deleted
+/// meanwhile, so there is nothing left to write under.
+pub fn not_found_if_parent_gone(error: sqlx::Error) -> AppError {
+    let parent_gone = error
+        .as_database_error()
+        .is_some_and(|error| error.is_foreign_key_violation());
+    if parent_gone {
+        return AppError::NotFound;
+    }
+    error.into()
 }
 
 impl IntoResponse for AppError {
@@ -121,9 +150,15 @@ impl From<sqlx::Error> for AppError {
                 "value is not allowed",
             );
         }
+        if database_error.code().as_deref() == Some(UNTRANSLATABLE_CHARACTER) {
+            return AppError::invalid("input", "must not contain NUL characters");
+        }
         AppError::Internal(error.to_string())
     }
 }
+
+/// SQLSTATE 22021, raised for a NUL character in text.
+const UNTRANSLATABLE_CHARACTER: &str = "22021";
 
 impl From<JsonRejection> for AppError {
     fn from(rejection: JsonRejection) -> Self {
@@ -134,6 +169,12 @@ impl From<JsonRejection> for AppError {
 impl From<PathRejection> for AppError {
     fn from(rejection: PathRejection) -> Self {
         AppError::BadRequest(rejection.body_text())
+    }
+}
+
+impl From<axum::extract::multipart::MultipartRejection> for AppError {
+    fn from(_: axum::extract::multipart::MultipartRejection) -> Self {
+        AppError::invalid("file", "send the file as multipart/form-data")
     }
 }
 
@@ -238,6 +279,11 @@ mod tests {
             .await
             .unwrap_err();
         let syntax = sqlx::query("SELEC 1").execute(&pool).await.unwrap_err();
+        let nul = sqlx::query("SELECT $1::text")
+            .bind("a\0b")
+            .execute(&pool)
+            .await
+            .unwrap_err();
 
         assert_eq!(
             AppError::from(duplicate).to_problem().problem_type,
@@ -249,5 +295,6 @@ mod tests {
             "urn:santi:error:in-use"
         );
         assert_eq!(AppError::from(syntax).to_problem().status, 500);
+        assert_eq!(AppError::from(nul).to_problem().status, 422);
     }
 }

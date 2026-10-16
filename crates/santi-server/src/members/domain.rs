@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use santi_types::projects::MemberRole;
 
 use super::Member;
@@ -28,6 +29,27 @@ pub fn check_admin_remains(
     Ok(())
 }
 
+/// An invite works once and only until it expires.
+pub fn check_invite_usable(
+    expires_at: DateTime<Utc>,
+    used_at: Option<DateTime<Utc>>,
+    now: DateTime<Utc>,
+) -> Result<(), AppError> {
+    if used_at.is_some() {
+        return Err(AppError::gone(
+            "invite-used",
+            "This invite link was already used.",
+        ));
+    }
+    if expires_at <= now {
+        return Err(AppError::gone(
+            "invite-expired",
+            "This invite link has expired.",
+        ));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -43,6 +65,36 @@ mod tests {
             board_type: BoardType::Scrum,
             role,
         }
+    }
+
+    #[test]
+    fn only_unused_unexpired_invites_are_usable() {
+        let now: DateTime<Utc> = "2026-10-16T12:00:00Z".parse().unwrap();
+        let later = now + chrono::Duration::days(1);
+        let earlier = now - chrono::Duration::days(1);
+
+        assert_eq!(check_invite_usable(later, None, now), Ok(()));
+        assert_eq!(
+            check_invite_usable(later, Some(earlier), now),
+            Err(AppError::gone(
+                "invite-used",
+                "This invite link was already used."
+            ))
+        );
+        assert_eq!(
+            check_invite_usable(earlier, None, now),
+            Err(AppError::gone(
+                "invite-expired",
+                "This invite link has expired."
+            ))
+        );
+        assert_eq!(
+            check_invite_usable(now, None, now)
+                .unwrap_err()
+                .to_problem()
+                .status,
+            410
+        );
     }
 
     #[test]

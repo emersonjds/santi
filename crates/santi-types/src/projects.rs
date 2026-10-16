@@ -73,3 +73,13 @@ pub struct Invite {
     pub token: String,
     pub expires_at: DateTime<Utc>,
 }
+
+/// What an invite link offers, shown before accepting it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct InvitePreview {
+    pub project_key: String,
+    pub project_name: String,
+    pub role: MemberRole,
+    pub expires_at: DateTime<Utc>,
+    pub inviter_name: String,
+}

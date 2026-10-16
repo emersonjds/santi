@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO app_user (email, display_name, password_hash)\n         SELECT 'user' || g || '@perf.santi.test', 'User ' || g, owner.password_hash\n         FROM generate_series(1, $2::bigint) g, app_user owner WHERE owner.id = $1\n         RETURNING id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "119dc4e5c0f4622e8a34570c8f842ee457f1569264a317e19e5bb3e7d198e880"
+}

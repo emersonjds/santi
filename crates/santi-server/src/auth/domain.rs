@@ -4,7 +4,7 @@ use axum::http::header::{AUTHORIZATION, COOKIE, HOST, ORIGIN};
 use axum::http::{HeaderMap, Method};
 use sha2::{Digest, Sha256};
 
-use crate::error::AppError;
+use crate::error::{AppError, reject_nul};
 
 pub const SESSION_COOKIE: &str = "__Host-santi_session";
 pub const SESSION_DAYS: i64 = 30;
@@ -15,6 +15,7 @@ pub const API_TOKEN_PREFIX: &str = "santi_";
 const DUMMY_PASSWORD_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$LQzD6bTFuUbWQ35+CFbKXw$7x8VZQkRMrI/ptiG/Um0Ural4C1PMr9El05qYAXieyU";
 
 pub fn normalize_email(email: &str) -> Result<String, AppError> {
+    reject_nul("email", email)?;
     let email = email.trim().to_lowercase();
     let Some((local, domain)) = email.split_once('@') else {
         return Err(AppError::invalid("email", "must be an email address"));
@@ -44,6 +45,7 @@ pub fn check_password(password: &str) -> Result<(), AppError> {
 }
 
 pub fn check_display_name(name: &str) -> Result<String, AppError> {
+    reject_nul("display_name", name)?;
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 100 {
         return Err(AppError::invalid(

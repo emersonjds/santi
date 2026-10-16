@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, Page,
-    PageParams, UpdateIssue,
+    PageParams, StatusFilter, UpdateIssue,
 };
 use sqlx::{PgConnection, PgPool};
 
@@ -9,7 +9,7 @@ use super::domain::Anchor;
 use super::repo::{IssueKind, NewIssue, Position};
 use super::{domain, repo};
 use crate::boards::repo::StatusRef;
-use crate::error::AppError;
+use crate::error::{AppError, not_found_if_parent_gone};
 use crate::members::Member;
 use crate::{boards, members, pagination, projects, sprints};
 
@@ -19,6 +19,7 @@ pub async fn create_issue(
     input: CreateIssue,
 ) -> Result<Issue, AppError> {
     let summary = domain::check_summary(&input.summary)?;
+    let description = domain::check_description(&input.description)?;
     let labels = domain::normalize_labels(input.labels)?;
     domain::check_points(input.issue_type, input.points)?;
     let mut tx = pool.begin().await?;
@@ -38,7 +39,7 @@ pub async fn create_issue(
         number,
         issue_type: input.issue_type,
         summary,
-        description: input.description,
+        description,
         priority: input.priority,
         status_id: status.id,
         assignee_id: input.assignee_id,
@@ -50,7 +51,9 @@ pub async fn create_issue(
         rank: domain::rank_between(last_rank.as_deref(), None),
         done_at: domain::done_at_on_create(status.category, Utc::now()),
     };
-    let issue_id = repo::insert_issue(&mut tx, &new_issue).await?;
+    let issue_id = repo::insert_issue(&mut tx, &new_issue)
+        .await
+        .map_err(not_found_if_parent_gone)?;
     if let Some(sprint_id) = new_issue.sprint_id {
         sprints::repo::record_join(&mut tx, sprint_id, issue_id).await?;
     }
@@ -84,9 +87,31 @@ pub async fn update_issue(
         let parent = resolve_parent(&mut tx, member, next.issue_type, parent.as_deref()).await?;
         next.parent_id = parent.map(|parent| parent.id);
     }
+    if let Some(target) = change.sprint_id {
+        let issue = IssueKind {
+            id: current.id,
+            issue_type: next.issue_type,
+            sprint_id: current.sprint_id,
+        };
+        change_sprint(&mut tx, member, &issue, target).await?;
+    }
     repo::update_fields(&mut tx, &next).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
+}
+
+/// D40: subtasks go with the issue; a removal from the running sprint stays recorded.
+pub async fn delete_issue(pool: &PgPool, member: &Member, number: i64) -> Result<(), AppError> {
+    let mut tx = pool.begin().await?;
+    let issue = repo::find_deletable_for_update(&mut tx, member.project_id, number).await?;
+    let issue = issue.ok_or(AppError::NotFound)?;
+    domain::check_delete(member.role, member.user_id, issue.reporter_id)?;
+    if let Some(sprint_id) = issue.sprint_id {
+        sprints::repo::record_leave(&mut tx, sprint_id, issue.id).await?;
+    }
+    repo::delete_issue(&mut tx, issue.id).await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 pub async fn move_issue(
@@ -106,7 +131,12 @@ pub async fn move_issue(
     let issue = repo::find_position_for_update(&mut tx, member.project_id, number).await?;
     let issue = issue.ok_or(AppError::NotFound)?;
     if let Some(target) = input.sprint_id {
-        change_sprint(&mut tx, member, &issue, target).await?;
+        let kind = IssueKind {
+            id: issue.id,
+            issue_type: issue.issue_type,
+            sprint_id: issue.sprint_id,
+        };
+        change_sprint(&mut tx, member, &kind, target).await?;
     }
     let (status_id, done_at) = next_status(&mut tx, member, &issue, input.status_id).await?;
     let rank = next_rank(&mut tx, member, &issue, anchor).await?;
@@ -119,10 +149,12 @@ pub async fn move_issue(
 pub async fn change_sprint(
     conn: &mut PgConnection,
     member: &Member,
-    issue: &Position,
+    issue: &IssueKind,
     target: Option<i64>,
 ) -> Result<(), AppError> {
-    sprints::domain::check_issue_can_change_sprint(issue.issue_type)?;
+    if !sprints::domain::sprint_change_needed(issue.issue_type, issue.sprint_id, target)? {
+        return Ok(());
+    }
     if let Some(sprint_id) = target {
         require_open_sprint(conn, member, sprint_id).await?;
     }
@@ -141,6 +173,7 @@ async fn require_open_sprint(
     member: &Member,
     sprint_id: i64,
 ) -> Result<(), AppError> {
+    sprints::domain::require_scrum(member.board_type)?;
     let sprint = sprints::repo::find_sprint(conn, member.board_id, sprint_id).await?;
     let sprint =
         sprint.ok_or_else(|| AppError::invalid("sprint_id", "no such sprint on this board"))?;
@@ -201,10 +234,14 @@ pub async fn search_issues(
     pool: &PgPool,
     member: &Member,
     filter: IssueFilter,
+    status: StatusFilter,
     page: PageParams,
 ) -> Result<Page<Issue>, AppError> {
     let limit = pagination::page_limit(page.limit)?;
-    let query = domain::to_search_query(&member.project_key, &filter)?;
+    let query = domain::SearchQuery {
+        categories: status.status,
+        ..domain::to_search_query(&member.project_key, &filter, Utc::now())?
+    };
     let mut conn = pool.acquire().await?;
     let issues = repo::search_issues(
         &mut conn,
@@ -219,6 +256,11 @@ pub async fn search_issues(
     }))
 }
 
+pub async fn list_labels(pool: &PgPool, member: &Member) -> Result<Vec<String>, AppError> {
+    let mut conn = pool.acquire().await?;
+    Ok(repo::list_labels(&mut conn, member.project_id).await?)
+}
+
 pub async fn add_comment(
     pool: &PgPool,
     member: &Member,
@@ -230,7 +272,9 @@ pub async fn add_comment(
     let issue_id = repo::find_id(&mut conn, member.project_id, number)
         .await?
         .ok_or(AppError::NotFound)?;
-    Ok(repo::insert_comment(&mut conn, issue_id, member.user_id, &body).await?)
+    repo::insert_comment(&mut conn, issue_id, member.user_id, &body)
+        .await
+        .map_err(not_found_if_parent_gone)
 }
 
 pub async fn list_comments(

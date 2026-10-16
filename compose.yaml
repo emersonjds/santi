@@ -1,4 +1,18 @@
+# `docker compose up -d`: santi on http://localhost:8080 with its PostgreSQL.
+# `docker compose up -d postgres`: PostgreSQL only, on localhost:5440, for development.
 services:
+  santi:
+    build: .
+    image: santi:local
+    environment:
+      DATABASE_URL: postgres://santi:santi@postgres:5432/santi
+    ports:
+      - "${SANTI_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   postgres:
     image: postgres:17
     environment:
@@ -6,7 +20,7 @@ services:
       POSTGRES_PASSWORD: santi
       POSTGRES_DB: santi
     ports:
-      - "5440:5432"
+      - "127.0.0.1:${SANTI_DB_PORT:-5440}:5432"
     volumes:
       - santi-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -14,6 +28,7 @@ services:
       interval: 2s
       timeout: 3s
       retries: 15
+    restart: unless-stopped
 
 volumes:
   santi-postgres:

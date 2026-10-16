@@ -1,3 +1,4 @@
+use chrono::Utc;
 use santi_types::boards::{
     Backlog, BoardSettings, BoardView, CreateColumn, CreateStatus, DeleteColumnParams,
     ReorderColumns, Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
@@ -25,9 +26,17 @@ pub async fn seed_default_layout(
 
 pub async fn get_settings(pool: &PgPool, member: &Member) -> Result<BoardSettings, AppError> {
     let mut conn = pool.acquire().await?;
-    let done_window = repo::find_done_window(&mut conn, member.board_id).await?;
-    let columns = repo::list_columns(&mut conn, member.board_id).await?;
-    let statuses = repo::list_statuses(&mut conn, member.project_id).await?;
+    read_settings(&mut conn, member).await
+}
+
+/// On the caller's connection: a second one from the pool deadlocks it under load.
+async fn read_settings(
+    conn: &mut PgConnection,
+    member: &Member,
+) -> Result<BoardSettings, AppError> {
+    let done_window = repo::find_done_window(conn, member.board_id).await?;
+    let columns = repo::list_columns(conn, member.board_id).await?;
+    let statuses = repo::list_statuses(conn, member.project_id).await?;
     Ok(domain::assemble_settings(
         member.board_type,
         done_window,
@@ -49,7 +58,7 @@ pub async fn board_view(
     Ok(BoardView {
         board_type: member.board_type,
         sprint,
-        columns: domain::build_board_columns(columns, cards, filter),
+        columns: domain::build_board_columns(columns, cards, filter, Utc::now()),
     })
 }
 
@@ -64,7 +73,7 @@ pub async fn backlog(
     let cards = repo::backlog_cards(&mut conn, member.project_id).await?;
     let epics = repo::epic_summaries(&mut conn, member.project_id).await?;
     Ok(Backlog {
-        sections: domain::build_backlog_sections(sprints, cards, filter),
+        sections: domain::build_backlog_sections(sprints, cards, filter, Utc::now()),
         epics,
     })
 }
@@ -78,7 +87,7 @@ pub async fn update_settings(
     domain::check_done_window(member.board_type, input.done_window_days)?;
     let mut conn = pool.acquire().await?;
     repo::set_done_window(&mut conn, member.board_id, input.done_window_days).await?;
-    get_settings(pool, member).await
+    read_settings(&mut conn, member).await
 }
 
 pub async fn create_column(
@@ -120,7 +129,7 @@ pub async fn update_column(
     if !updated {
         return Err(AppError::NotFound);
     }
-    get_settings(pool, member).await
+    read_settings(&mut conn, member).await
 }
 
 pub async fn reorder_columns(
@@ -197,12 +206,13 @@ pub async fn update_status(
 
 pub async fn delete_status(pool: &PgPool, member: &Member, status_id: i64) -> Result<(), AppError> {
     require_admin(member)?;
-    let mut conn = pool.acquire().await?;
-    let deleted = repo::delete_status(&mut conn, member.project_id, status_id).await?;
+    let mut tx = pool.begin().await?;
+    repo::lock_board(&mut tx, member.board_id).await?;
+    let deleted = repo::delete_status(&mut tx, member.project_id, status_id).await?;
     if !deleted {
         return Err(AppError::NotFound);
     }
-    Ok(())
+    commit_if_layout_valid(tx, member.board_id).await
 }
 
 async fn require_column(
@@ -227,6 +237,7 @@ async fn commit_if_layout_valid(
 ) -> Result<(), AppError> {
     let layout = repo::load_layout(&mut tx, board_id).await?;
     domain::check_done_mapping(&layout)?;
+    domain::check_board_shape(&layout)?;
     tx.commit().await?;
     Ok(())
 }

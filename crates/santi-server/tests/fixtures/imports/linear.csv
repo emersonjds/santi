@@ -1,0 +1,5 @@
+ID,Team,Title,Description,Status,Estimate,Priority,Project ID,Project,Creator,Assignee,Labels,Cycle Number,Cycle Name,Cycle Start,Cycle End,Created,Updated,Parent issue
+ENG-1,Engineering,Ship onboarding,"Steps:
+1. sign up",In Progress,3,Urgent,,Growth,ana@example.com,bob@example.com,"Feature, Tech debt",4,,2026-09-01T00:00:00.000Z,2026-09-14T00:00:00.000Z,2026-09-02T10:00:00.000Z,2026-09-10T18:30:00.000Z,
+ENG-2,Engineering,Write welcome email,,Todo,,No priority,,,bob@example.com,,,5,Cycle Five,2099-01-01T00:00:00.000Z,2099-01-14T00:00:00.000Z,2026-09-03T09:00:00.000Z,2026-09-03T09:00:00.000Z,ENG-1
+ENG-3,Engineering,Old cleanup,,Canceled,1,Low,,,ana@example.com,,Bug,,,,,Wed Sep 09 2026 20:00:00 GMT-0400 (Eastern Daylight Time),not a date,

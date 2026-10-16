@@ -80,6 +80,7 @@ async fn scrum_board_shows_the_active_sprint_by_status_and_rank(pool: PgPool) {
         board["columns"][0]["cards"][1]["assignee_name"],
         "ana@example.com"
     );
+    assert_eq!(board["columns"][0]["cards"][1]["reporter_id"], ana.user_id);
 }
 
 #[sqlx::test]
@@ -167,6 +168,27 @@ async fn board_quick_filters_combine(pool: PgPool) {
     assert_eq!(column_keys(&narrowed, 0), ["SANTI-1"]);
     assert_eq!(column_keys(&text, 0), ["SANTI-1"]);
     assert_eq!(bad, StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test]
+async fn board_filters_by_no_epic_and_matches_text_on_the_key(pool: PgPool) {
+    let ana = project(pool, "kanban").await;
+    ana.create_issue("SANTI", json!({ "summary": "Epic", "issue_type": "epic" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Child", "parent": "SANTI-1" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Orphan" }))
+        .await;
+
+    let (_, no_epic) = ana.get("/api/projects/SANTI/board?parent=none").await;
+    let (_, either) = ana
+        .get("/api/projects/SANTI/board?parent=none&parent=SANTI-1")
+        .await;
+    let (_, by_key) = ana.get("/api/projects/SANTI/board?q=santi-3").await;
+
+    assert_eq!(column_keys(&no_epic, 0), ["SANTI-3"]);
+    assert_eq!(column_keys(&either, 0), ["SANTI-2", "SANTI-3"]);
+    assert_eq!(column_keys(&by_key, 0), ["SANTI-3"]);
 }
 
 #[sqlx::test]

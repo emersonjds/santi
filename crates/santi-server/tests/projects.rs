@@ -189,16 +189,21 @@ async fn invite_link_adds_the_member_once(pool: PgPool) {
         .await;
     let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
     let (accepted, project) = bob.post(&accept, json!(null)).await;
-    let (reused, _) = carl.post(&accept, json!(null)).await;
+    let (reused, reused_problem) = carl.post(&accept, json!(null)).await;
+    let (unknown, _) = carl
+        .post("/api/invites/santi_unknown/accept", json!(null))
+        .await;
 
     assert_eq!(created, StatusCode::CREATED);
     assert_eq!(accepted, StatusCode::OK);
     assert_eq!(project["role"], "member");
-    assert_eq!(reused, StatusCode::NOT_FOUND);
+    assert_eq!(reused, StatusCode::GONE);
+    assert_eq!(reused_problem["type"], "urn:santi:error:invite-used");
+    assert_eq!(unknown, StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test]
-async fn expired_invite_is_not_found(pool: PgPool) {
+async fn expired_invite_is_gone(pool: PgPool) {
     let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     ana.create_project("SANTI", "scrum").await;
@@ -210,14 +215,84 @@ async fn expired_invite_is_not_found(pool: PgPool) {
         .await
         .unwrap();
 
-    let (status, _) = bob
+    let (status, problem) = bob
         .post(
             &format!("/api/invites/{}/accept", invite["token"].as_str().unwrap()),
             json!(null),
         )
         .await;
 
-    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(status, StatusCode::GONE);
+    assert_eq!(problem["type"], "urn:santi:error:invite-expired");
+}
+
+#[sqlx::test]
+async fn invite_preview_shows_what_the_link_grants(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    let anonymous = TestApp::anonymous(pool.clone());
+    ana.create_project("SANTI", "scrum").await;
+    let (_, invite) = ana
+        .post("/api/projects/SANTI/invites", json!({ "role": "admin" }))
+        .await;
+    let preview_url = format!("/api/invites/{}", invite["token"].as_str().unwrap());
+
+    let (status, mut preview) = bob.get(&preview_url).await;
+    let expires_at = preview.as_object_mut().unwrap().remove("expires_at");
+
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    assert!(expires_at.is_some_and(|stamp| stamp.is_string()));
+    assert_eq!(
+        preview,
+        json!({
+            "project_key": "SANTI",
+            "project_name": "Project SANTI",
+            "role": "admin",
+            "inviter_name": "ana@example.com",
+        })
+    );
+    assert_eq!(
+        anonymous.get(&preview_url).await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        bob.get("/api/invites/santi_unknown").await.0,
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[sqlx::test]
+async fn used_or_expired_invites_preview_as_gone(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    let carl = ana.another_user("carl@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let (_, used) = ana
+        .post("/api/projects/SANTI/invites", json!({ "role": "member" }))
+        .await;
+    let used = used["token"].as_str().unwrap().to_string();
+    bob.post(&format!("/api/invites/{used}/accept"), json!(null))
+        .await;
+    let (_, expired) = ana
+        .post("/api/projects/SANTI/invites", json!({ "role": "member" }))
+        .await;
+    sqlx::query("UPDATE invite SET expires_at = now() - interval '1 minute' WHERE used_at IS NULL")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let (used_status, used_problem) = carl.get(&format!("/api/invites/{used}")).await;
+    let (expired_status, expired_problem) = carl
+        .get(&format!(
+            "/api/invites/{}",
+            expired["token"].as_str().unwrap()
+        ))
+        .await;
+
+    assert_eq!(used_status, StatusCode::GONE);
+    assert_eq!(used_problem["type"], "urn:santi:error:invite-used");
+    assert_eq!(expired_status, StatusCode::GONE);
+    assert_eq!(expired_problem["type"], "urn:santi:error:invite-expired");
 }
 
 #[sqlx::test]
@@ -246,8 +321,28 @@ async fn openapi_lists_project_routes(pool: PgPool) {
         "/api/projects/{key}/members",
         "/api/projects/{key}/members/{user_id}",
         "/api/projects/{key}/invites",
+        "/api/invites/{token}",
         "/api/invites/{token}/accept",
     ] {
         assert!(api["paths"][path].is_object(), "{path} missing");
     }
+}
+
+#[sqlx::test]
+async fn unknown_tokens_get_401_on_project_routes(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let forged = TestApp {
+        token: Some("santi_forged".into()),
+        ..ana.clone()
+    };
+
+    assert_eq!(
+        forged.get("/api/projects/SANTI/board").await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        forged.get("/api/projects/NOPE/board").await.0,
+        StatusCode::UNAUTHORIZED
+    );
 }

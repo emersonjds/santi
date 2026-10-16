@@ -1,11 +1,13 @@
+use chrono::{DateTime, Utc};
 use santi_types::boards::{
     BacklogSection, BoardColumnView, BoardSettings, Card, Column, Status, StatusCategory,
 };
-use santi_types::issues::IssueFilter;
+use santi_types::issues::{IssueFilter, NO_PARENT};
 use santi_types::projects::BoardType;
 use santi_types::sprints::Sprint;
 
-use crate::error::AppError;
+use crate::error::{AppError, reject_nul};
+use crate::issues;
 
 /// SB-1: every new board starts with these columns, each holding the status of the same name.
 pub const DEFAULT_LAYOUT: [(&str, StatusCategory); 3] = [
@@ -30,6 +32,7 @@ pub struct LayoutColumn {
 }
 
 pub fn check_name(field: &str, name: &str) -> Result<String, AppError> {
+    reject_nul(field, name)?;
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 60 {
         return Err(AppError::invalid(field, "must have 1 to 60 characters"));
@@ -52,6 +55,20 @@ pub fn check_done_mapping(layout: &[LayoutColumn]) -> Result<(), AppError> {
                 "Done statuses belong in the rightmost column, and that column holds only done statuses.",
             ));
         }
+    }
+    Ok(())
+}
+
+/// KB-4, KB-5: the rightmost column keeps a done status, and at least one column sits before it.
+pub fn check_board_shape(layout: &[LayoutColumn]) -> Result<(), AppError> {
+    let done_kept = layout
+        .last()
+        .is_some_and(|column| !column.categories.is_empty());
+    if layout.len() < 2 || !done_kept {
+        return Err(AppError::conflict(
+            "keep-done-column",
+            "The board keeps at least two columns, and the rightmost one keeps a done status.",
+        ));
     }
     Ok(())
 }
@@ -181,7 +198,7 @@ pub fn require_backlog(board_type: BoardType) -> Result<(), AppError> {
 }
 
 /// D3: each filter kind matches when empty or when any of its values matches; kinds are AND-ed.
-pub fn matches_filter(card: &Card, filter: &IssueFilter) -> bool {
+pub fn matches_filter(card: &Card, filter: &IssueFilter, now: DateTime<Utc>) -> bool {
     let assignee_matches = filter.assignee.is_empty()
         || card
             .assignee_id
@@ -190,18 +207,27 @@ pub fn matches_filter(card: &Card, filter: &IssueFilter) -> bool {
     let label_matches =
         filter.label.is_empty() || card.labels.iter().any(|label| filter.label.contains(label));
     let parent_matches = filter.parent.is_empty()
-        || card
-            .parent_key
-            .as_ref()
-            .is_some_and(|key| filter.parent.contains(key));
+        || filter
+            .parent
+            .iter()
+            .any(|parent| card.parent_key.as_deref().unwrap_or(NO_PARENT) == parent);
     let text = filter
         .q
         .as_deref()
         .map(str::trim)
         .filter(|text| !text.is_empty());
-    let text_matches =
-        text.is_none_or(|text| card.summary.to_lowercase().contains(&text.to_lowercase()));
-    assignee_matches && type_matches && label_matches && parent_matches && text_matches
+    let text_matches = text.is_none_or(|text| {
+        let text = text.to_lowercase();
+        card.summary.to_lowercase().contains(&text) || card.key.to_lowercase().contains(&text)
+    });
+    let recent_matches = issues::domain::updated_since(filter.recently_updated, now)
+        .is_none_or(|since| card.updated_at > since);
+    assignee_matches
+        && type_matches
+        && label_matches
+        && parent_matches
+        && text_matches
+        && recent_matches
 }
 
 /// Cards arrive in rank order; each column keeps that order.
@@ -209,31 +235,34 @@ pub fn build_board_columns(
     columns: Vec<ColumnRow>,
     cards: Vec<Card>,
     filter: &IssueFilter,
+    now: DateTime<Utc>,
 ) -> Vec<BoardColumnView> {
-    columns
+    let mut views: Vec<BoardColumnView> = columns
         .into_iter()
-        .map(|column| {
-            let in_column: Vec<&Card> = cards
-                .iter()
-                .filter(|card| card.column_id == column.id)
-                .collect();
-            let issue_count = in_column.len() as i64;
-            BoardColumnView {
-                over_limit: column
-                    .wip_limit
-                    .is_some_and(|limit| issue_count > i64::from(limit)),
-                cards: in_column
-                    .into_iter()
-                    .filter(|card| matches_filter(card, filter))
-                    .cloned()
-                    .collect(),
-                id: column.id,
-                name: column.name,
-                wip_limit: column.wip_limit,
-                issue_count,
-            }
+        .map(|column| BoardColumnView {
+            id: column.id,
+            name: column.name,
+            wip_limit: column.wip_limit,
+            issue_count: 0,
+            over_limit: false,
+            cards: Vec::new(),
         })
-        .collect()
+        .collect();
+    for card in cards {
+        let Some(view) = views.iter_mut().find(|view| view.id == card.column_id) else {
+            continue;
+        };
+        view.issue_count += 1;
+        if matches_filter(&card, filter, now) {
+            view.cards.push(card);
+        }
+    }
+    for view in &mut views {
+        view.over_limit = view
+            .wip_limit
+            .is_some_and(|limit| view.issue_count > i64::from(limit));
+    }
+    views
 }
 
 /// BL-1: the given sprints in order, then the no-sprint section.
@@ -241,34 +270,33 @@ pub fn build_backlog_sections(
     sprints: Vec<Sprint>,
     cards: Vec<Card>,
     filter: &IssueFilter,
+    now: DateTime<Utc>,
 ) -> Vec<BacklogSection> {
     let mut sections: Vec<BacklogSection> = sprints
         .into_iter()
-        .map(|sprint| backlog_section(Some(sprint), &cards, filter))
+        .map(Some)
+        .chain([None])
+        .map(|sprint| BacklogSection {
+            sprint,
+            issue_count: 0,
+            total_points: 0.0,
+            cards: Vec::new(),
+        })
         .collect();
-    sections.push(backlog_section(None, &cards, filter));
-    sections
-}
-
-fn backlog_section(sprint: Option<Sprint>, cards: &[Card], filter: &IssueFilter) -> BacklogSection {
-    let sprint_id = sprint.as_ref().map(|sprint| sprint.id);
-    let in_section: Vec<&Card> = cards
-        .iter()
-        .filter(|card| card.sprint_id == sprint_id)
-        .collect();
-    BacklogSection {
-        issue_count: in_section.len() as i64,
-        total_points: in_section
-            .iter()
-            .filter_map(|card| card.points)
-            .fold(0.0, |total, points| total + points),
-        cards: in_section
-            .into_iter()
-            .filter(|card| matches_filter(card, filter))
-            .cloned()
-            .collect(),
-        sprint,
+    for card in cards {
+        let section = sections
+            .iter_mut()
+            .find(|section| section.sprint.as_ref().map(|sprint| sprint.id) == card.sprint_id);
+        let Some(section) = section else {
+            continue;
+        };
+        section.issue_count += 1;
+        section.total_points += card.points.unwrap_or(0.0);
+        if matches_filter(&card, filter, now) {
+            section.cards.push(card);
+        }
     }
+    sections
 }
 
 #[cfg(test)]
@@ -305,6 +333,17 @@ mod tests {
     #[test]
     fn non_done_status_in_the_rightmost_column_is_refused() {
         assert!(check_done_mapping(&layout(&[(1, &[Todo]), (2, &[Done, InProgress])])).is_err());
+    }
+
+    #[test]
+    fn the_rightmost_column_keeps_a_done_status_after_another_column() {
+        assert!(check_board_shape(&layout(&[(1, &[Todo]), (2, &[Done])])).is_ok());
+        let emptied = check_board_shape(&layout(&[(1, &[Todo]), (2, &[])])).unwrap_err();
+        assert_eq!(
+            emptied.to_problem().problem_type,
+            "urn:santi:error:keep-done-column"
+        );
+        assert!(check_board_shape(&layout(&[(1, &[Done])])).is_err());
     }
 
     #[test]
@@ -404,6 +443,7 @@ mod tests {
             column_id,
             assignee_id: None,
             assignee_name: None,
+            reporter_id: 1,
             points,
             labels: vec![],
             parent_key: None,
@@ -411,7 +451,28 @@ mod tests {
             open_subtasks: 0,
             total_subtasks: 0,
             rank: format!("{id}"),
+            updated_at: now(),
         }
+    }
+
+    fn now() -> DateTime<Utc> {
+        "2026-10-16T12:00:00Z".parse().unwrap()
+    }
+
+    #[test]
+    fn recently_updated_keeps_cards_touched_in_the_last_day() {
+        let recent = IssueFilter {
+            recently_updated: true,
+            ..IssueFilter::default()
+        };
+        let mut stale = card(1, 1, None, None);
+        stale.updated_at = now() - chrono::Duration::hours(25);
+        let mut fresh = card(2, 1, None, None);
+        fresh.updated_at = now() - chrono::Duration::hours(23);
+
+        assert!(!matches_filter(&stale, &recent, now()));
+        assert!(matches_filter(&fresh, &recent, now()));
+        assert!(matches_filter(&stale, &IssueFilter::default(), now()));
     }
 
     fn open_sprint(id: i64) -> Sprint {
@@ -444,43 +505,48 @@ mod tests {
             ..either.clone()
         };
 
-        assert!(matches_filter(&bug, &IssueFilter::default()));
-        assert!(matches_filter(&bug, &either));
-        assert!(!matches_filter(&bug, &narrowed));
+        assert!(matches_filter(&bug, &IssueFilter::default(), now()));
+        assert!(matches_filter(&bug, &either, now()));
+        assert!(!matches_filter(&bug, &narrowed, now()));
         assert!(matches_filter(
             &bug,
             &IssueFilter {
                 assignee: vec![7, 8],
                 ..IssueFilter::default()
-            }
+            },
+            now()
         ));
         assert!(!matches_filter(
             &bug,
             &IssueFilter {
                 assignee: vec![8],
                 ..IssueFilter::default()
-            }
+            },
+            now()
         ));
         assert!(matches_filter(
             &bug,
             &IssueFilter {
                 parent: vec!["SANTI-9".into()],
                 ..IssueFilter::default()
-            }
+            },
+            now()
         ));
         assert!(matches_filter(
             &bug,
             &IssueFilter {
                 q: Some(" CARD ".into()),
                 ..IssueFilter::default()
-            }
+            },
+            now()
         ));
         assert!(!matches_filter(
             &bug,
             &IssueFilter {
                 q: Some("login".into()),
                 ..IssueFilter::default()
-            }
+            },
+            now()
         ));
     }
 
@@ -508,7 +574,7 @@ mod tests {
             ..IssueFilter::default()
         };
 
-        let view = build_board_columns(columns, cards, &mine);
+        let view = build_board_columns(columns, cards, &mine, now());
 
         assert_eq!(view[0].issue_count, 2);
         assert!(view[0].over_limit);
@@ -530,7 +596,7 @@ mod tests {
         };
 
         let sections =
-            build_backlog_sections(vec![open_sprint(5), open_sprint(6)], cards, &only_ui);
+            build_backlog_sections(vec![open_sprint(5), open_sprint(6)], cards, &only_ui, now());
 
         assert_eq!(sections.len(), 3);
         assert_eq!(sections[0].issue_count, 2);

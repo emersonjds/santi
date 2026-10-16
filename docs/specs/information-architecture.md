@@ -63,13 +63,11 @@ Tabs are fixed in v1 (UI-8 reordering: later).
 Conventions: page routes are `/p/{key}/…` (API stays `/api/projects/{key}/…`). Filters are query
 params (D18): `q`, `assignee` (repeatable, `me` allowed), `type`, `label`, `epic` (parent key).
 
-SPA (D37): the page routes below become TanStack Router client routes with the same paths and
-search params; redirects (`303` in the table) become client redirects. The server keeps `/api/*`,
-`/openapi.json`, `/docs`, `/health` and the built assets, and answers every other GET with
-`index.html`. The SPA writes through `/api/*` only (OpenAPI is the contract); the "Writes and
-fragments" table below is the htmx UI and is removed at the cutover, along with `HX-Request`
-blocks and form POSTs. Until parity the htmx UI serves these paths in production and the SPA
-runs from the Vite dev server.
+SPA (D37): the page routes below are TanStack Router client routes; redirects (`303` in the table)
+are client redirects. The server keeps `/api/*`, `/openapi.json`, `/docs`, `/health` and the built
+assets (`/assets/*`, cached as immutable), and answers every other GET with `index.html`
+(`no-cache`); an unknown `/api/*` path stays a D24 404. The SPA writes through `/api/*` only
+(OpenAPI is the contract).
 
 Pages
 
@@ -79,41 +77,16 @@ Pages
 | `GET /invites/{token}` | join a project | built |
 | `GET /` | home | built (projects only) |
 | `GET /projects/new` | new project | built |
-| `GET /p/{key}` | `303` → `/p/{key}/board` | change (today it renders board + members) |
-| `GET /p/{key}/board` | board (+ `?column={id}` at 375px) | new name for today's board |
-| `GET /p/{key}/backlog` | backlog (+ `?panel=epics`); kanban → `303` board | in progress |
-| `GET /p/{key}/issues/{n}` | issue: full page; from board, backlog or search a modal with the URL masked to this path (SPA) | built |
-| `GET /p/{key}/issues/new` | create issue (htmx only; the SPA opens a dialog from + Create or `c`, no route) | new |
-| `GET /p/{key}/search` | search results | built |
+| `GET /p/{key}` | `303` → `/p/{key}/board` | built |
+| `GET /p/{key}/board` | board (+ `?column={id}` at 375px) | built |
+| `GET /p/{key}/backlog` | backlog (+ `?panel=epics`); kanban → `303` board | built |
+| `GET /p/{key}/issues/{n}` | issue: full page; from board, backlog or search a modal with the URL masked to this path | built |
+| `GET /p/{key}/search` | search results (`?q`, `type`, `status` category, `assignee`, `recently_updated`) | built |
 | `GET /p/{key}/settings` | board settings: columns, statuses, done window | new |
 | `GET /p/{key}/settings/members` | members, roles, invite links | new (moves off the project page) |
-| `GET /account` | profile and API tokens | new |
+| `GET /account` | profile and API tokens | built |
 
-Writes and fragments
-
-| Route | Does | Status |
-|---|---|---|
-| `POST /login`, `POST /register`, `POST /logout` | session | built |
-| `POST /invites/{token}` | accept invite | built |
-| `POST /projects` | create project | built |
-| `POST /p/{key}/issues` | create issue (modal, inline in column or section) → card or row | built |
-| `POST /p/{key}/issues/{n}` | edit one field → updated field block | built |
-| `POST /p/{key}/issues/{n}/move` | status, sprint and/or anchor (`before`/`after`) → card | built |
-| `POST /p/{key}/issues/{n}/comments` | add comment → comment item | built |
-| `POST /p/{key}/sprints` | create sprint ("Sprint N") → section | in progress |
-| `POST /p/{key}/sprints/{id}` | edit name, goal, dates | in progress |
-| `GET`/`POST /p/{key}/sprints/{id}/start` | start dialog (duration presets) / start | in progress |
-| `GET`/`POST /p/{key}/sprints/{id}/complete` | complete dialog (destination step only when open issues) / complete | in progress |
-| `POST /p/{key}/sprints/{id}/delete` | delete future sprint | in progress |
-| `POST /p/{key}/settings/columns`, `…/columns/{id}`, `…/columns/{id}/delete`, `…/columns/order` | column edits (delete asks for a target column, D16) | new |
-| `POST /p/{key}/settings/statuses`, `…/statuses/{id}`, `…/statuses/{id}/delete` | status edits and mapping | new |
-| `POST /p/{key}/settings/board` | done window (kanban) | new |
-| `POST /p/{key}/invites` | create invite link | built |
-| `POST /p/{key}/settings/members/{user_id}`, `…/{user_id}/remove` | change role, remove | new |
-| `POST /account/tokens`, `POST /account/tokens/{id}/delete` | create (shown once), revoke | new |
-
-Sprint routes are a proposal; the backlog work in progress decides the final names.
-`POST /projects` stays create-only; the project list lives on home.
+Create issue has no route: + Create or `c` opens a dialog.
 
 ## 4. Pages and regions
 
@@ -145,8 +118,8 @@ Type, Label, Epic dropdowns, "Filters (n)" with Clear. AND across kinds, OR with
 
 Card: type glyph, key, summary (2 lines), points pill, priority glyph (urgent only colored),
 avatar; subtasks add a parent-key chip; parents show `open/total` subtasks (D6). Card menu
-("…"): Move to…, Assign to me / Assign…, Set priority, Copy issue key. Delete: later (no issue
-delete in v1). Drop slot: dashed outline at the target position.
+("…"): Move to…, Assign to me / Assign…, Set priority, Copy issue key, Delete (D40: admins and
+the reporter, behind a confirm naming its subtasks and comments). Drop slot: dashed outline at the target position.
 
 Backlog section header: name, dates, issue count, status chips (to do / in progress / done
 counts), points total (D11), Start or Complete, "…" (edit, delete if future). Footer line:
@@ -155,7 +128,7 @@ sprint: dashed drop zone.
 
 ## 5. Create flow
 
-1. "+ Create" (or `c`) opens a modal (htmx: loaded from `/p/{key}/issues/new`; SPA: a dialog, no route).
+1. "+ Create" (or `c`) opens a dialog (no route).
 2. Project preselected: the current project; on home, the last project the user opened
    (cookie), else the first in the list. With no projects, "+ Create" goes to `/projects/new`.
 3. Changing the project re-fetches the form for that project (statuses, members, sprints differ).
@@ -174,8 +147,8 @@ sprint: dashed drop zone.
   full page. Close (`x`, Esc, backdrop) goes back in history to the board URL with its filters.
 - Modal over side panel (resolves ui-layout OQ-6): the board keeps every column visible, and
   board and backlog get the same behavior. Right panel with J/K follow (UI-26): later.
-- Edits save per field (htmx: POST same route, card refreshed by an out-of-band swap; SPA:
-  `PATCH /api/projects/{key}/issues/{n}`, card refreshed from the query cache), so closing shows
+- Edits save per field (`PATCH /api/projects/{key}/issues/{n}`, card refreshed from the query
+  cache), so closing shows
   the current state without a reload.
 
 ## 7. Search
@@ -254,6 +227,6 @@ The owner delegated these calls; defaults chosen to keep v1 small.
 2. New issues land at the bottom of the backlog, as `create_issue` already does; UI-36 "top of backlog" is dropped for v1.
 3. Home "Assigned to me" and sidebar "Recent" stay later (item 11).
 4. Account page with API tokens is v1 and gets its own card before the CLI ships.
-5. Issue delete is deferred; the card menu has no Delete item until a delete service exists.
+5. Issue delete was deferred until a delete service existed; SAN-49 built it (D40): card, row and issue menus.
 6. Settings are hidden from members; the URL answers 403.
 7. After creation a scrum project opens on the backlog and a kanban project on the board.

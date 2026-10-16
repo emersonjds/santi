@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod boards;
+pub mod imports;
 pub mod issues;
 pub mod projects;
 pub mod sprints;
