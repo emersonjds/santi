@@ -31,7 +31,7 @@ const TONES = [
   'bg-avatar-6 text-avatar-6-foreground',
 ]
 
-/** D36 amendment: one of six avatar tones, fixed per name, so people tell apart at a glance. */
+/** D36 amendment: one of six avatar tones, fixed per name. */
 export const avatarTone = (name: string) => {
   let hash = 0
   for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) % 9973

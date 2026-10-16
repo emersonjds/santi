@@ -42,7 +42,6 @@ export const api = createClient<paths>({
   fetch: (request) => globalThis.fetch(request),
 })
 
-/** A `multipart/form-data` body: the file, plus each field as JSON. */
 export const formData = (file: File, fields: Record<string, unknown> = {}) => {
   const form = new FormData()
   form.append('file', file)
@@ -51,7 +50,6 @@ export const formData = (file: File, fields: Record<string, unknown> = {}) => {
   return form
 }
 
-/** A failed API call, with the status the QueryClient handlers branch on. */
 export class ApiError extends Error {
   status: number
   /** The D24 `errors[]`: which field the server refused, and why. */
@@ -87,7 +85,6 @@ export const okOrThrow = (result: Result<unknown>) => {
   if (!result.response.ok) throw problemOf(result)
 }
 
-/** What to say next to a field whose save failed: the server's word on that field, else the detail. */
 export const fieldMessage = (error: Error) =>
   (error instanceof ApiError && error.errors[0]?.message) || error.message
 

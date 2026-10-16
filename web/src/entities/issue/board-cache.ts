@@ -13,7 +13,6 @@ export type Move = {
 const cardsOf = (board: BoardView, columnId: number) =>
   board.columns.find((column) => column.id === columnId)?.cards ?? []
 
-/** Anchors on the neighbour above, or below for the top slot; an empty column needs none. */
 export const planMove = (
   board: BoardView,
   card: Card,
@@ -35,7 +34,7 @@ const rankIndex = (board: BoardView, card: Card, columnId: number) =>
     (other) => other.key !== card.key && other.rank < card.rank
   ).length
 
-/** SB-17: the card takes a status of the column, with no anchor so the server keeps its rank. */
+/** SB-17: a status move carries no anchor (D4). */
 export const statusMove = (
   board: BoardView,
   card: Card,

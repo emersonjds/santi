@@ -21,6 +21,5 @@ export const isPriority = (value: string): value is Priority =>
 export const isIssueType = (value: string): value is IssueType =>
   Object.hasOwn(TYPE_LABEL, value)
 
-/** `1 issue`, `3 issues`. */
 export const issueCount = (count: number) =>
   `${count} ${count === 1 ? 'issue' : 'issues'}`
