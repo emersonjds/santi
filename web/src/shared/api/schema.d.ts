@@ -1297,8 +1297,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Unknown, used or expired */
+            /** @description Unknown token */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `invite-used` or `invite-expired` */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
