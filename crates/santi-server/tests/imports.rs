@@ -159,6 +159,13 @@ async fn preview_refuses_files_that_are_not_exports(pool: PgPool) {
     )
     .await
     .0;
+    let commas = vec![b','; 10 * 1024 * 1024 - 1];
+    let (wide, wide_problem) = upload(
+        &ana,
+        "/api/projects/SANTI/imports/preview",
+        multipart(&commas, None),
+    )
+    .await;
     let (not_multipart, _) = ana
         .post("/api/projects/SANTI/imports/preview", json!({}))
         .await;
@@ -170,6 +177,11 @@ async fn preview_refuses_files_that_are_not_exports(pool: PgPool) {
     assert_eq!(too_large, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(over_limit, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(not_multipart, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(wide, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        wide_problem["errors"][0]["message"],
+        "a row has more than 1000 columns"
+    );
 }
 
 #[sqlx::test]

@@ -16,6 +16,11 @@ use crate::issues;
 pub const MAX_FILE_BYTES: usize = 10 * 1024 * 1024;
 pub const MAX_PROBLEMS: usize = 100;
 pub const BATCH_SIZE: usize = 500;
+/// Far past any real export, low enough that 10 MB of commas or line breaks cannot fan out
+/// into hundreds of MB of empty fields.
+pub const MAX_COLUMNS: usize = 1_000;
+pub const MAX_RECORDS: usize = 100_000;
+pub const MAX_FIELDS: usize = 3_000_000;
 
 pub struct Table {
     pub header: Vec<String>,
@@ -69,14 +74,60 @@ pub struct Export {
     pub problems: Vec<RowProblem>,
 }
 
+/// Every field and record of the file, refused once past the caps above.
+struct Builder {
+    records: Vec<Record>,
+    fields: Vec<String>,
+    total_fields: usize,
+}
+
+impl Builder {
+    fn push_field(&mut self, field: String) -> Result<(), AppError> {
+        self.total_fields += 1;
+        if self.fields.len() == MAX_COLUMNS {
+            return Err(AppError::invalid(
+                "file",
+                "a row has more than 1000 columns",
+            ));
+        }
+        if self.total_fields > MAX_FIELDS {
+            return Err(AppError::invalid(
+                "file",
+                "the file has more than 3000000 fields",
+            ));
+        }
+        self.fields.push(field);
+        Ok(())
+    }
+
+    /// Blank lines are dropped.
+    fn push_record(&mut self, line: i64) -> Result<(), AppError> {
+        let fields = std::mem::take(&mut self.fields);
+        if fields.iter().all(String::is_empty) {
+            return Ok(());
+        }
+        if self.records.len() > MAX_RECORDS {
+            return Err(AppError::invalid(
+                "file",
+                "the file has more than 100000 rows",
+            ));
+        }
+        self.records.push(Record { line, fields });
+        Ok(())
+    }
+}
+
 /// RFC 4180: quoted fields may hold commas, `""` and line breaks; blank lines are dropped.
 pub fn parse_csv(text: &str) -> Result<Table, AppError> {
     let text = text
         .strip_prefix('\u{feff}')
         .unwrap_or(text)
         .replace("\r\n", "\n");
-    let mut records = Vec::new();
-    let mut fields = Vec::new();
+    let mut table = Builder {
+        records: Vec::new(),
+        fields: Vec::new(),
+        total_fields: 0,
+    };
     let mut field = String::new();
     let (mut quoted, mut line, mut start) = (false, 1, 1);
     let mut chars = text.chars().peekable();
@@ -97,13 +148,10 @@ pub fn parse_csv(text: &str) -> Result<Table, AppError> {
         }
         match char {
             '"' if field.is_empty() => quoted = true,
-            ',' => fields.push(std::mem::take(&mut field)),
+            ',' => table.push_field(std::mem::take(&mut field))?,
             '\n' => {
-                fields.push(std::mem::take(&mut field));
-                records.push(Record {
-                    line: start,
-                    fields: std::mem::take(&mut fields),
-                });
+                table.push_field(std::mem::take(&mut field))?;
+                table.push_record(start)?;
                 line += 1;
                 start = line;
             }
@@ -116,15 +164,11 @@ pub fn parse_csv(text: &str) -> Result<Table, AppError> {
             "a quoted field is never closed; is this a CSV file?",
         ));
     }
-    if !field.is_empty() || !fields.is_empty() {
-        fields.push(field);
-        records.push(Record {
-            line: start,
-            fields,
-        });
+    if !field.is_empty() || !table.fields.is_empty() {
+        table.push_field(field)?;
+        table.push_record(start)?;
     }
-    records.retain(|record| record.fields.iter().any(|field| !field.is_empty()));
-    let mut records = records.into_iter();
+    let mut records = table.records.into_iter();
     let header = records
         .next()
         .ok_or_else(|| AppError::invalid("file", "the file is empty"))?;
@@ -970,6 +1014,25 @@ mod tests {
     fn csv_rejects_an_open_quote_and_an_empty_file() {
         assert!(parse_csv("a,b\n\"never closed,1\n").is_err());
         assert!(parse_csv("\n\n").is_err());
+    }
+
+    #[test]
+    fn csv_refuses_shapes_no_export_has_before_holding_them() {
+        let wide = format!("a{}\n", ",".repeat(MAX_COLUMNS));
+        let long = "a\n".repeat(MAX_RECORDS + 2);
+        let blank_lines = format!("a\n{}b\n", "\n".repeat(MAX_RECORDS + 2));
+        let fields =
+            format!("{}\n", ",".repeat(MAX_COLUMNS - 1)).repeat(MAX_FIELDS / MAX_COLUMNS + 1);
+
+        let message = |csv: &str| match parse_csv(csv) {
+            Err(AppError::Validation(errors)) => errors[0].message.clone(),
+            _ => panic!("expected a validation error"),
+        };
+
+        assert_eq!(message(&wide), "a row has more than 1000 columns");
+        assert_eq!(message(&long), "the file has more than 100000 rows");
+        assert_eq!(message(&fields), "the file has more than 3000000 fields");
+        assert_eq!(parse_csv(&blank_lines).unwrap().records.len(), 1);
     }
 
     #[test]
