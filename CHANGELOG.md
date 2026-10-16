@@ -10,6 +10,13 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-16
+
+### Changed
+
+- **Code comments:** comments that narrated the code were removed or turned into names; the
+  rationale moved to `docs/specs/decisions.md` (D18, D37, D39). No behavior change.
+
 ## [0.5.0] - 2026-10-16
 
 ### Added
@@ -135,7 +142,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/emersonjds/santi/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/emersonjds/santi/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/emersonjds/santi/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/emersonjds/santi/compare/v0.2.0...v0.3.0

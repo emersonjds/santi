@@ -54,7 +54,6 @@ const allStatuses = (settings: BoardSettings) => [
   ...settings.unmapped,
 ]
 
-/** Puts every status back in its column or the unmapped pool. */
 const regroup = (
   settings: BoardSettings,
   statuses: Status[],

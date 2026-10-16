@@ -42,8 +42,8 @@ async fn in_background<T: Send + 'static>(
         .map_err(|error| AppError::Internal(error.to_string()))
 }
 
-/// D41: one transaction for numbers and sprints, one per batch of 500 issues (tier by tier, so
-/// parents exist before their children), then one that ranks the new issues in file order.
+/// D41: one transaction for numbers and sprints, one per batch of 500 issues, then one that
+/// ranks the new issues in file order.
 pub async fn import(
     pool: &PgPool,
     member: &Member,

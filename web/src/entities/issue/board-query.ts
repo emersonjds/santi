@@ -7,7 +7,6 @@ export type BoardSearch = {
   assignee?: number[]
   type?: IssueType[]
   label?: string[]
-  /** An epic's key, or `none` for issues without one. */
   epic?: string
   q?: string
   recently_updated?: boolean
@@ -36,7 +35,6 @@ const isText = (value: unknown): value is string =>
 // `none`, or a project key (2 to 10 letters or digits) and an issue number.
 const EPIC = /^(?:none|[A-Z][A-Z0-9]{1,9}-[1-9][0-9]*)$/
 
-/** One value or a list of them (`?type=bug` or `?type=["bug"]`), keeping the well-formed ones. */
 const listOf = <Value>(
   value: unknown,
   keep: (each: unknown) => each is Value
@@ -45,7 +43,6 @@ const listOf = <Value>(
   return kept.length > 0 ? kept : undefined
 }
 
-/** Keeps only well-formed params, so a hand-edited link never breaks the board. */
 export const parseBoardSearch = (
   search: Record<string, unknown>
 ): BoardSearch => ({
@@ -86,7 +83,6 @@ export const boardFilters = ({
   recently_updated,
 })
 
-/** How many kinds of filter are on: the badge on "Filters" and "Clear filters". */
 export const countFilters = (search: BoardSearch) =>
   [
     search.assignee,
@@ -97,7 +93,6 @@ export const countFilters = (search: BoardSearch) =>
     search.recently_updated,
   ].filter((each) => each !== undefined).length
 
-/** Every label in use in the project, for the Label filter. */
 export const labelsQuery = (projectKey: string) =>
   queryOptions({
     queryKey: ['projects', projectKey, 'labels'],
@@ -109,7 +104,6 @@ export const labelsQuery = (projectKey: string) =>
       ),
   })
 
-/** The project's epics, for the Epic filter. */
 export const epicsQuery = (projectKey: string) =>
   queryOptions({
     queryKey: ['projects', projectKey, 'epics'],
@@ -171,6 +165,5 @@ export const boardSettingsQuery = (projectKey: string) =>
       ),
   })
 
-/** `WEB-12` → 12. */
 export const issueNumber = (issueKey: string) =>
   Number(issueKey.slice(issueKey.lastIndexOf('-') + 1))

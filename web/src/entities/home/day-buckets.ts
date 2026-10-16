@@ -8,7 +8,6 @@ export const BUCKETS = [
 
 export type Bucket = (typeof BUCKETS)[number]
 
-/** Local midnight of `date`, `days` later. */
 const midnight = (date: Date, days = 0) =>
   new Date(date.getFullYear(), date.getMonth(), date.getDate() + days).getTime()
 

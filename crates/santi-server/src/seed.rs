@@ -300,7 +300,6 @@ async fn add_issues(
         ranks.push(next.clone());
         rank = Some(next);
     }
-    // Parents are inserted before children so the parent join resolves.
     for tier in [Some("epic"), None, Some("subtask")] {
         let picked: Vec<(usize, &Row)> = rows
             .iter()

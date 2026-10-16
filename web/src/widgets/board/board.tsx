@@ -117,7 +117,6 @@ const RunningSprint = ({
   )
 }
 
-// Same box as the menu button, so nothing moves when the menu chunk arrives.
 const MenuPlaceholder = () => (
   <span
     aria-hidden='true'
@@ -179,8 +178,7 @@ const Columns = ({
     ),
     [projectKey]
   )
-  // The settings limit, so a change from the header shows (and rolls back) with the settings write.
-  const withLimit = (column: BoardColumn) => {
+  const withSettingsLimit = (column: BoardColumn) => {
     const limit = settings?.columns.find(
       (each) => each.id === column.id
     )?.wip_limit
@@ -191,7 +189,7 @@ const Columns = ({
   const renderColumn = (column: BoardColumn, list: ReactNode) => (
     <ColumnShell
       key={column.id}
-      column={withLimit(column)}
+      column={withSettingsLimit(column)}
       narrowHidden={column.id !== shown}
       menu={
         limits && (
