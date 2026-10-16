@@ -115,7 +115,7 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
     let legal_acceptances = repo::list_acceptances(&mut conn, user.id).await?;
     let api_tokens = repo::list_api_tokens(&mut conn, user.id).await?;
     let (admin, other_projects): (Vec<Project>, Vec<Project>) =
-        projects::repo::list_projects(&mut conn, user.id)
+        projects::repo::list_projects(&mut conn, user.id, None)
             .await?
             .into_iter()
             .partition(|project| project.role == MemberRole::Admin);

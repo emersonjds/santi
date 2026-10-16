@@ -238,6 +238,22 @@ export interface paths {
         get: operations["get_project"];
         put?: never;
         post?: never;
+        delete: operations["purge_project"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archive_project"];
         delete?: never;
         options?: never;
         head?: never;
@@ -516,6 +532,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore_project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/sprints": {
         parameters: {
             query?: never;
@@ -607,6 +639,38 @@ export interface paths {
         put: operations["update_status"];
         post?: never;
         delete: operations["delete_status"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["trash_project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/unarchive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unarchive_project"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1259,12 +1323,26 @@ export interface components {
         };
         /** @description A project as seen by the caller: `role` is the caller's role in it. */
         Project: {
+            /** Format: date-time */
+            archived_at?: string | null;
+            /** @description Display name of who archived it. */
+            archived_by?: string | null;
             board_type: components["schemas"]["BoardType"];
             /** Format: int64 */
             id: number;
             key: string;
             name: string;
+            /**
+             * Format: date-time
+             * @description When a trashed project is deleted for good: 60 days after `trashed_at` (OR-58).
+             */
+            purge_at?: string | null;
             role: components["schemas"]["MemberRole"];
+            state: components["schemas"]["ProjectState"];
+            /** Format: date-time */
+            trashed_at?: string | null;
+            /** @description Display name of who moved it to the trash. */
+            trashed_by?: string | null;
         };
         ProjectActivity: {
             key: string;
@@ -1281,6 +1359,11 @@ export interface components {
             project: components["schemas"]["Project"];
             sprints: components["schemas"]["Sprint"][];
         };
+        /**
+         * @description SAN-70: an archived project is read-only; a trashed one answers 404 until restored or purged.
+         * @enum {string}
+         */
+        ProjectState: "active" | "archived" | "trashed";
         Register: {
             /**
              * @description Must be true when the instance requires its legal documents (D45): the person agrees to
@@ -2061,14 +2144,17 @@ export interface operations {
     };
     list_projects: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `archived` and `trashed` list only projects the caller administers. */
+                state?: "active" | "archived" | "trashed";
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The caller's projects, by key */
+            /** @description The caller's projects in that state (default `active`), by key; `archived` and `trashed` only those the caller administers */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2078,6 +2164,15 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown state */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2156,6 +2251,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Also an archived project, read-only */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2172,7 +2268,118 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Unknown, not a member, or in the trash */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    purge_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted for good with its issues, sprints, board, members and invites; cannot be undone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-not-trashed`: only a trashed project can be purged */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    archive_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archived: read-only for everyone and out of every list until unarchived */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`: already archived */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3554,6 +3761,61 @@ export interface operations {
             };
         };
     };
+    restore_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back from the trash */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-not-trashed` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     list_sprints: {
         parameters: {
             query?: never;
@@ -4038,6 +4300,116 @@ export interface operations {
                 };
             };
             /** @description `in-use`: an issue holds it; `keep-done-column`: the last done status */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    trash_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description In the trash: 404 for everyone until restored; purged 60 days later */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`: unarchive it first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unarchive_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active again */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-not-archived` */
             409: {
                 headers: {
                     [name: string]: unknown;

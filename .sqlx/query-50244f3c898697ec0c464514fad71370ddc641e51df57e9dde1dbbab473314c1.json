@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT p.key AS project_key, p.name AS project_name, i.role AS \"role: MemberRole\",\n                  i.expires_at, u.display_name AS inviter_name, i.used_at\n           FROM invite i\n           JOIN project p ON p.id = i.project_id\n           JOIN app_user u ON u.id = i.created_by\n           WHERE i.token_hash = $1",
+  "query": "SELECT p.key AS project_key, p.name AS project_name, i.role AS \"role: MemberRole\",\n                  i.expires_at, u.display_name AS inviter_name, i.used_at,\n                  p.archived_at IS NOT NULL AS \"archived!\"\n           FROM invite i\n           JOIN project p ON p.id = i.project_id\n           JOIN app_user u ON u.id = i.created_by\n           WHERE i.token_hash = $1 AND p.trashed_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -68,6 +68,12 @@
             "name": "used_at"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "archived!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -81,8 +87,9 @@
       false,
       false,
       false,
-      true
+      true,
+      null
     ]
   },
-  "hash": "72a79aec3ecbd35f121f30b30209fe83778fd1454dfa8043d40511757b4945d5"
+  "hash": "50244f3c898697ec0c464514fad71370ddc641e51df57e9dde1dbbab473314c1"
 }

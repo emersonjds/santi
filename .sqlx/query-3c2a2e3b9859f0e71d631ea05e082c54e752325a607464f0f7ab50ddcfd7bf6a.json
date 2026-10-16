@@ -1,0 +1,48 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.id AS project_id, m.role AS \"role: MemberRole\", p.trashed_at IS NOT NULL AS \"trashed!\"\n           FROM project p JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.key = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "project_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "role: MemberRole",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "trashed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "3c2a2e3b9859f0e71d631ea05e082c54e752325a607464f0f7ab50ddcfd7bf6a"
+}
