@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO member (project_id, user_id, role)\n         SELECT p.id, u, 'member' FROM project p, unnest($1::bigint[]) u",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "119a3720c7454fcb2bd2402a5be9e0f724d6f0a7f5ddccdc8272eea0d649fdce"
+}

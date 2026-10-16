@@ -1,0 +1,27 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue (project_id, number, issue_type, summary, priority, status_id, assignee_id,\n                                reporter_id, points, labels, parent_id, sprint_id, rank, done_at)\n             SELECT $1, r.number, r.issue_type, r.summary, r.priority, r.status_id, nullif(r.assignee_id, 0),\n                    $2, nullif(r.points, -1), coalesce(string_to_array(nullif(r.labels, ''), ','), '{}'),\n                    parent.id, nullif(r.sprint_id, 0), r.rank,\n                    CASE WHEN r.done_days >= 0 THEN now() - make_interval(days => r.done_days) END\n             FROM unnest($3::bigint[], $4::text[], $5::text[], $6::text[], $7::bigint[], $8::bigint[],\n                         $9::float8[], $10::text[], $11::bigint[], $12::bigint[], $13::text[],\n                         $14::int[])\n                  AS r(number, issue_type, summary, priority, status_id, assignee_id, points, labels,\n                       parent_number, sprint_id, rank, done_days)\n             LEFT JOIN issue parent ON parent.project_id = $1 AND parent.number = r.parent_number",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "Int8Array",
+        "Float8Array",
+        "TextArray",
+        "Int8Array",
+        "Int8Array",
+        "TextArray",
+        "Int4Array"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7edabea7648abbd92305cd1488a5a6aa152dc395647bd15248dd295e2663c529"
+}
