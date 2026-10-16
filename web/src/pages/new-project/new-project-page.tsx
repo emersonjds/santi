@@ -1,4 +1,5 @@
 import { CreateProjectForm } from '@/features/project/create-project-form'
+import { SampleProjectButton } from '@/features/project/sample-project-button'
 
 export const NewProjectPage = () => (
   <div className='mx-auto w-full max-w-xl px-4 py-8'>
@@ -8,6 +9,13 @@ export const NewProjectPage = () => (
     </p>
     <div className='mt-6'>
       <CreateProjectForm />
+    </div>
+    <div className='mt-8 grid justify-items-start gap-2 border-t pt-6'>
+      <p className='text-sm text-muted-foreground'>
+        Just looking around? Open a sample with sprints, epics and issues
+        already in place.
+      </p>
+      <SampleProjectButton />
     </div>
   </div>
 )

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useRouteContext } from '@tanstack/react-router'
 import { FolderKanban, Plus } from 'lucide-react'
+import { SampleProjectButton } from '@/features/project/sample-project-button'
 import { projectsQuery } from '@/entities/project/project-queries'
 import { Button } from '@/shared/ui/button'
 import { ProjectList, ProjectListSkeleton } from './project-list'
@@ -12,12 +13,15 @@ const NoProjects = () => (
     <p className='text-muted-foreground'>
       A project groups a board, its backlog and its sprints.
     </p>
-    <Button asChild className='h-11'>
-      <Link to='/projects/new'>
-        <Plus />
-        New project
-      </Link>
-    </Button>
+    <div className='flex flex-wrap justify-center gap-2'>
+      <Button asChild className='h-11'>
+        <Link to='/projects/new'>
+          <Plus />
+          New project
+        </Link>
+      </Button>
+      <SampleProjectButton />
+    </div>
   </div>
 )
 
