@@ -59,7 +59,7 @@ type StarToggleProps = {
   className?: string
 }
 
-/** A 44px target on touch, 32px with a pointer; starred stays visible, unstarred shows on hover or focus. */
+/** A 44px target on touch, 32px with a pointer; unstarred rests muted, starred stays filled. */
 const StarToggle = ({
   label,
   starred,
@@ -73,10 +73,8 @@ const StarToggle = ({
     title={starred ? 'Starred' : 'Star'}
     onClick={onToggle}
     className={cn(
-      'relative z-10 grid size-11 shrink-0 place-items-center rounded-md text-subtle-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8',
-      starred
-        ? 'text-warning'
-        : 'md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100',
+      'relative z-10 grid size-11 shrink-0 place-items-center rounded-md text-subtle-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8',
+      starred && 'text-warning',
       className
     )}
   >

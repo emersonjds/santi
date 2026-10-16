@@ -5,9 +5,12 @@ import { groupByDay } from '@/entities/home/day-buckets'
 import { myIssuesQuery } from '@/entities/home/home-queries'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { TYPE_LABEL } from '@/entities/issue/labels'
+import { StatusPill } from '@/entities/issue/status-pill'
+import { CATEGORY } from '@/entities/issue/statuses'
 import { timeAgo } from '@/entities/issue/time-ago'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { HomeIssue, HomeView } from '@/shared/api/client'
+import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
 
@@ -21,6 +24,8 @@ const EMPTY = {
 
 const number = (key: string) => key.slice(key.lastIndexOf('-') + 1)
 
+const capitalized = (text: string) => text[0].toUpperCase() + text.slice(1)
+
 const IssueRow = ({ issue }: { issue: HomeIssue }) => (
   <li className='group relative flex min-h-14 items-center gap-3 bg-card py-1 ps-3 pe-1 hover:bg-hover'>
     <TypeGlyph type={issue.issue_type} />
@@ -28,7 +33,10 @@ const IssueRow = ({ issue }: { issue: HomeIssue }) => (
       <Link
         to='/p/$key/issues/$number'
         params={{ key: issue.project_key, number: number(issue.key) }}
-        className='truncate text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring'
+        className={cn(
+          'truncate text-sm font-medium outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring',
+          issue.status_category === 'done' && 'text-muted-foreground'
+        )}
       >
         {issue.summary}
       </Link>
@@ -36,6 +44,12 @@ const IssueRow = ({ issue }: { issue: HomeIssue }) => (
         {TYPE_LABEL[issue.issue_type]} • {issue.key} • {issue.project_name}
       </span>
     </div>
+    <StatusPill
+      status={{
+        name: capitalized(CATEGORY[issue.status_category].label),
+        category: issue.status_category,
+      }}
+    />
     {issue.assignee_name && <AssigneeAvatar name={issue.assignee_name} />}
     <time
       dateTime={issue.at}

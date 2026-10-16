@@ -1,7 +1,11 @@
 import { cn } from '@/shared/lib/utils'
 import { CATEGORY, type Status } from './statuses'
 
-export const StatusPill = ({ status }: { status: Status }) => {
+export const StatusPill = ({
+  status,
+}: {
+  status: Pick<Status, 'name' | 'category'>
+}) => {
   const { icon: Icon, tone } = CATEGORY[status.category]
   return (
     <span

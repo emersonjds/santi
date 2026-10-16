@@ -309,6 +309,92 @@ describe('home', () => {
       .toContain('POST /api/me/stars')
   })
 
+  it('opens the board filtered to me from the assigned count, after the name and star', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/')
+    const cards = screen.getByRole('region', { name: 'Recommended projects' })
+
+    const name = cards.getByRole('link', { name: 'Operations' })
+    await expect.element(name).toBeVisible()
+    name.element().focus()
+    await userEvent.keyboard('{Tab}')
+    await expect
+      .element(cards.getByRole('button', { name: 'Star Operations' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{Tab}')
+    const count = cards.getByRole('link', {
+      name: '2 open issues assigned to you',
+    })
+    await expect.element(count).toHaveFocus()
+    await count.click()
+
+    await expect.poll(() => router.state.location.pathname).toBe('/p/OPS/board')
+    expect(router.state.location.search).toEqual({ assignee: [1] })
+  })
+
+  it('says so in plain text when nothing open is assigned', async () => {
+    inProjects({
+      'GET /api/me/projects': {
+        status: 200,
+        body: [{ ...MY_WEB, open_assigned: 0 }],
+      },
+    })
+    const { screen } = await renderApp('/')
+    const cards = screen.getByRole('region', { name: 'Recommended projects' })
+
+    await expect
+      .element(cards.getByText('No open issues assigned to you'))
+      .toBeVisible()
+    expect(
+      cards.getByRole('link', { name: /assigned to you/ }).elements()
+    ).toHaveLength(0)
+  })
+
+  it.each([
+    [1280, 800],
+    [375, 800],
+  ])('shows unstarred stars at rest at %ipx', async (width, height) => {
+    await page.viewport(width, height)
+    inProjects({ 'GET /api/me/issues': pageOf([LOGIN]) })
+    const { screen } = await renderApp('/')
+
+    for (const name of ['Star Operations', 'Star WEB-1']) {
+      const star = screen.getByRole('button', { name })
+      await expect.element(star).toHaveAttribute('aria-pressed', 'false')
+      expect(getComputedStyle(star.element()).opacity).toBe('1')
+    }
+  })
+
+  it('shows each row status, and done rows as done', async () => {
+    const SHIPPED = homeIssue({
+      key: 'WEB-7',
+      summary: 'Ship the beta',
+      status_category: 'done',
+    })
+    const BUILDING = homeIssue({
+      key: 'WEB-8',
+      summary: 'Build the beta',
+      status_category: 'in_progress',
+    })
+    inProjects({
+      'GET /api/me/issues': pageOf([LOGIN, BUILDING, SHIPPED]),
+    })
+    const { screen } = await renderApp('/')
+    const panel = screen.getByRole('tabpanel', { name: 'Recommended' })
+    const row = (key: string) =>
+      panel.getByRole('listitem').filter({ hasText: key })
+
+    await expect.element(row('WEB-1')).toHaveTextContent('To do')
+    await expect.element(row('WEB-8')).toHaveTextContent('In progress')
+    await expect.element(row('WEB-7')).toHaveTextContent('Done')
+    await expect
+      .element(panel.getByRole('link', { name: 'Ship the beta' }))
+      .toHaveClass('text-muted-foreground')
+    await expect
+      .element(panel.getByRole('link', { name: 'Build the beta' }))
+      .not.toHaveClass('text-muted-foreground')
+  })
+
   it('loads more rows on demand', async () => {
     inProjects({
       'GET /api/me/issues': {
