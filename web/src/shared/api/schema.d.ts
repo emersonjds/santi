@@ -132,6 +132,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["my_issues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/legal": {
         parameters: {
             query?: never;
@@ -143,6 +159,54 @@ export interface paths {
         put?: never;
         post: operations["accept_legal"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["my_projects"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/stars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["star"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/stars/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["unstar"];
         options?: never;
         head?: never;
         patch?: never;
@@ -823,6 +887,22 @@ export interface components {
             status: string;
             version: string;
         };
+        /** @description One row of a home list, from any project the caller belongs to. */
+        HomeIssue: {
+            assignee_name?: string | null;
+            /**
+             * Format: date-time
+             * @description When the row entered the list: last view, last write, star, or last change (assigned).
+             */
+            at: string;
+            issue_type: components["schemas"]["IssueType"];
+            key: string;
+            project_key: string;
+            project_name: string;
+            starred: boolean;
+            status_category: components["schemas"]["StatusCategory"];
+            summary: string;
+        };
         /** @description The confirmed mapping; names are as they appear in the file. */
         ImportMapping: {
             /** @description Person → member user id; unlisted or null = nobody (reporter: the importing admin). */
@@ -986,6 +1066,21 @@ export interface components {
              */
             status_id?: number | null;
         };
+        /** @description A project on the caller's home: recently visited or worked first, then starred, then by key. */
+        MyProject: {
+            board_type: components["schemas"]["BoardType"];
+            key: string;
+            /** @description The project's oldest admin account. */
+            lead_name: string;
+            name: string;
+            /**
+             * Format: int64
+             * @description Issues assigned to the caller that are not done.
+             */
+            open_assigned: number;
+            role: components["schemas"]["MemberRole"];
+            starred: boolean;
+        };
         /** @description Where every unfinished issue goes when the sprint closes (D13). */
         OpenIssuesDestination: {
             /** @enum {string} */
@@ -1009,6 +1104,26 @@ export interface components {
                 created_at: string;
                 /** Format: int64 */
                 id: number;
+            }[];
+            /** Format: int64 */
+            next_cursor?: number | null;
+        };
+        /** @description One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page. */
+        Page_HomeIssue: {
+            items: {
+                assignee_name?: string | null;
+                /**
+                 * Format: date-time
+                 * @description When the row entered the list: last view, last write, star, or last change (assigned).
+                 */
+                at: string;
+                issue_type: components["schemas"]["IssueType"];
+                key: string;
+                project_key: string;
+                project_name: string;
+                starred: boolean;
+                status_category: components["schemas"]["StatusCategory"];
+                summary: string;
             }[];
             /** Format: int64 */
             next_cursor?: number | null;
@@ -1154,6 +1269,10 @@ export interface components {
         };
         /** @enum {string} */
         SprintState: "future" | "active" | "closed";
+        /** @description A project key (`WEB`) or an issue key (`WEB-12`). */
+        Star: {
+            key: string;
+        };
         StartSprint: {
             /**
              * Format: date
@@ -1613,6 +1732,57 @@ export interface operations {
             };
         };
     };
+    my_issues: {
+        parameters: {
+            query?: {
+                view?: "recommended" | "assigned" | "starred" | "worked" | "viewed";
+                /** @description 1 to 200, default 50. */
+                limit?: number;
+                cursor?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Newest first across the caller's projects; `cursor` is an offset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_HomeIssue"];
+                };
+            };
+            /** @description Unknown view */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Limit out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     legal_status: {
         parameters: {
             query?: never;
@@ -1682,6 +1852,127 @@ export interface operations {
             };
             /** @description Rate limited per account (D44); wait `Retry-After` seconds */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    my_projects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's projects: recently visited or worked first, then starred, then by key */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyProject"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    star: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Star"];
+            };
+        };
+        responses: {
+            /** @description Starred; starring again keeps the first time */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such project or issue among the caller's projects */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unstar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key (`WEB`) or issue key (`WEB-12`) */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Not starred any more (also when it was not) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such project or issue among the caller's projects */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2599,6 +2890,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description Records the caller's view for the home's Viewed list (at most once a minute) */
             200: {
                 headers: {
                     [name: string]: unknown;
