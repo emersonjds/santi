@@ -122,3 +122,48 @@ test('plan a sprint by drag, start it, finish one issue and complete it with the
   await page.getByRole('link', { name: 'Board', exact: true }).first().click()
   await expect(page.getByText('No sprint is running.')).toBeVisible()
 })
+
+const parentSet = (page: Page, number: number) =>
+  page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PATCH' &&
+      response.url().endsWith(`/issues/${number}`)
+  )
+
+test('create an epic in the panel, drag two issues onto it and filter by it', async ({
+  page,
+}) => {
+  const key = await scrumWithIssues(page)
+  await page.getByRole('button', { name: 'Epics', exact: true }).click()
+  const panel = page.getByRole('complementary', { name: 'Epics' })
+  await expect(panel.getByText('No epics yet.')).toBeVisible()
+
+  await panel.getByRole('button', { name: 'Create epic' }).click()
+  await panel.getByRole('textbox', { name: 'New epic summary' }).fill('Launch')
+  await page.keyboard.press('Enter')
+  const epic = panel.getByRole('button', { name: `${key}-4 Launch` })
+  await expect(epic).toContainText('0 issues · 0 done')
+
+  for (const number of [1, 2]) {
+    const saved = parentSet(page, number)
+    await dragWithMouse(
+      page,
+      page.getByRole('button', { name: `Drag ${key}-${number}`, exact: true }),
+      epic
+    )
+    expect((await saved).status()).toBe(200)
+  }
+  await expect(epic).toContainText('2 issues · 0 done')
+
+  await epic.click()
+  await expect(page).toHaveURL(new RegExp(`epic=${key}-4`))
+  const backlog = section(page, 'Backlog')
+  await expect(backlog).toContainText('Beta task')
+  await expect(backlog).not.toContainText('Gamma task')
+
+  await page.reload()
+  await expect(epic).toHaveAttribute('aria-pressed', 'true')
+  await expect(epic).toContainText('2 issues · 0 done')
+  await expect(section(page, 'Backlog')).toContainText('Alpha task')
+  await expect(section(page, 'Backlog')).not.toContainText('Gamma task')
+})
