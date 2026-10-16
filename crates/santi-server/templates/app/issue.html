@@ -1,0 +1,34 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% block title %}{{ issue.key }} {{ issue.summary }}{% endblock %}
+{% block main %}
+<div class="narrow">
+  <a class="back" href="/p/{{ shell.current }}">{{ ui::icon("kanban") }}<span>Back to board</span></a>
+  <header class="issue-head">
+    <p class="issue-meta"><span class="key">{{ issue.key }}</span><span class="type">{{ issue.issue_type.label() }}</span><span class="badge">{{ status_name }}</span></p>
+    <h1 class="greeting">{{ issue.summary }}</h1>
+  </header>
+  {%- if !issue.description.is_empty() %}
+  <p class="description">{{ issue.description }}</p>
+  {%- endif %}
+  <form class="stack form-top" method="post" action="/p/{{ shell.current }}/issues/{{ issue.number }}">
+    {{ ui::field("summary", "Title", "text", edit.summary, "off", self.error("summary")) }}
+    <div class="field">
+      <label for="description">Description</label>
+      <textarea id="description" name="description" rows="6">{{ edit.description }}</textarea>
+    </div>
+    <div class="field">
+      <label for="status_id">Status</label>
+      <select id="status_id" name="status_id"{% if !self.error("status_id").is_empty() %} aria-invalid="true" aria-describedby="status_id-error"{% endif %}>
+        {%- for status in statuses %}
+        <option value="{{ status.id }}"{% if status.id == edit.status_id %} selected{% endif %}>{{ status.name }}</option>
+        {%- endfor %}
+      </select>
+      {%- if !self.error("status_id").is_empty() %}
+      <p class="field-error" id="status_id-error">Status: {{ self.error("status_id") }}.</p>
+      {%- endif %}
+    </div>
+    <button class="button" type="submit">Save changes</button>
+  </form>
+</div>
+{% endblock %}

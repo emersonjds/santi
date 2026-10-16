@@ -6,10 +6,49 @@
   <p class="key">{{ project.key }}</p>
   <h1 class="greeting">{{ project.name }}</h1>
 </header>
-<section class="empty" aria-labelledby="board-title">
-  <span class="empty-icon">{{ ui::icon("kanban") }}</span>
-  <h2 id="board-title">Board coming next</h2>
-  <p>Issues, columns and sprints land here in the next release.</p>
+<section class="board-area" aria-labelledby="board-title">
+  <h2 id="board-title" class="visually-hidden">Board</h2>
+  <form class="create-issue" method="post" action="/p/{{ project.key }}/issues">
+    {%- if !self.error("form").is_empty() %}
+    <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>{{ self.error("form") }}</span></p>
+    {%- endif %}
+    {{ ui::field("summary", "Title", "text", draft.summary, "off", self.error("summary")) }}
+    <div class="field">
+      <label for="issue_type">Type</label>
+      <select id="issue_type" name="issue_type">
+        {%- for option in self.board_types() %}
+        <option value="{{ option.label()|lower }}"{% if option.label() == draft.issue_type.label() %} selected{% endif %}>{{ option.label() }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <button class="button" type="submit">{{ ui::icon("plus") }}<span>Create issue</span></button>
+  </form>
+  <div class="board">
+    {%- for column in board.columns %}
+    <section class="column" aria-labelledby="column-{{ column.id }}">
+      <h3 class="column-head" id="column-{{ column.id }}">
+        <span>{{ column.name }}</span>
+        <span class="count{% if column.over_limit %} over-limit{% endif %}">{{ column.issue_count }}{% if let Some(limit) = column.wip_limit %} of {{ limit }}{% endif %}</span>
+      </h3>
+      <ul class="column-cards">
+        {%- for card in column.cards %}
+        <li>
+          <a class="issue-card" href="{{ self.issue_path(card.key) }}">
+            <span class="issue-title">{{ card.summary }}</span>
+            <span class="issue-meta">
+              <span class="key">{{ card.key }}</span>
+              <span class="type">{{ card.issue_type.label() }}</span>
+              {%- if let Some(name) = card.assignee_name %}
+              <abbr class="initials" title="Assigned to {{ name }}">{{ self.initials(name) }}</abbr>
+              {%- endif %}
+            </span>
+          </a>
+        </li>
+        {%- endfor %}
+      </ul>
+    </section>
+    {%- endfor %}
+  </div>
 </section>
 <section class="panel" aria-labelledby="members-title">
   <h2 id="members-title">Members</h2>

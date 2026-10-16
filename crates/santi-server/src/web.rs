@@ -28,6 +28,7 @@ pub fn router() -> Router<AppState> {
         .route("/static/{version}/{file}", get(asset))
         .merge(crate::auth::web::router())
         .merge(crate::projects::web::router())
+        .merge(crate::issues::web::router())
 }
 
 /// The signed-in caller on an HTML page; anonymous visitors are sent to the sign-in form.

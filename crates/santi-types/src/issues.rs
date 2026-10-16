@@ -124,3 +124,22 @@ impl IssueType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::IssueType;
+
+    #[test]
+    fn every_type_has_a_label() {
+        let labels: Vec<&str> = [
+            IssueType::Epic,
+            IssueType::Story,
+            IssueType::Task,
+            IssueType::Bug,
+            IssueType::Subtask,
+        ]
+        .map(IssueType::label)
+        .to_vec();
+        assert_eq!(labels, ["Epic", "Story", "Task", "Bug", "Subtask"]);
+    }
+}
