@@ -385,7 +385,7 @@ Winner: C — accepted: the load numbers are laptop numbers, rerun by hand (`doc
 
 API budgets, at 5k issues / 50 users / 20 sprints (`seed`), release build, 10 concurrent connections on a laptop (`scripts/perf.sh`):
 - p95 < 30 ms and p99 < 60 ms for board (scrum and kanban), backlog, issue detail, search and move.
-- One SQL round trip per read model where possible, never one per row; statement budgets per request are pinned in `tests/perf_budget.rs` (board and backlog 4, issue and search 2, move 9).
+- One SQL round trip per read model where possible, never one per row; statement budgets per request are pinned in `tests/perf_budget.rs` (board and backlog 4, issue and search 2, move 9, delete 5).
 - Every hot query backed by an index, checked with `EXPLAIN ANALYZE` on generic plans (sqlx prepares statements). At 5k issues the planner seq-scans `issue` for board and backlog because one project fills most of a small table; the `issue_project_*` indexes take over as the table grows.
 - Response compression on (gzip and br through `tower-http`, br at quality 4).
 - Connection pool sized: twice the cores, clamped 10–50, `SANTI_DB_POOL` overrides; sqlx's default of 10 capped throughput at 50 concurrent clients.
@@ -397,3 +397,11 @@ Fixes that came out of the first measurement:
 Known ceilings: the backlog loads unpaged (D29) and is the endpoint closest to budget (~1.2k cards, 375 KB raw, 26–28 KB compressed); upgrade: lazy no-sprint section. Moves in one project are serialized by the D21 project lock, so concurrent moves in one project queue.
 
 SPA budgets (enforced by the SPA cards): initial JS < 170 KB gzip (`size-limit`, SAN-38); LCP < 1.0 s; INP < 100 ms; writes optimistic (D37); lists over 200 rows virtualized; no layout shift (CLS 0: skeletons and reserved sizes).
+
+## D40 — Issue delete (SAN-49; lifts IA resolved #5)
+Context: UI-25 and UI-31 put Delete in the row and issue menus; duplicates and typos could only be parked in Done. Who may delete, and what happens to children, comments and sprint facts?
+Options: A) admins only B) admins and the issue's reporter C) any member
+Market: most trackers let the reporter and admins delete, and ask for confirmation that names what goes with it; Linear soft-deletes to a trash.
+Product vote: B — the person who filed a duplicate fixes it without asking an admin; other members' work is safe. A confirm dialog names the subtasks and comments that go with it; no trash in v1.
+Architecture vote: B — one pure check (`issues::domain::check_delete`: admin or `reporter_id`); hard delete in one transaction: lock the row, mark its removal in the running sprint (`record_leave`, issue and subtasks), then one `DELETE` of the issue and its subtasks. The schema does the rest (migration 0011): comments cascade, an epic's children get `parent_id` NULL (`ON DELETE SET NULL`), `sprint_issue.issue_id` becomes NULL so a running sprint keeps its `removed` facts and points; the D20 counter is never decremented, so a number is never reused. A soft delete would add a `deleted_at` predicate to every read model (D39).
+Winner: B, hard delete — accepted: no undo; a deleted issue's sprint facts lose the issue they named (the counts stay); 404 for unknown issues and non-members (D28), 403 for members who are neither admin nor reporter; delete budget 5 statements (D39).

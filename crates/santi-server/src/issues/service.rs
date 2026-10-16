@@ -97,6 +97,20 @@ pub async fn update_issue(
     get_issue(pool, member, number).await
 }
 
+/// D40: subtasks go with the issue; a removal from the running sprint stays recorded.
+pub async fn delete_issue(pool: &PgPool, member: &Member, number: i64) -> Result<(), AppError> {
+    let mut tx = pool.begin().await?;
+    let issue = repo::find_deletable_for_update(&mut tx, member.project_id, number).await?;
+    let issue = issue.ok_or(AppError::NotFound)?;
+    domain::check_delete(member.role, member.user_id, issue.reporter_id)?;
+    if let Some(sprint_id) = issue.sprint_id {
+        sprints::repo::record_leave(&mut tx, sprint_id, issue.id).await?;
+    }
+    repo::delete_issue(&mut tx, issue.id).await?;
+    tx.commit().await?;
+    Ok(())
+}
+
 pub async fn move_issue(
     pool: &PgPool,
     member: &Member,

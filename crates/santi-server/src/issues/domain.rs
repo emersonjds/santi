@@ -1,6 +1,7 @@
 use chrono::{DateTime, Duration, Utc};
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueFilter, IssueType, NO_PARENT, Priority, UpdateIssue};
+use santi_types::projects::MemberRole;
 
 use crate::error::AppError;
 
@@ -383,6 +384,14 @@ pub fn check_comment_body(body: &str) -> Result<String, AppError> {
     Ok(body.to_string())
 }
 
+/// D40: an admin, or the member who reported the issue.
+pub fn check_delete(role: MemberRole, user_id: i64, reporter_id: i64) -> Result<(), AppError> {
+    if role != MemberRole::Admin && user_id != reporter_id {
+        return Err(AppError::Forbidden);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -673,5 +682,15 @@ mod tests {
     fn comment_body_is_trimmed_and_required() {
         assert_eq!(check_comment_body(" hi ").unwrap(), "hi");
         assert!(check_comment_body("  ").is_err());
+    }
+
+    #[test]
+    fn admins_and_the_reporter_delete_other_members_do_not() {
+        assert_eq!(check_delete(MemberRole::Admin, 1, 2), Ok(()));
+        assert_eq!(check_delete(MemberRole::Member, 2, 2), Ok(()));
+        assert_eq!(
+            check_delete(MemberRole::Member, 1, 2),
+            Err(AppError::Forbidden)
+        );
     }
 }

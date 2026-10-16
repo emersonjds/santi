@@ -45,7 +45,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
         sprints: 6,
     };
     seed::seed(&pool, &size).await.unwrap();
-    let app = TestApp::anonymous(pool);
+    let app = TestApp::anonymous(pool.clone());
     let login = json!({ "email": seed::OWNER_EMAIL, "password": seed::PASSWORD });
     let response = app
         .send(json_request(
@@ -126,4 +126,35 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             assert!(longest <= 5, "backlog rank keys up to {longest} chars");
         }
     }
+
+    // A delete runs once per issue, so it is measured once, on the costliest case: a parent in
+    // the running sprint (its removal is recorded).
+    let in_sprint: i64 = sqlx::query_scalar(
+        "SELECT i.number FROM issue i JOIN sprint s ON s.id = i.sprint_id
+         JOIN project p ON p.id = i.project_id
+         WHERE p.key = 'PERF' AND s.state = 'active' AND i.issue_type <> 'subtask'
+         ORDER BY i.number LIMIT 1",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    let uri = format!("/api/projects/PERF/issues/{in_sprint}");
+    let mut request = json_request(Method::DELETE, &uri, None, None);
+    request
+        .headers_mut()
+        .insert(header::COOKIE, cookie.parse().unwrap());
+    STATEMENTS.store(0, Ordering::SeqCst);
+    let started = Instant::now();
+    let response = app.send(request).await;
+    let statements = STATEMENTS.load(Ordering::SeqCst);
+    assert_eq!(response.status(), StatusCode::NO_CONTENT);
+    assert!(
+        (1..=5).contains(&statements),
+        "delete: {statements} statements, budget 5"
+    );
+    assert!(
+        started.elapsed() < CEILING,
+        "delete: {:?}",
+        started.elapsed()
+    );
 }

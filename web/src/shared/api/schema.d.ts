@@ -270,7 +270,7 @@ export interface paths {
         get: operations["get_issue"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["delete_issue"];
         options?: never;
         head?: never;
         patch: operations["update_issue"];
@@ -1949,6 +1949,54 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted with its subtasks and comments; an epic's children stay without an epic; the number is never reused (D40) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Neither an admin nor the reporter */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

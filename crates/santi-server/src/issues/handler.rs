@@ -18,7 +18,7 @@ use crate::members::Member;
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(create_issue, search_issues))
-        .routes(routes!(get_issue, update_issue))
+        .routes(routes!(get_issue, update_issue, delete_issue))
         .routes(routes!(move_issue))
         .routes(routes!(add_comment, list_comments))
         .routes(routes!(list_labels))
@@ -77,6 +77,24 @@ pub async fn update_issue(
     Ok(Json(
         service::update_issue(&state.pool, &member, number, change).await?,
     ))
+}
+
+#[utoipa::path(delete, path = "/api/projects/{key}/issues/{number}", tag = "issues",
+    params(
+        ("key" = String, Path, description = "Project key"),
+        ("number" = i64, Path, description = "Issue number, the N of KEY-N")),
+    responses(
+        (status = 204, description = "Deleted with its subtasks and comments; an epic's children stay without an epic; the number is never reused (D40)"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json", description = "Neither an admin nor the reporter"),
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
+pub async fn delete_issue(
+    State(state): State<AppState>,
+    member: Member,
+    PathParams((_key, number)): PathParams<(String, i64)>,
+) -> Result<StatusCode, AppError> {
+    service::delete_issue(&state.pool, &member, number).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(post, path = "/api/projects/{key}/issues/{number}/move", tag = "issues", request_body = MoveIssue,
