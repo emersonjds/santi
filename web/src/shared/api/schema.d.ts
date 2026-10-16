@@ -1654,7 +1654,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Accepted; recorded in the append-only acceptance log */
+            /** @description Accepted; recorded in the append-only acceptance log unless the current versions were already accepted or are not required */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1673,6 +1673,15 @@ export interface operations {
             };
             /** @description `accept_terms` or `confirm_age` not true */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -451,7 +451,7 @@
         },
         "responses": {
           "200": {
-            "description": "Accepted; recorded in the append-only acceptance log",
+            "description": "Accepted; recorded in the append-only acceptance log unless the current versions were already accepted or are not required",
             "content": {
               "application/json": {
                 "schema": {
@@ -471,6 +471,16 @@
           },
           "422": {
             "description": "`accept_terms` or `confirm_age` not true",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited per account (D44); wait `Retry-After` seconds",
             "content": {
               "application/problem+json": {
                 "schema": {
