@@ -1,13 +1,11 @@
 import { cn } from '@/shared/lib/utils'
 
 export const SantiMark = ({ className }: { className?: string }) => (
-  <span
-    aria-hidden='true'
-    className={cn(
-      'inline-flex size-8 items-center justify-center rounded-lg bg-primary text-lg leading-none font-bold text-primary-foreground',
-      className
-    )}
-  >
-    s
-  </span>
+  <img
+    src='/brand/mark.svg'
+    alt=''
+    width={32}
+    height={32}
+    className={cn('size-8 shrink-0', className)}
+  />
 )
