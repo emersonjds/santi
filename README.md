@@ -18,11 +18,17 @@ Self-hosted, no per-seat pricing.
 
 ## Build from source
 
+Needs PostgreSQL 17 (see [CONTRIBUTING.md](CONTRIBUTING.md#database)) and, for the web UI, Node and pnpm.
+
 ```bash
-cargo test --workspace
-cargo run -p santi-server        # serves GET /health on 127.0.0.1:8080 (override with SANTI_ADDR)
+export DATABASE_URL=postgres://santi:santi@localhost:5440/santi
+(cd web && pnpm install && pnpm build)   # the web UI, served from web/dist
+cargo run -p santi-server                # http://127.0.0.1:8080 (override with SANTI_ADDR)
 cargo run -p santi-cli -- --version
 ```
+
+For UI work, run `pnpm dev` in `web/` instead of building: Vite on http://localhost:5173 proxies
+the API to the server on 8080.
 
 ## Contributing
 

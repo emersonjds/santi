@@ -55,11 +55,17 @@ LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
 cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
-## Styles
+## Web UI
 
-Styles are Tailwind v4 utilities in the askama templates; tokens live in `crates/santi-server/styles/app.css`.
-Install the standalone CLI (`brew install tailwindcss`, v4.3.3), run `scripts/css.sh --watch` while editing and
-commit the generated `crates/santi-server/static/app.css`; CI fails when it is stale.
+The UI is the React SPA in `web/` (Node ^20.19 or >= 22.12, pnpm); the server serves its build.
+
+```bash
+cargo run -p santi-server                  # API on 127.0.0.1:8080, SPA from web/dist (SANTI_WEB_DIR)
+cd web && pnpm install && pnpm build       # build once, then open http://localhost:8080
+cd web && pnpm dev                         # or: Vite on http://localhost:5173, proxying /api to 8080
+```
+
+Its gate (`typecheck`, `lint`, `test:coverage`, `build`, `size`, `e2e`) is in [`web/README.md`](web/README.md).
 
 ## Deploy
 

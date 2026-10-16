@@ -63,16 +63,11 @@ Tabs are fixed in v1 (UI-8 reordering: later).
 Conventions: page routes are `/p/{key}/…` (API stays `/api/projects/{key}/…`). Filters are query
 params (D18): `q`, `assignee` (repeatable, `me` allowed), `type`, `label`, `epic` (parent key).
 
-SPA (D37): the page routes below become TanStack Router client routes with the same paths and
-search params; redirects (`303` in the table) become client redirects. The server keeps `/api/*`,
-`/openapi.json`, `/docs`, `/health` and the built assets, and answers every other GET with
-`index.html`. The SPA writes through `/api/*` only (OpenAPI is the contract); the "Writes and
-fragments" table below is the htmx UI and is removed at the cutover, along with `HX-Request`
-blocks and form POSTs. Until parity the htmx UI keeps these paths and the SPA is mounted at
-`/app` (SAN-38): the same routes under that prefix (`/app/login`, `/app/register`, `/app/`,
-`/app/projects/new`), served from `SANTI_WEB_DIR` only when that build exists, with
-`index.html` for every unknown path below `/app`. Vite (`base: '/app/'`) and the router basepath
-follow the prefix; the cutover sets both to `/` and drops the mount.
+SPA (D37): the page routes below are TanStack Router client routes; redirects (`303` in the table)
+are client redirects. The server keeps `/api/*`, `/openapi.json`, `/docs`, `/health` and the built
+assets (`/assets/*`, cached as immutable), and answers every other GET with `index.html`
+(`no-cache`); an unknown `/api/*` path stays a D24 404. The SPA writes through `/api/*` only
+(OpenAPI is the contract).
 
 Pages
 
@@ -82,41 +77,16 @@ Pages
 | `GET /invites/{token}` | join a project | built |
 | `GET /` | home | built (projects only) |
 | `GET /projects/new` | new project | built |
-| `GET /p/{key}` | `303` → `/p/{key}/board` | change (today it renders board + members) |
-| `GET /p/{key}/board` | board (+ `?column={id}` at 375px) | new name for today's board |
-| `GET /p/{key}/backlog` | backlog (+ `?panel=epics`); kanban → `303` board | in progress |
-| `GET /p/{key}/issues/{n}` | issue: full page; from board, backlog or search a modal with the URL masked to this path (SPA) | built |
-| `GET /p/{key}/issues/new` | create issue (htmx only; the SPA opens a dialog from + Create or `c`, no route) | new |
-| `GET /p/{key}/search` | search results | built |
+| `GET /p/{key}` | `303` → `/p/{key}/board` | built |
+| `GET /p/{key}/board` | board (+ `?column={id}` at 375px) | built |
+| `GET /p/{key}/backlog` | backlog (+ `?panel=epics`); kanban → `303` board | built |
+| `GET /p/{key}/issues/{n}` | issue: full page; from board, backlog or search a modal with the URL masked to this path | built |
+| `GET /p/{key}/search` | search results (`?q`, `type`, `status` category, `assignee`, `recently_updated`) | built |
 | `GET /p/{key}/settings` | board settings: columns, statuses, done window | new |
 | `GET /p/{key}/settings/members` | members, roles, invite links | new (moves off the project page) |
-| `GET /account` | profile and API tokens | new |
+| `GET /account` | profile and API tokens | built |
 
-Writes and fragments
-
-| Route | Does | Status |
-|---|---|---|
-| `POST /login`, `POST /register`, `POST /logout` | session | built |
-| `POST /invites/{token}` | accept invite | built |
-| `POST /projects` | create project | built |
-| `POST /p/{key}/issues` | create issue (modal, inline in column or section) → card or row | built |
-| `POST /p/{key}/issues/{n}` | edit one field → updated field block | built |
-| `POST /p/{key}/issues/{n}/move` | status, sprint and/or anchor (`before`/`after`) → card | built |
-| `POST /p/{key}/issues/{n}/comments` | add comment → comment item | built |
-| `POST /p/{key}/sprints` | create sprint ("Sprint N") → section | in progress |
-| `POST /p/{key}/sprints/{id}` | edit name, goal, dates | in progress |
-| `GET`/`POST /p/{key}/sprints/{id}/start` | start dialog (duration presets) / start | in progress |
-| `GET`/`POST /p/{key}/sprints/{id}/complete` | complete dialog (destination step only when open issues) / complete | in progress |
-| `POST /p/{key}/sprints/{id}/delete` | delete future sprint | in progress |
-| `POST /p/{key}/settings/columns`, `…/columns/{id}`, `…/columns/{id}/delete`, `…/columns/order` | column edits (delete asks for a target column, D16) | new |
-| `POST /p/{key}/settings/statuses`, `…/statuses/{id}`, `…/statuses/{id}/delete` | status edits and mapping | new |
-| `POST /p/{key}/settings/board` | done window (kanban) | new |
-| `POST /p/{key}/invites` | create invite link | built |
-| `POST /p/{key}/settings/members/{user_id}`, `…/{user_id}/remove` | change role, remove | new |
-| `POST /account/tokens`, `POST /account/tokens/{id}/delete` | create (shown once), revoke | new |
-
-Sprint routes are a proposal; the backlog work in progress decides the final names.
-`POST /projects` stays create-only; the project list lives on home.
+Create issue has no route: + Create or `c` opens a dialog.
 
 ## 4. Pages and regions
 
@@ -158,7 +128,7 @@ sprint: dashed drop zone.
 
 ## 5. Create flow
 
-1. "+ Create" (or `c`) opens a modal (htmx: loaded from `/p/{key}/issues/new`; SPA: a dialog, no route).
+1. "+ Create" (or `c`) opens a dialog (no route).
 2. Project preselected: the current project; on home, the last project the user opened
    (cookie), else the first in the list. With no projects, "+ Create" goes to `/projects/new`.
 3. Changing the project re-fetches the form for that project (statuses, members, sprints differ).
@@ -177,8 +147,8 @@ sprint: dashed drop zone.
   full page. Close (`x`, Esc, backdrop) goes back in history to the board URL with its filters.
 - Modal over side panel (resolves ui-layout OQ-6): the board keeps every column visible, and
   board and backlog get the same behavior. Right panel with J/K follow (UI-26): later.
-- Edits save per field (htmx: POST same route, card refreshed by an out-of-band swap; SPA:
-  `PATCH /api/projects/{key}/issues/{n}`, card refreshed from the query cache), so closing shows
+- Edits save per field (`PATCH /api/projects/{key}/issues/{n}`, card refreshed from the query
+  cache), so closing shows
   the current state without a reload.
 
 ## 7. Search
