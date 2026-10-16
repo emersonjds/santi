@@ -9,7 +9,7 @@ use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
     StatusFilter, UpdateIssue,
 };
-use santi_types::projects::Project;
+use santi_types::projects::{Project, ProjectState};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -68,8 +68,20 @@ impl Client {
         self.send(self.request(Method::GET, &["me"])).await
     }
 
-    pub async fn projects(&self) -> Result<Vec<Project>, Error> {
-        self.send(self.request(Method::GET, &["projects"])).await
+    pub async fn projects(&self, state: ProjectState) -> Result<Vec<Project>, Error> {
+        let request = self.request(Method::GET, &["projects"]);
+        self.send(request.query(&[("state", state)])).await
+    }
+
+    /// `archive`, `unarchive`, `trash` or `restore`.
+    pub async fn change_project(&self, project: &ProjectKey, action: &str) -> Result<(), Error> {
+        let request = self.request(Method::POST, &["projects", project.as_str(), action]);
+        self.send(request).await
+    }
+
+    pub async fn purge_project(&self, project: &ProjectKey) -> Result<(), Error> {
+        let request = self.request(Method::DELETE, &["projects", project.as_str()]);
+        self.send(request).await
     }
 
     pub async fn board(&self, project: &ProjectKey) -> Result<BoardView, Error> {
