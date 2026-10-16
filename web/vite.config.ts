@@ -24,7 +24,7 @@ process.env.VITE_SITE_URL = siteUrl
 const legalPlaceholders = {
   VITE_OPERATOR_NAME: '[operator name]',
   VITE_PRIVACY_EMAIL: 'privacy@your-domain.example',
-  VITE_HOSTING_REGION: '[hosting region]',
+  VITE_HOSTING_REGION: 'EU West (Railway europe-west4)',
   VITE_LEGAL_VENUE: '[city and state], Brazil',
 }
 for (const [name, placeholder] of Object.entries(legalPlaceholders))
