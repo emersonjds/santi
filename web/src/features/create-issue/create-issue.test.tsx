@@ -174,6 +174,11 @@ describe('create issue', () => {
     await dialog.getByLabelText('Assignee').selectOptions('Bob Stone')
     await dialog.getByLabelText('Priority').selectOptions('High')
     await dialog.getByLabelText('Points').fill('2')
+    await dialog.getByRole('button', { name: 'Add label' }).click()
+    await userEvent.keyboard('infra{Enter}{Escape}')
+    await expect
+      .element(dialog.getByRole('button', { name: 'Remove label infra' }))
+      .toBeVisible()
     await dialog.getByRole('button', { name: 'Create', exact: true }).click()
 
     await expect.element(dialog).not.toBeInTheDocument()
@@ -188,6 +193,7 @@ describe('create issue', () => {
         assignee_id: 2,
         priority: 'high',
         points: 2,
+        labels: ['infra'],
       },
     ])
     await expect.element(screen.getByText('OPS-4 created')).toBeVisible()

@@ -103,6 +103,41 @@ test('c opens the create dialog and the new card lands on the board', async ({
   await expect(column(page, 'To Do')).toContainText('Gamma task')
 })
 
+test('labels are picked from a list, saved at once and shown on the card', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  const patched = () =>
+    page.waitForResponse(
+      (response) =>
+        response.url().endsWith('/issues/1') &&
+        response.request().method() === 'PATCH'
+    )
+
+  await page.getByRole('link', { name: 'Alpha task' }).click()
+  const dialog = page.getByRole('dialog', { name: `${key}-1` })
+  await dialog.getByRole('button', { name: 'Add label' }).click()
+  for (const typed of ['bug', 'Release']) {
+    const saved = patched()
+    await page.keyboard.type(typed)
+    await page.keyboard.press('Enter')
+    expect((await saved).status()).toBe(200)
+  }
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('listbox')).toBeHidden()
+  await expect(
+    dialog.getByRole('button', { name: 'Remove label Release' })
+  ).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+
+  const card = column(page, 'To Do').getByRole('article').first()
+  await expect(card.getByTitle('bug', { exact: true })).toBeVisible()
+  await expect(card.getByTitle('Release', { exact: true })).toBeVisible()
+  await page.reload()
+  await expect(card.getByTitle('Release', { exact: true })).toBeVisible()
+})
+
 test('a comment shows at once and stays after a reload', async ({ page }) => {
   const key = await kanbanWithIssues(page)
   await page.goto(`/p/${key}/issues/2`)
