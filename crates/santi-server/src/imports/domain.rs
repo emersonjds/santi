@@ -386,7 +386,7 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
             message,
         };
         let row = read_row(source, &columns_map, record, &mut export.problems);
-        // Checked here so no row can fail its whole insert batch in the database.
+        // D41 (SAN-51).
         let fatal = match &row {
             _ if record.fields.iter().any(|field| field.contains('\0')) => {
                 Some("the row contains a NUL character; row skipped".to_string())
@@ -986,7 +986,7 @@ fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> 
     sprints
 }
 
-/// Epics, then their children, then subtasks: each tier's parents are in the one before.
+/// D41: epics, then their children, then subtasks.
 pub fn tier(issue_type: IssueType) -> u8 {
     match issue_type {
         IssueType::Epic => 0,
@@ -995,7 +995,7 @@ pub fn tier(issue_type: IssueType) -> u8 {
     }
 }
 
-/// File order within each tier, so every parent exists before its children.
+/// File order within each tier.
 pub fn insert_order(issues: &[PlannedIssue]) -> Vec<usize> {
     let mut order: Vec<usize> = (0..issues.len()).collect();
     order.sort_by_key(|index| tier(issues[*index].issue_type));

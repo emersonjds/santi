@@ -19,7 +19,7 @@ type InlineCreateProps = {
   onClose: () => void
 }
 
-/** D5: summary and type at the foot of a column or a backlog section; the issue takes the column's first status and that sprint. */
+/** D5 inline create. */
 export const InlineCreate = ({
   projectKey,
   sprintId,

@@ -6,8 +6,7 @@ const ROUTE = '/_authenticated/p/$key/board'
 
 export const BoardPage = () => {
   const { key } = useParams({ from: ROUTE })
-  // Without the open issue, so opening one leaves the board's render alone (INP, D39).
-  const search = useSearch({
+  const searchWithoutIssue = useSearch({
     from: ROUTE,
     select: ({ issue: _, ...board }) => board,
     structuralSharing: true,
@@ -15,7 +14,7 @@ export const BoardPage = () => {
   const issue = useSearch({ from: ROUTE, select: (each) => each.issue })
   return (
     <>
-      <Board projectKey={key} search={search} />
+      <Board projectKey={key} search={searchWithoutIssue} />
       <IssueOverlay projectKey={key} issue={issue} />
     </>
   )

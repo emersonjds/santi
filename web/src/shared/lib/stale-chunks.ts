@@ -10,10 +10,6 @@ export const browser = { reload: () => location.reload() }
 export const isChunkError = (error: unknown) =>
   error instanceof Error && CHUNK_ERROR.test(error.message)
 
-/**
- * After a deploy, an open tab asks for chunks the server no longer has: reload once onto the new
- * build. Without session storage there is no loop guard, so no reload.
- */
 // ponytail: once per tab session; a second deploy in the same session shows the error page until a manual reload.
 export const reloadOnce = () => {
   try {

@@ -25,10 +25,7 @@ pub fn rank_between(before: Option<&str>, after: Option<&str>) -> String {
     String::from_utf8(key).expect("rank digits are ASCII")
 }
 
-/// D39: an open-ended key steps one unit instead of halving the gap to the edge, so appends
-/// (and moves to the top) grow keys logarithmically. A key with `level` leading edge digits
-/// ('z' going up, '0' going down) carries a counter of `level + 1` digits; when the counter
-/// runs into the edge, the next level starts.
+/// D39: open-ended keys step one unit, with escape levels.
 fn step(key: &[u8], up: bool) -> Vec<u8> {
     let top = DIGITS.len() - 1;
     let edge = if up { top } else { 0 };
