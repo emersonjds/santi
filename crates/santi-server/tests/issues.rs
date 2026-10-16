@@ -433,3 +433,77 @@ async fn descriptions_are_capped(pool: PgPool) {
     assert_eq!(problem["errors"][0]["field"], "description");
     assert!(stored.is_err(), "the database refuses it too");
 }
+
+#[sqlx::test]
+async fn issue_answers_name_status_people_and_sprint(pool: PgPool) {
+    let ana = project(pool).await;
+    let sprint = ana.create_sprint("SANTI").await;
+    let in_progress = ana.status_id("SANTI", "In Progress").await;
+
+    let created = ana
+        .create_issue(
+            "SANTI",
+            json!({ "summary": "Named", "assignee_id": ana.user_id, "sprint_id": sprint["id"] }),
+        )
+        .await;
+    let (_, fetched) = ana.get("/api/projects/SANTI/issues/1").await;
+    let (_, edited) = ana
+        .patch(
+            "/api/projects/SANTI/issues/1",
+            json!({ "assignee_id": null, "sprint_id": null }),
+        )
+        .await;
+    let (_, moved) = ana
+        .post(
+            "/api/projects/SANTI/issues/1/move",
+            json!({ "status_id": in_progress }),
+        )
+        .await;
+    let (_, found) = ana.get("/api/projects/SANTI/issues?q=named").await;
+
+    for issue in [&created, &fetched] {
+        assert_eq!(issue["status_name"], "To Do");
+        assert_eq!(issue["assignee_name"], "ana@example.com");
+        assert_eq!(issue["reporter_name"], "ana@example.com");
+        assert_eq!(issue["sprint_name"], sprint["name"]);
+    }
+    assert_eq!(edited["assignee_name"], Value::Null);
+    assert_eq!(edited["sprint_name"], Value::Null);
+    assert_eq!(moved["status_name"], "In Progress");
+    assert_eq!(found["items"][0]["status_name"], "In Progress");
+    assert_eq!(found["items"][0]["reporter_name"], "ana@example.com");
+}
+
+#[sqlx::test]
+async fn unknown_body_fields_are_refused_by_name(pool: PgPool) {
+    let ana = project(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "x" })).await;
+
+    let (edit, problem) = ana
+        .patch(
+            "/api/projects/SANTI/issues/1",
+            json!({ "parent_key": "SANTI-2" }),
+        )
+        .await;
+    let (create, _) = ana
+        .post(
+            "/api/projects/SANTI/issues",
+            json!({ "summary": "y", "status": "todo" }),
+        )
+        .await;
+    let (comment, _) = ana
+        .post(
+            "/api/projects/SANTI/issues/1/comments",
+            json!({ "body": "hi", "author_id": 1 }),
+        )
+        .await;
+
+    assert_eq!(edit, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(problem["type"], "urn:santi:error:validation");
+    assert!(
+        problem.to_string().contains("unknown field `parent_key`"),
+        "{problem}"
+    );
+    assert_eq!(create, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(comment, StatusCode::UNPROCESSABLE_ENTITY);
+}

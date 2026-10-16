@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           WHERE i.project_id = $1 AND i.number = $2",
+  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, s.name AS status_name, i.assignee_id, assignee.display_name AS \"assignee_name?\",\n                  i.reporter_id, reporter.display_name AS reporter_name, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, sprint.name AS \"sprint_name?\",\n                  i.rank, i.done_at, i.created_at, i.updated_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           JOIN status s ON s.id = i.status_id\n           JOIN app_user reporter ON reporter.id = i.reporter_id\n           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id\n           LEFT JOIN sprint ON sprint.id = i.sprint_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           WHERE i.project_id = $1\n             AND i.id > $2\n             AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))\n             AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))\n             AND (cardinality($5::text[]) = 0 OR i.labels && $5)\n             AND ((cardinality($6::bigint[]) = 0 AND NOT $7)\n                  OR parent.number = ANY($6)\n                  OR ($7 AND i.parent_id IS NULL))\n             AND ($8::text IS NULL OR i.summary ILIKE $8 OR p.key || '-' || i.number ILIKE $8)\n             AND ($9::timestamptz IS NULL OR i.updated_at > $9)\n             AND (cardinality($10::text[]) = 0 OR s.category = ANY($10))\n           ORDER BY i.id\n           LIMIT $11",
   "describe": {
     "columns": [
       {
@@ -88,6 +88,17 @@
       },
       {
         "ordinal": 8,
+        "name": "status_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
         "name": "assignee_id",
         "type_info": "Int8",
         "origin": {
@@ -98,7 +109,18 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
+        "name": "assignee_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
         "name": "reporter_id",
         "type_info": "Int8",
         "origin": {
@@ -109,7 +131,18 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 12,
+        "name": "reporter_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
         "name": "points",
         "type_info": "Float8",
         "origin": {
@@ -120,7 +153,7 @@
         }
       },
       {
-        "ordinal": 11,
+        "ordinal": 14,
         "name": "labels",
         "type_info": "TextArray",
         "origin": {
@@ -131,13 +164,13 @@
         }
       },
       {
-        "ordinal": 12,
+        "ordinal": 15,
         "name": "parent_key",
         "type_info": "Text",
         "origin": "Expression"
       },
       {
-        "ordinal": 13,
+        "ordinal": 16,
         "name": "sprint_id",
         "type_info": "Int8",
         "origin": {
@@ -148,7 +181,18 @@
         }
       },
       {
-        "ordinal": 14,
+        "ordinal": 17,
+        "name": "sprint_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 18,
         "name": "rank",
         "type_info": "Text",
         "origin": {
@@ -159,7 +203,7 @@
         }
       },
       {
-        "ordinal": 15,
+        "ordinal": 19,
         "name": "done_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -170,7 +214,7 @@
         }
       },
       {
-        "ordinal": 16,
+        "ordinal": 20,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -181,7 +225,7 @@
         }
       },
       {
-        "ordinal": 17,
+        "ordinal": 21,
         "name": "updated_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -195,6 +239,15 @@
     "parameters": {
       "Left": [
         "Int8",
+        "Int8",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "Bool",
+        "Text",
+        "Timestamptz",
+        "TextArray",
         "Int8"
       ]
     },
@@ -207,17 +260,21 @@
       false,
       false,
       false,
+      false,
       true,
+      false,
+      false,
       false,
       true,
       false,
       null,
       true,
       false,
+      false,
       true,
       false,
       false
     ]
   },
-  "hash": "33e9c37a1d1bcddf1dafa4178b01df00e3a7e5b37cad4690b52129b1a99894b1"
+  "hash": "788e9f4fa72e76814cd1c1656e8854f15a40e7e1f3b17a59e86e8ba828d8a51a"
 }

@@ -3787,7 +3787,8 @@
           "confirm_age": {
             "type": "boolean"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "AccountExport": {
         "type": "object",
@@ -3853,7 +3854,8 @@
           "role": {
             "$ref": "#/components/schemas/MemberRole"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ApiToken": {
         "type": "object",
@@ -4207,6 +4209,7 @@
         "required": [
           "id",
           "author_id",
+          "author_name",
           "body",
           "created_at"
         ],
@@ -4214,6 +4217,9 @@
           "author_id": {
             "type": "integer",
             "format": "int64"
+          },
+          "author_name": {
+            "type": "string"
           },
           "body": {
             "type": "string"
@@ -4237,7 +4243,8 @@
           "open_issues": {
             "$ref": "#/components/schemas/OpenIssuesDestination"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateColumn": {
         "type": "object",
@@ -4259,7 +4266,8 @@
               }
             ]
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateComment": {
         "type": "object",
@@ -4270,7 +4278,8 @@
           "body": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateInvite": {
         "type": "object",
@@ -4281,7 +4290,8 @@
           "role": {
             "$ref": "#/components/schemas/MemberRole"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateIssue": {
         "type": "object",
@@ -4344,7 +4354,8 @@
           "summary": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateProject": {
         "type": "object",
@@ -4363,7 +4374,8 @@
           "name": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateSprint": {
         "type": "object",
@@ -4381,7 +4393,8 @@
             ],
             "description": "Defaults to `Sprint N`, N counting every sprint ever created on the board (D12)."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateStatus": {
         "type": "object",
@@ -4396,7 +4409,8 @@
           "name": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreateToken": {
         "type": "object",
@@ -4407,7 +4421,8 @@
           "name": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "CreatedToken": {
         "type": "object",
@@ -4440,7 +4455,8 @@
           "password": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "EpicSummary": {
         "type": "object",
@@ -4647,7 +4663,8 @@
               "type": "string"
             }
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ImportPreview": {
         "type": "object",
@@ -4829,7 +4846,9 @@
           "issue_type",
           "priority",
           "status_id",
+          "status_name",
           "reporter_id",
+          "reporter_name",
           "labels",
           "rank",
           "created_at",
@@ -4842,6 +4861,12 @@
               "null"
             ],
             "format": "int64"
+          },
+          "assignee_name": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "created_at": {
             "type": "string",
@@ -4900,6 +4925,9 @@
             "type": "integer",
             "format": "int64"
           },
+          "reporter_name": {
+            "type": "string"
+          },
           "sprint_id": {
             "type": [
               "integer",
@@ -4907,9 +4935,18 @@
             ],
             "format": "int64"
           },
+          "sprint_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status_id": {
             "type": "integer",
             "format": "int64"
+          },
+          "status_name": {
+            "type": "string"
           },
           "summary": {
             "type": "string"
@@ -5049,7 +5086,8 @@
           "password": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "MemberInfo": {
         "type": "object",
@@ -5115,7 +5153,8 @@
             "format": "int64",
             "description": "New status; absent keeps the current one."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "MyProject": {
         "type": "object",
@@ -5224,6 +5263,7 @@
               "required": [
                 "id",
                 "author_id",
+                "author_name",
                 "body",
                 "created_at"
               ],
@@ -5231,6 +5271,9 @@
                 "author_id": {
                   "type": "integer",
                   "format": "int64"
+                },
+                "author_name": {
+                  "type": "string"
                 },
                 "body": {
                   "type": "string"
@@ -5342,7 +5385,9 @@
                 "issue_type",
                 "priority",
                 "status_id",
+                "status_name",
                 "reporter_id",
+                "reporter_name",
                 "labels",
                 "rank",
                 "created_at",
@@ -5355,6 +5400,12 @@
                     "null"
                   ],
                   "format": "int64"
+                },
+                "assignee_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "created_at": {
                   "type": "string",
@@ -5413,6 +5464,9 @@
                   "type": "integer",
                   "format": "int64"
                 },
+                "reporter_name": {
+                  "type": "string"
+                },
                 "sprint_id": {
                   "type": [
                     "integer",
@@ -5420,9 +5474,18 @@
                   ],
                   "format": "int64"
                 },
+                "sprint_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
                 "status_id": {
                   "type": "integer",
                   "format": "int64"
+                },
+                "status_name": {
+                  "type": "string"
                 },
                 "summary": {
                   "type": "string"
@@ -5645,7 +5708,8 @@
           "password": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "ReorderColumns": {
         "type": "object",
@@ -5660,7 +5724,8 @@
               "format": "int64"
             }
           }
-        }
+        },
+        "additionalProperties": false
       },
       "RowProblem": {
         "type": "object",
@@ -5688,7 +5753,8 @@
           "role": {
             "$ref": "#/components/schemas/MemberRole"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "Sprint": {
         "type": "object",
@@ -5795,7 +5861,8 @@
           "key": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "StartSprint": {
         "type": "object",
@@ -5816,7 +5883,8 @@
             "format": "date",
             "description": "Defaults to today."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "Status": {
         "type": "object",
@@ -5914,7 +5982,8 @@
             "format": "int32",
             "description": "7, 14, 30, or null for never (kanban only, D8)."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "UpdateColumn": {
         "type": "object",
@@ -5932,7 +6001,8 @@
             ],
             "format": "int32"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "UpdateIssue": {
         "type": "object",
@@ -6007,7 +6077,8 @@
               "null"
             ]
           }
-        }
+        },
+        "additionalProperties": false
       },
       "UpdateSprint": {
         "type": "object",
@@ -6035,7 +6106,8 @@
             ],
             "format": "date"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "UpdateStatus": {
         "type": "object",
@@ -6054,7 +6126,8 @@
           "name": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       },
       "User": {
         "type": "object",

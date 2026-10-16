@@ -187,7 +187,7 @@ async fn completion_guards(pool: PgPool) {
     assert_eq!(itself, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(unknown_target, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(not_active["type"], "urn:santi:error:sprint-not-active");
-    assert_eq!(bad_body, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_body, StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[sqlx::test]
