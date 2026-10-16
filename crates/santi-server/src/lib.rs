@@ -8,16 +8,19 @@ pub mod pagination;
 pub mod projects;
 pub mod seed;
 pub mod sprints;
-pub mod web;
 
 use std::path::Path;
 
 use axum::extract::State;
+use axum::http::header::CACHE_CONTROL;
+use axum::http::{HeaderValue, Response};
+use axum::routing::any;
 use axum::{Json, Router, middleware};
 use santi_types::{Health, Problem};
 use sqlx::PgPool;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::set_header::SetResponseHeader;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -56,22 +59,47 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     api().split_for_parts().1
 }
 
-/// `web_dir` holds the SPA build; it is mounted at `/app` only when it has an `index.html`,
-/// and every unknown path below `/app` gets that `index.html` (client routes).
+/// `web_dir` holds the SPA build; when it has an `index.html` the server answers every GET it
+/// has no route for with that page (client routes, D37), except under `/api`.
 pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
     let (router, api) = api().split_for_parts();
-    let mut router = router
-        .merge(SwaggerUi::new("/docs").url("/openapi.json", api))
-        .merge(web::router());
-    if let Some(dir) = web_dir.filter(|dir| dir.join("index.html").is_file()) {
-        let spa = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
-        router = router.nest_service("/app", spa);
-    }
+    let router = router.merge(SwaggerUi::new("/docs").url("/openapi.json", api));
+    let router = match web_dir.filter(|dir| dir.join("index.html").is_file()) {
+        Some(dir) => router.merge(spa(dir)),
+        None => router.fallback(not_found),
+    };
     router
-        .fallback(not_found)
         .layer(middleware::from_fn(auth::extract::reject_cross_site_writes))
         .layer(CompressionLayer::new())
         .with_state(state)
+}
+
+/// Hashed `/assets/*` are cached for good; `index.html` is revalidated so a deploy shows at once.
+fn spa(dir: &Path) -> Router<AppState> {
+    let assets = ServeDir::new(dir.join("assets"));
+    let pages = ServeDir::new(dir).fallback(ServeFile::new(dir.join("index.html")));
+    Router::new()
+        .nest_service(
+            "/assets",
+            SetResponseHeader::overriding(assets, CACHE_CONTROL, cache_when_ok(IMMUTABLE)),
+        )
+        .route("/api/{*path}", any(not_found))
+        .fallback_service(SetResponseHeader::overriding(
+            pages,
+            CACHE_CONTROL,
+            cache_when_ok("no-cache"),
+        ))
+}
+
+const IMMUTABLE: &str = "public, max-age=31536000, immutable";
+
+fn cache_when_ok<B>(value: &'static str) -> impl Fn(&Response<B>) -> Option<HeaderValue> + Clone {
+    move |response| {
+        response
+            .status()
+            .is_success()
+            .then(|| HeaderValue::from_static(value))
+    }
 }
 
 pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {

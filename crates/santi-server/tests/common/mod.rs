@@ -138,42 +138,6 @@ impl TestApp {
     }
 }
 
-/// A browser form post: urlencoded body and the same-origin fetch metadata D22 expects.
-pub fn form(uri: &str, body: &str, cookie: Option<&str>) -> Request<Body> {
-    let mut builder = Request::post(uri)
-        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .header("sec-fetch-site", "same-origin");
-    if let Some(cookie) = cookie {
-        builder = builder.header(header::COOKIE, cookie);
-    }
-    builder.body(Body::from(body.to_string())).unwrap()
-}
-
-pub fn page(uri: &str, cookie: Option<&str>) -> Request<Body> {
-    let mut builder = Request::get(uri);
-    if let Some(cookie) = cookie {
-        builder = builder.header(header::COOKIE, cookie);
-    }
-    builder.body(Body::empty()).unwrap()
-}
-
-/// A request as htmx sends it: pages answer with their fragment instead of the whole document.
-pub fn htmx(mut request: Request<Body>) -> Request<Body> {
-    request
-        .headers_mut()
-        .insert("hx-request", "true".parse().unwrap());
-    request
-}
-
-pub async fn text(response: Response) -> String {
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    String::from_utf8(bytes.to_vec()).unwrap()
-}
-
-pub fn location(response: &Response) -> &str {
-    response.headers()[header::LOCATION].to_str().unwrap()
-}
-
 impl TestApp {
     pub async fn settings(&self, key: &str) -> Value {
         let (status, settings) = self
