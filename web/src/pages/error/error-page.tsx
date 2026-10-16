@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-router'
 import { isChunkError, reloadOnce } from '@/shared/lib/stale-chunks'
 import { Button } from '@/shared/ui/button'
+import { SantiMark } from '@/shared/ui/santi-mark'
 
 export const ErrorPage = ({ error }: ErrorComponentProps) => {
   const router = useRouter()
@@ -16,6 +17,7 @@ export const ErrorPage = ({ error }: ErrorComponentProps) => {
 
   return (
     <main className='mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center'>
+      <SantiMark className='size-12' />
       <h1 className='text-xl font-semibold'>Something went wrong</h1>
       <p className='text-muted-foreground'>
         {error instanceof Error ? error.message : String(error)}

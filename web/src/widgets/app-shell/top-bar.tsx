@@ -24,7 +24,7 @@ export const TopBar = () => {
         to='/'
         className='flex h-11 min-w-11 shrink-0 items-center gap-2 font-semibold'
       >
-        <SantiMark className='size-7 text-base' />
+        <SantiMark className='size-7' />
         <span className='max-sm:sr-only'>santi</span>
       </Link>
       <div className='flex min-w-0 flex-1 items-center justify-end gap-2'>
