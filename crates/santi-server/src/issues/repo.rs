@@ -32,10 +32,15 @@ pub struct NewIssue {
 
 pub async fn insert_issue(conn: &mut PgConnection, issue: &NewIssue) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar!(
-        "INSERT INTO issue (project_id, number, issue_type, summary, description, priority, status_id,
-                            assignee_id, reporter_id, points, labels, parent_id, sprint_id, rank, done_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-         RETURNING id",
+        r#"WITH created AS (
+             INSERT INTO issue (project_id, number, issue_type, summary, description, priority, status_id,
+                                assignee_id, reporter_id, points, labels, parent_id, sprint_id, rank, done_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+             RETURNING id, reporter_id),
+           worked AS (
+             INSERT INTO issue_activity (user_id, issue_id, worked_at)
+             SELECT reporter_id, id, now() FROM created)
+         SELECT id AS "id!" FROM created"#,
         issue.project_id,
         issue.number,
         issue.issue_type as IssueType,
@@ -73,6 +78,37 @@ pub async fn find_issue(
            WHERE i.project_id = $1 AND i.number = $2"#,
         project_id,
         number
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// `find_issue` for the caller opening it: records the view, at most once a minute (SAN-72).
+pub async fn view_issue(
+    conn: &mut PgConnection,
+    project_id: i64,
+    number: i64,
+    user_id: i64,
+) -> Result<Option<Issue>, sqlx::Error> {
+    sqlx::query_as!(
+        Issue,
+        r#"WITH viewed AS (
+             INSERT INTO issue_activity (user_id, issue_id, viewed_at)
+             SELECT $3, id, now() FROM issue WHERE project_id = $1 AND number = $2
+             ON CONFLICT (user_id, issue_id) DO UPDATE SET viewed_at = now()
+             WHERE issue_activity.viewed_at IS NULL
+                OR issue_activity.viewed_at < now() - interval '1 minute')
+           SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
+                  i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
+                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
+           FROM issue i
+           JOIN project p ON p.id = i.project_id
+           LEFT JOIN issue parent ON parent.id = i.parent_id
+           WHERE i.project_id = $1 AND i.number = $2"#,
+        project_id,
+        number,
+        user_id
     )
     .fetch_optional(&mut *conn)
     .await
@@ -123,14 +159,19 @@ pub async fn find_editable_for_update(
     .await
 }
 
+/// Also records the write as the editor's work (SAN-72).
 pub async fn update_fields(
     conn: &mut PgConnection,
     issue: &EditableIssue,
+    editor_id: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE issue SET summary = $2, description = $3, issue_type = $4, priority = $5,
-                          assignee_id = $6, points = $7, labels = $8, parent_id = $9
-         WHERE id = $1",
+        "WITH updated AS (
+           UPDATE issue SET summary = $2, description = $3, issue_type = $4, priority = $5,
+                            assignee_id = $6, points = $7, labels = $8, parent_id = $9
+           WHERE id = $1)
+         INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($10, $1, now())
+         ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now()",
         issue.id,
         issue.summary,
         issue.description,
@@ -139,7 +180,8 @@ pub async fn update_fields(
         issue.assignee_id,
         issue.points,
         &issue.labels[..],
-        issue.parent_id
+        issue.parent_id,
+        editor_id
     )
     .execute(&mut *conn)
     .await?;
@@ -224,19 +266,24 @@ pub async fn rank_before(
     .await
 }
 
+/// Also records the move as the mover's work (SAN-72).
 pub async fn update_position(
     conn: &mut PgConnection,
     issue_id: i64,
     status_id: i64,
     rank: &str,
     done_at: Option<DateTime<Utc>>,
+    mover_id: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE issue SET status_id = $2, rank = $3, done_at = $4 WHERE id = $1",
+        "WITH moved AS (UPDATE issue SET status_id = $2, rank = $3, done_at = $4 WHERE id = $1)
+         INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($5, $1, now())
+         ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now()",
         issue_id,
         status_id,
         rank,
-        done_at
+        done_at,
+        mover_id
     )
     .execute(&mut *conn)
     .await?;
@@ -297,8 +344,14 @@ pub async fn insert_comment(
 ) -> Result<Comment, sqlx::Error> {
     sqlx::query_as!(
         Comment,
-        "INSERT INTO issue_comment (issue_id, author_id, body) VALUES ($1, $2, $3)
-         RETURNING id, author_id, body, created_at",
+        r#"WITH created AS (
+             INSERT INTO issue_comment (issue_id, author_id, body) VALUES ($1, $2, $3)
+             RETURNING id, author_id, body, created_at),
+           worked AS (
+             INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($2, $1, now())
+             ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now())
+         SELECT id AS "id!", author_id AS "author_id!", body AS "body!", created_at AS "created_at!"
+         FROM created"#,
         issue_id,
         author_id,
         body

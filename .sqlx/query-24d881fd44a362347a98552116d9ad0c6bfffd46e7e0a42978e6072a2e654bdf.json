@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO issue_comment (issue_id, author_id, body) VALUES ($1, $2, $3)\n         RETURNING id, author_id, body, created_at",
+  "query": "WITH created AS (\n             INSERT INTO issue_comment (issue_id, author_id, body) VALUES ($1, $2, $3)\n             RETURNING id, author_id, body, created_at),\n           worked AS (\n             INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($2, $1, now())\n             ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now())\n         SELECT id AS \"id!\", author_id AS \"author_id!\", body AS \"body!\", created_at AS \"created_at!\"\n         FROM created",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
+        "name": "id!",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "author_id",
+        "name": "author_id!",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "body",
+        "name": "body!",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -38,7 +38,7 @@
       },
       {
         "ordinal": 3,
-        "name": "created_at",
+        "name": "created_at!",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
@@ -62,5 +62,5 @@
       false
     ]
   },
-  "hash": "b624fac3b1466fd9cf286cb677e262fedd0c107c3a5cd330684dcca596a900a8"
+  "hash": "24d881fd44a362347a98552116d9ad0c6bfffd46e7e0a42978e6072a2e654bdf"
 }

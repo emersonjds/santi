@@ -68,6 +68,14 @@ pub async fn get_issue(pool: &PgPool, member: &Member, number: i64) -> Result<Is
         .ok_or(AppError::NotFound)
 }
 
+/// The issue detail as the caller opens it: the view is recorded in the same statement (SAN-72).
+pub async fn view_issue(pool: &PgPool, member: &Member, number: i64) -> Result<Issue, AppError> {
+    let mut conn = pool.acquire().await?;
+    repo::view_issue(&mut conn, member.project_id, number, member.user_id)
+        .await?
+        .ok_or(AppError::NotFound)
+}
+
 pub async fn update_issue(
     pool: &PgPool,
     member: &Member,
@@ -95,7 +103,7 @@ pub async fn update_issue(
         };
         change_sprint(&mut tx, member, &issue, target).await?;
     }
-    repo::update_fields(&mut tx, &next).await?;
+    repo::update_fields(&mut tx, &next, member.user_id).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
 }
@@ -140,7 +148,7 @@ pub async fn move_issue(
     }
     let (status_id, done_at) = next_status(&mut tx, member, &issue, input.status_id).await?;
     let rank = next_rank(&mut tx, member, &issue, anchor).await?;
-    repo::update_position(&mut tx, issue.id, status_id, &rank, done_at).await?;
+    repo::update_position(&mut tx, issue.id, status_id, &rank, done_at, member.user_id).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
 }
