@@ -77,8 +77,10 @@ describe('app', () => {
       .element(screen.getByRole('heading', { name: 'Something went wrong' }))
       .toBeVisible()
     await expect.element(screen.getByText('Boom.')).toBeVisible()
+    inProjects()
+    await screen.getByRole('button', { name: 'Try again' }).click()
     await expect
-      .element(screen.getByRole('button', { name: 'Try again' }))
+      .element(screen.getByRole('heading', { name: 'Website' }))
       .toBeVisible()
   })
 

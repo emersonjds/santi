@@ -1,8 +1,7 @@
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import { FolderKanban, Plus } from 'lucide-react'
 import { projectsQuery } from '@/entities/project/project-queries'
-import { sessionQuery } from '@/entities/session/session-query'
 import { Button } from '@/shared/ui/button'
 import { ProjectList, ProjectListSkeleton } from './project-list'
 
@@ -47,12 +46,12 @@ const Projects = () => {
 }
 
 export const HomePage = () => {
-  const { data: user } = useSuspenseQuery(sessionQuery)
+  const { user } = useRouteContext({ from: '/_authenticated' })
 
   return (
     <div className='mx-auto w-full max-w-3xl px-4 py-8'>
       <h1 className='text-2xl font-semibold tracking-tight'>
-        Hi, {user?.display_name}
+        Hi, {user.display_name}
       </h1>
       <Projects />
     </div>

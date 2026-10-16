@@ -9,7 +9,7 @@ export const ProjectSearch = ({ projectKey }: { projectKey: string }) => {
 
   const search = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const q = String(new FormData(event.currentTarget).get('q') ?? '')
+    const q = String(new FormData(event.currentTarget).get('q'))
     void navigate({
       to: '/p/$key/search',
       params: { key: projectKey },

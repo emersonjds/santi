@@ -1,7 +1,6 @@
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useRouteContext } from '@tanstack/react-router'
 import { LogOut } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
-import { sessionQuery } from '@/entities/session/session-query'
 import { UserAvatar } from '@/entities/user/user-avatar'
 import { Button } from '@/shared/ui/button'
 import {
@@ -14,9 +13,8 @@ import {
 } from '@/shared/ui/dropdown-menu'
 
 export const AccountMenu = () => {
-  const { data: user } = useSuspenseQuery(sessionQuery)
+  const { user } = useRouteContext({ from: '/_authenticated' })
   const signOut = useSignOut()
-  const name = user?.display_name ?? ''
 
   return (
     <DropdownMenu>
@@ -26,14 +24,14 @@ export const AccountMenu = () => {
           aria-label='Account'
           className='size-11 shrink-0 rounded-full p-0 md:size-9'
         >
-          <UserAvatar name={name} />
+          <UserAvatar name={user.display_name} />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-60'>
         <DropdownMenuLabel className='grid font-normal'>
-          <span className='truncate font-medium'>{name}</span>
+          <span className='truncate font-medium'>{user.display_name}</span>
           <span className='truncate text-xs text-muted-foreground'>
-            {user?.email}
+            {user.email}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

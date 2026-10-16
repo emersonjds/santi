@@ -115,6 +115,35 @@ describe('app shell', () => {
     expect(router.state.location.pathname).toBe('/p/OPS/board')
   })
 
+  it('starts a new project from the command menu, opened with Ctrl+K', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/')
+    await expect
+      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .toBeVisible()
+
+    await userEvent.keyboard('k')
+    expect(screen.getByRole('dialog').elements()).toHaveLength(0)
+    await userEvent.keyboard('{Control>}k{/Control}')
+    await screen.getByRole('option', { name: 'New project' }).click()
+
+    await expect
+      .element(screen.getByRole('heading', { name: 'New project' }))
+      .toBeVisible()
+    expect(router.state.location.pathname).toBe('/projects/new')
+  })
+
+  it('opens the command menu from the top bar', async () => {
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    await screen.getByRole('button', { name: /Jump to a project/ }).click()
+
+    await expect
+      .element(screen.getByRole('option', { name: /Website/ }))
+      .toBeVisible()
+  })
+
   it('opens the sidebar as a drawer on a phone and closes it on navigation', async () => {
     await page.viewport(375, 800)
     inProjects()

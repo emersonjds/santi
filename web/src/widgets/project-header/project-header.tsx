@@ -1,8 +1,10 @@
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
+import { InviteDialog } from '@/features/project/invite-dialog'
 import { BoardTypeBadge } from '@/entities/project/board-type-badge'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { projectQuery } from '@/entities/project/project-queries'
+import { MembersPopover } from './members-popover'
 import { ProjectTabs } from './project-tabs'
 
 export const ProjectHeader = () => {
@@ -30,6 +32,12 @@ export const ProjectHeader = () => {
           {project.name}
         </h1>
         <BoardTypeBadge type={project.board_type} />
+        <div className='ms-auto flex items-center gap-2'>
+          <MembersPopover projectKey={project.key} />
+          {project.role === 'admin' && (
+            <InviteDialog projectKey={project.key} />
+          )}
+        </div>
       </div>
       <ProjectTabs project={project} />
     </header>

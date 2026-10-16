@@ -5,12 +5,9 @@ import {
 } from '@tanstack/react-router'
 import { Button } from '@/shared/ui/button'
 
-export const ErrorPage = ({ error, reset }: ErrorComponentProps) => {
+export const ErrorPage = ({ error }: ErrorComponentProps) => {
   const router = useRouter()
-  const retry = () => {
-    reset()
-    void router.invalidate()
-  }
+  const retry = () => void router.invalidate()
 
   return (
     <main className='mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center'>
