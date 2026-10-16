@@ -543,3 +543,40 @@ async fn wrong_shape_bodies_say_why_in_the_detail(pool: PgPool) {
     assert!(!scalar.to_string().contains("CreateIssue"), "{scalar}");
     assert_eq!(scalar["errors"][0]["field"], "body");
 }
+
+#[sqlx::test]
+async fn erased_people_read_as_deleted_user(pool: PgPool) {
+    let ana = project(pool).await;
+    let bob = ana.another_user("bob@example.com").await;
+    let (joined, _) = ana
+        .post(
+            "/api/projects/SANTI/members",
+            json!({ "email": "bob@example.com", "role": "member" }),
+        )
+        .await;
+    assert_eq!(joined, StatusCode::CREATED);
+    bob.create_issue("SANTI", json!({ "summary": "Bob's" }))
+        .await;
+    bob.post(
+        "/api/projects/SANTI/issues/1/comments",
+        json!({ "body": "Mine" }),
+    )
+    .await;
+
+    let erased = bob
+        .send(common::json_request(
+            Method::DELETE,
+            "/api/me",
+            bob.token.as_deref(),
+            Some(json!({ "password": common::PASSWORD })),
+        ))
+        .await;
+    assert_eq!(erased.status(), StatusCode::NO_CONTENT);
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    let (_, found) = ana.get("/api/projects/SANTI/issues?q=bob").await;
+    let (_, comments) = ana.get("/api/projects/SANTI/issues/1/comments").await;
+
+    assert_eq!(issue["reporter_name"], "Deleted user");
+    assert_eq!(found["items"][0]["reporter_name"], "Deleted user");
+    assert_eq!(comments["items"][0]["author_name"], "Deleted user");
+}
