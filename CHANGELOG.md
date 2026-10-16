@@ -12,6 +12,12 @@ UI moves to its own repository.
 
 ### Added
 
+- **Landing page:** a static page at `/` for visitors without a session (and at `/about` for
+  everyone): product tour with screenshots, performance numbers, self-hosting, roadmap and FAQ,
+  no JavaScript beyond a copy button. Ships `robots.txt` and `sitemap.xml` built from
+  `VITE_SITE_URL`.
+- **Brand:** the santi logo in the top bar, sign-in pages and error pages; favicons, app icons,
+  a web manifest and a social card image.
 - **CLI:** the `santi` binary: `login` (URL and token saved to `~/.config/santi/config.toml`,
   mode 0600), `whoami`, `projects`, `issues list|show|create|edit|move|delete`, `board`, `backlog`,
   `sprints list|create|start|complete`, `plan`, `search`, `comment` and `import` (preview, then
