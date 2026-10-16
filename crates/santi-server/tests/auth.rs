@@ -8,7 +8,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 async fn register(app: &TestApp, email: &str, password: &str) -> Response {
-    let body = json!({ "email": email, "password": password, "display_name": "Ana", "accept_terms": true });
+    let body = json!({ "email": email, "password": password, "display_name": "Ana", "accept_terms": true, "confirm_age": true });
     app.send(json_request(
         Method::POST,
         "/api/auth/register",
@@ -409,11 +409,44 @@ async fn sign_up_needs_the_terms_accepted_and_records_which(pool: PgPool) {
         );
     }
 
+    let no_age = json!({ "email": "ana@example.com", "password": PASSWORD, "display_name": "Ana", "accept_terms": true });
+    let response = app
+        .send(json_request(
+            Method::POST,
+            "/api/auth/register",
+            None,
+            Some(no_age),
+        ))
+        .await;
+    assert_eq!(
+        body_json(response).await["errors"][0]["field"],
+        "confirm_age"
+    );
+
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     let (_, export) = ana.get("/api/me/export").await;
-    assert_eq!(
-        export["terms_version"],
-        santi_server::auth::domain::TERMS_VERSION
+    let accepted: Vec<(String, String)> = export["legal_acceptances"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            (
+                row["document"].as_str().unwrap().into(),
+                row["version"].as_str().unwrap().into(),
+            )
+        })
+        .collect();
+    let (terms, privacy) = (
+        santi_server::auth::domain::TERMS_VERSION,
+        santi_server::auth::domain::PRIVACY_VERSION,
     );
-    assert!(export["terms_accepted_at"].is_string());
+    assert_eq!(
+        accepted,
+        [
+            ("terms".into(), terms.into()),
+            ("privacy".into(), privacy.into()),
+            ("age".into(), "18+".into())
+        ]
+    );
+    assert!(export["legal_acceptances"][0]["accepted_at"].is_string());
 }

@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(DISTINCT document) = 2 AS \"current!\" FROM legal_acceptance\n           WHERE user_id = $1\n             AND ((document = 'terms' AND version = $2) OR (document = 'privacy' AND version = $3))",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "current!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "718ccc6cb4bb438ecd86c3d801ae94f75780afa2a44eeb614c36c2b3f2442000"
+}

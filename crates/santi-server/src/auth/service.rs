@@ -1,7 +1,7 @@
 use chrono::{Duration, Utc};
 use santi_types::auth::{
-    AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, Login, ProjectExport,
-    Register, User,
+    AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
+    LegalStatus, Login, ProjectExport, Register, User,
 };
 use santi_types::issues::{Issue, IssueFilter, PageParams, StatusFilter};
 use santi_types::projects::{MemberRole, Project};
@@ -9,19 +9,30 @@ use sqlx::{PgConnection, PgPool};
 
 use super::extract::CurrentUser;
 use super::{domain, repo};
+use crate::Legal;
 use crate::error::{AppError, reject_nul};
 use crate::members::{self, Member};
 use crate::{boards, issues, projects, sprints};
 
 /// Creates the user and signs them in; returns the user and the session token.
-pub async fn register(pool: &PgPool, input: Register) -> Result<(User, String), AppError> {
+pub async fn register(
+    pool: &PgPool,
+    legal: &Legal,
+    input: Register,
+) -> Result<(User, String), AppError> {
     let email = domain::normalize_email(&input.email)?;
     let display_name = domain::check_display_name(&input.display_name)?;
     domain::check_password(&input.password)?;
-    domain::check_terms(input.accept_terms)?;
+    if legal.required {
+        domain::check_terms(input.accept_terms)?;
+        domain::check_age(input.confirm_age)?;
+    }
     let password_hash = hash_in_background(input.password).await?;
     let mut tx = pool.begin().await?;
     let user = repo::insert_user(&mut tx, &email, &display_name, &password_hash).await?;
+    if legal.required {
+        record_acceptance(&mut tx, legal, user.id).await?;
+    }
     let session = start_session(&mut tx, user.id).await?;
     tx.commit().await?;
     Ok((user, session))
@@ -101,7 +112,7 @@ pub async fn delete_token(
 pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<AccountExport, AppError> {
     let mut conn = pool.acquire().await?;
     let me = repo::find_user(&mut conn, user.id).await?;
-    let terms = repo::find_terms(&mut conn, user.id).await?;
+    let legal_acceptances = repo::list_acceptances(&mut conn, user.id).await?;
     let api_tokens = repo::list_api_tokens(&mut conn, user.id).await?;
     let (admin, other_projects): (Vec<Project>, Vec<Project>) =
         projects::repo::list_projects(&mut conn, user.id)
@@ -126,8 +137,7 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
     Ok(AccountExport {
         exported_at: Utc::now(),
         user: me,
-        terms_version: terms.terms_version,
-        terms_accepted_at: terms.terms_accepted_at,
+        legal_acceptances,
         api_tokens,
         projects: exports,
         other_projects,
@@ -179,6 +189,73 @@ pub async fn delete_account(
     repo::hand_over_admin(&mut tx, user.id).await?;
     repo::erase_user(&mut tx, user.id).await?;
     tx.commit().await?;
+    Ok(())
+}
+
+pub fn legal_documents(legal: &Legal) -> LegalDocuments {
+    LegalDocuments {
+        required: legal.required,
+        terms_version: domain::TERMS_VERSION.into(),
+        privacy_version: domain::PRIVACY_VERSION.into(),
+    }
+}
+
+pub async fn legal_status(
+    pool: &PgPool,
+    legal: &Legal,
+    user: &CurrentUser,
+) -> Result<LegalStatus, AppError> {
+    let accepted = !legal.required || {
+        let mut conn = pool.acquire().await?;
+        repo::has_current_acceptance(&mut conn, user.id).await?
+    };
+    let documents = legal_documents(legal);
+    Ok(LegalStatus {
+        required: documents.required,
+        terms_version: documents.terms_version,
+        privacy_version: documents.privacy_version,
+        accepted,
+    })
+}
+
+/// Accepts the current versions, e.g. after they changed (D45).
+pub async fn accept_legal(
+    pool: &PgPool,
+    legal: &Legal,
+    user: &CurrentUser,
+    input: AcceptLegal,
+) -> Result<LegalStatus, AppError> {
+    domain::check_terms(input.accept_terms)?;
+    domain::check_age(input.confirm_age)?;
+    let mut conn = pool.acquire().await?;
+    record_acceptance(&mut conn, legal, user.id).await?;
+    drop(conn);
+    legal_status(pool, legal, user).await
+}
+
+/// New API tokens and joining a project need the current documents accepted; existing tokens
+/// and sessions keep working (D45).
+pub async fn require_current_acceptance(
+    pool: &PgPool,
+    legal: &Legal,
+    user: &CurrentUser,
+) -> Result<(), AppError> {
+    if legal_status(pool, legal, user).await?.accepted {
+        return Ok(());
+    }
+    Err(AppError::conflict(
+        "terms-not-accepted",
+        "Accept the current Terms of Use and Privacy Policy first.",
+    ))
+}
+
+async fn record_acceptance(
+    conn: &mut PgConnection,
+    legal: &Legal,
+    user_id: i64,
+) -> Result<(), AppError> {
+    let (terms, privacy) = (legal.terms_hash.as_deref(), legal.privacy_hash.as_deref());
+    repo::insert_acceptances(conn, user_id, terms, privacy).await?;
     Ok(())
 }
 

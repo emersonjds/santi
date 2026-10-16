@@ -5,7 +5,8 @@ use axum::http::header::SET_COOKIE;
 use axum::response::IntoResponse;
 use santi_types::Problem;
 use santi_types::auth::{
-    AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, Login, Register, User,
+    AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
+    LegalStatus, Login, Register, User,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -24,6 +25,8 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(logout))
         .routes(routes!(me, delete_account))
         .routes(routes!(export_account))
+        .routes(routes!(legal_documents))
+        .routes(routes!(legal_status, accept_legal))
         .routes(routes!(create_token, list_tokens))
         .routes(routes!(delete_token))
 }
@@ -40,7 +43,7 @@ pub async fn register(
     JsonBody(input): JsonBody<Register>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::Register, address, None)?;
-    let (user, session) = service::register(&state.pool, input).await?;
+    let (user, session) = service::register(&state.pool, &state.legal, input).await?;
     Ok((
         StatusCode::CREATED,
         [(SET_COOKIE, domain::session_cookie(&session))],
@@ -89,6 +92,40 @@ pub async fn me(State(state): State<AppState>, user: CurrentUser) -> Result<Json
     Ok(Json(service::me(&state.pool, &user).await?))
 }
 
+#[utoipa::path(get, path = "/api/legal", tag = "auth",
+    responses((status = 200, body = LegalDocuments, description = "Current versions of the Terms of Use and Privacy Policy, and whether sign-up must accept them (D45)")))]
+pub async fn legal_documents(State(state): State<AppState>) -> Json<LegalDocuments> {
+    Json(service::legal_documents(&state.legal))
+}
+
+#[utoipa::path(get, path = "/api/me/legal", tag = "auth",
+    responses(
+        (status = 200, body = LegalStatus, description = "`accepted` is false until the caller accepts the current versions"),
+        (status = 401, body = Problem, content_type = "application/problem+json")))]
+pub async fn legal_status(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<Json<LegalStatus>, AppError> {
+    Ok(Json(
+        service::legal_status(&state.pool, &state.legal, &user).await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/api/me/legal", tag = "auth", request_body = AcceptLegal,
+    responses(
+        (status = 200, body = LegalStatus, description = "Accepted; recorded in the append-only acceptance log"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "`accept_terms` or `confirm_age` not true")))]
+pub async fn accept_legal(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    JsonBody(input): JsonBody<AcceptLegal>,
+) -> Result<Json<LegalStatus>, AppError> {
+    Ok(Json(
+        service::accept_legal(&state.pool, &state.legal, &user, input).await?,
+    ))
+}
+
 #[utoipa::path(get, path = "/api/me/export", tag = "auth",
     responses(
         (status = 200, body = AccountExport, description = "The account, its token names and every project the caller administers, in full (D45)"),
@@ -124,6 +161,7 @@ pub async fn delete_account(
 #[utoipa::path(post, path = "/api/tokens", tag = "auth", request_body = CreateToken,
     responses(
         (status = 201, body = CreatedToken, description = "The token is shown only in this response"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`terms-not-accepted`: accept the current Terms of Use and Privacy Policy first (`POST /api/me/legal`). Tokens created before keep working (D45)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 422, body = Problem, content_type = "application/problem+json"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
@@ -134,6 +172,7 @@ pub async fn create_token(
     JsonBody(input): JsonBody<CreateToken>,
 ) -> Result<(StatusCode, Json<CreatedToken>), AppError> {
     state.limits.check(Action::Token, address, Some(user.id))?;
+    service::require_current_acceptance(&state.pool, &state.legal, &user).await?;
     let created = service::create_token(&state.pool, &user, input).await?;
     Ok((StatusCode::CREATED, Json(created)))
 }
