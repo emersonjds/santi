@@ -100,9 +100,35 @@ const AcceptLegal = () => {
   )
 }
 
-/** D45: an account that has not accepted the current versions sees this before the app. */
+/** D45: an account that has not accepted the current versions sees this before the app; the app stays closed until the answer arrives. */
 export const LegalGate = ({ children }: { children: ReactNode }) => {
-  const { data } = useQuery(legalStatusQuery)
-  if (data?.accepted === false) return <AcceptLegal />
+  const { data, isError, refetch } = useQuery(legalStatusQuery)
+  if (isError)
+    return (
+      <div
+        role='alert'
+        className='mx-auto mt-8 flex w-full max-w-xl items-center justify-between gap-4 rounded-lg border px-4 py-3'
+      >
+        The terms check did not load.
+        <Button
+          variant='outline'
+          className='h-11 md:h-9'
+          onClick={() => refetch()}
+        >
+          Try again
+        </Button>
+      </div>
+    )
+  if (!data)
+    return (
+      <div
+        role='status'
+        aria-label='Checking the terms'
+        className='flex flex-1 items-center justify-center py-16'
+      >
+        <Loader2 className='size-6 animate-spin text-muted-foreground' />
+      </div>
+    )
+  if (!data.accepted) return <AcceptLegal />
   return children
 }
