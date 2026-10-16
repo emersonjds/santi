@@ -2,23 +2,30 @@
 {% import "shared/ui.html" as ui %}
 {% block body %}
 <a class="skip" href="#main">Skip to content</a>
+<a class="skip" href="#sidebar">Skip to sidebar</a>
 <header class="topbar">
-  {{ ui::brand("/") }}
+  <div class="topbar-start">
+    <a class="icon-button nav-toggle" href="#sidebar" aria-label="Open sidebar">{{ ui::icon("panel-left") }}</a>
+    {{ ui::brand("/") }}
+  </div>
   <details class="menu">
-    <summary aria-label="Account menu for {{ display_name }}">
+    <summary aria-label="Account menu for {{ shell.display_name }}">
       <span class="avatar">{{ ui::icon("user") }}</span>
-      <span class="menu-name">{{ display_name }}</span>
+      <span class="menu-name">{{ shell.display_name }}</span>
       {{ ui::icon("chevron-down") }}
     </summary>
     <div class="menu-panel">
-      <p class="menu-who">Signed in as <strong>{{ display_name }}</strong></p>
+      <p class="menu-who">Signed in as <strong>{{ shell.display_name }}</strong></p>
       <form method="post" action="/logout">
         <button class="menu-item" type="submit">{{ ui::icon("log-out") }}<span>Sign out</span></button>
       </form>
     </div>
   </details>
 </header>
+<div class="frame">
+{% include "widgets/sidebar.html" %}
 <main id="main" class="page">
 {% block main %}{% endblock %}
 </main>
+</div>
 {% endblock %}

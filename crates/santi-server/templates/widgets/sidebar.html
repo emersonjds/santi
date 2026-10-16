@@ -1,0 +1,13 @@
+<nav id="sidebar" class="sidebar" aria-label="Sidebar">
+  <a class="side-link" href="/"{% if shell.current.is_empty() %} aria-current="page"{% endif %}>{{ ui::icon("house") }}<span>Home</span></a>
+  <div class="side-head">
+    <h2 id="side-projects">Projects</h2>
+    <a class="icon-button" href="/projects/new" aria-label="New project" title="New project">{{ ui::icon("plus") }}</a>
+  </div>
+  <ul class="side-list" aria-labelledby="side-projects">
+    {%- for project in shell.projects %}
+    <li><a class="side-link" href="/p/{{ project.key }}"{% if project.key == shell.current %} aria-current="page"{% endif %}>{{ ui::icon("folder") }}<span class="side-name">{{ project.name }}</span><span class="key">{{ project.key }}</span></a></li>
+    {%- endfor %}
+  </ul>
+</nav>
+<a class="scrim" href="#main" tabindex="-1" aria-hidden="true"></a>
