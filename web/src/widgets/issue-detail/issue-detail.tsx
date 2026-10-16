@@ -1,13 +1,7 @@
-import {
-  type FormEvent,
-  type ReactNode,
-  Suspense,
-  lazy,
-  useState,
-} from 'react'
+import { type FormEvent, type ReactNode, Suspense, lazy, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Ellipsis, Link2, Trash2 } from 'lucide-react'
+import { Link2 } from 'lucide-react'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
@@ -15,12 +9,6 @@ import { type Issue, fieldMessage } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/shared/ui/dropdown-menu'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Textarea } from '@/shared/ui/textarea'
 import { IssueComments } from './issue-comments'
@@ -28,6 +16,11 @@ import { IssueFields } from './issue-fields'
 import { IssueSubtasks } from './issue-subtasks'
 
 type IssueProps = { issue: Issue; projectKey: string }
+
+// Lazy: the menu chunk would push the issue page past its D39 budget.
+const IssueMenu = lazy(() =>
+  import('./issue-menu').then((module) => ({ default: module.IssueMenu }))
+)
 
 const DeleteIssueDialog = lazy(() =>
   import('@/features/delete-issue/delete-issue-dialog').then((module) => ({
@@ -43,28 +36,6 @@ const copyLink = (projectKey: string, number: number) =>
     () => toast.success('Link copied'),
     () => toast.error("Couldn't copy the link")
   )
-
-/** UI-31: the issue's "…"; delete is the one action v1 keeps there. */
-const IssueMenu = ({ onDelete }: { onDelete: () => void }) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger
-      aria-label='More actions'
-      className='grid size-11 place-items-center rounded-md outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8'
-    >
-      <Ellipsis className='size-4' />
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align='end' className='w-44'>
-      <DropdownMenuItem
-        className='max-md:min-h-11'
-        variant='destructive'
-        onSelect={onDelete}
-      >
-        <Trash2 />
-        Delete
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-)
 
 const Heading = ({
   issue,
@@ -238,7 +209,11 @@ export const IssueDetail = ({
             actions={
               <>
                 {actions}
-                <IssueMenu onDelete={() => setDeleting(true)} />
+                <Suspense
+                  fallback={<span className='block size-11 md:size-8' />}
+                >
+                  <IssueMenu onDelete={() => setDeleting(true)} />
+                </Suspense>
               </>
             }
           />
