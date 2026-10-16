@@ -19,6 +19,14 @@ export const IssueDialog = ({
   <Dialog open onOpenChange={(open) => open || onClose()}>
     <DialogContent
       aria-describedby={undefined}
+      // Radix hears Esc on the document before any field does; a field marked `data-own-escape` keeps it.
+      onEscapeKeyDown={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-own-escape]')
+        )
+          event.preventDefault()
+      }}
       className='max-h-[calc(100svh-4rem)] overflow-y-auto max-md:top-0 max-md:left-0 max-md:h-svh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:p-4 sm:max-w-[960px]'
     >
       <DialogTitle className='sr-only'>{`${projectKey}-${number}`}</DialogTitle>
