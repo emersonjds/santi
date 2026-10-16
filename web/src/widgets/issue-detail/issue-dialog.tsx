@@ -34,6 +34,7 @@ export const IssueDialog = ({
         <IssueDetail
           projectKey={projectKey}
           number={number}
+          onDeleted={onClose}
           actions={
             <Button asChild variant='ghost' className='h-11 md:h-8'>
               <Link

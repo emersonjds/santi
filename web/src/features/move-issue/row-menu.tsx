@@ -1,5 +1,5 @@
 import { use } from 'react'
-import { Ellipsis } from 'lucide-react'
+import { Ellipsis, Trash2 } from 'lucide-react'
 import { planRowMove } from '@/entities/issue/backlog-cache'
 import { BacklogContext } from '@/entities/issue/board-context'
 import { useMoveRow, useSetEpic } from '@/entities/issue/issue-mutations'
@@ -10,6 +10,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -20,10 +21,14 @@ import {
 const ROW = 'max-md:min-h-11'
 const PLACES = ['top', 'bottom'] as const
 
-type RowMenuProps = { card: Card; projectKey: string }
+type RowMenuProps = {
+  card: Card
+  projectKey: string
+  onDelete: (card: Card) => void
+}
 
-/** The row's "…" (lazy chunk): BL-7 top or bottom of any section and BL-20 its epic, the phone's way to plan (IA §10). */
-export const RowMenu = ({ card, projectKey }: RowMenuProps) => {
+/** The row's "…" (lazy chunk): BL-7 top or bottom of any section, BL-20 its epic (the phone's way to plan, IA §10), UI-25 delete. */
+export const RowMenu = ({ card, projectKey, onDelete }: RowMenuProps) => {
   const backlog = use(BacklogContext)
   const move = useMoveRow(projectKey)
   const setEpic = useSetEpic(projectKey)
@@ -99,6 +104,15 @@ export const RowMenu = ({ card, projectKey }: RowMenuProps) => {
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className={ROW}
+          variant='destructive'
+          onSelect={() => onDelete(card)}
+        >
+          <Trash2 />
+          Delete
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

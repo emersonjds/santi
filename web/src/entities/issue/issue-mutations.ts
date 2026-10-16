@@ -10,6 +10,7 @@ import {
   type UpdateIssue,
   api,
   dataOrThrow,
+  okOrThrow,
 } from '@/shared/api/client'
 import { useOptimisticWrite } from '@/shared/lib/optimistic-write'
 import { toast } from '@/shared/lib/toast'
@@ -18,6 +19,8 @@ import {
   type RowMove,
   insertRow,
   moveRow,
+  patchRow,
+  removeRow,
   setEpic,
 } from './backlog-cache'
 import { backlogKey } from './backlog-query'
@@ -28,6 +31,7 @@ import {
   moveCard,
   patchCard,
   placeCard,
+  removeCard,
 } from './board-cache'
 import {
   boardSettingsQuery,
@@ -141,6 +145,77 @@ export const useUpdateIssue = (projectKey: string) =>
     (board, { card, shown }) => patchCard(board, card.key, shown),
     ({ card }) => `Couldn't update ${card.key}`
   )
+
+/** BL-19: a field edited on a backlog row, shown at once and taken back if the server refuses. */
+export const useUpdateRow = (projectKey: string) =>
+  useOptimisticWrite<Backlog, Update>({
+    queryKey: backlogKey(projectKey),
+    refresh: [boardsKey(projectKey)],
+    write: async ({ card, change }) =>
+      dataOrThrow(
+        await api.PATCH('/api/projects/{key}/issues/{number}', {
+          params: { path: { key: projectKey, number: issueNumber(card.key) } },
+          body: change,
+        })
+      ),
+    change: (backlog, { card, shown }) => patchRow(backlog, card.key, shown),
+    failure: ({ card }) => `Couldn't update ${card.key}`,
+  })
+
+/** D40: the issue leaves every board and the backlog at once, and comes back if the server refuses. */
+export const useDeleteIssue = (projectKey: string) => {
+  const queryClient = useQueryClient()
+  const boards = boardsKey(projectKey)
+  const backlog = backlogKey(projectKey)
+  return useMutation({
+    mutationFn: async (key: string) =>
+      okOrThrow(
+        await api.DELETE('/api/projects/{key}/issues/{number}', {
+          params: { path: { key: projectKey, number: issueNumber(key) } },
+        })
+      ),
+    onMutate: async (key) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: boards }),
+        queryClient.cancelQueries({ queryKey: backlog }),
+      ])
+      const before = [
+        ...queryClient.getQueriesData<BoardView>({ queryKey: boards }),
+        ...queryClient.getQueriesData<Backlog>({ queryKey: backlog }),
+      ]
+      queryClient.setQueriesData<BoardView>(
+        { queryKey: boards },
+        (board) => board && removeCard(board, key)
+      )
+      queryClient.setQueriesData<Backlog>(
+        { queryKey: backlog },
+        (view) => view && removeRow(view, key)
+      )
+      return before
+    },
+    onError: (error, key, before) => {
+      for (const [queryKey, view] of before ?? [])
+        queryClient.setQueryData(queryKey, view && { ...view })
+      toast.error(`Couldn't delete ${key}`, { description: error.message })
+    },
+    onSuccess: (_, key) => {
+      queryClient.removeQueries({
+        queryKey: issueQuery(projectKey, issueNumber(key)).queryKey,
+        exact: true,
+      })
+      toast.success(`${key} deleted`)
+    },
+    onSettled: () =>
+      Promise.all(
+        [
+          boards,
+          backlog,
+          epicsQuery(projectKey).queryKey,
+          ['projects', projectKey, 'issues'],
+        ].map((queryKey) => queryClient.invalidateQueries({ queryKey }))
+      ),
+  })
+}
 
 /** A status goes through the move API (D4 keeps the rank); every other field through PATCH. */
 export type IssueChange = {

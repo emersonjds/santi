@@ -2,10 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { inProjects, problem, routeOf } from '@/test/stub-api'
+import {
+  WEB_BOARD,
+  WEB_COMMENTS,
+  inProjects,
+  issue,
+  problem,
+  routeOf,
+} from '@/test/stub-api'
 
 const PATCH = 'PATCH /api/projects/WEB/issues/1'
 const MOVE = 'POST /api/projects/WEB/issues/1/move'
+const DELETE_1 = 'DELETE /api/projects/WEB/issues/1'
+const DELETE_2 = 'DELETE /api/projects/WEB/issues/2'
 
 const openMenu = async (screen: RenderResult, key: string) => {
   await screen.getByRole('button', { name: `Actions for ${key}` }).click()
@@ -125,5 +134,99 @@ describe('card menu', () => {
     expect(
       screen.getByRole('button', { name: 'Drag WEB-1' }).elements()
     ).toHaveLength(0)
+  })
+
+  it('deletes a card and its subtasks at once, after a confirm naming what goes with it', async () => {
+    const [todo, doing, done] = WEB_BOARD.columns
+    // A hover preloads the board (intent); the server stops listing WEB-2 once asked to delete it.
+    const afterDelete = {
+      ...WEB_BOARD,
+      columns: [
+        { ...todo, cards: todo.cards.slice(0, 1), issue_count: 1 },
+        { ...doing, cards: [], issue_count: 0 },
+        done,
+      ],
+    }
+    const deleted = () => requests.map(routeOf).includes(DELETE_2)
+    const requests: Request[] = inProjects({
+      'GET /api/projects/WEB/board': {
+        status: 200,
+        body: () => (deleted() ? afterDelete : WEB_BOARD),
+      },
+      'GET /api/projects/WEB/issues': {
+        status: 200,
+        body: {
+          items: [
+            issue({
+              key: 'WEB-3',
+              summary: 'Keep the redirect target',
+              issue_type: 'subtask',
+              parent_key: 'WEB-2',
+            }),
+          ],
+          next_cursor: null,
+        },
+      },
+      'GET /api/projects/WEB/issues/2/comments': {
+        status: 200,
+        body: { items: WEB_COMMENTS, next_cursor: null },
+      },
+      [DELETE_2]: { status: 204, until: new Promise(() => {}) },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await openMenu(screen, 'WEB-2')
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    const confirm = screen.getByRole('alertdialog', { name: 'Delete WEB-2?' })
+    await expect
+      .element(confirm)
+      .toHaveTextContent('Also deleted: 1 subtask and 1 comment.')
+    await confirm.getByRole('button', { name: 'Delete issue' }).click()
+
+    await expect.element(confirm).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByText('Fix the login redirect loop'))
+      .not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('link', { name: 'Keep the redirect target' }))
+      .not.toBeInTheDocument()
+  })
+
+  it('puts a deleted card back when the server refuses', async () => {
+    inProjects({
+      [DELETE_1]: {
+        status: 403,
+        body: problem(403, 'You are not allowed to do this.'),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await openMenu(screen, 'WEB-1')
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    const confirm = screen.getByRole('alertdialog', { name: 'Delete WEB-1?' })
+    await expect.element(confirm).toHaveTextContent('Also deleted: 1 comment.')
+    await confirm.getByRole('button', { name: 'Delete issue' }).click()
+
+    await expect
+      .element(screen.getByText('You are not allowed to do this.'))
+      .toBeVisible()
+    await expect
+      .element(screen.getByText('Write the release notes'))
+      .toBeVisible()
+  })
+
+  it('keeps the card when the confirm is cancelled', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await openMenu(screen, 'WEB-1')
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    await expect.element(screen.getByRole('alertdialog')).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByText('Write the release notes'))
+      .toBeVisible()
+    expect(requests.map(routeOf)).not.toContain(DELETE_1)
   })
 })

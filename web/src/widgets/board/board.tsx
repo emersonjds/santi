@@ -59,6 +59,12 @@ const CardMenu = lazy(() =>
   }))
 )
 
+const DeleteIssueDialog = lazy(() =>
+  import('@/features/delete-issue/delete-issue-dialog').then((module) => ({
+    default: module.DeleteIssueDialog,
+  }))
+)
+
 // Lazy: the sprint forms load on the first sprint action (D39).
 const SprintDialog = lazy(() =>
   import('@/features/sprint/sprint-dialog').then((module) => ({
@@ -118,19 +124,23 @@ const MenuPlaceholder = () => (
   </span>
 )
 
-const BoardCard = memo(
-  ({ card, projectKey }: { card: Card; projectKey: string }) => (
-    <IssueCard
-      card={card}
-      projectKey={projectKey}
-      menu={
-        <Suspense fallback={<MenuPlaceholder />}>
-          <CardMenu card={card} projectKey={projectKey} />
-        </Suspense>
-      }
-    />
-  )
-)
+type BoardCardProps = {
+  card: Card
+  projectKey: string
+  onDelete: (card: Card) => void
+}
+
+const BoardCard = memo(({ card, projectKey, onDelete }: BoardCardProps) => (
+  <IssueCard
+    card={card}
+    projectKey={projectKey}
+    menu={
+      <Suspense fallback={<MenuPlaceholder />}>
+        <CardMenu card={card} projectKey={projectKey} onDelete={onDelete} />
+      </Suspense>
+    }
+  />
+))
 
 type ColumnsProps = {
   board: BoardView
@@ -154,9 +164,12 @@ const Columns = ({
   const narrow = useIsMobile()
   // Held here, above the drag layer swap, so an open form survives it; one column's form at a time.
   const [creating, setCreating] = useState<number | null>(null)
+  const [deleting, setDeleting] = useState<Card | null>(null)
   const last = board.columns[board.columns.length - 1]
   const renderCard = useCallback(
-    (card: Card) => <BoardCard card={card} projectKey={projectKey} />,
+    (card: Card) => (
+      <BoardCard card={card} projectKey={projectKey} onDelete={setDeleting} />
+    ),
     [projectKey]
   )
   // The settings limit, so a change from the header shows (and rolls back) with the settings write.
@@ -221,6 +234,16 @@ const Columns = ({
             projectKey={projectKey}
             renderColumn={renderColumn}
             renderCard={renderCard}
+          />
+        </Suspense>
+      )}
+      {deleting && (
+        <Suspense fallback={null}>
+          <DeleteIssueDialog
+            projectKey={projectKey}
+            issueKey={deleting.key}
+            issueType={deleting.issue_type}
+            onClose={() => setDeleting(null)}
           />
         </Suspense>
       )}

@@ -54,6 +54,12 @@ const RowMenu = lazy(() =>
   }))
 )
 
+const DeleteIssueDialog = lazy(() =>
+  import('@/features/delete-issue/delete-issue-dialog').then((module) => ({
+    default: module.DeleteIssueDialog,
+  }))
+)
+
 // Lazy: the forms (react-hook-form, zod, Radix dialog) load on the first sprint action (D39).
 const SprintDialog = lazy(() =>
   import('@/features/sprint/sprint-dialog').then((module) => ({
@@ -93,6 +99,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   const [dialog, setDialog] = useState<SprintAction | null>(null)
   // Held here, above the drag layer swap, so an open form survives it.
   const [creating, setCreating] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<Card | null>(null)
   const epics = useMemo(
     () => new Map(backlog.epics.map((epic) => [epic.key, epic])),
     [backlog.epics]
@@ -118,7 +125,11 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
         handle={handle}
         menu={
           <Suspense fallback={<MenuSlot />}>
-            <RowMenu card={card} projectKey={projectKey} />
+            <RowMenu
+              card={card}
+              projectKey={projectKey}
+              onDelete={setDeleting}
+            />
           </Suspense>
         }
       />
@@ -281,6 +292,16 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
             projectKey={projectKey}
             action={dialog}
             onClose={() => setDialog(null)}
+          />
+        </Suspense>
+      )}
+      {deleting && (
+        <Suspense fallback={null}>
+          <DeleteIssueDialog
+            projectKey={projectKey}
+            issueKey={deleting.key}
+            issueType={deleting.issue_type}
+            onClose={() => setDeleting(null)}
           />
         </Suspense>
       )}

@@ -152,3 +152,20 @@ export const insertCard = (board: BoardView, card: Card): BoardView => {
     ),
   }
 }
+
+/** D40: a deleted issue leaves with its subtasks; an epic's children stay, without it. */
+export const removeCard = (board: BoardView, key: string): BoardView => ({
+  ...board,
+  columns: board.columns.map((column) => {
+    const cards = column.cards
+      .filter(
+        (card) =>
+          card.key !== key &&
+          !(card.issue_type === 'subtask' && card.parent_key === key)
+      )
+      .map((card) =>
+        card.parent_key === key ? { ...card, parent_key: null } : card
+      )
+    return recount({ ...column, cards }, cards.length - column.cards.length)
+  }),
+})
