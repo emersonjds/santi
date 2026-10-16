@@ -47,7 +47,7 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
       <h3 id='issue-subtasks' className='text-sm font-semibold'>
         Subtasks
       </h3>
-      <ul className='grid divide-y rounded-md border empty:hidden'>
+      <ul className='grid grid-cols-1 divide-y rounded-md border empty:hidden'>
         {subtasks.map((subtask) => (
           <li
             key={subtask.key}

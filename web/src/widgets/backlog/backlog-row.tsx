@@ -93,14 +93,14 @@ export const BacklogRow = memo(
         {handle}
         <div className='grid min-w-0 flex-1 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 py-2 ps-2 text-sm md:flex md:py-1.5 md:ps-0'>
           <TypeGlyph type={card.issue_type} />
-          <span className='text-xs tracking-wide text-subtle-foreground tabular-nums'>
+          <span className='text-xs tracking-wide whitespace-nowrap text-subtle-foreground tabular-nums'>
             {card.key}
           </span>
           {editable ? <RowSummary {...fields}>{summary}</RowSummary> : summary}
-          <span className='col-span-3 flex flex-wrap items-center gap-2 md:contents'>
+          <span className='col-span-3 flex min-w-0 items-center gap-2 md:contents'>
             {epic && (
               <span
-                className='inline-flex max-w-28 items-center gap-1 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground md:max-w-40'
+                className='inline-flex min-w-0 items-center gap-1 rounded-sm bg-muted px-1.5 text-xs text-muted-foreground md:max-w-40'
                 title={`Epic ${epic.summary}`}
               >
                 <Layers

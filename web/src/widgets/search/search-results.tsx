@@ -71,7 +71,7 @@ type SearchRowProps = {
 const SearchRow = ({ issue, projectKey, status, assignee }: SearchRowProps) => (
   <li className='relative flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 bg-card px-3 py-2 text-sm hover:bg-hover md:flex-nowrap md:py-1.5'>
     <TypeGlyph type={issue.issue_type} />
-    <span className='text-xs tracking-wide text-subtle-foreground tabular-nums'>
+    <span className='text-xs tracking-wide whitespace-nowrap text-subtle-foreground tabular-nums'>
       {issue.key}
     </span>
     {/* IA §7: results open the issue dialog, the address bar showing the issue page. */}
