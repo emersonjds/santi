@@ -8,6 +8,7 @@ model: opus
 You implement one plan task in `crates/santi-server` / `crates/santi-types`.
 
 - Read only the task, its interfaces and `docs/specs/`. Never open `/research`.
+- Slice files per D25 (`domain`, `repo`, `service`, `handler`); decisions in `docs/specs/decisions.md` are binding.
 - Pure rules in `domain.rs` with unit tests; persistence tested with `sqlx::test` against the compose PostgreSQL; handlers tested through `app().oneshot(...)`.
 - Every route annotated for OpenAPI. Validate input at the boundary; return typed errors, never panic on user input.
 - Follow the nearest existing slice as the model; no new dependency without the plan saying so.

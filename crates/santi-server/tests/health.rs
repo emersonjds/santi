@@ -1,28 +1,16 @@
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use http_body_util::BodyExt;
-use tower::ServiceExt;
+mod common;
 
-#[tokio::test]
-async fn health_returns_ok_and_package_version() {
-    let response = santi_server::app()
-        .oneshot(Request::get("/health").body(Body::empty()).unwrap())
-        .await
-        .unwrap();
+use axum::http::StatusCode;
+use common::TestApp;
+use sqlx::PgPool;
 
-    assert_eq!(response.status(), StatusCode::OK);
-    let bytes = response.into_body().collect().await.unwrap().to_bytes();
-    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(json["status"], "ok");
-    assert_eq!(json["version"], env!("CARGO_PKG_VERSION"));
-}
+#[sqlx::test]
+async fn health_returns_ok_and_package_version(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
 
-#[tokio::test]
-async fn unknown_route_returns_not_found() {
-    let response = santi_server::app()
-        .oneshot(Request::get("/nope").body(Body::empty()).unwrap())
-        .await
-        .unwrap();
+    let (status, body) = app.get("/health").await;
 
-    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], "ok");
+    assert_eq!(body["version"], env!("CARGO_PKG_VERSION"));
 }

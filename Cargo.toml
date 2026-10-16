@@ -11,14 +11,31 @@ repository = "https://github.com/emersonjds/santi"
 
 [workspace.dependencies]
 santi-types = { path = "crates/santi-types" }
-axum = "0.8.9"
+axum = { version = "0.8.9", features = ["macros"] }
 tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 clap = { version = "4.6", features = ["derive"] }
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "macros", "migrate", "chrono"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
+utoipa = { version = "6", features = ["chrono"] }
+utoipa-axum = "0.3"
+utoipa-swagger-ui = { version = "10", features = ["axum", "vendored"] }
+tower-http = { version = "0.7.1", features = ["compression-gzip", "compression-br"] }
+argon2 = "0.6"
+sha2 = "0.11"
+getrandom = "0.4"
+askama = "0.16.1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage,coverage_nightly)"] }
+
+# argon2 is unusably slow unoptimized; tests hash passwords.
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3

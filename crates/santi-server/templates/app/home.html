@@ -1,0 +1,12 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% block title %}Home{% endblock %}
+{% block main %}
+<h1 class="greeting">Hi, {{ display_name }}</h1>
+<p class="lede">This is your starting point. Everything you track will show up here.</p>
+<section class="empty" aria-labelledby="empty-title">
+  <span class="empty-icon">{{ ui::icon("folder-plus") }}</span>
+  <h2 id="empty-title">No projects yet</h2>
+  <p>A project groups a board, its backlog and its sprints. Creating one is coming in the next release.</p>
+</section>
+{% endblock %}

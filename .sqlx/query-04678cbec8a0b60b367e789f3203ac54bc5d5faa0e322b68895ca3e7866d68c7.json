@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM auth_token WHERE user_id = $1 AND expires_at < now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "04678cbec8a0b60b367e789f3203ac54bc5d5faa0e322b68895ca3e7866d68c7"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM auth_token WHERE id = $1 AND user_id = $2 AND kind = 'api'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fec12a5626a881964f98ca9cb61278f7d556a639cbadc51a782801b96a785550"
+}

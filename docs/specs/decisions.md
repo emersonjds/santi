@@ -1,0 +1,257 @@
+# santi v1 — decisions
+
+Date: 2026-10-15.
+
+Protocol: the `product` agent votes first on each open question, grounded in how agile tools on the market behave. The `architect` then challenges every vote on complexity, data model, performance, testability and readability, and may replace it with another option only if that option still serves the UX. The winner is recorded with the reason it won and the trade-off accepted; when the votes differ, the option that keeps both UX quality and a clean architecture wins. D19 onward are architecture-only questions (product vote `n/a`). The design spec points here instead of repeating rationale.
+
+## D1 — Web UI stack
+Context: design.md already names Leptos CSR/WASM; goal is code readable in 10s by non-Rust devs, fast, clean UI.
+Options: A) Leptos CSR/WASM B) server-rendered HTML (askama + htmx + vanilla JS drag/drop) C) Leptos SSR
+Market: Linear/Plane/YouTrack ship heavy JS SPAs; small self-hosted OSS boards lean htmx+SortableJS for DnD.
+Product vote: B — htmx templates read in seconds by any HTML/JS-literate contributor, no WASM payload, faster first paint; native HTML5 DnD design note fits server-rendered pages as well as Leptos.
+Architecture vote: B — `cargo build` builds everything (no wasm32 target, trunk or npm for contributors), askama templates are type-checked at compile time, and a board renders in one round trip with no client state to keep in sync.
+Winner: B — readable templates, fast first paint and zero extra toolchain beat Leptos' richer client; accepted: the server keeps a second front door (HTML next to JSON, D25) and client behavior is limited to htmx swaps plus one small `app.js` for drag and drop.
+
+## D2 — What counts as done
+Context: SB-7/8 (position) vs KB-3 (status category); spec flags column-position ambiguity (SB OQ-4).
+Options: A) status category `done` B) rightmost/column position C) both must agree
+Market: Linear/YouTrack use an explicit done-type/isResolved flag independent of column; Jira mixes both per board type; Trello has no category, position only.
+Product vote: C — category `done` decides, and v1 requires the rightmost column to hold only `done` statuses, so category and position never disagree (matches both specs' adopted cut).
+Architecture vote: C, strict — a `done` status may map only to the rightmost column and the rightmost column only to `done` statuses, checked by one domain function on every mapping edit; every query then tests `category = 'done'`, never column position.
+Winner: C, strict — one predicate serves sprint close, backlog hiding and kanban hiding on both board types; accepted: no "done but awaiting deploy" middle column in v1.
+
+## D3 — Quick filter combination
+Context: SB OQ-3, filters by assignee/parent/label/type/free text.
+Options: A) AND across all B) AND across kinds, OR within one kind C) fully user-configurable
+Product vote: B — standard faceted-search behavior (Linear, GitHub Projects): picking two assignees is "either", adding a type filter narrows further. Predictable, no settings screen.
+Architecture vote: B — compiles to one `WHERE` in the board query: each kind is `= ANY($n)` (OR within), kinds are AND-ed, free text is `ILIKE` on summary.
+Winner: B — the market's mental model with the simplest SQL; accepted: no saved or query-based filters.
+
+## D4 — Drop position and rank
+Context: SB OQ-6/7, BL OQ-3/11/12; design.md defines rank as one fractional-index order.
+Options: A) card takes the drop position B) card keeps its old rank, ignores drop point
+Market: Jira (rank field, instance-wide); Linear (sort order); Trello breaks this — position is per list, not shared.
+Product vote: A — drop position wins, one total order shared by board and backlog per project; matches BL-5 and avoids Trello's per-list fragmentation.
+Architecture vote: A — a move names one anchor (`after` or `before` an issue; none keeps the rank, BL-6) and the server places the issue right next to it in the full project order, so rows hidden by filters never make a drop ambiguous (BL OQ-11); one row written (D21).
+Winner: A — matches intent and BL-5 with a one-row write; accepted: a drop into another column or sprint also changes the issue's place in the backlog.
+
+## D5 — Inline create on board/backlog
+Context: SB OQ-11, BL OQ-1, KB OQ-8.
+Options: A) bottom of section/column, type Story, status = section's/column's implied status B) open full form every time
+Market: Linear inline create defaults to Backlog state, current grouping; Jira lands at top/bottom of list or sprint.
+Product vote: A — bottom of target, type Story, status = project's first `todo` status (backlog) or the column's status (board), rank = bottom; zero modal for the common case.
+Architecture vote: A — "bottom" is always one key after the project's max rank, which is the bottom of every column and section because they are projections of one order; on the scrum board the issue joins the active sprint (SB OQ-11), in a sprint section it joins that sprint.
+Winner: A — zero-modal create with one rank rule; accepted: type and other fields are fixed in the issue view, and subtasks are never created inline (SB-23).
+
+## D6 — Parent/subtask moves to done
+Context: SB OQ-10/12, KB OQ-6, BL OQ-10, SP OQ-5.
+Options: A) block parent until subtasks done B) silent move, no cascade C) prompt to close subtasks too
+Market: Jira prompts (SB-22); Linear optionally auto-closes sub-issues; YouTrack keeps subtask state independent.
+Product vote: B — silent, no modal; subtasks render nested on both board types and inside sprint sections regardless of status, open-subtask count is visible on the parent card instead of a popup.
+Architecture vote: B, flat — silent move, but subtasks render as ordinary cards in their own status column with a parent-key chip (Linear's model) and the parent shows `open/total`; nesting across columns needs tree layout, nested drag rules and special WIP counts. Backlog rows stay parents only (BL-2) with the same count; a subtask's `sprint_id` always equals its parent's, set in the same `UPDATE`.
+Winner: B, flat — no prompt, no cascade, and each column stays a plain ranked list; accepted: children are linked by a chip and a count, not grouped visually under the parent.
+
+## D7 — Column limits
+Context: KB OQ-1/7.
+Options: A) max only, warn (never block) B) min+max, block drops over max C) min+max, warn only
+Product vote: A — max per column, header color warns past it, drops never refused; min limits add a concept nobody in the market blocks on (Jira, Trello, YouTrack all warn-only).
+Architecture vote: A — one nullable `wip_limit` per column; the count is a `GROUP BY` over the unfiltered column (KB-15), no stored counter.
+Winner: A — the warn-only behavior every tool ships, for one integer column; accepted: no min limit and no counting modes.
+
+## D8 — Done issues leaving the Kanban board
+Context: KB OQ-2/3/4.
+Options: A) fixed window, counts from entering `done` B) window resets on any edit (Jira's behavior) C) no auto-hide
+Product vote: A — per-board window (7/14/30 days or never, default 14), timer starts when the status becomes `done`-category and never resets on edit; avoids Jira's confusing "editing a comment resurfaces the card" quirk (KB-24).
+Architecture vote: A — costs one nullable `issue.done_at`, set by the domain on entering a `done` status and cleared on leaving (re-entry restarts it, KB OQ-4), plus `board.done_window_days` (NULL = never); hiding is a live `WHERE` (D33). C lets the done column grow forever and slows every board load.
+Winner: A — predictable timer and a bounded board for two nullable columns; accepted: a hidden issue never resurfaces on edit, it is reached through search.
+
+## D9 — Kanban backlog
+Context: none vs optional separate list.
+Options: A) none, first column is the backlog B) optional dedicated backlog slot (Jira-style)
+Market: Linear/YouTrack/Trello have no separate kanban-backlog view; only Jira does.
+Product vote: A — one fewer concept and one fewer setting; the first column already serves as the intake list.
+Architecture vote: A — no extra entity, view or setting; the kanban board query is the scrum one without the sprint filter.
+Winner: A — simplest model, matches most tools; accepted: no separate planning list before work reaches the board.
+
+## D10 — Epics in backlog
+Context: BL OQ-6/7.
+Options: A) epics as backlog rows B) side panel only, not rows
+Market: Jira panel shows name, color, progress bar; Linear's Projects panel shows issue count and % complete.
+Product vote: B — panel only; each entry shows key, summary, child count, and an open/closed progress bar. Keeps backlog rows to actionable work only.
+Architecture vote: B — the panel is one aggregate query (children and `done` children grouped by `parent_id`); backlog rows stay a flat projection of rank; epic done = `done` status, no separate flag (BL-21 cut).
+Winner: B — actionable rows plus progress at a glance; accepted: epics are edited from the panel and issue view, never dragged among stories.
+
+## D11 — Estimation display
+Context: BL OQ-8/9, SP OQ-10.
+Options: A) point totals on sprint/no-sprint section headers only B) also on board columns C) no totals, count only
+Market: Linear shows estimate progress per cycle; Jira sums per backlog section; neither totals on board columns by default.
+Product vote: A — section headers (sprint + no-sprint) show summed points; unestimated issues count toward issue count but not the sum; subtasks never carry points, never roll up (no time tracking in v1). Board column totals: later.
+Architecture vote: A — totals come from the backlog query (`SUM(points)` per section, NULL ignored); a DB `CHECK` keeps points NULL on subtasks, so no rollup code exists.
+Winner: A — the totals planning needs, nothing on the board; accepted: board columns show card counts only.
+
+## D12 — Sprint naming, durations, dates
+Context: SP OQ-1/2/4.
+Options: A) auto name "Sprint N" (never reused), duration presets 1/2/3/4 weeks + custom, default 2 weeks B) user must name every sprint manually
+Market: Jira offers the same presets; Linear fixes cycle length per team instead of per sprint.
+Product vote: A — zero-typing default path; N = count of sprints ever created on the board + 1, so deleting one never reuses a number. End date before start date is rejected inline, no modal.
+Architecture vote: A — `board.next_sprint_number` incremented with `UPDATE … RETURNING` in the create transaction (same pattern as D20); dates are `date` columns with `CHECK (end_date >= start_date)` and native `<input type="date">`.
+Winner: A — zero typing, numbers never reused, one counter; accepted: the name is free text after creation, so a renamed sprint loses its number.
+
+## D13 — Starting/completing edge cases
+Context: SP OQ-3/6/13.
+Options: A) refuse empty-sprint start; skip destination step when fully done; one shared destination for all open issues; new sprint lands as future, last in the list B) allow empty start; always show destination step
+Product vote: A — fewer prompts: an empty sprint can't start (inline message, no server round trip surprise), a fully-done sprint closes with no extra step, and open issues move together to one picked destination.
+Architecture vote: A — guards in sprint `domain.rs`: empty start refused (409, D24; button disabled in the page), destination step only when the open count is > 0, open issues moved by one `UPDATE`; a partial unique index allows one active sprint per board; sprints list by id (creation order, D19).
+Winner: A — fewer prompts and a one-statement completion; accepted: open issues can't be split across destinations at close (move them beforehand).
+
+## D14 — Deleting sprints / removing issues mid-sprint
+Context: SP OQ-7/8/9/12.
+Options: A) only future sprints deletable, issues return to no-sprint section with rank kept; active sprint must be completed, not deleted; closed-sprint deletion out of v1 B) allow deleting active/closed sprints too
+Market: Jira only lets you delete future/active sprints (never a clean closed-sprint delete from backlog); Linear returns removed issues to backlog keeping sort order.
+Product vote: A — matches the already-adopted cut; mid-sprint removal (scope change) also returns the issue to the no-sprint section with rank kept, same rule as a sprint delete.
+Architecture vote: A — one guarded `DELETE … WHERE state = 'future'`, with `ON DELETE SET NULL` returning issues atomically (D32); rank is global, so it is kept for free.
+Winner: A — no orphan handling and closed-sprint history stays intact; accepted: a closed sprint created by mistake stays in v1.
+
+## D15 — Overdue active sprint
+Context: SP OQ-11.
+Options: A) stays active, header shows an overdue badge, no auto-close B) auto-complete at end date C) block new work until closed
+Market: Jira/Linear/YouTrack all leave it active past end date; none auto-close (data-loss risk).
+Product vote: A — overdue badge/color on the sprint header, user closes explicitly; never auto-close on their behalf.
+Architecture vote: A — overdue is computed at render (`end_date < current_date`), no stored state, no scheduler.
+Winner: A — no data-loss risk and no background job; accepted: closing stays the user's job.
+
+## D16 — Column/status mapping edits
+Context: SB OQ-1/5/8/9, BL OQ-5, KB OQ-10.
+Options: A) deleting a column with mapped issues requires picking a target column first (Jira kanban behavior); empty columns (zero statuses) stay and simply refuse drops B) deleted column's statuses always fall to the unmapped pool, issues silently vanish from board/backlog
+Product vote: A — never let issues disappear invisibly; forcing a target column on delete is one extra click but prevents the exact silent-loss edge case both specs flag as undocumented risk.
+Architecture vote: A, by status remap — the deleted column's statuses move to the chosen column (one `UPDATE` on statuses); issues keep their status, so no issue row or `done_at` changes. The rightmost column can't be deleted and every remap passes the D2 check.
+Winner: A, by status remap — nothing vanishes and the delete writes config rows only; accepted: cards in the target column keep showing the old status names.
+
+## D17 — Real-time updates in v1
+Context: none / SSE / websockets.
+Options: A) none, manual refresh B) SSE push on board/backlog changes C) websockets
+Market: Linear/Trello treat live sync as a core differentiator; Jira/YouTrack use polling or a pub/sub add-on; small self-hosted boards rarely need it.
+Product vote: A — skip it; manual refresh is fine for a small self-hosted team, avoids reconnect/pubsub infra for a boards-first v1. Revisit if multi-viewer conflicts become a real complaint.
+Architecture vote: A — no pub/sub, reconnect or fan-out code; concurrent moves are serialized per project (D21), so the last write wins cleanly. Upgrade path: axum SSE fed by PostgreSQL `LISTEN/NOTIFY`, swapped in by htmx.
+Winner: A — no infrastructure for an unproven need; accepted: viewers see others' changes on reload.
+
+## D18 — Quick filter persistence
+Context: SB OQ-13.
+Options: A) per user, per board, server-side B) per user, local-storage only C) not persisted D) URL query params, not stored (architecture)
+Market: Jira and Linear both persist filter toggles per viewer across sessions/devices.
+Product vote: A — store per user per board server-side; trivial given the existing member/board relation, and follows the user across devices unlike local storage.
+Architecture vote: D — filters live in the board URL (`?assignee=…&type=…`, htmx `hx-push-url`): bookmarkable, shareable in a standup chat, back/forward work, read by the server on render. A needs a table, a write per toggle, a URL-vs-stored precedence rule, and silently restores filters the user forgot (cards look missing).
+Winner: D — visible, shareable state with zero schema; accepted: opening the board from navigation shows it unfiltered on any device. Upgrade path: store the last query string per member if users ask.
+
+## D19 — Primary keys
+Context: every table needs an id; issues are addressed publicly by `KEY-N` (D20), the rest by id.
+Options: A) UUIDv7 B) `bigint generated always as identity` (standard form of bigserial)
+Product vote: n/a
+Architecture vote: B — 8 bytes, fastest indexes and joins, plain `i64` in Rust, readable in logs and URLs; PostgreSQL 17 has no native `uuidv7()`, so A adds a crate and app-side generation for a one-database app.
+Winner: B — simplest and fastest for a single self-hosted database; accepted: ids are guessable and reveal counts, harmless because every lookup is scoped by membership and non-members get 404 (D28).
+
+## D20 — Issue numbering
+Context: `KEY-N` must be unique, never reused, and survive concurrent creates.
+Options: A) `max(number) + 1` B) one sequence object per project C) `project.next_issue_number` counter
+Product vote: n/a
+Architecture vote: C — `UPDATE project SET next_issue_number = next_issue_number + 1 … RETURNING` inside the create transaction; the row lock serializes concurrent creates and `UNIQUE (project_id, number)` backs it. A races and reuses after deletes; B needs DDL per project.
+Winner: C — one statement, no duplicates, never reused; accepted: creates within one project are serialized (irrelevant at human speed).
+
+## D21 — Rank encoding
+Context: one total order per project (D4); a move must rewrite one row.
+Options: A) fractional index string B) integer with gaps C) LexoRank-like buckets
+Product vote: n/a
+Architecture vote: A — a pure `rank_between(before, after)` over a base-62 ASCII alphabet in `issues/domain.rs`, property-tested; column `rank text COLLATE "C"` so PostgreSQL sorts bytewise like Rust; moves lock the project row (as D20) and `UNIQUE (project_id, rank)` catches bugs. B and C both need a rebalancing path.
+Winner: A — one-row moves and no rebalancing code; accepted: keys grow about one character per repeated insert into the same gap (ceiling ~64 chars; upgrade: one re-spread migration).
+
+## D22 — Session storage
+Context: web login with email and password (argon2).
+Options: A) server-side `auth_token` table + HttpOnly cookie B) signed JWT cookie
+Product vote: n/a
+Architecture vote: A — 32 random bytes in a `HttpOnly; Secure; SameSite=Lax` cookie, only the SHA-256 stored; logout, password change and member removal revoke with one `DELETE`; fixed 30-day expiry, new token per login; non-GET requests also need a same-origin `Origin`. B can't revoke without a denylist (a session table again) and adds key rotation.
+Winner: A — instant revocation, nothing to sign; accepted: one indexed lookup per request.
+
+## D23 — API token format and storage
+Context: CLI and MCP act as a user through a personal token.
+Options: A) opaque random token, hash stored B) JWT
+Product vote: n/a
+Architecture vote: A — `santi_` + 32 random bytes, shown once, stored as SHA-256 only (high-entropy tokens need no argon2 and the hash stays indexable), in the D22 table with `kind = api`, a name and no expiry; revoke = delete the row. One extractor reads the cookie or `Authorization: Bearer`; the prefix lets secret scanners flag leaks.
+Winner: A — one auth path for web, CLI and MCP; accepted: a token carries its user's full rights (no scopes in v1).
+
+## D24 — Error format
+Context: one error body for REST, CLI and MCP.
+Options: A) RFC 9457 `application/problem+json` B) ad hoc `{code, message}`
+Product vote: n/a
+Architecture vote: A — one `AppError` enum maps to `type` (`urn:santi:error:<slug>`, stable for clients), `title`, `status`, `detail`, plus `errors: [{field, message}]` for validation; documented once in OpenAPI. CLI and MCP print `detail` and branch on `type`; HTML routes render the same error as inline messages.
+Winner: A — a standard every HTTP client already understands; accepted: slightly more fields than an ad hoc body.
+
+## D25 — Crate and slice layout (consequence of D1)
+Context: D1 drops Leptos, so `santi-web` has no WASM to hold.
+Options: A) keep a `santi-web` crate for templates B) pages live in `santi-server`
+Product vote: n/a
+Architecture vote: B — three crates (`santi-types`, `santi-server`, `santi-cli`). Each slice: `domain.rs` (pure rules), `repo.rs` (sqlx), `service.rs` (use cases: membership, transaction, domain + repo), `handler.rs` (JSON + utoipa), `web.rs` (askama HTML); both front doors call `service.rs` only, so no rule is written twice. Templates in `templates/` by FSD layer (`app → widgets → features → entities → shared`, includes only downward).
+Winner: B — handler → service → domain/repo reads the same for HTML and JSON; accepted: one more file per slice.
+
+## D26 — Web asset budget (replaces the WASM bundle question)
+Context: D1 removes WASM; the browser still needs htmx, drag and drop and CSS.
+Options: A) npm bundler pipeline B) vendored files embedded in the binary
+Product vote: n/a
+Architecture vote: B — vendored `htmx.min.js`, one `app.js` (drag and drop, "move to…" fallback), one `app.css`, embedded with `include_str!` and served under `/static/<version>/` with immutable caching; budget under 50 KB gzipped JS + CSS; no runtime CDN (self-hosted instances may be offline).
+Winner: B — no Node toolchain, first paint from one HTML response; accepted: no TypeScript or CSS preprocessing for the little client code there is.
+
+## D27 — Migrations and SQL checking
+Context: schema changes ship inside the one binary.
+Options: A) `sqlx migrate` B) refinery or diesel migrations
+Product vote: n/a
+Architecture vote: A — plain `.sql` files in `crates/santi-server/migrations/`, embedded with `sqlx::migrate!()` and applied at startup, forward-only; `sqlx::test` applies them per test database. Queries use the checked `query_as!` macros with committed `.sqlx/` offline data, so a build needs no database; CI runs `cargo sqlx prepare --check`.
+Winner: A — same tool as the queries, SQL anyone reads; accepted: whoever changes SQL needs `sqlx-cli` and a running database to refresh `.sqlx/`.
+
+## D28 — Authorization model
+Context: every project-scoped action must check membership, and admin-only actions the role.
+Options: A) checks inside each handler B) one membership extractor
+Product vote: n/a
+Architecture vote: B — project routes carry `/projects/{key}/`; one extractor loads project and caller membership in one query and yields `Member`; every service function takes `&Member`, so no use case runs unchecked; non-members get 404; admin-only rules check `member.role` in domain; repo queries always filter by the member's project, so ids from another project never resolve.
+Winner: B — one place to audit; accepted: every project-scoped URL carries the project key.
+
+## D29 — Pagination
+Context: board and backlog are bounded views; search and lists grow without bound.
+Options: A) offset/limit B) keyset cursor C) none
+Product vote: n/a
+Architecture vote: C for board and backlog (one ranked query each), B for `search_issues` and other lists: `limit` (default 50, max 200) + opaque `cursor` (last id), response carries `next_cursor`.
+Winner: C + B — stable pages under concurrent inserts at constant cost; accepted: the backlog loads unpaged (ceiling ~2k open issues; upgrade: lazy no-sprint section).
+
+## D30 — Unmapped status storage
+Context: a status sits in one column or in the unmapped pool (SB-2/3).
+Options: A) nullable `status.column_id` B) sentinel "unmapped" column row
+Product vote: n/a
+Architecture vote: A — NULL means unmapped; column queries need no exclusion and the board's inner join drops unmapped issues for free (SB-3). B makes every column query remember to skip a fake row.
+Winner: A — the schema says what it means; accepted: the unmapped pool is a list in board settings, not a column.
+
+## D31 — One board per project
+Context: v1 has exactly one board per project; more may come later.
+Options: A) `UNIQUE (project_id)` on board B) board fields on project C) app-level check
+Product vote: n/a
+Architecture vote: A — the database enforces it now; relaxing later means dropping the constraint and moving the status→column mapping into a join table, one migration. Keeping the mapping on `status.column_id` (D30) avoids a speculative join table today.
+Winner: A — enforced and cheaply reversible; accepted: multiple boards will need a mapping migration.
+
+## D32 — Sprint deletion cascade
+Context: deleting a future sprint must return all its issues atomically (D14).
+Options: A) loop in Rust B) explicit `UPDATE` then `DELETE` in one transaction C) FK `issue.sprint_id … ON DELETE SET NULL`
+Product vote: n/a
+Architecture vote: C — atomic by construction, nothing to forget; the guard is in the statement (`WHERE state = 'future'`, 0 rows → 409).
+Winner: C — one statement; accepted: the reassignment rule lives in the schema, named in the migration, not in Rust.
+
+## D33 — Done-hiding window query
+Context: kanban hides `done` issues older than the board window (D8).
+Options: A) live `WHERE` on `done_at` B) cached or materialized "hidden" flag
+Product vote: n/a
+Architecture vote: A — `done_at IS NULL OR done_window_days IS NULL OR done_at > now() - make_interval(days => done_window_days)` in the kanban board query; B needs a scheduler and is stale between runs.
+Winner: A — always correct, no job; accepted: the predicate runs on every board load (cheap: rows are already narrowed to one project).
+
+## D34 — Data transport: JSON over HTTP vs gRPC
+Context: the API serves the web UI, the CLI, the MCP server and third-party scripts; E2 fixes the wire format.
+Options: A) JSON over HTTP (REST + OpenAPI) B) gRPC with protobuf C) both
+Market: Linear, GitHub, GitLab and YouTrack expose JSON over HTTP (REST or GraphQL) as their public API; none ships gRPC to integrators.
+Product vote: A — integrations and scripts speak HTTP + JSON natively (curl, any language's standard library); gRPC raises the contribution bar with protoc, generated code and a second toolchain.
+Architecture vote: A — JSON REST described by OpenAPI (D24 errors included) with gzip/br response compression (`tower-http`); the browser gets HTML through htmx anyway (D1), payloads are a few KB so serialization cost is negligible next to the database and the network, and every call stays debuggable with curl and browser devtools. B would need grpc-web or a proxy for the browser and protoc in every build.
+Winner: A — one wire format for UI, CLI, MCP and scripts; accepted: the contract is typed by OpenAPI plus the shared `santi-types` DTOs instead of protobuf schemas, and gRPC is reconsidered only for high-volume service-to-service traffic, which santi does not have.

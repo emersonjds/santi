@@ -13,13 +13,14 @@ Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`. Jira: 
 
 ## Layout
 
-- `crates/santi-types`: shared DTOs. `crates/santi-server`: axum + sqlx, vertical slices (`domain.rs`, `repo.rs`, `handler.rs`). `crates/santi-cli`: `santi` binary and `santi mcp`. `crates/santi-web` (E4): Leptos CSR, FSD modules.
+- `crates/santi-types`: shared DTOs. `crates/santi-server`: axum + sqlx, vertical slices (`domain.rs` pure rules, `repo.rs` sqlx, `service.rs` use cases taking `&Member`, `handler.rs` JSON API, `web.rs` HTML pages); web UI is askama templates + htmx + vanilla `app.js`, embedded (decisions D1, D25, D26). `crates/santi-cli`: `santi` binary and `santi mcp`.
+- Product and architecture decisions, with votes and winners: `docs/specs/decisions.md`. Read it before planning or coding.
 - `main.rs` files hold wiring only; they are excluded from coverage.
 
 ## Gitflow and gate
 
 - `main` = release, `developer` = integration (always green). Work branches from `developer`: `feat|fix|chore|docs|ci|refactor/SAN-<n>-<summary>`.
 - Gate before merge: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, CI coverage ≥ 90% (lines, regions, functions on stable; branches on nightly).
-- Local coverage without rustup: `LLVM_COV=$(brew --prefix llvm)/bin/llvm-cov LLVM_PROFDATA=$(brew --prefix llvm)/bin/llvm-profdata cargo llvm-cov --workspace --ignore-filename-regex 'main\.rs$'`.
+- Local coverage without rustup: `LLVM_COV=$(brew --prefix llvm@22)/bin/llvm-cov LLVM_PROFDATA=$(brew --prefix llvm@22)/bin/llvm-profdata cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'`.
 - Agents commit on each green step; only the orchestrating session merges, pushes or opens PRs.
 - Adversarial review (`qa`) for auth, migrations, API contract changes and diffs over ~200 lines.

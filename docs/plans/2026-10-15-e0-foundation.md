@@ -13,7 +13,7 @@
 - Spec: `docs/specs/2026-10-15-santi-v1-design.md`.
 - License `MIT OR Apache-2.0` on every crate.
 - Coverage > 90% for lines, regions and functions (stable) and branches (nightly).
-- `main.rs` files contain wiring only and are excluded from coverage (`--ignore-filename-regex 'main\.rs$'`).
+- `main.rs` files contain wiring only and are excluded from coverage (`--ignore-filename-regex '/main\.rs$'`).
 - No `unsafe` code (`unsafe_code = "forbid"`).
 - Conventional Commits in English, author `Emerson Silva <emerson_jdss@hotmail.com>`, no tool or AI trailers.
 - Work branches come out of `developer`.
@@ -310,7 +310,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  COVERAGE_IGNORE: 'main\.rs$'
+  COVERAGE_IGNORE: '/main\.rs$'
 
 jobs:
   check:

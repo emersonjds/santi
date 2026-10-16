@@ -1,0 +1,24 @@
+{% extends "app/layout.html" %}
+{% import "shared/ui.html" as ui %}
+{% block body %}
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  {{ ui::brand("/") }}
+  <details class="menu">
+    <summary aria-label="Account menu for {{ display_name }}">
+      <span class="avatar">{{ ui::icon("user") }}</span>
+      <span class="menu-name">{{ display_name }}</span>
+      {{ ui::icon("chevron-down") }}
+    </summary>
+    <div class="menu-panel">
+      <p class="menu-who">Signed in as <strong>{{ display_name }}</strong></p>
+      <form method="post" action="/logout">
+        <button class="menu-item" type="submit">{{ ui::icon("log-out") }}<span>Sign out</span></button>
+      </form>
+    </div>
+  </details>
+</header>
+<main id="main" class="page">
+{% block main %}{% endblock %}
+</main>
+{% endblock %}
