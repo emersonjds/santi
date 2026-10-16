@@ -88,6 +88,9 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
     'GET /api/projects/WEB/labels': { status: 200, body: ['docs', 'ui'] },
     'GET /api/projects/OPS/labels': { status: 200, body: [] },
     'GET /api/projects/WEB/issues/1': { status: 200, body: WEB_ISSUE },
+    'POST /api/projects/WEB/issues/1/view': { status: 204 },
+    'POST /api/projects/WEB/visit': { status: 204 },
+    'POST /api/projects/OPS/visit': { status: 204 },
     'GET /api/projects/WEB/issues/1/comments': {
       status: 200,
       body: { items: WEB_COMMENTS, next_cursor: null },

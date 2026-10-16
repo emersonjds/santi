@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, Suspense, lazy, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Link2 } from 'lucide-react'
+import { useRecordView } from '@/entities/home/record-visit'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
@@ -192,6 +193,7 @@ export const IssueDetail = ({
   actions,
   onDeleted,
 }: IssueDetailProps) => {
+  useRecordView(projectKey, number)
   const { data: issue, error } = useQuery(issueQuery(projectKey, number))
   const { data: project } = useQuery(projectQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)

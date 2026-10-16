@@ -7,8 +7,13 @@ import type { HomeView } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
 import { IssueList } from './issue-list'
 
-/** WAI-ARIA tabs: arrow keys, Home and End move between tabs. */
+/** WAI-ARIA tabs: arrow keys, Home and End move between tabs; Space opens the focused one. */
 const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
+  if (event.key === ' ' && event.target instanceof HTMLElement) {
+    event.preventDefault()
+    event.target.click()
+    return
+  }
   const tabs = [
     ...event.currentTarget.querySelectorAll<HTMLElement>('[role=tab]'),
   ]
@@ -48,7 +53,7 @@ export const HomeTabs = ({ view }: { view: HomeView }) => (
       role='tablist'
       aria-label='Your work'
       onKeyDown={moveFocus}
-      className='flex [scrollbar-width:none] gap-1 overflow-x-auto border-b'
+      className='flex flex-wrap gap-x-1 border-b'
     >
       {HOME_VIEWS.map((tab) => (
         <Link

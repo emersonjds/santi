@@ -28,6 +28,9 @@ const register = async (page: Page) => {
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Account (Ada)' })
+  ).toBeVisible()
 }
 
 /** A signed-in user with a kanban project holding three new issues in its first column. */

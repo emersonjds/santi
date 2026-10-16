@@ -30,6 +30,9 @@ test('the home lists assigned, starred, worked on and viewed issues across proje
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Account (Ada)' })
+  ).toBeVisible()
 
   const suffix = unique().slice(-5).toUpperCase()
   const [web, ops] = [`W${suffix}`, `O${suffix}`]
