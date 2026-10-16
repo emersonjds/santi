@@ -1,5 +1,6 @@
 import { Outlet, createFileRoute } from '@tanstack/react-router'
 import { AppShell } from '@/widgets/app-shell/app-shell'
+import { LegalGate } from '@/features/legal/legal-gate'
 import { requireSession } from '@/entities/session/require-session'
 
 export const Route = createFileRoute('/_authenticated')({
@@ -8,7 +9,9 @@ export const Route = createFileRoute('/_authenticated')({
   }),
   component: () => (
     <AppShell>
-      <Outlet />
+      <LegalGate>
+        <Outlet />
+      </LegalGate>
     </AppShell>
   ),
 })

@@ -13,12 +13,17 @@ const signUp = async (
   await screen.getByLabelText('Name').fill(name)
   await screen.getByLabelText('Email').fill(email)
   await screen.getByLabelText('Password').fill(password)
-  if (acceptTerms) await terms(screen).click()
+  if (acceptTerms) {
+    await terms(screen).click()
+    await age(screen).click()
+  }
   await screen.getByRole('button', { name: 'Create account' }).click()
 }
 
 const terms = (screen: RenderResult) =>
   screen.getByRole('checkbox', { name: /I agree to the Terms of Use/ })
+const age = (screen: RenderResult) =>
+  screen.getByRole('checkbox', { name: 'I am 18 or older' })
 
 describe('sign up', () => {
   it('checks every field before calling the server', async () => {
@@ -39,7 +44,10 @@ describe('sign up', () => {
         screen.getByText('Accept the Terms of Use and the Privacy Policy.')
       )
       .toBeVisible()
-    expect(requests.map(routeOf)).toEqual(['GET /api/me'])
+    await expect
+      .element(screen.getByText('Confirm you are 18 or older.'))
+      .toBeVisible()
+    expect(requests.map(routeOf)).not.toContain('POST /api/auth/register')
   })
 
   it('links the terms and the privacy policy next to the checkbox', async () => {
@@ -55,6 +63,7 @@ describe('sign up', () => {
       )
       .toHaveAttribute('href', '/privacy')
     await expect.element(terms(screen)).not.toBeChecked()
+    await expect.element(age(screen)).not.toBeChecked()
     await expect
       .element(screen.getByText(/We never sell your data\./))
       .toBeVisible()
@@ -120,6 +129,35 @@ describe('sign up', () => {
       email: 'alice@example.com',
       password: 'correct horse battery',
       accept_terms: true,
+      confirm_age: true,
     })
+  })
+
+  it('leaves the checkboxes out when the instance has no legal pages', async () => {
+    const requests = anonymous({
+      'GET /api/legal': {
+        status: 200,
+        body: { required: false, terms_version: 'x', privacy_version: 'x' },
+      },
+      'POST /api/auth/register': { status: 201, body: ALICE },
+    })
+    const { screen } = await renderApp('/register')
+
+    await expect
+      .element(screen.getByRole('link', { name: 'Read our privacy policy' }))
+      .not.toBeInTheDocument()
+    await signUp(
+      screen,
+      'Alice',
+      'alice@example.com',
+      'correct horse battery',
+      false
+    )
+
+    await expect
+      .element(screen.getByRole('heading', { name: 'No projects yet' }))
+      .toBeVisible()
+    expect(terms(screen).elements()).toHaveLength(0)
+    expect(requests.map(routeOf)).toContain('POST /api/auth/register')
   })
 })
