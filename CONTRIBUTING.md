@@ -82,7 +82,7 @@ register their own users and projects):
 
 ```bash
 (cd web && pnpm build)
-SANTI_ADDR=127.0.0.1:8089 cargo run -p santi-server &
+SANTI_ADDR=127.0.0.1:8089 SANTI_IP_LIMITS=off cargo run -p santi-server &   # e2e users all sign up from one address (D44)
 cd web && pnpm e2e                                    # E2E_BASE_URL, default http://localhost:8089
 ```
 
