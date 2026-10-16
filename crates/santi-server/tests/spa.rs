@@ -88,7 +88,13 @@ async fn a_missing_asset_is_a_plain_404_not_the_page() {
 async fn unknown_api_paths_stay_problem_json() {
     let app = app(Some(&built_spa("api")));
 
-    for uri in ["/api/nope", "/api/projects/SAN/nope", "/api/tokens/1/nope"] {
+    for uri in [
+        "/api",
+        "/api/",
+        "/api/nope",
+        "/api/projects/SAN/nope",
+        "/api/tokens/1/nope",
+    ] {
         let response = send(&app, Method::GET, uri).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
         assert_eq!(

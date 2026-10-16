@@ -85,6 +85,8 @@ fn spa(dir: &Path) -> Router<AppState> {
             "/assets",
             SetResponseHeader::overriding(assets, CACHE_CONTROL, cache_when_ok(IMMUTABLE)),
         )
+        .route("/api", any(not_found))
+        .route("/api/", any(not_found))
         .route("/api/{*path}", any(not_found))
         .fallback_service(SetResponseHeader::overriding(
             pages,
