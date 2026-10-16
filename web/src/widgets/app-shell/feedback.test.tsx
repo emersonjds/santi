@@ -34,6 +34,32 @@ describe('feedback, privacy and terms links', () => {
       .toHaveAttribute('href', FEEDBACK)
   })
 
+  it('drops privacy and terms when the instance has no legal pages', async () => {
+    await page.viewport(1280, 800)
+    signedIn({
+      'GET /api/legal': {
+        status: 200,
+        body: { required: false, terms_version: 'x', privacy_version: 'x' },
+      },
+      'GET /api/tokens': { status: 200, body: [] },
+    })
+    const { screen } = await renderApp('/account')
+    const links = screen.getByRole('navigation', { name: 'About santi' })
+
+    await expect
+      .element(links.getByRole('link', { name: 'Feedback' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Your data' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('link', { name: /Privacy/ }))
+      .not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('link', { name: 'Terms' }))
+      .not.toBeInTheDocument()
+  })
+
   it('links the privacy policy under the sign-up form', async () => {
     stubApi({ 'GET /api/me': { status: 401, body: {} } })
     const { screen } = await renderApp('/register')
