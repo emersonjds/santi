@@ -21,6 +21,7 @@ import {
 } from '@/entities/issue/board-query'
 import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
 import { useUpdateIssue } from '@/entities/issue/issue-mutations'
+import { ImportHint } from '@/entities/project/import-hint'
 import { projectQuery } from '@/entities/project/project-queries'
 import type {
   BoardColumn,
@@ -278,12 +279,17 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
         <RunningSprint sprint={board.sprint} projectKey={projectKey} />
       )}
       <FilterBar projectKey={projectKey} search={search} text />
-      {countFilters(search) > 0 &&
-        board.columns.every((column) => column.cards.length === 0) && (
+      {board.columns.every((column) => column.cards.length === 0) &&
+        (countFilters(search) > 0 ? (
           <p className='text-sm text-muted-foreground'>
             No issues match these filters.
           </p>
-        )}
+        ) : (
+          // A scrum board shows one sprint, so only the backlog tells an empty project.
+          board.board_type === 'kanban' && (
+            <ImportHint projectKey={projectKey} />
+          )
+        ))}
       <ColumnPicker
         projectKey={projectKey}
         columns={board.columns}

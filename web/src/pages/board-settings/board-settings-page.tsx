@@ -13,6 +13,9 @@ const LayoutEditor = lazy(() =>
   }))
 )
 
+const LINK =
+  'inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline'
+
 /** IA §3, §9: columns, statuses and the done window, for admins only. */
 export const BoardSettingsPage = () => {
   const { key } = useParams({ from: '/_authenticated/p/$key' })
@@ -24,13 +27,14 @@ export const BoardSettingsPage = () => {
     <div className='mx-auto grid w-full max-w-3xl gap-8 px-4 py-6 sm:px-6'>
       <div className='flex flex-wrap items-center justify-between gap-3'>
         <h2 className='text-lg font-semibold'>Board settings</h2>
-        <Link
-          to='/p/$key/settings/members'
-          params={{ key }}
-          className='inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline'
-        >
-          Members
-        </Link>
+        <span className='flex gap-4'>
+          <Link to='/p/$key/settings/members' params={{ key }} className={LINK}>
+            Members
+          </Link>
+          <Link to='/p/$key/settings/import' params={{ key }} className={LINK}>
+            Import issues
+          </Link>
+        </span>
       </div>
       <Suspense fallback={<Skeleton className='h-96' />}>
         <LayoutEditor projectKey={key} kanban={kanban} />

@@ -1,4 +1,4 @@
-import type { BoardType, MemberRole } from '@/shared/api/client'
+import type { BoardType, ImportSource, MemberRole } from '@/shared/api/client'
 
 export const BOARD_TYPE_LABEL = {
   scrum: 'Scrum',
@@ -9,3 +9,8 @@ export const ROLE_LABEL = {
   admin: 'Admin',
   member: 'Member',
 } satisfies Record<MemberRole, string>
+
+export const IMPORT_SOURCE_LABEL = {
+  jira: 'Jira',
+  linear: 'Linear',
+} satisfies Record<ImportSource, string>
