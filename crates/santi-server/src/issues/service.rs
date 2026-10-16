@@ -68,14 +68,6 @@ pub async fn get_issue(pool: &PgPool, member: &Member, number: i64) -> Result<Is
         .ok_or(AppError::NotFound)
 }
 
-/// The issue detail as the caller opens it: the view is recorded in the same statement (SAN-72).
-pub async fn view_issue(pool: &PgPool, member: &Member, number: i64) -> Result<Issue, AppError> {
-    let mut conn = pool.acquire().await?;
-    repo::view_issue(&mut conn, member.project_id, number, member.user_id)
-        .await?
-        .ok_or(AppError::NotFound)
-}
-
 pub async fn update_issue(
     pool: &PgPool,
     member: &Member,

@@ -46,7 +46,7 @@ pub async fn create_issue(
         ("key" = String, Path, description = "Project key"),
         ("number" = i64, Path, description = "Issue number, the N of KEY-N")),
     responses(
-        (status = 200, body = Issue, description = "Records the caller's view for the home's Viewed list (at most once a minute)"),
+        (status = 200, body = Issue),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json")))]
 pub async fn get_issue(
@@ -55,7 +55,7 @@ pub async fn get_issue(
     PathParams((_key, number)): PathParams<(String, i64)>,
 ) -> Result<Json<Issue>, AppError> {
     Ok(Json(
-        service::view_issue(&state.pool, &member, number).await?,
+        service::get_issue(&state.pool, &member, number).await?,
     ))
 }
 

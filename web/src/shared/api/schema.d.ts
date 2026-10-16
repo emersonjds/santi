@@ -452,6 +452,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/issues/{number}/view": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["view_issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/labels": {
         parameters: {
             query?: never;
@@ -596,6 +612,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/visit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["visit_project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sample-project": {
         parameters: {
             query?: never;
@@ -669,13 +701,14 @@ export interface components {
             confirm_age?: boolean;
         };
         /**
-         * @description Everything santi holds about the caller (D45): the account, its API tokens (names only) and
-         *     every project the caller administers, in full.
+         * @description Everything santi holds about the caller (D45): the account, its API tokens (names only),
+         *     every project the caller administers, in full, and the home's stars and history.
          */
         AccountExport: {
             api_tokens: components["schemas"]["ApiToken"][];
             /** Format: date-time */
             exported_at: string;
+            home: components["schemas"]["HomeExport"];
             /** @description Every acceptance of the Terms of Use, the Privacy Policy and the age declaration. */
             legal_acceptances: components["schemas"]["LegalAcceptance"][];
             /** @description Projects the caller is a plain member of: named here, owned by their admins. */
@@ -887,6 +920,13 @@ export interface components {
             status: string;
             version: string;
         };
+        /** @description D45: what the home keeps about the caller, with the times. */
+        HomeExport: {
+            /** @description Issues the caller starred, opened or worked on. */
+            issues: components["schemas"]["IssueActivity"][];
+            /** @description Projects the caller starred or opened. */
+            projects: components["schemas"]["ProjectActivity"][];
+        };
         /** @description One row of a home list, from any project the caller belongs to. */
         HomeIssue: {
             assignee_name?: string | null;
@@ -1013,6 +1053,18 @@ export interface components {
              */
             updated_at: string;
         };
+        IssueActivity: {
+            key: string;
+            /** Format: date-time */
+            starred_at?: string | null;
+            /** Format: date-time */
+            viewed_at?: string | null;
+            /**
+             * Format: date-time
+             * @description Last create, edit, move or comment.
+             */
+            worked_at?: string | null;
+        };
         /** @enum {string} */
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
         /** @description One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`. */
@@ -1070,8 +1122,8 @@ export interface components {
         MyProject: {
             board_type: components["schemas"]["BoardType"];
             key: string;
-            /** @description The project's oldest admin account. */
-            lead_name: string;
+            /** @description The project's oldest admin account, if it has one. */
+            lead_name?: string | null;
             name: string;
             /**
              * Format: int64
@@ -1203,6 +1255,13 @@ export interface components {
             key: string;
             name: string;
             role: components["schemas"]["MemberRole"];
+        };
+        ProjectActivity: {
+            key: string;
+            /** Format: date-time */
+            starred_at?: string | null;
+            /** Format: date-time */
+            visited_at?: string | null;
         };
         ProjectExport: {
             board: components["schemas"]["BoardSettings"];
@@ -2890,7 +2949,6 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Records the caller's view for the home's Viewed list (at most once a minute) */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3176,6 +3234,45 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    view_issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The browser session opened the issue: it joins the caller's Viewed list (at most once a minute). API tokens are ignored. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3908,6 +4005,43 @@ export interface operations {
             };
             /** @description `in-use`: an issue holds it; `keep-done-column`: the last done status */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    visit_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The browser session opened the project: it moves up the caller's home (at most once a minute). API tokens are ignored. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

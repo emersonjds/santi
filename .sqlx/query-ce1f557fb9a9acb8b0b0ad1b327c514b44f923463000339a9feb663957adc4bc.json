@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.key, m.starred_at, m.visited_at\n         FROM member m JOIN project p ON p.id = m.project_id\n         WHERE m.user_id = $1 AND (m.starred_at IS NOT NULL OR m.visited_at IS NOT NULL)\n         ORDER BY p.key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "starred_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "starred_at"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "visited_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "visited_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "ce1f557fb9a9acb8b0b0ad1b327c514b44f923463000339a9feb663957adc4bc"
+}

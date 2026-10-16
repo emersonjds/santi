@@ -23,10 +23,13 @@ pub fn parse_star_key(key: &str) -> Result<StarTarget, AppError> {
     let Some(number) = number else {
         return Ok(StarTarget::Project(project));
     };
-    match number.parse::<i64>() {
-        Ok(number) if number > 0 => Ok(StarTarget::Issue(project, number)),
-        _ => Err(invalid()),
+    if number.starts_with('0') || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return Err(invalid());
     }
+    number
+        .parse()
+        .map(|number| StarTarget::Issue(project, number))
+        .map_err(|_| invalid())
 }
 
 #[cfg(test)]
@@ -43,7 +46,9 @@ mod tests {
             parse_star_key("WEB-12").unwrap(),
             StarTarget::Issue("WEB".into(), 12)
         );
-        for bad in ["", "W", "-1", "WEB-", "WEB-0", "WEB-x", "WEB-1-2"] {
+        for bad in [
+            "", "W", "-1", "WEB-", "WEB-0", "WEB-x", "WEB-1-2", "WEB-007", "WEB-+5", "WEB- 5",
+        ] {
             assert!(parse_star_key(bad).is_err(), "{bad}");
         }
     }

@@ -1,6 +1,6 @@
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use santi_types::Problem;
 use santi_types::home::{HomeIssue, HomeQuery, MyProject, Star};
 use santi_types::issues::{Page, PageParams};
@@ -9,9 +9,11 @@ use utoipa_axum::routes;
 
 use super::service;
 use crate::AppState;
+use crate::auth::domain::bearer_token;
 use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
 use crate::extract::{JsonBody, PathParams, QueryParams};
+use crate::members::Member;
 
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
@@ -19,6 +21,8 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(my_issues))
         .routes(routes!(star))
         .routes(routes!(unstar))
+        .routes(routes!(view_issue))
+        .routes(routes!(visit_project))
 }
 
 #[utoipa::path(get, path = "/api/me/projects", tag = "home",
@@ -78,5 +82,42 @@ pub async fn unstar(
     PathParams(key): PathParams<String>,
 ) -> Result<StatusCode, AppError> {
     service::set_star(&state.pool, &user, &key, false).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(post, path = "/api/projects/{key}/issues/{number}/view", tag = "home",
+    params(
+        ("key" = String, Path, description = "Project key"),
+        ("number" = i64, Path, description = "Issue number, the N of KEY-N")),
+    responses(
+        (status = 204, description = "The browser session opened the issue: it joins the caller's Viewed list (at most once a minute). API tokens are ignored."),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
+pub async fn view_issue(
+    State(state): State<AppState>,
+    member: Member,
+    headers: HeaderMap,
+    PathParams((_key, number)): PathParams<(String, i64)>,
+) -> Result<StatusCode, AppError> {
+    if bearer_token(&headers).is_none() {
+        service::view_issue(&state.pool, &member, number).await?;
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(post, path = "/api/projects/{key}/visit", tag = "home",
+    params(("key" = String, Path, description = "Project key")),
+    responses(
+        (status = 204, description = "The browser session opened the project: it moves up the caller's home (at most once a minute). API tokens are ignored."),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
+pub async fn visit_project(
+    State(state): State<AppState>,
+    member: Member,
+    headers: HeaderMap,
+) -> Result<StatusCode, AppError> {
+    if bearer_token(&headers).is_none() {
+        service::visit_project(&state.pool, &member).await?;
+    }
     Ok(StatusCode::NO_CONTENT)
 }
