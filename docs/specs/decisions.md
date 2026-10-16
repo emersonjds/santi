@@ -157,7 +157,7 @@ Product vote: n/a
 Architecture vote: C — `UPDATE project SET next_issue_number = next_issue_number + 1 … RETURNING` inside the create transaction; the row lock serializes concurrent creates and `UNIQUE (project_id, number)` backs it. A races and reuses after deletes; B needs DDL per project.
 Winner: C — one statement, no duplicates, never reused; accepted: creates within one project are serialized (irrelevant at human speed).
 
-## D21 — Rank encoding
+## D21 — Rank encoding (open-ended keys amended by D39)
 Context: one total order per project (D4); a move must rewrite one row.
 Options: A) fractional index string B) integer with gaps C) LexoRank-like buckets
 Product vote: n/a
@@ -390,6 +390,6 @@ Fixes that came out of the first measurement:
 - Rank keys (amends D21): an open-ended `rank_between` halved the gap to the edge, so every append (new issue, move after the last) added a character every ~6 issues; 5k issues carried 667-char keys into every card and the backlog weighed 906 KB. Open-ended keys now step one unit with escape levels (`level` leading 'z' or '0' digits, then a `level + 1` digit counter), staying ≤ 5 chars for 10k appends or moves to the top. Keys already stored keep working; data seeded before the change keeps its long keys (no re-spread migration while v1 is unreleased).
 - Token and membership resolve in one query (`members::repo::find_member_by_token`), one round trip less on every project-scoped request.
 
-Known ceilings: the backlog loads unpaged (D29) and is the endpoint closest to budget (~1.2k cards, 375 KB raw / 26 KB br); upgrade: lazy no-sprint section. Moves in one project are serialized by the D21 project lock, so concurrent moves in one project queue.
+Known ceilings: the backlog loads unpaged (D29) and is the endpoint closest to budget (~1.2k cards, 375 KB raw, 26–28 KB compressed); upgrade: lazy no-sprint section. Moves in one project are serialized by the D21 project lock, so concurrent moves in one project queue.
 
 SPA budgets (enforced by the SPA cards): initial JS < 170 KB gzip (`size-limit`, SAN-38); LCP < 1.0 s; INP < 100 ms; writes optimistic (D37); lists over 200 rows virtualized; no layout shift (CLS 0: skeletons and reserved sizes).
