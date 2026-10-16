@@ -7,6 +7,7 @@ import { BoardTypeBadge } from '@/entities/project/board-type-badge'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { Button } from '@/shared/ui/button'
+import { ArchivedBanner } from './archived-banner'
 import { MemberStack, STACK } from './member-stack'
 import { ProjectTabs } from './project-tabs'
 
@@ -82,6 +83,7 @@ export const ProjectHeader = () => {
           )}
         </div>
       </div>
+      {project.state === 'archived' && <ArchivedBanner project={project} />}
       <ProjectTabs project={project} />
     </header>
   )
