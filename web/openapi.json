@@ -1091,6 +1091,164 @@
         }
       }
     },
+    "/api/projects/{key}/imports": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "import",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Issues numbered here and ranked last in file order; rows already imported from the same source are skipped (D41)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a known CSV export, over 10 MB, or a mapping to ids outside the project (`mapping.<kind>.<name>`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/imports/preview": {
+      "post": {
+        "tags": [
+          "imports"
+        ],
+        "operationId": "preview_import",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Source told by the header; statuses, people, sprints and types found, with suggestions (D41)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a known CSV export, or over 10 MB",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/{key}/invites": {
       "post": {
         "tags": [
@@ -3299,6 +3457,24 @@
           }
         }
       },
+      "ColumnUse": {
+        "type": "object",
+        "required": [
+          "field",
+          "columns"
+        ],
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "field": {
+            "type": "string"
+          }
+        }
+      },
       "Comment": {
         "type": "object",
         "required": [
@@ -3583,6 +3759,180 @@
           },
           "version": {
             "type": "string"
+          }
+        }
+      },
+      "ImportMapping": {
+        "type": "object",
+        "description": "The confirmed mapping; names are as they appear in the file.",
+        "properties": {
+          "people": {
+            "type": "object",
+            "description": "Person → member user id; unlisted or null = nobody (reporter: the importing admin).",
+            "additionalProperties": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "sprints": {
+            "type": "object",
+            "description": "Sprint name → action; unlisted = skip. Sprints with the same name on the board are reused.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SprintAction"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "statuses": {
+            "type": "object",
+            "description": "Status name → santi status id. Rows with an unlisted status fail.",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "types": {
+            "type": "object",
+            "description": "Issue type name → santi type; unlisted = the suggested type.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/IssueType"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ImportPreview": {
+        "type": "object",
+        "description": "What the file holds, before anything is written.",
+        "required": [
+          "source",
+          "row_count",
+          "columns",
+          "statuses",
+          "people",
+          "sprints",
+          "issue_types",
+          "problems"
+        ],
+        "properties": {
+          "columns": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ColumnUse"
+            },
+            "description": "santi field → the file columns read for it."
+          },
+          "issue_types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TypeFound"
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonFound"
+            },
+            "description": "Assignees and reporters, once each."
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RowProblem"
+            },
+            "description": "The first 100 problems."
+          },
+          "row_count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source": {
+            "$ref": "#/components/schemas/ImportSource"
+          },
+          "sprints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SprintFound"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatusFound"
+            }
+          }
+        }
+      },
+      "ImportResult": {
+        "type": "object",
+        "required": [
+          "source",
+          "created",
+          "skipped",
+          "failed",
+          "problems"
+        ],
+        "properties": {
+          "created": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RowProblem"
+            },
+            "description": "The first 100 problems: failed rows and fields that were dropped or changed."
+          },
+          "skipped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Already imported from this source (same original key)."
+          },
+          "source": {
+            "$ref": "#/components/schemas/ImportSource"
+          }
+        }
+      },
+      "ImportSource": {
+        "type": "string",
+        "description": "Where a CSV export came from, told apart by its header row (D41).",
+        "enum": [
+          "jira",
+          "linear"
+        ]
+      },
+      "ImportUpload": {
+        "type": "object",
+        "description": "`multipart/form-data` body of the import.",
+        "required": [
+          "file",
+          "mapping"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The CSV export, at most 10 MB."
+          },
+          "mapping": {
+            "$ref": "#/components/schemas/ImportMapping"
           }
         }
       },
@@ -4045,6 +4395,44 @@
           }
         }
       },
+      "PersonFound": {
+        "type": "object",
+        "required": [
+          "name",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "member_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The project member with this email, if any."
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PreviewUpload": {
+        "type": "object",
+        "description": "`multipart/form-data` body of the preview.",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "The CSV export, at most 10 MB."
+          }
+        }
+      },
       "Priority": {
         "type": "string",
         "enum": [
@@ -4149,6 +4537,23 @@
           }
         }
       },
+      "RowProblem": {
+        "type": "object",
+        "required": [
+          "line",
+          "message"
+        ],
+        "properties": {
+          "line": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Line in the file where the row starts; the header is line 1."
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "SetRole": {
         "type": "object",
         "required": [
@@ -4217,6 +4622,36 @@
           }
         }
       },
+      "SprintAction": {
+        "type": "string",
+        "description": "What a sprint name in the file becomes.",
+        "enum": [
+          "future",
+          "closed",
+          "skip"
+        ]
+      },
+      "SprintFound": {
+        "type": "object",
+        "required": [
+          "name",
+          "count",
+          "closed"
+        ],
+        "properties": {
+          "closed": {
+            "type": "boolean",
+            "description": "An issue moved on from it, or its cycle ended."
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "SprintState": {
         "type": "string",
         "enum": [
@@ -4281,6 +4716,55 @@
           "in_progress",
           "done"
         ]
+      },
+      "StatusFound": {
+        "type": "object",
+        "required": [
+          "name",
+          "count",
+          "category"
+        ],
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/StatusCategory",
+            "description": "From the file's status category column, or guessed from the name."
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "suggested_status_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Same name in this project, else its first status of the same category."
+          }
+        }
+      },
+      "TypeFound": {
+        "type": "object",
+        "required": [
+          "name",
+          "count",
+          "suggested"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "suggested": {
+            "$ref": "#/components/schemas/IssueType"
+          }
+        }
       },
       "UpdateBoardSettings": {
         "type": "object",

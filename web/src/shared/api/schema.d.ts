@@ -228,6 +228,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/imports/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["preview_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/invites": {
         parameters: {
             query?: never;
@@ -601,6 +633,10 @@ export interface components {
             /** Format: int32 */
             wip_limit?: number | null;
         };
+        ColumnUse: {
+            columns: string[];
+            field: string;
+        };
         Comment: {
             /** Format: int64 */
             author_id: number;
@@ -686,6 +722,68 @@ export interface components {
         Health: {
             status: string;
             version: string;
+        };
+        /** @description The confirmed mapping; names are as they appear in the file. */
+        ImportMapping: {
+            /** @description Person → member user id; unlisted or null = nobody (reporter: the importing admin). */
+            people?: {
+                [key: string]: number | null;
+            };
+            /** @description Sprint name → action; unlisted = skip. Sprints with the same name on the board are reused. */
+            sprints?: {
+                [key: string]: components["schemas"]["SprintAction"];
+            };
+            /** @description Status name → santi status id. Rows with an unlisted status fail. */
+            statuses?: {
+                [key: string]: number;
+            };
+            /** @description Issue type name → santi type; unlisted = the suggested type. */
+            types?: {
+                [key: string]: components["schemas"]["IssueType"];
+            };
+        };
+        /** @description What the file holds, before anything is written. */
+        ImportPreview: {
+            /** @description santi field → the file columns read for it. */
+            columns: components["schemas"]["ColumnUse"][];
+            issue_types: components["schemas"]["TypeFound"][];
+            /** @description Assignees and reporters, once each. */
+            people: components["schemas"]["PersonFound"][];
+            /** @description The first 100 problems. */
+            problems: components["schemas"]["RowProblem"][];
+            /** Format: int64 */
+            row_count: number;
+            source: components["schemas"]["ImportSource"];
+            sprints: components["schemas"]["SprintFound"][];
+            statuses: components["schemas"]["StatusFound"][];
+        };
+        ImportResult: {
+            /** Format: int64 */
+            created: number;
+            /** Format: int64 */
+            failed: number;
+            /** @description The first 100 problems: failed rows and fields that were dropped or changed. */
+            problems: components["schemas"]["RowProblem"][];
+            /**
+             * Format: int64
+             * @description Already imported from this source (same original key).
+             */
+            skipped: number;
+            source: components["schemas"]["ImportSource"];
+        };
+        /**
+         * @description Where a CSV export came from, told apart by its header row (D41).
+         * @enum {string}
+         */
+        ImportSource: "jira" | "linear";
+        /** @description `multipart/form-data` body of the import. */
+        ImportUpload: {
+            /**
+             * Format: binary
+             * @description The CSV export, at most 10 MB.
+             */
+            file: string;
+            mapping: components["schemas"]["ImportMapping"];
         };
         /** @description The token is shown once; the invite link is `/invites/{token}`. */
         Invite: {
@@ -831,6 +929,24 @@ export interface components {
             /** Format: int64 */
             next_cursor?: number | null;
         };
+        PersonFound: {
+            /** Format: int64 */
+            count: number;
+            /**
+             * Format: int64
+             * @description The project member with this email, if any.
+             */
+            member_id?: number | null;
+            name: string;
+        };
+        /** @description `multipart/form-data` body of the preview. */
+        PreviewUpload: {
+            /**
+             * Format: binary
+             * @description The CSV export, at most 10 MB.
+             */
+            file: string;
+        };
         /** @enum {string} */
         Priority: "urgent" | "high" | "medium" | "low";
         /** @description RFC 9457 problem details, the body of every error response (D24). */
@@ -859,6 +975,14 @@ export interface components {
         ReorderColumns: {
             column_ids: number[];
         };
+        RowProblem: {
+            /**
+             * Format: int64
+             * @description Line in the file where the row starts; the header is line 1.
+             */
+            line: number;
+            message: string;
+        };
         SetRole: {
             role: components["schemas"]["MemberRole"];
         };
@@ -878,6 +1002,18 @@ export interface components {
             /** Format: date-time */
             started_at?: string | null;
             state: components["schemas"]["SprintState"];
+        };
+        /**
+         * @description What a sprint name in the file becomes.
+         * @enum {string}
+         */
+        SprintAction: "future" | "closed" | "skip";
+        SprintFound: {
+            /** @description An issue moved on from it, or its cycle ended. */
+            closed: boolean;
+            /** Format: int64 */
+            count: number;
+            name: string;
         };
         /** @enum {string} */
         SprintState: "future" | "active" | "closed";
@@ -906,6 +1042,24 @@ export interface components {
         };
         /** @enum {string} */
         StatusCategory: "todo" | "in_progress" | "done";
+        StatusFound: {
+            /** @description From the file's status category column, or guessed from the name. */
+            category: components["schemas"]["StatusCategory"];
+            /** Format: int64 */
+            count: number;
+            name: string;
+            /**
+             * Format: int64
+             * @description Same name in this project, else its first status of the same category.
+             */
+            suggested_status_id?: number | null;
+        };
+        TypeFound: {
+            /** Format: int64 */
+            count: number;
+            name: string;
+            suggested: components["schemas"]["IssueType"];
+        };
         UpdateBoardSettings: {
             /**
              * Format: int32
@@ -1741,6 +1895,128 @@ export interface operations {
                 };
             };
             /** @description Window not 7, 14, 30 or null, or set on a scrum board */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["ImportUpload"];
+            };
+        };
+        responses: {
+            /** @description Issues numbered here and ranked last in file order; rows already imported from the same source are skipped (D41) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not a known CSV export, over 10 MB, or a mapping to ids outside the project (`mapping.<kind>.<name>`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    preview_import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["PreviewUpload"];
+            };
+        };
+        responses: {
+            /** @description Source told by the header; statuses, people, sprints and types found, with suggestions (D41) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportPreview"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not a known CSV export, or over 10 MB */
             422: {
                 headers: {
                     [name: string]: unknown;
