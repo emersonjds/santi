@@ -24,6 +24,7 @@ import {
 } from '@/entities/issue/board-query'
 import { useUpdateRow } from '@/entities/issue/issue-mutations'
 import { type Status, statusesById } from '@/entities/issue/statuses'
+import { ImportHint } from '@/entities/project/import-hint'
 import type {
   Backlog as BacklogView,
   BacklogSection,
@@ -361,12 +362,14 @@ const BacklogBody = ({ projectKey, search }: BacklogProps) => {
           Epics
         </Link>
       </div>
-      {countFilters(search) > 0 &&
-        backlog.sections.every((section) => section.cards.length === 0) && (
+      {backlog.sections.every((section) => section.cards.length === 0) &&
+        (countFilters(search) > 0 ? (
           <p className='text-sm text-muted-foreground'>
             No issues match these filters.
           </p>
-        )}
+        ) : (
+          <ImportHint projectKey={projectKey} />
+        ))}
       <Sections
         backlog={backlog}
         projectKey={projectKey}

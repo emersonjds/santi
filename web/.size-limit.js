@@ -85,4 +85,14 @@ export default [
     limit: '170 KB',
     gzip: true,
   },
+  {
+    name: 'initial JS, /p/KEY/settings/import (importer)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/settings/import.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
 ]

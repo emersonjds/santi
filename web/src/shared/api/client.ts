@@ -25,6 +25,11 @@ export type Issue = Schemas['Issue']
 export type Comment = Schemas['Comment']
 export type CreateIssue = Schemas['CreateIssue']
 export type FieldError = Schemas['FieldError']
+export type ImportPreview = Schemas['ImportPreview']
+export type ImportMapping = Schemas['ImportMapping']
+export type ImportResult = Schemas['ImportResult']
+export type SprintAction = Schemas['SprintAction']
+export type ImportSource = Schemas['ImportSource']
 
 // The session is an HttpOnly cookie (D22): no token ever reaches this code.
 export const api = createClient<paths>({
@@ -32,6 +37,15 @@ export const api = createClient<paths>({
   // Looked up per call so tests can stub the global fetch.
   fetch: (request) => globalThis.fetch(request),
 })
+
+/** A `multipart/form-data` body: the file, plus each field as JSON. */
+export const formData = (file: File, fields: Record<string, unknown> = {}) => {
+  const form = new FormData()
+  form.append('file', file)
+  for (const [name, value] of Object.entries(fields))
+    form.append(name, JSON.stringify(value))
+  return form
+}
 
 /** A failed API call, with the status the QueryClient handlers branch on. */
 export class ApiError extends Error {
