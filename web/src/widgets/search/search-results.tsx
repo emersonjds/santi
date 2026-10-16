@@ -22,8 +22,8 @@ import {
 } from '@/entities/issue/statuses'
 import { timeAgo } from '@/entities/issue/time-ago'
 import { membersQuery } from '@/entities/project/project-queries'
+import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Issue } from '@/shared/api/client'
-import { initials } from '@/shared/lib/initials'
 import { Button } from '@/shared/ui/button'
 import { NativeSelect } from '@/shared/ui/native-select'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -69,7 +69,7 @@ type SearchRowProps = {
 }
 
 const SearchRow = ({ issue, projectKey, status, assignee }: SearchRowProps) => (
-  <li className='relative flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 bg-card px-3 py-2 text-sm hover:bg-muted md:flex-nowrap md:py-1.5'>
+  <li className='relative flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 bg-card px-3 py-2 text-sm hover:bg-hover md:flex-nowrap md:py-1.5'>
     <TypeGlyph type={issue.issue_type} />
     <span className='text-xs tracking-wide text-subtle-foreground tabular-nums'>
       {issue.key}
@@ -87,18 +87,16 @@ const SearchRow = ({ issue, projectKey, status, assignee }: SearchRowProps) => (
     >
       {issue.summary}
     </Link>
-    {status && <StatusPill status={status} />}
-    {assignee && (
-      <span
-        className='grid size-6 shrink-0 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
-        title={`Assigned to ${assignee}`}
-      >
-        {initials(assignee)}
-      </span>
-    )}
+    {/* Fixed slots on wide screens: pills and avatars line up down the list. */}
+    <span className='flex shrink-0 empty:hidden md:w-32 md:justify-end md:empty:flex'>
+      {status && <StatusPill status={status} />}
+    </span>
+    <span className='shrink-0 empty:hidden md:size-6 md:empty:block'>
+      {assignee && <AssigneeAvatar name={assignee} />}
+    </span>
     <time
       dateTime={issue.updated_at}
-      className='shrink-0 text-xs text-subtle-foreground'
+      className='shrink-0 text-xs text-subtle-foreground md:w-24 md:text-end'
     >
       {timeAgo(issue.updated_at)}
     </time>

@@ -66,7 +66,7 @@ export const ProjectHeader = () => {
           {project.name}
         </h1>
         <BoardTypeBadge type={project.board_type} />
-        <div className='ms-auto flex items-center gap-2'>
+        <div className='flex items-center gap-2 sm:ms-auto'>
           <Suspense fallback={<MembersFallback projectKey={project.key} />}>
             <MembersPopover
               projectKey={project.key}

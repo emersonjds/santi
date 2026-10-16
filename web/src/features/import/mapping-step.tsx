@@ -155,7 +155,7 @@ export const MappingStep = ({
     return (
       <div className='grid gap-1 bg-card px-3 py-2 sm:grid-cols-[1fr_14rem] sm:items-center sm:gap-3'>
         <span className='grid min-w-0'>
-          <span className='truncate font-medium'>{row.name}</span>
+          <span className='truncate text-sm font-medium'>{row.name}</span>
           <span className='text-xs text-subtle-foreground'>{row.meta}</span>
         </span>
         <NativeSelect

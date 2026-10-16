@@ -21,11 +21,12 @@ export const ProjectSearch = ({ projectKey }: { projectKey: string }) => {
     <form
       role='search'
       onSubmit={search}
-      className='relative min-w-0 flex-1 sm:max-w-64'
+      // ui-layout 375px: a search button that opens the field across the bar.
+      className='relative min-w-0 flex-1 max-sm:size-11 max-sm:flex-none max-sm:focus-within:absolute max-sm:focus-within:inset-x-2 max-sm:focus-within:top-1.5 max-sm:focus-within:z-20 max-sm:focus-within:size-auto sm:max-w-64'
     >
       <Search
         aria-hidden='true'
-        className='pointer-events-none absolute start-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground'
+        className='pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground sm:start-2.5'
       />
       <Input
         type='search'
@@ -33,7 +34,7 @@ export const ProjectSearch = ({ projectKey }: { projectKey: string }) => {
         aria-label={label}
         aria-keyshortcuts='/'
         placeholder={label}
-        className='h-11 ps-8 text-base md:h-9 md:text-sm'
+        className='h-11 bg-background ps-8 text-base max-sm:cursor-pointer max-sm:placeholder:text-transparent max-sm:focus:ps-10 max-sm:focus:placeholder:text-subtle-foreground md:h-9 md:text-sm'
       />
     </form>
   )

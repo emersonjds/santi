@@ -10,6 +10,7 @@
   --primary: #4c35d2;
   --primary-foreground: #ffffff;
   --primary-hover: #3f2cb0;
+  --primary-pressed: #34258f;
   --secondary: #f4f5f7;
   --secondary-foreground: #172033;
   --muted: #f4f5f7;
@@ -51,8 +52,8 @@
   --hover: #eef0f3;
   --avatar-1: #ece8fb;
   --avatar-1-foreground: #3f2cb0;
-  --avatar-2: #ccfbf1;
-  --avatar-2-foreground: #115e59;
+  --avatar-2: #ecfccb;
+  --avatar-2-foreground: #3f6212;
   --avatar-3: #fef3c7;
   --avatar-3-foreground: #92400e;
   --avatar-4: #ffe4e6;
@@ -74,6 +75,7 @@
   --primary: #8b78e9;
   --primary-foreground: #1b1348;
   --primary-hover: #b8abf1;
+  --primary-pressed: #d7d0f7;
   --secondary: #1a1918;
   --secondary-foreground: #edebe8;
   --muted: #1a1918;
@@ -114,8 +116,8 @@
   --hover: #33302d;
   --avatar-1: #2c2075;
   --avatar-1-foreground: #c4b8f5;
-  --avatar-2: #134e4a;
-  --avatar-2-foreground: #5eead4;
+  --avatar-2: #1a2e05;
+  --avatar-2-foreground: #bef264;
   --avatar-3: #3a2a0a;
   --avatar-3-foreground: #fbbf24;
   --avatar-4: #4c0519;
@@ -141,6 +143,7 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
+  --color-primary-pressed: var(--primary-pressed);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

@@ -346,7 +346,7 @@ const BacklogBody = ({ projectKey, search }: BacklogProps) => {
   const panelOpen = search.panel === 'epics'
   return (
     <>
-      <div className='flex items-start gap-2'>
+      <div className='flex flex-wrap items-center gap-2'>
         <FilterBar projectKey={projectKey} search={search} text />
         <Link
           to='.'

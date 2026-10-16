@@ -11,7 +11,7 @@ export const IssueMenu = ({ onDelete }: { onDelete: () => void }) => (
   <DropdownMenu>
     <DropdownMenuTrigger
       aria-label='More actions'
-      className='grid size-11 place-items-center rounded-md outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8'
+      className='grid size-11 place-items-center rounded-md outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8'
     >
       <Ellipsis className='size-4' />
     </DropdownMenuTrigger>

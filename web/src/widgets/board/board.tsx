@@ -266,7 +266,7 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const { data: project } = useQuery(projectQuery(projectKey))
   if (error) throw error
-  if (!board) return <BoardSkeleton />
+  if (!board) return <BoardSkeleton scrum={project?.board_type === 'scrum'} />
   if (board.board_type === 'scrum' && !board.sprint)
     return <NoSprint projectKey={projectKey} />
   const shown =

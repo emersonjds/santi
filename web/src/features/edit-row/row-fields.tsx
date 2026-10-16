@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
 import { useUpdateRow } from '@/entities/issue/issue-mutations'
 import { membersQuery } from '@/entities/project/project-queries'
+import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
-import { initials } from '@/shared/lib/initials'
 
 type RowFieldProps = { card: Card; projectKey: string }
 
@@ -114,12 +114,7 @@ export const RowAssignee = ({ card, projectKey }: RowFieldProps) => {
   return (
     <span className='relative z-10 grid size-6 shrink-0 place-items-center rounded-full focus-within:ring-2 focus-within:ring-ring'>
       {card.assignee_name ? (
-        <span
-          className='grid size-6 place-items-center rounded-full bg-accent text-[0.6875rem] font-bold text-primary'
-          title={`Assigned to ${card.assignee_name}`}
-        >
-          {initials(card.assignee_name)}
-        </span>
+        <AssigneeAvatar name={card.assignee_name} />
       ) : (
         <span className='size-6 rounded-full border border-dashed border-subtle-foreground' />
       )}

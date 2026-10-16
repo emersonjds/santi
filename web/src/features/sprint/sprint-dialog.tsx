@@ -497,7 +497,7 @@ const CompleteSprintForm = ({
             {choices.map(([value, label]) => (
               <label
                 key={value}
-                className='flex min-h-11 items-center gap-2 rounded-md px-2 text-sm hover:bg-muted md:min-h-9'
+                className='flex min-h-11 items-center gap-2 rounded-md px-2 text-sm hover:bg-hover md:min-h-9'
               >
                 <input
                   type='radio'

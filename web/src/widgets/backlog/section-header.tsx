@@ -130,13 +130,14 @@ export const SectionHeader = ({
           title={`Total ${section.total_points} points`}
         >
           {section.total_points}
+          <span className='font-normal text-muted-foreground'> pts</span>
         </span>
       </span>
       <span className='flex items-center gap-1'>{actions}</span>
       {hint && (
         <p
           id={`${id}-hint`}
-          className='basis-full px-2 text-end text-xs text-subtle-foreground'
+          className='basis-full px-2 text-xs text-subtle-foreground md:text-end'
         >
           {hint}
         </p>

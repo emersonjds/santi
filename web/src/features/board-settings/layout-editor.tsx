@@ -20,7 +20,7 @@ import { RootError } from '@/shared/ui/root-error'
 import { AddColumnForm, ColumnRow, SortableColumn } from './column-rows'
 import { COLUMN, STATUS, UNMAPPED, ZONE } from './drag-kinds'
 import { type OnEdit, useSettingsEdit } from './settings-edits'
-import { AddStatusForm, StatusRow, StatusZone } from './status-rows'
+import { AddStatusForm, ICON, StatusRow, StatusZone } from './status-rows'
 
 const after = (prefix: string, id: UniqueIdentifier) => {
   const text = String(id)
@@ -118,6 +118,7 @@ export const LayoutEditor = ({ projectKey, kanban }: LayoutEditorProps) => {
               column={rightmost}
               kanban={kanban}
               onEdit={onEdit}
+              handle={<span aria-hidden='true' className={ICON} />}
               actions={
                 <span className='text-xs text-subtle-foreground'>
                   Stays rightmost

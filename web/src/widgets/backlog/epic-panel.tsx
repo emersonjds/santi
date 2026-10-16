@@ -21,7 +21,7 @@ type Epic = Backlog['epics'][number]
 const NO_EPIC = 'none'
 
 const ITEM =
-  'grid min-h-11 content-center gap-1 rounded-md px-3 py-2 text-sm outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground'
+  'grid min-h-11 content-center gap-1 rounded-md px-3 py-2 text-sm outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground'
 
 type PickProps = {
   /** The `epic` it sets: a key, `none`, or nothing for all issues. */
@@ -107,7 +107,7 @@ const CreateEpic = ({ projectKey }: { projectKey: string }) => {
     return (
       <button
         type='button'
-        className='flex h-11 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:h-9'
+        className='flex h-11 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:h-9'
         onClick={() => setOpen(true)}
       >
         <Plus className='size-4' />

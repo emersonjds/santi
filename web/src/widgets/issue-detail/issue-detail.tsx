@@ -82,7 +82,7 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
         aria-label='Summary'
         required
         maxLength={255}
-        className='h-auto border-transparent px-2 py-1 text-xl font-semibold shadow-none hover:border-input max-md:min-h-11 md:text-xl'
+        className='-ms-2.25 h-auto border-transparent px-2 py-1 text-xl font-semibold shadow-none hover:border-input max-md:min-h-11 md:text-xl'
         value={issue.summary}
         onCommit={(summary) =>
           edit.mutate({ change: { summary }, shown: { summary } })
@@ -202,7 +202,7 @@ export const IssueDetail = ({
   return (
     <div
       data-issue-view
-      className='grid gap-6 md:grid-cols-[minmax(0,1fr)_16rem]'
+      className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem]'
     >
       <div className='grid min-w-0 content-start gap-6'>
         <div className='grid gap-2'>
