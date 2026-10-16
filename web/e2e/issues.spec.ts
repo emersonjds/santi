@@ -28,7 +28,7 @@ const register = async (page: Page, name: string) => {
 
 /** A signed-in user with a kanban project holding two issues in its first column. */
 const kanbanWithIssues = async (page: Page) => {
-  await page.goto('/app/register')
+  await page.goto('/register')
   await register(page, 'Ada')
   await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
   const key = `I${unique().slice(-6).toUpperCase()}`
@@ -39,7 +39,7 @@ const kanbanWithIssues = async (page: Page) => {
   })
   for (const summary of ['Alpha task', 'Beta task'])
     await api(page, 'POST', `/api/projects/${key}/issues`, { summary })
-  await page.goto(`/app/p/${key}/board`)
+  await page.goto(`/p/${key}/board`)
   return key
 }
 
@@ -54,7 +54,7 @@ test('a card opens in a dialog; an edit shows on the card behind; a reload shows
   await page.getByRole('link', { name: 'Alpha task' }).click()
   const dialog = page.getByRole('dialog', { name: `${key}-1` })
   await expect(dialog.getByLabel('Summary')).toHaveValue('Alpha task')
-  await expect(page).toHaveURL(new RegExp(`/app/p/${key}/issues/1$`))
+  await expect(page).toHaveURL(new RegExp(`/p/${key}/issues/1$`))
 
   const saved = page.waitForResponse(
     (response) =>
@@ -65,7 +65,7 @@ test('a card opens in a dialog; an edit shows on the card behind; a reload shows
   expect((await saved).status()).toBe(200)
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
-  await expect(page).toHaveURL(new RegExp(`/app/p/${key}/board$`))
+  await expect(page).toHaveURL(new RegExp(`/p/${key}/board$`))
   await expect(
     column(page, 'To Do').getByRole('article').first()
   ).toContainText('High priority')
@@ -100,7 +100,7 @@ test('c opens the create dialog and the new card lands on the board', async ({
 
 test('a comment shows at once and stays after a reload', async ({ page }) => {
   const key = await kanbanWithIssues(page)
-  await page.goto(`/app/p/${key}/issues/2`)
+  await page.goto(`/p/${key}/issues/2`)
 
   await page.getByLabel('Add a comment').fill('Ready for review.')
   await page.getByRole('button', { name: 'Comment', exact: true }).click()
@@ -125,7 +125,7 @@ test('an invited visitor previews the invite, creates an account and joins', asy
   )
 
   const visitor = await (await browser.newContext()).newPage()
-  await visitor.goto(`/app/invites/${invite.token}`)
+  await visitor.goto(`/invites/${invite.token}`)
   await visitor.getByRole('link', { name: 'Create an account' }).click()
   await register(visitor, 'Grace')
 
@@ -137,5 +137,5 @@ test('an invited visitor previews the invite, creates an account and joins', asy
   await expect(
     visitor.getByRole('heading', { name: `Flow ${key}` })
   ).toBeVisible()
-  await expect(visitor).toHaveURL(new RegExp(`/app/p/${key}/board$`))
+  await expect(visitor).toHaveURL(new RegExp(`/p/${key}/board$`))
 })

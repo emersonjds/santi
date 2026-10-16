@@ -25,11 +25,10 @@ chrono = { version = "0.4.45", default-features = false, features = ["clock", "s
 utoipa = { version = "6", features = ["chrono"] }
 utoipa-axum = "0.3"
 utoipa-swagger-ui = { version = "10", features = ["axum", "vendored"] }
-tower-http = { version = "0.7.1", features = ["compression-gzip", "compression-br", "fs"] }
+tower-http = { version = "0.7.1", features = ["compression-gzip", "compression-br", "fs", "set-header"] }
 argon2 = "0.6"
 sha2 = "0.11"
 getrandom = "0.4"
-askama = "0.16.1"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

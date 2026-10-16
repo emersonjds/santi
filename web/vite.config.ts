@@ -9,8 +9,6 @@ import { playwright } from '@vitest/browser-playwright'
 const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 
 export default defineConfig({
-  // The Rust server mounts the build at /app until the htmx cutover (IA §3).
-  base: '/app/',
   build: {
     manifest: true,
     rolldownOptions: {

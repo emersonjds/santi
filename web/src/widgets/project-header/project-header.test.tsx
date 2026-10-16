@@ -87,7 +87,7 @@ describe('project header', () => {
     await screen.getByLabelText('Invite as').selectOptions('admin')
     await screen.getByRole('button', { name: 'Create invite link' }).click()
 
-    const link = `${location.origin}${import.meta.env.BASE_URL}invites/tok123`
+    const link = `${location.origin}/invites/tok123`
     await expect
       .element(screen.getByRole('textbox', { name: 'Invite link' }))
       .toHaveValue(link)

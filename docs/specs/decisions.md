@@ -352,6 +352,8 @@ Serving: until parity the SPA runs from Vite in dev only, and production keeps t
 
 License: shadcn-admin is MIT (Copyright (c) 2024 Sat Naing). `web/LICENSE-shadcn-admin` keeps its notice verbatim and `web/README.md` credits the template; santi's own code stays MIT OR Apache-2.0.
 
+Done at cutover (SAN-42, 2026-10-16): the SPA serves from `/` (Vite `base` and router basepath `/`); the `web.rs` files, `templates/`, `static/`, `styles/`, `scripts/css.sh`, the `css` CI job, the askama dependency and the htmx tests are deleted. Slices keep `domain.rs`, `repo.rs`, `service.rs` and `handler.rs` (D25 without `web.rs`).
+
 ## D38 — Repository layout: monorepo now, split-ready
 Context: D37 puts the SPA in `web/`, and the owner plans to move it to its own repository later. The question is where it lives now, how self-hosters run it, and what keeps the later move cheap.
 Options: A) monorepo, `web/` next to `crates/`, independent toolchains, no split rules B) separate `santi-web` repository now C) monorepo now with split boundaries and a written split procedure

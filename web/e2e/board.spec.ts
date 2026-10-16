@@ -21,7 +21,7 @@ const api = <Body>(page: Page, method: string, path: string, body?: unknown) =>
 
 /** A signed-in user with a kanban project holding three new issues in its first column. */
 const kanbanWithIssues = async (page: Page) => {
-  await page.goto('/app/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill('Ada')
   await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
@@ -36,7 +36,7 @@ const kanbanWithIssues = async (page: Page) => {
   })
   for (const summary of ['Alpha task', 'Beta task', 'Gamma task'])
     await api(page, 'POST', `/api/projects/${key}/issues`, { summary })
-  await page.goto(`/app/p/${key}/board`)
+  await page.goto(`/p/${key}/board`)
   return key
 }
 

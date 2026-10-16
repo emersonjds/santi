@@ -6,7 +6,7 @@ const unique = () => `${Date.now()}${Math.random().toString(36).slice(2, 6)}`
 
 /** A signed-in user with a scrum project holding three issues in no sprint. */
 const scrumWithIssues = async (page: Page) => {
-  await page.goto('/app/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill('Ada')
   await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
@@ -29,7 +29,7 @@ const scrumWithIssues = async (page: Page) => {
     for (const summary of ['Alpha task', 'Beta task', 'Gamma task'])
       await post(`/api/projects/${key}/issues`, { summary })
   }, key)
-  await page.goto(`/app/p/${key}/backlog`)
+  await page.goto(`/p/${key}/backlog`)
   return key
 }
 

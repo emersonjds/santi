@@ -48,7 +48,7 @@ test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
           })
     }).observe(init)
   })
-  await page.goto('/app/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill('Perf')
   await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
   await page
@@ -73,7 +73,7 @@ test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
     },
     { key, cards: CARDS }
   )
-  await page.goto(`/app/p/${key}/board`)
+  await page.goto(`/p/${key}/board`)
   const handle = page.getByRole('button', {
     name: `Drag ${key}-1`,
     exact: true,

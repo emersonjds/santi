@@ -48,7 +48,7 @@ Cargo workspace with three crates (see `decisions.md` D1, D25; every `Dn` in thi
 | Crate | Role |
 |---|---|
 | `santi-types` | Request/response DTOs (serde), shared by every other crate |
-| `santi-server` | HTTP API (axum), persistence (sqlx + PostgreSQL 17), serves the web UI: the built React SPA from `SANTI_WEB_DIR` (D37, D38) and, until the cutover, the askama + htmx pages |
+| `santi-server` | HTTP API (axum), persistence (sqlx + PostgreSQL 17), serves the web UI: the built React SPA from `SANTI_WEB_DIR` (D37, D38) |
 | `santi-cli` | `santi` binary: subcommands and `santi mcp` (stdio MCP server, `rmcp`) |
 
 ### Server
@@ -60,8 +60,7 @@ Each slice holds:
   without a database;
 - `repo.rs`: sqlx queries;
 - `service.rs`: use cases (membership, transaction, domain + repo), the only thing routes call;
-- `handler.rs`: JSON routes, annotated for OpenAPI (utoipa), served at `/docs`;
-- `web.rs`: HTML routes rendering askama templates.
+- `handler.rs`: JSON routes, annotated for OpenAPI (utoipa), served at `/docs`.
 
 Ids are `bigint` identity (D19). Errors are RFC 9457 problem+json (D24). Migrations are
 `sqlx migrate`, embedded and applied at startup (D27). Membership is checked once, by an
@@ -87,9 +86,8 @@ Router and Query, react-hook-form + zod, Tailwind with the D36 tokens, Feature-S
 (`app → pages → widgets → features → entities → shared`, imports only downward). It calls
 `/api/*` only, through `openapi-fetch` typed from the committed `web/openapi.json` snapshot.
 The repository stays one monorepo with split boundaries (D38): the server serves the build from
-`SANTI_WEB_DIR` at runtime, so `cargo` needs no Node. Until parity the SPA is mounted at `/app`
-and the askama + htmx pages (`web.rs`, `templates/`) keep serving the other paths; the cutover
-removes them.
+`SANTI_WEB_DIR` at runtime, so `cargo` needs no Node; every GET without a server route gets the
+SPA's `index.html`.
 Mobile first at 375px, 44px touch targets, form fields at 16px or larger.
 Drag and drop uses the native HTML5 API, with a keyboard-accessible "move to…" action
 as the equivalent path. Quick filters live in the URL (D3, D18); no real-time push in v1 (D17).
@@ -146,7 +144,7 @@ Fine-grained rules are confirmed by the behavior specs from the investigation ep
 | `architect` | Technical specs and implementation plans |
 | `backend` | `santi-server` and `santi-types` slices |
 | `cli-mcp` | `santi-cli` subcommands and MCP tools |
-| `web` | Templates, `web.rs` routes and static assets in `santi-server` (D25) |
+| `web` | The React SPA in `web/` (D37) |
 | `qa` | Adversarial review, coverage, clean-room contamination check |
 | `oss` | README, CONTRIBUTING, CODE_OF_CONDUCT, issue/PR templates, release notes |
 | `product` | Product/UX votes grounded in how agile tools on the market behave (sonnet; recommendations only) |

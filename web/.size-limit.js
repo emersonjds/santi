@@ -24,19 +24,19 @@ const SHELL = split('_authenticated/route.tsx')
 
 export default [
   {
-    name: 'initial JS, /app/login',
+    name: 'initial JS, /login',
     path: firstVisit(split('login.tsx')),
     limit: '170 KB',
     gzip: true,
   },
   {
-    name: 'initial JS, /app (home, with the shell)',
+    name: 'initial JS, / (home, with the shell)',
     path: firstVisit(SHELL, split('_authenticated/index.tsx')),
     limit: '170 KB',
     gzip: true,
   },
   {
-    name: 'initial JS, /app/p/KEY/board (project page)',
+    name: 'initial JS, /p/KEY/board (project page)',
     path: firstVisit(
       SHELL,
       split('_authenticated/p/$key/route.tsx'),
@@ -46,7 +46,7 @@ export default [
     gzip: true,
   },
   {
-    name: 'initial JS, /app/p/KEY/issues/N (issue page)',
+    name: 'initial JS, /p/KEY/issues/N (issue page)',
     path: firstVisit(
       SHELL,
       split('_authenticated/p/$key/route.tsx'),
@@ -56,7 +56,7 @@ export default [
     gzip: true,
   },
   {
-    name: 'initial JS, /app/p/KEY/backlog (backlog)',
+    name: 'initial JS, /p/KEY/backlog (backlog)',
     path: firstVisit(
       SHELL,
       split('_authenticated/p/$key/route.tsx'),
