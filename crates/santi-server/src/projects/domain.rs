@@ -29,10 +29,11 @@ pub fn check_project_name(name: &str) -> Result<String, AppError> {
     Ok(name.to_string())
 }
 
+const DIGITS: &[u8; 36] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
 /// The caller's sample project key: `MOB` and the user id in base 36, unique per user and
 /// within the 10-character limit for ids below 36^7.
 pub fn sample_key(user_id: i64) -> String {
-    const DIGITS: &[u8; 36] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     let mut rest = user_id.unsigned_abs();
     let mut digits = Vec::new();
     loop {
@@ -44,6 +45,18 @@ pub fn sample_key(user_id: i64) -> String {
     }
     digits.reverse();
     format!("MOB{}", String::from_utf8_lossy(&digits))
+}
+
+/// The sample key when the caller's own is taken by someone else's project: `MOB` and seven
+/// random base-36 characters.
+pub fn random_sample_key() -> String {
+    let mut bytes = [0u8; 7];
+    getrandom::fill(&mut bytes).expect("the operating system random source works");
+    let suffix: String = bytes
+        .iter()
+        .map(|byte| char::from(DIGITS[usize::from(*byte) % DIGITS.len()]))
+        .collect();
+    format!("MOB{suffix}")
 }
 
 /// KB-23: kanban boards hide done work after 14 days by default; scrum boards never hide.
@@ -66,6 +79,10 @@ mod tests {
         assert_eq!(sample_key(36), "MOB10");
         assert_eq!(sample_key(36_i64.pow(7) - 1), "MOBZZZZZZZ");
         assert!(check_project_key(&sample_key(36_i64.pow(7) - 1)).is_ok());
+        let random = random_sample_key();
+        assert!(random.starts_with("MOB") && random.len() == 10, "{random}");
+        assert_eq!(check_project_key(&random).unwrap(), random);
+        assert_ne!(random, random_sample_key());
     }
 
     #[test]

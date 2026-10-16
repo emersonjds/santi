@@ -1765,6 +1765,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Rate limited per account (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     get_project: {
@@ -3651,8 +3660,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Another project took the sample's key */
+            /** @description Other projects took the sample's key and three random ones */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account, shared with project creation (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

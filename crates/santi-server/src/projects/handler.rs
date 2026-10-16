@@ -12,6 +12,7 @@ use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
 use crate::extract::JsonBody;
 use crate::members::Member;
+use crate::rate_limit::Action;
 
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
@@ -25,11 +26,15 @@ pub fn router() -> OpenApiRouter<AppState> {
         (status = 201, body = Project, description = "Created the caller's sample scrum project: a running sprint, a future one, a backlog, epics, subtasks and comments"),
         (status = 200, body = Project, description = "The caller already has one; nothing changed"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "Another project took the sample's key")))]
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "Other projects took the sample's key and three random ones"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited per account, shared with project creation (D44); wait `Retry-After` seconds")))]
 pub async fn create_sample_project(
     State(state): State<AppState>,
     user: CurrentUser,
 ) -> Result<(StatusCode, Json<Project>), AppError> {
+    state
+        .limits
+        .check(Action::CreateProject, None, Some(user.id))?;
     let (project, created) = sample::create_sample(&state.pool, &user).await?;
     let status = if created {
         StatusCode::CREATED
@@ -44,12 +49,16 @@ pub async fn create_sample_project(
         (status = 201, body = Project, description = "Created; the caller is its admin"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 409, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json")))]
+        (status = 422, body = Problem, content_type = "application/problem+json"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited per account (D44); wait `Retry-After` seconds")))]
 pub async fn create_project(
     State(state): State<AppState>,
     user: CurrentUser,
     JsonBody(input): JsonBody<CreateProject>,
 ) -> Result<(StatusCode, Json<Project>), AppError> {
+    state
+        .limits
+        .check(Action::CreateProject, None, Some(user.id))?;
     let project = service::create_project(&state.pool, &user, input).await?;
     Ok((StatusCode::CREATED, Json(project)))
 }

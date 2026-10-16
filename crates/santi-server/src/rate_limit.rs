@@ -25,6 +25,8 @@ pub enum Action {
     /// The password check of `DELETE /api/me`, apart from the login lockout.
     Reauthenticate,
     AcceptLegal,
+    /// Creating a project and the sample project share one bucket.
+    CreateProject,
 }
 
 impl Action {
@@ -38,6 +40,7 @@ impl Action {
             Action::Import => (20, 30),
             Action::Reauthenticate => (5, 60),
             Action::AcceptLegal => (10, 60),
+            Action::CreateProject => (20, 180),
         };
         (burst, Duration::from_secs(seconds))
     }

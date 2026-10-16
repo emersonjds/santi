@@ -257,6 +257,21 @@ async fn invite_accepts_and_imports_are_limited_per_account(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn project_creation_is_limited_per_account(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    for number in 0..20 {
+        ana.create_project(&format!("P{number}"), "kanban").await;
+    }
+    let body = json!({ "key": "LAST", "name": "Last", "board_type": "kanban" });
+
+    let (status, _) = ana.post("/api/projects", body).await;
+    let (sample, _) = ana.post("/api/sample-project", json!(null)).await;
+
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(sample, StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[sqlx::test]
 async fn openapi_documents_the_429(pool: PgPool) {
     let app = TestApp::anonymous(pool);
 
