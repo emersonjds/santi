@@ -1,10 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearch } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
-import {
-  LifecycleButton,
-  PurgeProjectButton,
-} from '@/features/project-lifecycle/lifecycle-dialogs'
+import { LifecycleButton } from '@/features/project-lifecycle/lifecycle-button'
+import { PurgeProjectButton } from '@/features/project-lifecycle/lifecycle-dialogs'
 import { NoProjects, ProjectsFailed } from '@/features/project/no-projects'
 import { StarProjectButton } from '@/features/star/star-button'
 import { myProjectsQuery } from '@/entities/home/home-queries'

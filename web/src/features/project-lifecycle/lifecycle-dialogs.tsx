@@ -1,5 +1,4 @@
-import { type ComponentProps, type ReactNode, useState } from 'react'
-import { toast } from '@/shared/lib/toast'
+import { type ReactNode, useState } from 'react'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -14,38 +13,11 @@ import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { RootError } from '@/shared/ui/root-error'
-import { type LifecycleAction, useLifecycle } from './use-lifecycle'
+import { useLifecycle } from './use-lifecycle'
 
 const SIZE = 'h-11 md:h-9'
 
 type ProjectProps = { projectKey: string; projectName: string }
-
-type LifecycleButtonProps = ComponentProps<typeof Button> & {
-  projectKey: string
-  action: LifecycleAction
-}
-
-/** One click, no confirm: unarchive and restore are their own undo. */
-export const LifecycleButton = ({
-  projectKey,
-  action,
-  ...props
-}: LifecycleButtonProps) => {
-  const change = useLifecycle(projectKey, action)
-  return (
-    <Button
-      variant='outline'
-      className={SIZE}
-      disabled={change.isPending}
-      onClick={() =>
-        change.mutate(undefined, {
-          onError: (error) => toast.error(error.message),
-        })
-      }
-      {...props}
-    />
-  )
-}
 
 export const ArchiveProjectButton = ({
   projectKey,

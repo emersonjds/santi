@@ -1,5 +1,5 @@
 import { Archive } from 'lucide-react'
-import { LifecycleButton } from '@/features/project-lifecycle/lifecycle-dialogs'
+import { LifecycleButton } from '@/features/project-lifecycle/lifecycle-button'
 import type { Project } from '@/shared/api/client'
 
 /** SAN-70: an archived project opens by link, read-only; admins can bring it back. */
