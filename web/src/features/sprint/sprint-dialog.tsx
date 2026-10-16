@@ -100,7 +100,7 @@ const DURATIONS = [
 
 // IA §10: a centered dialog on wide screens, a full-screen sheet on a phone.
 const SHEET =
-  'max-h-[calc(100svh-2rem)] overflow-y-auto max-md:top-0 max-md:left-0 max-md:h-svh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:data-[state=open]:zoom-in-100'
+  'max-h-[calc(100svh-2rem)] overflow-y-auto max-md:top-0 max-md:left-0 max-md:h-svh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:content-start max-md:data-[state=open]:zoom-in-100'
 const FIELD = 'h-11 md:h-9'
 const SELECT =
   'h-11 w-full rounded-md border border-input bg-background px-2 text-base md:h-9 md:text-sm'
