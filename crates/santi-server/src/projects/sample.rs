@@ -1,5 +1,5 @@
 //! "Start with a sample project": a small scrum project written through the same use cases a
-//! user would call, so it always obeys the current rules.
+//! user would call (D39, SAN-62).
 
 use santi_types::issues::{CreateComment, CreateIssue, Issue, IssueType, Priority};
 use santi_types::projects::{BoardType, CreateProject, MemberRole, Project};
