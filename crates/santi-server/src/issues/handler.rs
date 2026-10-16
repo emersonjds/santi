@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use santi_types::Problem;
 use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
-    UpdateIssue,
+    StatusFilter, UpdateIssue,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -21,6 +21,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(get_issue, update_issue))
         .routes(routes!(move_issue))
         .routes(routes!(add_comment, list_comments))
+        .routes(routes!(list_labels))
 }
 
 #[utoipa::path(post, path = "/api/projects/{key}/issues", tag = "issues", request_body = CreateIssue,
@@ -100,7 +101,7 @@ pub async fn move_issue(
 }
 
 #[utoipa::path(get, path = "/api/projects/{key}/issues", tag = "issues",
-    params(("key" = String, Path, description = "Project key"), IssueFilter, PageParams),
+    params(("key" = String, Path, description = "Project key"), IssueFilter, StatusFilter, PageParams),
     responses(
         (status = 200, body = Page<Issue>, description = "Matching issues by id (D3, D29)"),
         (status = 400, body = Problem, content_type = "application/problem+json", description = "Unparsable query value"),
@@ -111,11 +112,25 @@ pub async fn search_issues(
     State(state): State<AppState>,
     member: Member,
     QueryParams(filter): QueryParams<IssueFilter>,
+    QueryParams(status): QueryParams<StatusFilter>,
     QueryParams(page): QueryParams<PageParams>,
 ) -> Result<Json<Page<Issue>>, AppError> {
     Ok(Json(
-        service::search_issues(&state.pool, &member, filter, page).await?,
+        service::search_issues(&state.pool, &member, filter, status, page).await?,
     ))
+}
+
+#[utoipa::path(get, path = "/api/projects/{key}/labels", tag = "issues",
+    params(("key" = String, Path, description = "Project key")),
+    responses(
+        (status = 200, body = Vec<String>, description = "Labels in use, once each, alphabetical"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
+pub async fn list_labels(
+    State(state): State<AppState>,
+    member: Member,
+) -> Result<Json<Vec<String>>, AppError> {
+    Ok(Json(service::list_labels(&state.pool, &member).await?))
 }
 
 #[utoipa::path(post, path = "/api/projects/{key}/issues/{number}/comments", tag = "issues", request_body = CreateComment,

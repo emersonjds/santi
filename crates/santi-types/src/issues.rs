@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
+use crate::boards::StatusCategory;
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
@@ -242,13 +244,24 @@ pub struct IssueFilter {
     pub issue_type: Vec<IssueType>,
     #[serde(default)]
     pub label: Vec<String>,
-    /// Parent issue keys, e.g. an epic's `SANTI-3`.
+    /// Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent.
     #[serde(default)]
     pub parent: Vec<String>,
-    /// Free text matched against the summary, ignoring case.
+    /// Free text matched against the summary or the key, ignoring case.
     #[serde(default)]
     pub q: Option<String>,
     /// Only issues updated in the last 24 hours (SB-26, D18).
     #[serde(default)]
     pub recently_updated: bool,
+}
+
+/// The `parent` value for "no epic" (SAN-47).
+pub const NO_PARENT: &str = "none";
+
+/// Search only: status categories, any of them (D3).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct StatusFilter {
+    #[serde(default)]
+    pub status: Vec<StatusCategory>,
 }

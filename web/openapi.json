@@ -446,7 +446,7 @@
           {
             "name": "parent",
             "in": "query",
-            "description": "Parent issue keys, e.g. an epic's `SANTI-3`.",
+            "description": "Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent.",
             "required": false,
             "schema": {
               "type": "array",
@@ -458,7 +458,7 @@
           {
             "name": "q",
             "in": "query",
-            "description": "Free text matched against the summary, ignoring case.",
+            "description": "Free text matched against the summary or the key, ignoring case.",
             "required": false,
             "schema": {
               "type": "string"
@@ -579,7 +579,7 @@
           {
             "name": "parent",
             "in": "query",
-            "description": "Parent issue keys, e.g. an epic's `SANTI-3`.",
+            "description": "Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent.",
             "required": false,
             "schema": {
               "type": "array",
@@ -591,7 +591,7 @@
           {
             "name": "q",
             "in": "query",
-            "description": "Free text matched against the summary, ignoring case.",
+            "description": "Free text matched against the summary or the key, ignoring case.",
             "required": false,
             "schema": {
               "type": "string"
@@ -1204,7 +1204,7 @@
           {
             "name": "parent",
             "in": "query",
-            "description": "Parent issue keys, e.g. an epic's `SANTI-3`.",
+            "description": "Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent.",
             "required": false,
             "schema": {
               "type": "array",
@@ -1216,7 +1216,7 @@
           {
             "name": "q",
             "in": "query",
-            "description": "Free text matched against the summary, ignoring case.",
+            "description": "Free text matched against the summary or the key, ignoring case.",
             "required": false,
             "schema": {
               "type": "string"
@@ -1229,6 +1229,17 @@
             "required": false,
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/StatusCategory"
+              }
             }
           },
           {
@@ -1752,6 +1763,58 @@
             }
           },
           "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/labels": {
+      "get": {
+        "tags": [
+          "issues"
+        ],
+        "operationId": "list_labels",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Labels in use, once each, alphabetical",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
             "content": {
               "application/problem+json": {
                 "schema": {
