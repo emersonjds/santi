@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.key || '-' || i.number AS \"key!\", i.summary, i.issue_type AS \"issue_type: IssueType\",\n                  s.category AS \"status_category: StatusCategory\", p.key AS project_key,\n                  p.name AS project_name, a.display_name AS \"assignee_name?\",\n                  st.user_id IS NOT NULL AS \"starred!\", mine.at AS \"at!\"\n           FROM (SELECT issue_id, max(at) AS at FROM (\n                   SELECT issue_id, worked_at AS at FROM issue_activity\n                   WHERE user_id = $1 AND worked_at IS NOT NULL AND $2::text IN ('worked', 'recommended')\n                   UNION ALL\n                   SELECT issue_id, viewed_at FROM issue_activity\n                   WHERE user_id = $1 AND viewed_at IS NOT NULL AND $2::text IN ('viewed', 'recommended')\n                   UNION ALL\n                   SELECT issue_id, created_at FROM issue_star\n                   WHERE user_id = $1 AND $2::text IN ('starred', 'recommended')\n                   UNION ALL\n                   SELECT o.id, o.updated_at FROM issue o JOIN status os ON os.id = o.status_id\n                   WHERE o.assignee_id = $1 AND os.category <> 'done' AND $2::text IN ('assigned', 'recommended')\n                 ) touched GROUP BY issue_id) mine\n           JOIN issue i ON i.id = mine.issue_id\n           JOIN member m ON m.project_id = i.project_id AND m.user_id = $1\n           JOIN project p ON p.id = i.project_id\n           JOIN status s ON s.id = i.status_id\n           LEFT JOIN app_user a ON a.id = i.assignee_id\n           LEFT JOIN issue_star st ON st.issue_id = i.id AND st.user_id = $1\n           ORDER BY mine.at DESC, i.id DESC\n           LIMIT $4 OFFSET $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "issue_type: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status_category: StatusCategory",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "project_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "project_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "assignee_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "starred!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
+        "name": "at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "cf03e1eeec55e9df467720796790f79823ee1edb91f1940e94ed187deaee0979"
+}

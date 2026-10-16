@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH updated AS (\n           UPDATE issue SET summary = $2, description = $3, issue_type = $4, priority = $5,\n                            assignee_id = $6, points = $7, labels = $8, parent_id = $9\n           WHERE id = $1)\n         INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($10, $1, now())\n         ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Text",
+        "Text",
+        "Int8",
+        "Float8",
+        "TextArray",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "17b3a4cb6260ba7adcda12387132fdb5b1d8b09a4cbc3e63ad459be314bc4f23"
+}
