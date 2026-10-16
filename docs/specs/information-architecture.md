@@ -98,7 +98,8 @@ overlay (modal, sheet, menu).
 |---|---|---|---|---|---|---|
 | Login / register | none (no shell) | — | centered form | — | Sign in / Create account | switch to the other form |
 | Join project | none | — | project name, role offered | — | Join project | sign in or create account first |
-| Home | "Hi, {name}" | — | Assigned to me (later; reinstated → SAN-72); Your projects cards | — | New project | open a project |
+| Home | "For you" | — | Recommended projects (4 cards: avatar, name, "Software project", board type, open issues assigned to you, star) + "View all projects"; tabs Recommended / Assigned to me (count) / Starred / Worked on / Viewed (`?tab=`), rows grouped Today / Yesterday / This week / This month / Older, "Show more" (SAN-72) | — | open an issue | star an issue or project; New project or sample when there are none |
+| Projects | "Projects" | — | table: star, name, key, type, lead (oldest admin), by name (SAN-72) | — | New project | star, open a project |
 | New project | "New project" | — | name, key (derived, editable), board type Scrum/Kanban with one-line help | — | Create project | Cancel |
 | Board | project header | filter bar | columns; uppercase name, count, WIP `n/max` (kanban); cards | issue modal, card menu, start/complete dialogs | + Create (top bar), inline "Create issue" at column foot | Complete sprint (header, scrum), Settings link (admin) |
 | Backlog | project header | filter bar + Epics toggle | sprint sections, then "Backlog" section | epic panel (right, pushes the list), issue modal, row menu | Create sprint | Start / Complete per sprint, inline create per section |

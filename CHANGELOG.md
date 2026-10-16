@@ -10,8 +10,16 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-16
+
 ### Added
 
+- **For you home:** recommended project cards (star, open issues assigned to you linking to your
+  board), tabs Recommended, Assigned to me, Starred, Worked on and Viewed with rows grouped by day
+  and a status on every row; stars on projects and issues. A `/projects` page lists every project.
+  Views and visits are recorded only when you open an issue or project. The account export
+  includes stars and history, and leaving a project removes them. The privacy policy (version
+  2026-10-16.2) lists this data.
 - **Landing page:** a static page at `/` for visitors without a session (and at `/about` for
   everyone): product tour with screenshots, performance numbers, self-hosting, roadmap and FAQ,
   no JavaScript beyond a copy button. Ships `robots.txt` and `sitemap.xml` built from
@@ -27,6 +35,11 @@ UI moves to its own repository.
   on every request, passed through to the API). 16 tools for projects, boards, backlog, search,
   issues, comments, sprints and epics, with JSON Schemas, read-only and destructive hints, and
   tool errors carrying the server's message. Client setup in `docs/mcp.md`.
+
+### Fixed
+
+- **Sign-in:** a wrong email or password now says so ("Email or password is incorrect.") instead of
+  asking for an API token.
 
 ## [0.1.0] - 2026-10-16
 
@@ -87,5 +100,6 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/emersonjds/santi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/emersonjds/santi/releases/tag/v0.1.0

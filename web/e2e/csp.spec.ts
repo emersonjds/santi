@@ -29,7 +29,10 @@ test('the SPA runs under its Content-Security-Policy', async ({ page }) => {
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Account (Ada)' })
+  ).toBeVisible()
 
   const key = `C${unique().slice(-6).toUpperCase()}`
   await page.evaluate(

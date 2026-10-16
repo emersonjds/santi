@@ -12,7 +12,7 @@ pub const API_TOKEN_PREFIX: &str = "santi_";
 /// Versions of `web/terms.html` and `web/privacy.html` (and their pt-BR pages); bump one when its
 /// text changes and everyone is asked to accept it again (D45).
 pub const TERMS_VERSION: &str = "2026-10-16";
-pub const PRIVACY_VERSION: &str = "2026-10-16";
+pub const PRIVACY_VERSION: &str = "2026-10-16.2";
 pub const AGE_DECLARATION: &str = "18+";
 
 /// Argon2 default parameters with a password nobody knows. Login verifies against it when the
@@ -119,7 +119,7 @@ pub fn token_from_headers(headers: &HeaderMap) -> Option<&str> {
     bearer_token(headers).or_else(|| session_token(headers))
 }
 
-fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+pub fn bearer_token(headers: &HeaderMap) -> Option<&str> {
     let (scheme, token) = header_text(headers, AUTHORIZATION)?.split_once(' ')?;
     scheme.eq_ignore_ascii_case("bearer").then_some(token)
 }

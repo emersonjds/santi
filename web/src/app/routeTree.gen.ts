@@ -16,6 +16,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
 import { Route as AuthenticatedPKeyRouteRouteImport } from './routes/_authenticated/p/$key/route'
+import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
 import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
 import { Route as AuthenticatedPKeyIndexRouteImport } from './routes/_authenticated/p/$key/index'
 import { Route as AuthenticatedPKeyBacklogRouteImport } from './routes/_authenticated/p/$key/backlog'
@@ -60,6 +61,12 @@ const AuthenticatedPKeyRouteRoute = AuthenticatedPKeyRouteRouteImport.update({
   path: '/p/$key',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProjectsIndexRoute =
+  AuthenticatedProjectsIndexRouteImport.update({
+    id: '/projects/',
+    path: '/projects/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProjectsNewRoute =
   AuthenticatedProjectsNewRouteImport.update({
     id: '/projects/new',
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/invites/$token': typeof InvitesTokenRoute
   '/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
   '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
   '/p/$key/search': typeof AuthenticatedPKeySearchRoute
@@ -136,6 +144,7 @@ export interface FileRoutesByTo {
   '/invites/$token': typeof InvitesTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/projects': typeof AuthenticatedProjectsIndexRoute
   '/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
   '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
   '/p/$key/search': typeof AuthenticatedPKeySearchRoute
@@ -155,6 +164,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
+  '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
   '/_authenticated/p/$key/board': typeof AuthenticatedPKeyBoardRoute
   '/_authenticated/p/$key/search': typeof AuthenticatedPKeySearchRoute
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/invites/$token'
     | '/p/$key'
     | '/projects/new'
+    | '/projects/'
     | '/p/$key/backlog'
     | '/p/$key/board'
     | '/p/$key/search'
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/invites/$token'
     | '/'
     | '/projects/new'
+    | '/projects'
     | '/p/$key/backlog'
     | '/p/$key/board'
     | '/p/$key/search'
@@ -208,6 +220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/p/$key'
     | '/_authenticated/projects/new'
+    | '/_authenticated/projects/'
     | '/_authenticated/p/$key/backlog'
     | '/_authenticated/p/$key/board'
     | '/_authenticated/p/$key/search'
@@ -274,6 +287,13 @@ declare module '@tanstack/react-router' {
       path: '/p/$key'
       fullPath: '/p/$key'
       preLoaderRoute: typeof AuthenticatedPKeyRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projects/': {
+      id: '/_authenticated/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/projects/new': {
@@ -376,6 +396,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedPKeyRouteRoute: typeof AuthenticatedPKeyRouteRouteWithChildren
   AuthenticatedProjectsNewRoute: typeof AuthenticatedProjectsNewRoute
+  AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -383,6 +404,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedPKeyRouteRoute: AuthenticatedPKeyRouteRouteWithChildren,
   AuthenticatedProjectsNewRoute: AuthenticatedProjectsNewRoute,
+  AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

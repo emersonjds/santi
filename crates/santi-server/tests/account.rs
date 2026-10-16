@@ -78,6 +78,47 @@ async fn the_export_holds_the_account_and_every_project_it_admins(pool: PgPool) 
 }
 
 #[sqlx::test]
+async fn the_export_holds_the_home_stars_visits_and_history(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    bob.create_project("BOB", "kanban").await;
+    bob.create_issue("BOB", json!({ "summary": "Bob's" })).await;
+    join(&bob, "BOB", "ana@example.com", "member").await;
+    let visit = ana
+        .browser_post("ana@example.com", "/api/projects/BOB/visit")
+        .await;
+    let view = ana
+        .browser_post("ana@example.com", "/api/projects/BOB/issues/1/view")
+        .await;
+    assert_eq!(
+        (visit, view),
+        (StatusCode::NO_CONTENT, StatusCode::NO_CONTENT)
+    );
+    for key in ["BOB", "BOB-1"] {
+        let (status, _) = ana.post("/api/me/stars", json!({ "key": key })).await;
+        assert_eq!(status, StatusCode::NO_CONTENT);
+    }
+    ana.create_issue("BOB", json!({ "summary": "Ana's" })).await;
+
+    let (status, export) = ana.get("/api/me/export").await;
+
+    assert_eq!(status, StatusCode::OK);
+    let home = &export["home"];
+    let project = &home["projects"][0];
+    assert_eq!(project["key"], "BOB");
+    assert!(project["starred_at"].is_string() && project["visited_at"].is_string());
+    assert_eq!(home["projects"].as_array().unwrap().len(), 1);
+    let issues = home["issues"].as_array().unwrap();
+    assert_eq!(issues.len(), 2);
+    let read = issues.iter().find(|issue| issue["key"] == "BOB-1").unwrap();
+    assert!(read["starred_at"].is_string() && read["viewed_at"].is_string());
+    assert!(read["worked_at"].is_null());
+    let wrote = issues.iter().find(|issue| issue["key"] == "BOB-2").unwrap();
+    assert!(wrote["worked_at"].is_string() && wrote["starred_at"].is_null());
+    assert!(wrote["viewed_at"].is_null());
+}
+
+#[sqlx::test]
 async fn export_and_delete_need_a_signed_in_caller(pool: PgPool) {
     let app = TestApp::anonymous(pool);
 

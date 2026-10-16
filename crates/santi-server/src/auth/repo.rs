@@ -227,6 +227,13 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     )
     .execute(&mut *conn)
     .await?;
+    sqlx::query!(
+        "WITH stars AS (DELETE FROM issue_star WHERE user_id = $1)
+         DELETE FROM issue_activity WHERE user_id = $1",
+        user_id
+    )
+    .execute(&mut *conn)
+    .await?;
     sqlx::query!("DELETE FROM invite WHERE created_by = $1", user_id)
         .execute(&mut *conn)
         .await?;
