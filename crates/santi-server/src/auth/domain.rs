@@ -119,7 +119,7 @@ pub fn token_from_headers(headers: &HeaderMap) -> Option<&str> {
     bearer_token(headers).or_else(|| session_token(headers))
 }
 
-fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+pub fn bearer_token(headers: &HeaderMap) -> Option<&str> {
     let (scheme, token) = header_text(headers, AUTHORIZATION)?.split_once(' ')?;
     scheme.eq_ignore_ascii_case("bearer").then_some(token)
 }

@@ -31,7 +31,6 @@ pub async fn insert_board(
     .await
 }
 
-/// The project as the caller sees it; also records the visit that orders the home's projects.
 pub async fn find_project(
     conn: &mut PgConnection,
     project_id: i64,
@@ -39,8 +38,7 @@ pub async fn find_project(
 ) -> Result<Project, sqlx::Error> {
     sqlx::query_as!(
         Project,
-        r#"WITH visit AS (UPDATE member SET visited_at = now() WHERE project_id = $1 AND user_id = $2)
-           SELECT p.id, p.key, p.name, b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole"
+        r#"SELECT p.id, p.key, p.name, b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole"
            FROM project p
            JOIN board b ON b.project_id = p.id
            JOIN member m ON m.project_id = p.id AND m.user_id = $2

@@ -12,7 +12,7 @@ use super::{domain, repo};
 use crate::Legal;
 use crate::error::{AppError, reject_nul};
 use crate::members::{self, Member};
-use crate::{boards, issues, projects, sprints};
+use crate::{boards, home, issues, projects, sprints};
 
 /// Creates the user and signs them in; returns the user and the session token.
 pub async fn register(
@@ -108,7 +108,7 @@ pub async fn delete_token(
     Ok(())
 }
 
-/// D45: the account, its token names and every project the caller administers, in full.
+/// D45: the account, its token names, every project the caller administers, in full, and the home data.
 pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<AccountExport, AppError> {
     let mut conn = pool.acquire().await?;
     let me = repo::find_user(&mut conn, user.id).await?;
@@ -141,6 +141,7 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
         api_tokens,
         projects: exports,
         other_projects,
+        home: home::service::export(pool, user.id).await?,
     })
 }
 

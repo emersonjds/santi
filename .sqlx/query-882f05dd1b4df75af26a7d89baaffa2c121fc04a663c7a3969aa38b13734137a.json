@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT p.key, p.name, b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\",\n                  (SELECT u.display_name FROM member l JOIN app_user u ON u.id = l.user_id\n                   WHERE l.project_id = p.id AND l.role = 'admin'\n                   ORDER BY l.user_id LIMIT 1) AS \"lead_name!\",\n                  m.starred_at IS NOT NULL AS \"starred!\",\n                  (SELECT count(*) FROM issue i JOIN status s ON s.id = i.status_id\n                   WHERE i.project_id = p.id AND i.assignee_id = $1 AND s.category <> 'done') AS \"open_assigned!\"\n           FROM member m\n           JOIN project p ON p.id = m.project_id\n           JOIN board b ON b.project_id = p.id\n           WHERE m.user_id = $1\n           ORDER BY greatest(m.visited_at,\n                             (SELECT max(greatest(a.viewed_at, a.worked_at))\n                              FROM issue_activity a JOIN issue i ON i.id = a.issue_id\n                              WHERE a.user_id = $1 AND i.project_id = p.id)) DESC NULLS LAST,\n                    m.starred_at IS NULL, p.key",
+  "query": "WITH recent AS (\n             SELECT i.project_id, max(greatest(a.viewed_at, a.worked_at)) AS at\n             FROM issue_activity a JOIN issue i ON i.id = a.issue_id\n             WHERE a.user_id = $1\n             GROUP BY i.project_id)\n           SELECT p.key, p.name, b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\",\n                  (SELECT u.display_name FROM member l JOIN app_user u ON u.id = l.user_id\n                   WHERE l.project_id = p.id AND l.role = 'admin'\n                   ORDER BY l.user_id LIMIT 1) AS \"lead_name?\",\n                  m.starred_at IS NOT NULL AS \"starred!\",\n                  (SELECT count(*) FROM issue i JOIN status s ON s.id = i.status_id\n                   WHERE i.project_id = p.id AND i.assignee_id = $1 AND s.category <> 'done') AS \"open_assigned!\"\n           FROM member m\n           JOIN project p ON p.id = m.project_id\n           JOIN board b ON b.project_id = p.id\n           LEFT JOIN recent r ON r.project_id = p.id\n           WHERE m.user_id = $1\n           ORDER BY greatest(m.visited_at, r.at) DESC NULLS LAST, m.starred_at IS NULL, p.key",
   "describe": {
     "columns": [
       {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "lead_name!",
+        "name": "lead_name?",
         "type_info": "Text",
         "origin": "Expression"
       },
@@ -81,5 +81,5 @@
       null
     ]
   },
-  "hash": "09ddaafa4d883ea5b07e019e2fefc7d1d2c0ef04e9303795098be0af4480897c"
+  "hash": "882f05dd1b4df75af26a7d89baaffa2c121fc04a663c7a3969aa38b13734137a"
 }

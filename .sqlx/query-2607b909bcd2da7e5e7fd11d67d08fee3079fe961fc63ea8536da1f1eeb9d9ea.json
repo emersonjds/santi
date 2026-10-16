@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH visit AS (UPDATE member SET visited_at = now() WHERE project_id = $1 AND user_id = $2)\n           SELECT p.id, p.key, p.name, b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\"\n           FROM project p\n           JOIN board b ON b.project_id = p.id\n           JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.id = $1",
+  "query": "SELECT p.id, p.key, p.name, b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\"\n           FROM project p\n           JOIN board b ON b.project_id = p.id\n           JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.id = $1",
   "describe": {
     "columns": [
       {
@@ -73,5 +73,5 @@
       false
     ]
   },
-  "hash": "f4e88882efd3e663ecd1ba80b8f500b248eadbe208280af5d0cce38f7b550820"
+  "hash": "2607b909bcd2da7e5e7fd11d67d08fee3079fe961fc63ea8536da1f1eeb9d9ea"
 }

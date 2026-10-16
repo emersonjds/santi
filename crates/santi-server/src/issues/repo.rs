@@ -83,37 +83,6 @@ pub async fn find_issue(
     .await
 }
 
-/// `find_issue` for the caller opening it: records the view, at most once a minute (SAN-72).
-pub async fn view_issue(
-    conn: &mut PgConnection,
-    project_id: i64,
-    number: i64,
-    user_id: i64,
-) -> Result<Option<Issue>, sqlx::Error> {
-    sqlx::query_as!(
-        Issue,
-        r#"WITH viewed AS (
-             INSERT INTO issue_activity (user_id, issue_id, viewed_at)
-             SELECT $3, id, now() FROM issue WHERE project_id = $1 AND number = $2
-             ON CONFLICT (user_id, issue_id) DO UPDATE SET viewed_at = now()
-             WHERE issue_activity.viewed_at IS NULL
-                OR issue_activity.viewed_at < now() - interval '1 minute')
-           SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
-                  i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
-                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
-           FROM issue i
-           JOIN project p ON p.id = i.project_id
-           LEFT JOIN issue parent ON parent.id = i.parent_id
-           WHERE i.project_id = $1 AND i.number = $2"#,
-        project_id,
-        number,
-        user_id
-    )
-    .fetch_optional(&mut *conn)
-    .await
-}
-
 pub async fn last_rank(
     conn: &mut PgConnection,
     project_id: i64,

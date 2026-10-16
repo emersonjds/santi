@@ -13,8 +13,8 @@ pub struct MyProject {
     pub name: String,
     pub board_type: BoardType,
     pub role: MemberRole,
-    /// The project's oldest admin account.
-    pub lead_name: String,
+    /// The project's oldest admin account, if it has one.
+    pub lead_name: Option<String>,
     pub starred: bool,
     /// Issues assigned to the caller that are not done.
     pub open_assigned: i64,
@@ -62,4 +62,29 @@ pub struct HomeIssue {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Star {
     pub key: String,
+}
+
+/// D45: what the home keeps about the caller, with the times.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct HomeExport {
+    /// Projects the caller starred or opened.
+    pub projects: Vec<ProjectActivity>,
+    /// Issues the caller starred, opened or worked on.
+    pub issues: Vec<IssueActivity>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ProjectActivity {
+    pub key: String,
+    pub starred_at: Option<DateTime<Utc>>,
+    pub visited_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct IssueActivity {
+    pub key: String,
+    pub starred_at: Option<DateTime<Utc>>,
+    pub viewed_at: Option<DateTime<Utc>>,
+    /// Last create, edit, move or comment.
+    pub worked_at: Option<DateTime<Utc>>,
 }

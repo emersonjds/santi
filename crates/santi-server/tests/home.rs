@@ -36,6 +36,11 @@ fn keys(page: &Value) -> Vec<&str> {
         .collect()
 }
 
+async fn open_issue(app: &TestApp, email: &str, key: &str, number: i64) {
+    let uri = format!("/api/projects/{key}/issues/{number}/view");
+    assert_eq!(app.browser_post(email, &uri).await, StatusCode::NO_CONTENT);
+}
+
 async fn my_projects(app: &TestApp) -> Vec<Value> {
     let (status, projects) = app.get("/api/me/projects").await;
     assert_eq!(status, StatusCode::OK, "{projects}");
@@ -105,8 +110,16 @@ async fn my_projects_carry_lead_star_and_open_assigned_count(pool: PgPool) {
 async fn recently_visited_or_worked_projects_come_first(pool: PgPool) {
     let (ana, _bob) = two_projects(pool).await;
     ana.create_project("API", "scrum").await;
-    assert_eq!(ana.get("/api/projects/WEB").await.0, StatusCode::OK);
+    ana.create_project("ZED", "scrum").await;
+    let visit = "/api/projects/WEB/visit";
+    assert_eq!(
+        ana.browser_post("ana@example.com", visit).await,
+        StatusCode::NO_CONTENT
+    );
     ana.create_issue("OPS", json!({ "summary": "work" })).await;
+    assert_eq!(ana.get("/api/projects/API").await.0, StatusCode::OK);
+    let (status, _) = ana.post("/api/projects/ZED/visit", json!({})).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "a token caller is ignored");
 
     let order: Vec<Value> = my_projects(&ana)
         .await
@@ -114,7 +127,49 @@ async fn recently_visited_or_worked_projects_come_first(pool: PgPool) {
         .map(|project| project["key"].clone())
         .collect();
 
-    assert_eq!(order, ["OPS", "WEB", "API"]);
+    assert_eq!(order, ["OPS", "WEB", "API", "ZED"]);
+}
+
+#[sqlx::test]
+async fn visits_and_views_need_membership(pool: PgPool) {
+    let (ana, bob) = two_projects(pool).await;
+    ana.create_issue("OPS", json!({ "summary": "private" }))
+        .await;
+    ana.create_issue("WEB", json!({ "summary": "shared" }))
+        .await;
+
+    for uri in [
+        "/api/projects/OPS/visit",
+        "/api/projects/NOPE/visit",
+        "/api/projects/OPS/issues/1/view",
+        "/api/projects/WEB/issues/99/view",
+    ] {
+        assert_eq!(
+            bob.browser_post("bob@example.com", uri).await,
+            StatusCode::NOT_FOUND,
+            "{uri}"
+        );
+    }
+    let anonymous = TestApp {
+        token: None,
+        ..bob.clone()
+    };
+    let (status, _) = anonymous.post("/api/projects/WEB/visit", json!({})).await;
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test]
+async fn a_project_without_an_admin_still_lists(pool: PgPool) {
+    let (ana, _bob) = two_projects(pool.clone()).await;
+    sqlx::query("UPDATE member SET role = 'member' WHERE project_id = (SELECT id FROM project WHERE key = 'OPS')")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let projects = my_projects(&ana).await;
+
+    let ops = projects.iter().find(|project| project["key"] == "OPS");
+    assert!(ops.unwrap()["lead_name"].is_null());
 }
 
 #[sqlx::test]
@@ -159,7 +214,7 @@ async fn stars_need_membership_and_a_valid_key(pool: PgPool) {
         let (status, _) = bob.delete(&format!("/api/me/stars/{key}")).await;
         assert_eq!(status, StatusCode::NOT_FOUND, "{key}");
     }
-    for key in ["W", "WEB-", "WEB-x", "WEB-0", "-1", ""] {
+    for key in ["W", "WEB-", "WEB-x", "WEB-0", "-1", "", "WEB-007", "WEB-+5"] {
         let (status, _) = bob.post("/api/me/stars", json!({ "key": key })).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{key:?}");
     }
@@ -174,15 +229,21 @@ async fn stars_need_membership_and_a_valid_key(pool: PgPool) {
 }
 
 #[sqlx::test]
-async fn opening_an_issue_records_a_view_once(pool: PgPool) {
+async fn opening_an_issue_records_a_view_once_a_minute(pool: PgPool) {
     let (ana, bob) = two_projects(pool).await;
-    ana.create_issue("WEB", json!({ "summary": "one" })).await;
-    ana.create_issue("WEB", json!({ "summary": "two" })).await;
+    for summary in ["one", "two", "read", "scripted"] {
+        ana.create_issue("WEB", json!({ "summary": summary })).await;
+    }
 
     for number in [1, 2, 1] {
-        let (status, _) = bob.get(&format!("/api/projects/WEB/issues/{number}")).await;
-        assert_eq!(status, StatusCode::OK);
+        open_issue(&bob, "bob@example.com", "WEB", number).await;
     }
+    assert_eq!(
+        bob.get("/api/projects/WEB/issues/3").await.0,
+        StatusCode::OK
+    );
+    let (status, _) = bob.post("/api/projects/WEB/issues/4/view", json!({})).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "a token caller is ignored");
 
     assert_eq!(keys(&view(&bob, "viewed").await), ["WEB-2", "WEB-1"]);
     assert!(keys(&view(&ana, "viewed").await).is_empty());
@@ -240,7 +301,7 @@ async fn recommended_mixes_assigned_worked_viewed_and_starred(pool: PgPool) {
         .await;
     ana.create_issue("WEB", json!({ "summary": "ignored" }))
         .await;
-    bob.get("/api/projects/WEB/issues/1").await;
+    open_issue(&bob, "bob@example.com", "WEB", 1).await;
     bob.post("/api/me/stars", json!({ "key": "WEB-3" })).await;
     bob.create_issue("WEB", json!({ "summary": "worked" }))
         .await;
@@ -259,7 +320,7 @@ async fn leaving_a_project_hides_its_issues_and_project(pool: PgPool) {
     let (ana, bob) = two_projects(pool).await;
     ana.create_issue("WEB", json!({ "summary": "x", "assignee_id": bob.user_id }))
         .await;
-    bob.get("/api/projects/WEB/issues/1").await;
+    open_issue(&bob, "bob@example.com", "WEB", 1).await;
     bob.post("/api/me/stars", json!({ "key": "WEB-1" })).await;
     bob.post(
         "/api/projects/WEB/issues/1/comments",
@@ -279,6 +340,20 @@ async fn leaving_a_project_hides_its_issues_and_project(pool: PgPool) {
         assert!(keys(&view(&bob, name).await).is_empty(), "{name}");
     }
     assert!(my_projects(&bob).await.is_empty());
+
+    let (status, _) = ana
+        .post(
+            "/api/projects/WEB/members",
+            json!({ "email": "bob@example.com", "role": "member" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    for name in ["starred", "viewed", "worked"] {
+        assert!(
+            keys(&view(&bob, name).await).is_empty(),
+            "{name} is gone for good"
+        );
+    }
 }
 
 #[sqlx::test]
@@ -310,7 +385,7 @@ async fn lists_page_and_reject_bad_queries(pool: PgPool) {
 async fn erasing_the_account_drops_stars_and_history(pool: PgPool) {
     let (ana, bob) = two_projects(pool.clone()).await;
     ana.create_issue("WEB", json!({ "summary": "x" })).await;
-    bob.get("/api/projects/WEB/issues/1").await;
+    open_issue(&bob, "bob@example.com", "WEB", 1).await;
     bob.post("/api/me/stars", json!({ "key": "WEB-1" })).await;
     bob.post("/api/me/stars", json!({ "key": "WEB" })).await;
 
