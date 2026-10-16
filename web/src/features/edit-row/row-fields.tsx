@@ -11,7 +11,6 @@ type RowFieldProps = { card: Card; projectKey: string }
 const INPUT =
   'relative z-10 h-8 rounded-md border border-input bg-background px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
-/** Enter or leaving the field saves; Esc puts the old text back first, so leaving saves nothing. */
 const commitKeys =
   (old: string) => (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Escape') event.currentTarget.value = old

@@ -6,8 +6,7 @@ const ROUTE = '/_authenticated/p/$key/backlog'
 
 export const BacklogPage = () => {
   const { key } = useParams({ from: ROUTE })
-  // Without the open issue, so opening one leaves the backlog's render alone (INP, D39).
-  const search = useSearch({
+  const searchWithoutIssue = useSearch({
     from: ROUTE,
     select: ({ issue: _, ...backlog }) => backlog,
     structuralSharing: true,
@@ -15,7 +14,7 @@ export const BacklogPage = () => {
   const issue = useSearch({ from: ROUTE, select: (each) => each.issue })
   return (
     <>
-      <Backlog projectKey={key} search={search} />
+      <Backlog projectKey={key} search={searchWithoutIssue} />
       <IssueOverlay projectKey={key} issue={issue} />
     </>
   )

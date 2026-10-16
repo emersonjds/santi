@@ -1,8 +1,7 @@
 import { type ReactNode, useLayoutEffect, useRef, useState } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 
-// One dense row on wide screens; rows are measured once drawn, so phones' two-line rows correct it.
-const ROW_HEIGHT = 45
+const ESTIMATED_ROW_HEIGHT = 45
 const OVERSCAN = 10
 
 type VirtualRowsProps = {
@@ -21,7 +20,7 @@ export const VirtualRows = ({ count, keyAt, renderAt }: VirtualRowsProps) => {
   }, [])
   const virtualizer = useWindowVirtualizer({
     count,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => ESTIMATED_ROW_HEIGHT,
     overscan: OVERSCAN,
     scrollMargin,
     getItemKey: keyAt,
