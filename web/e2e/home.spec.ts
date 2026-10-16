@@ -60,7 +60,7 @@ test('the home lists assigned, starred, worked on and viewed issues across proje
   await page.goto(`/p/${ops}/issues/1`)
   await expect(page.getByLabel('Summary')).toHaveValue('Rotate the keys')
 
-  await page.getByRole('link', { name: 'Home' }).first().click()
+  await page.getByRole('link', { name: 'For you' }).first().click()
   const cards = page.getByRole('region', { name: 'Recommended projects' })
   await expect(cards.getByRole('link', { name: `Ops ${suffix}` })).toBeVisible()
   await expect(cards.getByRole('link', { name: `Web ${suffix}` })).toBeVisible()
