@@ -1,31 +1,31 @@
-import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { type NavigateOptions, useNavigate } from '@tanstack/react-router'
-import { Plus, Search } from 'lucide-react'
-import { ProjectAvatar } from '@/entities/project/project-avatar'
-import { projectsQuery } from '@/entities/project/project-queries'
+import { Search } from 'lucide-react'
 import { Button } from '@/shared/ui/button'
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-  CommandShortcut,
-} from '@/shared/ui/command'
+
+// cmdk loads on the first open, outside the first-visit bundle (D39).
+const CommandPalette = lazy(() =>
+  import('./command-palette').then((module) => ({
+    default: module.CommandPalette,
+  }))
+)
 
 export const CommandMenu = ({ showTrigger }: { showTrigger: boolean }) => {
   const [open, setOpen] = useState(false)
+  const [opened, setOpened] = useState(false)
   const navigate = useNavigate()
-  const { data: projects = [] } = useQuery(projectsQuery)
+
+  const toggleTo = (next: boolean) => {
+    setOpen(next)
+    setOpened(true)
+  }
 
   useEffect(() => {
     const toggle = (event: KeyboardEvent) => {
       if (event.key !== 'k' || !(event.metaKey || event.ctrlKey)) return
       event.preventDefault()
       setOpen((wasOpen) => !wasOpen)
+      setOpened(true)
     }
     document.addEventListener('keydown', toggle)
     return () => document.removeEventListener('keydown', toggle)
@@ -41,7 +41,7 @@ export const CommandMenu = ({ showTrigger }: { showTrigger: boolean }) => {
       {showTrigger && (
         <Button
           variant='outline'
-          onClick={() => setOpen(true)}
+          onClick={() => toggleTo(true)}
           className='h-9 w-56 justify-start text-muted-foreground max-md:hidden'
         >
           <Search />
@@ -49,39 +49,11 @@ export const CommandMenu = ({ showTrigger }: { showTrigger: boolean }) => {
           <kbd className='ms-auto text-xs'>⌘K</kbd>
         </Button>
       )}
-      <CommandDialog
-        open={open}
-        onOpenChange={setOpen}
-        title='Jump to'
-        description='Open a project or start a new one.'
-      >
-        <CommandInput placeholder='Jump to a project…' />
-        <CommandList>
-          <CommandEmpty>No project matches.</CommandEmpty>
-          <CommandGroup heading='Projects'>
-            {projects.map((project) => (
-              <CommandItem
-                key={project.key}
-                value={`${project.name} ${project.key}`}
-                onSelect={() =>
-                  go({ to: '/p/$key', params: { key: project.key } })
-                }
-              >
-                <ProjectAvatar name={project.name} />
-                {project.name}
-                <CommandShortcut>{project.key}</CommandShortcut>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandSeparator />
-          <CommandGroup heading='Actions'>
-            <CommandItem onSelect={() => go({ to: '/projects/new' })}>
-              <Plus />
-              New project
-            </CommandItem>
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
+      {opened && (
+        <Suspense fallback={null}>
+          <CommandPalette open={open} setOpen={setOpen} go={go} />
+        </Suspense>
+      )}
     </>
   )
 }

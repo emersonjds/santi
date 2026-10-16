@@ -1,19 +1,16 @@
-import { z } from 'zod'
 import { createFileRoute } from '@tanstack/react-router'
 import { LoginPage } from '@/pages/login/login-page'
 import { redirectSignedIn } from '@/entities/session/require-session'
 
-const search = z.object({
-  // Same-site paths only: `//host` or `https://…` would send the user off santi.
-  redirect: z
-    .string()
-    .regex(/^\/(?!\/)/)
-    .optional()
-    .catch(undefined),
-})
+// Same-site paths only: `//host` or `https://…` would send the user off santi.
+const sameSitePath = (value: unknown) =>
+  typeof value === 'string' && /^\/(?!\/)/.test(value) ? value : undefined
 
 export const Route = createFileRoute('/login')({
-  validateSearch: search,
+  // Plain validation keeps zod out of the first-visit bundle (D39).
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+    redirect: sameSitePath(search.redirect),
+  }),
   beforeLoad: ({ context, search }) =>
     redirectSignedIn(context.queryClient, search.redirect),
   component: LoginPage,
