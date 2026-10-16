@@ -62,6 +62,7 @@ test('an admin adds a Review column with a WIP limit and maps a new status into 
     .getByText('In review')
   const zone = page.getByRole('list', { name: 'Statuses in Review' })
   await expect(chip).toBeVisible()
+  await expect(zone).toBeVisible()
   const from = await chip.boundingBox()
   const to = await zone.boundingBox()
   if (!from || !to) throw new Error('nothing to drag')
