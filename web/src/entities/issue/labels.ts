@@ -16,10 +16,10 @@ export const TYPE_LABEL = {
 } satisfies Record<IssueType, string>
 
 export const isPriority = (value: string): value is Priority =>
-  value in PRIORITY_LABEL
+  Object.hasOwn(PRIORITY_LABEL, value)
 
 export const isIssueType = (value: string): value is IssueType =>
-  value in TYPE_LABEL
+  Object.hasOwn(TYPE_LABEL, value)
 
 /** `1 issue`, `3 issues`. */
 export const issueCount = (count: number) =>

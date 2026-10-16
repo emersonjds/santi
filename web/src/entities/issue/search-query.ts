@@ -14,7 +14,7 @@ export type IssueSearch = Omit<BoardSearch, 'column'> & { status?: Category }
 export type IssueSearchFilters = BoardFilters & { status?: Category[] }
 
 const isCategory = (value: unknown): value is Category =>
-  typeof value === 'string' && value in CATEGORY
+  typeof value === 'string' && Object.hasOwn(CATEGORY, value)
 
 export const parseIssueSearch = (
   search: Record<string, unknown>
