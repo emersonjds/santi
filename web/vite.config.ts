@@ -9,7 +9,7 @@ import { playwright } from '@vitest/browser-playwright'
 const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 
 // Absolute URLs for the landing page's canonical and social tags, robots.txt and sitemap.xml.
-const siteUrl = (process.env.VITE_SITE_URL ?? 'http://localhost:8080').replace(
+const siteUrl = (process.env.VITE_SITE_URL || 'http://localhost:8080').replace(
   /\/+$/,
   ''
 )
