@@ -59,6 +59,42 @@ describe('card menu', () => {
     await expect.poll(() => bodyOf(requests, MOVE)).toEqual({ status_id: 21 })
   })
 
+  it('keeps a pending move in place when an earlier one settles', async () => {
+    let settle = (_: unknown) => {}
+    const requests = inProjects({
+      [MOVE]: {
+        status: 200,
+        body: {},
+        until: new Promise((resolve) => (settle = resolve)),
+      },
+      'POST /api/projects/WEB/issues/2/move': {
+        status: 200,
+        body: {},
+        until: new Promise(() => {}),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+    const done = screen.getByRole('region', { name: 'Done' })
+    const boardReads = () =>
+      requests.filter((r) => routeOf(r) === 'GET /api/projects/WEB/board')
+        .length
+
+    for (const key of ['WEB-1', 'WEB-2']) {
+      await openMenu(screen, key)
+      await screen.getByRole('menuitem', { name: 'Move to…' }).click()
+      await screen
+        .getByRole('menuitem', { name: 'Move to the top of Done' })
+        .click()
+    }
+    await expect.element(done).toHaveTextContent('Fix the login redirect loop')
+    const before = boardReads()
+    settle(undefined)
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    expect(boardReads()).toBe(before)
+    await expect.element(done).toHaveTextContent('Fix the login redirect loop')
+  })
+
   it('assigns a teammate at once', async () => {
     const requests = inProjects({
       [PATCH]: { status: 200, body: {}, until: new Promise(() => {}) },
@@ -223,7 +259,9 @@ describe('card menu', () => {
     await screen.getByRole('menuitem', { name: 'Delete' }).click()
     await screen.getByRole('button', { name: 'Cancel' }).click()
 
-    await expect.element(screen.getByRole('alertdialog')).not.toBeInTheDocument()
+    await expect
+      .element(screen.getByRole('alertdialog'))
+      .not.toBeInTheDocument()
     await expect
       .element(screen.getByText('Write the release notes'))
       .toBeVisible()
