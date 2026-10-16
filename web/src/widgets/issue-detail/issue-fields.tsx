@@ -20,7 +20,7 @@ import {
 import { sessionQuery } from '@/entities/session/session-query'
 import { type Issue, fieldMessage } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
-import { CommitInput } from './commit-input'
+import { CommitInput } from '@/shared/ui/commit-input'
 
 // Native selects: no menu chunk to load, the phone's own picker, 44px rows on touch (ui-layout).
 const SELECT =
