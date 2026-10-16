@@ -10,6 +10,8 @@ pub enum AppError {
     BadRequest(String),
     Validation(Vec<FieldError>),
     Unauthorized,
+    /// Wrong email or password at sign-in; same answer for unknown accounts.
+    InvalidCredentials,
     Forbidden,
     NotFound,
     Conflict {
@@ -65,6 +67,12 @@ impl AppError {
                 "unauthorized",
                 "Not signed in",
                 "Sign in or send a valid API token.".into(),
+            ),
+            AppError::InvalidCredentials => (
+                401,
+                "invalid-credentials",
+                "Sign-in failed",
+                "Email or password is incorrect.".into(),
             ),
             AppError::Forbidden => (
                 403,
