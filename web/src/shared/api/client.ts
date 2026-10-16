@@ -16,6 +16,10 @@ export type IssueType = Schemas['IssueType']
 export type Priority = Schemas['Priority']
 export type Sprint = Schemas['Sprint']
 export type UpdateIssue = Schemas['UpdateIssue']
+export type Issue = Schemas['Issue']
+export type Comment = Schemas['Comment']
+export type CreateIssue = Schemas['CreateIssue']
+export type FieldError = Schemas['FieldError']
 
 // The session is an HttpOnly cookie (D22): no token ever reaches this code.
 export const api = createClient<paths>({
@@ -27,23 +31,34 @@ export const api = createClient<paths>({
 /** A failed API call, with the status the QueryClient handlers branch on. */
 export class ApiError extends Error {
   status: number
+  /** The D24 `errors[]`: which field the server refused, and why. */
+  errors: FieldError[]
 
-  constructor(status: number, detail: string) {
+  constructor(status: number, detail: string, errors: FieldError[] = []) {
     super(detail)
     this.status = status
+    this.errors = errors
   }
 }
 
 type Result<Data> = {
   data?: Data
-  error?: { detail: string }
+  error?: { detail: string; errors?: FieldError[] }
   response: Response
 }
 
 export const dataOrThrow = <Data>({ data, error, response }: Result<Data>) => {
   if (data !== undefined) return data
-  throw new ApiError(response.status, error?.detail ?? response.statusText)
+  throw new ApiError(
+    response.status,
+    error?.detail ?? response.statusText,
+    error?.errors
+  )
 }
+
+/** What to say next to a field whose save failed: the server's word on that field, else the detail. */
+export const fieldMessage = (error: Error) =>
+  (error instanceof ApiError && error.errors[0]?.message) || error.message
 
 export const hasStatus = (error: unknown, status: number) =>
   error instanceof ApiError && error.status === status

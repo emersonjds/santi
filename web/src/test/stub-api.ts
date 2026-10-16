@@ -1,5 +1,12 @@
 import { vi } from 'vitest'
-import type { BoardSettings, BoardView, Card } from '@/shared/api/client'
+import type {
+  BoardSettings,
+  BoardView,
+  Card,
+  Comment,
+  Issue,
+  Sprint,
+} from '@/shared/api/client'
 
 type Reply = { status: number; body?: unknown; until?: Promise<unknown> }
 
@@ -50,6 +57,16 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
     'GET /api/projects/WEB/board/settings': { status: 200, body: WEB_SETTINGS },
     'GET /api/projects/OPS/board': { status: 200, body: OPS_BOARD },
     'GET /api/projects/OPS/board/settings': { status: 200, body: OPS_SETTINGS },
+    'GET /api/projects/WEB/sprints': { status: 200, body: WEB_SPRINTS },
+    'GET /api/projects/WEB/issues/1': { status: 200, body: WEB_ISSUE },
+    'GET /api/projects/WEB/issues/1/comments': {
+      status: 200,
+      body: { items: WEB_COMMENTS, next_cursor: null },
+    },
+    'GET /api/projects/WEB/issues': {
+      status: 200,
+      body: { items: [], next_cursor: null },
+    },
     ...replies,
   })
 
@@ -229,3 +246,51 @@ export const OPS_SETTINGS: BoardSettings = {
   board_type: 'kanban',
   done_window_days: 14,
 }
+
+const hoursAgo = (hours: number) =>
+  new Date(Date.now() - hours * 3_600_000).toISOString()
+
+type IssueFixture = Partial<Issue> & Pick<Issue, 'key' | 'summary'>
+
+/** An issue as its detail view loads it: a medium story in Sprint 4, reported by Alice. */
+export const issue = (fields: IssueFixture): Issue => ({
+  id: Number(fields.key.split('-')[1]),
+  number: Number(fields.key.split('-')[1]),
+  description: '',
+  issue_type: 'story',
+  priority: 'medium',
+  status_id: 10,
+  reporter_id: 1,
+  labels: [],
+  rank: fields.key,
+  created_at: hoursAgo(48),
+  updated_at: hoursAgo(3),
+  assignee_id: null,
+  parent_key: null,
+  points: null,
+  sprint_id: 4,
+  done_at: null,
+  ...fields,
+})
+
+export const WEB_ISSUE = issue({
+  key: 'WEB-1',
+  summary: 'Write the release notes',
+  description: 'Cover the board.\nThen the backlog.',
+  labels: ['docs'],
+})
+
+export const WEB_SPRINTS: Sprint[] = [
+  { id: 3, name: 'Sprint 3', goal: '', state: 'closed', overdue: false },
+  { id: 4, name: 'Sprint 4', goal: '', state: 'active', overdue: false },
+  { id: 5, name: 'Sprint 5', goal: '', state: 'future', overdue: false },
+]
+
+export const WEB_COMMENTS: Comment[] = [
+  {
+    id: 1,
+    author_id: 2,
+    body: 'Draft is in the shared doc.',
+    created_at: hoursAgo(2),
+  },
+]

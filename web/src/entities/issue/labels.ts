@@ -1,4 +1,4 @@
-import type { Priority } from '@/shared/api/client'
+import type { IssueType, Priority } from '@/shared/api/client'
 
 export const PRIORITY_LABEL = {
   urgent: 'Urgent',
@@ -6,3 +6,17 @@ export const PRIORITY_LABEL = {
   medium: 'Medium',
   low: 'Low',
 } satisfies Record<Priority, string>
+
+export const TYPE_LABEL = {
+  story: 'Story',
+  task: 'Task',
+  bug: 'Bug',
+  epic: 'Epic',
+  subtask: 'Subtask',
+} satisfies Record<IssueType, string>
+
+export const isPriority = (value: string): value is Priority =>
+  value in PRIORITY_LABEL
+
+export const isIssueType = (value: string): value is IssueType =>
+  value in TYPE_LABEL

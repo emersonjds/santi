@@ -4,12 +4,16 @@ import {
   type BoardSettings,
   type BoardView,
   type Card,
+  type Comment,
+  type CreateIssue,
+  type Issue,
   type UpdateIssue,
   api,
   dataOrThrow,
 } from '@/shared/api/client'
-import { type Move, moveCard, patchCard } from './board-cache'
+import { type Move, moveCard, patchCard, placeCard } from './board-cache'
 import { boardSettingsQuery, boardsKey, issueNumber } from './board-query'
+import { commentsQuery, issueQuery, subtasksQuery } from './issue-queries'
 
 /**
  * D37 optimistic write: patch every board cache of the project, roll back and
@@ -98,3 +102,137 @@ export const useUpdateIssue = (projectKey: string) =>
     (board, { card, shown }) => patchCard(board, card.key, shown),
     ({ card }) => `Couldn't update ${card.key}`
   )
+
+/** A status goes through the move API (D4 keeps the rank); every other field through PATCH. */
+export type IssueChange = {
+  change: UpdateIssue | { status_id: number }
+  shown: Partial<Card> & { description?: string }
+}
+
+const isMove = (
+  change: IssueChange['change']
+): change is { status_id: number } => 'status_id' in change
+
+const columnOf = (settings: BoardSettings | undefined, statusId?: number) =>
+  settings?.columns.find((column) =>
+    column.statuses.some((status) => status.id === statusId)
+  )?.id
+
+/** One field of the issue view: patches the issue and every board of the project at once (D37). */
+export const useEditIssue = (projectKey: string, issue: Issue) => {
+  const queryClient = useQueryClient()
+  const issueKey = issueQuery(projectKey, issue.number).queryKey
+  const boards = boardsKey(projectKey)
+  const path = { key: projectKey, number: issue.number }
+
+  return useMutation({
+    mutationFn: async ({ change }: IssueChange) => {
+      if (isMove(change))
+        return dataOrThrow(
+          await api.POST('/api/projects/{key}/issues/{number}/move', {
+            params: { path },
+            body: change,
+          })
+        )
+      return dataOrThrow(
+        await api.PATCH('/api/projects/{key}/issues/{number}', {
+          params: { path },
+          body: change,
+        })
+      )
+    },
+    onMutate: async ({ shown }) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: issueKey, exact: true }),
+        queryClient.cancelQueries({ queryKey: boards }),
+      ])
+      const before = {
+        issue: queryClient.getQueryData(issueKey),
+        boards: queryClient.getQueriesData<BoardView>({ queryKey: boards }),
+      }
+      const { description: _, ...card } = shown
+      const column = columnOf(
+        queryClient.getQueryData(boardSettingsQuery(projectKey).queryKey),
+        shown.status_id
+      )
+      queryClient.setQueryData(issueKey, (old) => old && { ...old, ...shown })
+      queryClient.setQueriesData<BoardView>(
+        { queryKey: boards },
+        (board) =>
+          board &&
+          placeCard(patchCard(board, issue.key, card), issue.key, column)
+      )
+      return before
+    },
+    onError: (error, _variables, before) => {
+      queryClient.setQueryData(issueKey, before?.issue)
+      for (const [key, board] of before?.boards ?? [])
+        queryClient.setQueryData(key, board && { ...board })
+      toast.error(`Couldn't update ${issue.key}`, {
+        description: error.message,
+      })
+    },
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: issueKey, exact: true }),
+        queryClient.invalidateQueries({ queryKey: boards }),
+      ]),
+  })
+}
+
+/** Shows the comment at once under the viewer's name; takes it back if the server refuses. */
+export const useAddComment = (
+  projectKey: string,
+  number: number,
+  authorId: number
+) => {
+  const queryClient = useQueryClient()
+  const { queryKey } = commentsQuery(projectKey, number)
+  return useMutation({
+    mutationFn: async (body: string) =>
+      dataOrThrow(
+        await api.POST('/api/projects/{key}/issues/{number}/comments', {
+          params: { path: { key: projectKey, number } },
+          body: { body },
+        })
+      ),
+    onMutate: async (body) => {
+      await queryClient.cancelQueries({ queryKey })
+      const before = queryClient.getQueryData(queryKey)
+      const draft: Comment = {
+        id: -Date.now(),
+        author_id: authorId,
+        body,
+        created_at: new Date().toISOString(),
+      }
+      queryClient.setQueryData(queryKey, (old = []) => [...old, draft])
+      return before
+    },
+    onError: (error, _body, before) => {
+      queryClient.setQueryData(queryKey, before)
+      toast.error("Couldn't add the comment", { description: error.message })
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  })
+}
+
+export const useCreateIssue = (projectKey: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: CreateIssue) =>
+      dataOrThrow(
+        await api.POST('/api/projects/{key}/issues', {
+          params: { path: { key: projectKey } },
+          body,
+        })
+      ),
+    onSuccess: (created) => {
+      if (created.parent_key)
+        queryClient.setQueryData(
+          subtasksQuery(projectKey, created.parent_key).queryKey,
+          (old) => old && [...old, created]
+        )
+      return queryClient.invalidateQueries({ queryKey: boardsKey(projectKey) })
+    },
+  })
+}

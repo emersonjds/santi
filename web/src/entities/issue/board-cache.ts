@@ -70,3 +70,18 @@ export const patchCard = (
       : column
   ),
 })
+
+/** After a status change: the card joins the column holding its new status, among its neighbours by rank. */
+export const placeCard = (
+  board: BoardView,
+  key: string,
+  columnId: number | undefined
+): BoardView => {
+  const card = board.columns
+    .flatMap((column) => column.cards)
+    .find((each) => each.key === key)
+  const target = board.columns.find((column) => column.id === columnId)
+  if (!card || !target || card.column_id === target.id) return board
+  const toIndex = target.cards.filter((other) => other.rank < card.rank).length
+  return moveCard(board, { card, toColumnId: target.id, toIndex })
+}

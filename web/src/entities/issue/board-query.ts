@@ -1,11 +1,12 @@
 import { queryOptions } from '@tanstack/react-query'
 import { api, dataOrThrow } from '@/shared/api/client'
 
-/** The board URL (D18): quick filters plus the column shown at 375px. */
+/** The board URL (D18): quick filters, the column shown at 375px, and the issue open over it (IA §6). */
 export type BoardSearch = {
   assignee?: number[]
   recently_updated?: boolean
   column?: number
+  issue?: number
 }
 
 export type BoardFilters = Pick<BoardSearch, 'assignee' | 'recently_updated'>
@@ -24,6 +25,7 @@ export const parseBoardSearch = (
     assignee: assignee.length > 0 ? assignee : undefined,
     recently_updated: search.recently_updated === true || undefined,
     column: isId(search.column) ? search.column : undefined,
+    issue: isId(search.issue) ? search.issue : undefined,
   }
 }
 

@@ -27,6 +27,17 @@ export const membersQuery = (key: string) =>
       ),
   })
 
+export const sprintsQuery = (key: string) =>
+  queryOptions({
+    queryKey: ['projects', key, 'sprints'],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/api/projects/{key}/sprints', {
+          params: { path: { key } },
+        })
+      ),
+  })
+
 /** Project and members for a project page; non-members get the not-found page (D28). */
 export const loadProject = async (queryClient: QueryClient, key: string) => {
   try {
