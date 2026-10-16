@@ -1,0 +1,111 @@
+/// <reference lib="dom" />
+import { type Page, expect, test } from '@playwright/test'
+
+// D39: INP < 100 ms. Event Timing reports interactions of 16 ms or more; none means faster.
+const INP_BUDGET = 100
+const CARDS = 250
+
+declare global {
+  interface Window {
+    interactions: { name: string; duration: number }[]
+  }
+}
+
+const unique = () => `${Date.now()}${Math.random().toString(36).slice(2, 6)}`
+
+const worstInteraction = async (page: Page, name: string) => {
+  // Event Timing entries land after the next paint.
+  await page.waitForTimeout(300)
+  const durations = await page.evaluate(() =>
+    window.interactions.map((entry) => entry.duration)
+  )
+  const worst = Math.max(0, ...durations)
+  test
+    .info()
+    .annotations.push({ type: `INP ${name}`, description: `${worst} ms` })
+  await page.evaluate(() => (window.interactions = []))
+  return worst
+}
+
+test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.interactions = []
+    // Event Timing's threshold is newer than the DOM types.
+    const init: PerformanceObserverInit & { durationThreshold: number } = {
+      type: 'event',
+      durationThreshold: 16,
+      buffered: true,
+    }
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries())
+        if (entry instanceof PerformanceEventTiming && entry.interactionId)
+          window.interactions.push({
+            name: entry.name,
+            duration: entry.duration,
+          })
+    }).observe(init)
+  })
+  await page.goto('/app/register')
+  await page.getByLabel('Name').fill('Perf')
+  await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
+  await page
+    .getByLabel('Password', { exact: true })
+    .fill('correct horse battery')
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: 'Hi, Perf' })).toBeVisible()
+  const key = `P${unique().slice(-6).toUpperCase()}`
+  await page.evaluate(
+    async ({ key, cards }) => {
+      const post = (path: string, body: unknown) =>
+        fetch(path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      await post('/api/projects', { key, name: key, board_type: 'kanban' })
+      for (let index = 1; index <= cards; index++)
+        await post(`/api/projects/${key}/issues`, {
+          summary: `Card number ${index}`,
+        })
+    },
+    { key, cards: CARDS }
+  )
+  await page.goto(`/app/p/${key}/board`)
+  const handle = page.getByRole('button', {
+    name: `Drag ${key}-1`,
+    exact: true,
+  })
+  await expect(handle).toBeVisible()
+  await worstInteraction(page, 'load')
+
+  await handle.focus()
+  await page.keyboard.press('Space')
+  await expect(handle).toHaveAttribute('aria-pressed', 'true')
+  // dnd-kit's keyboard sensor starts listening for arrows one tick after the pickup.
+  await page.waitForTimeout(100)
+  await page.keyboard.press('ArrowRight')
+  await expect(page.getByText(/moved over droppable area/)).toBeAttached()
+  await page.keyboard.press('Space')
+  await expect(
+    page.getByRole('region', { name: 'In Progress', exact: true })
+  ).toContainText('Card number 1')
+  const drop = await worstInteraction(page, 'keyboard drag and drop')
+
+  await page
+    .getByRole('button', { name: `Actions for ${key}-2`, exact: true })
+    .click()
+  await page.getByRole('menuitem', { name: 'Set priority' }).click()
+  await page.getByRole('menuitemradio', { name: 'Urgent' }).click()
+  await expect(
+    page
+      .getByRole('region', { name: 'To Do', exact: true })
+      .getByRole('article')
+      .first()
+  ).toContainText('Urgent priority')
+  const menu = await worstInteraction(page, 'menu: set priority')
+
+  expect(drop).toBeLessThan(INP_BUDGET)
+  expect(menu).toBeLessThan(INP_BUDGET)
+})
