@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod error;
 pub mod extract;
+pub mod web;
 
 use axum::extract::State;
 use axum::{Json, Router, middleware};
@@ -36,6 +37,7 @@ pub fn app(state: AppState) -> Router {
         .split_for_parts();
     router
         .merge(SwaggerUi::new("/docs").url("/openapi.json", api))
+        .merge(web::router())
         .fallback(not_found)
         .layer(middleware::from_fn(auth::extract::reject_cross_site_writes))
         .layer(CompressionLayer::new())
