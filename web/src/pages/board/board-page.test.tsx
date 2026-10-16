@@ -51,6 +51,40 @@ describe('board page', () => {
       .toHaveTextContent('Drop issues here')
   })
 
+  it('shows two labels on a card, then how many more, on its one meta line', async () => {
+    inProjects({
+      'GET /api/projects/WEB/board': {
+        status: 200,
+        body: {
+          ...WEB_BOARD,
+          columns: WEB_BOARD.columns.map((column) => ({
+            ...column,
+            cards: column.cards.map((each) =>
+              each.key === 'WEB-2'
+                ? { ...each, labels: ['ui', 'docs', 'api'] }
+                : each
+            ),
+          })),
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const todo = screen.getByRole('region', { name: 'To do' })
+    const bug = todo.getByRole('article').nth(1)
+    await expect.element(bug.getByTitle('ui', { exact: true })).toBeVisible()
+    await expect.element(bug.getByTitle('docs', { exact: true })).toBeVisible()
+    await expect
+      .element(bug.getByText('+1', { exact: true }))
+      .toHaveAttribute('title', 'api')
+    expect(bug.getByTitle('api', { exact: true }).elements()).toHaveLength(1)
+    const meta = bug.getByText('WEB-2', { exact: true }).element().parentElement
+    expect(meta?.getBoundingClientRect().height).toBeLessThanOrEqual(24)
+    expect(
+      todo.getByRole('article').first().getByText(/^\+\d/).elements()
+    ).toHaveLength(0)
+  })
+
   it('warns on a column over its limit and tells when done work leaves', async () => {
     inProjects()
     const { screen } = await renderApp('/p/OPS/board')

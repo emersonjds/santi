@@ -1,5 +1,6 @@
 import { type ReactNode, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { LabelsPicker } from '@/features/edit-labels/labels-picker'
 import { boardSettingsQuery, epicsQuery } from '@/entities/issue/board-query'
 import {
   type IssueChange,
@@ -323,15 +324,11 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
       {project?.board_type === 'scrum' && <SprintField {...field} />}
       <Field label='Labels' {...field}>
         {(save, id) => (
-          <CommitInput
+          <LabelsPicker
             id={id}
-            className={INPUT}
-            placeholder='Words separated by spaces'
-            value={issue.labels.join(' ')}
-            onCommit={(text) => {
-              const labels = text.split(/[\s,]+/).filter(Boolean)
-              save({ labels }, { labels })
-            }}
+            projectKey={projectKey}
+            value={issue.labels}
+            onChange={(labels) => save({ labels }, { labels })}
           />
         )}
       </Field>
