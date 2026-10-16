@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
-import { type Issue, fieldMessage, hasStatus } from '@/shared/api/client'
+import { type Issue, fieldMessage } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Textarea } from '@/shared/ui/textarea'
@@ -182,9 +182,7 @@ export const IssueDetail = ({
   if (error)
     return (
       <p role='alert' className='text-sm text-destructive'>
-        {hasStatus(error, 404)
-          ? 'This issue does not exist, or it belongs to a project you are not in.'
-          : error.message}
+        {`Couldn't open ${projectKey}-${number}: ${error.message}`}
       </p>
     )
   if (!issue) return <DetailSkeleton />

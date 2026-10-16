@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
@@ -202,7 +202,9 @@ describe('issue detail', () => {
       .fill('Only the board.')
     await screen.getByRole('button', { name: 'Save' }).click()
     await expect.element(screen.getByText('Only the board.')).toBeVisible()
+    await screen.getByLabelText('Assignee').selectOptions('Bob Stone')
     await screen.getByRole('button', { name: 'Assign to me' }).click()
+    await screen.getByLabelText('Assignee').selectOptions('Unassigned')
     await screen.getByLabelText('Points').fill('5')
     await userEvent.keyboard('{Enter}')
     await screen.getByLabelText('Labels').fill('docs release')
@@ -216,7 +218,9 @@ describe('issue detail', () => {
       .toEqual([
         { summary: 'Write the v1 notes' },
         { description: 'Only the board.' },
+        { assignee_id: 2 },
         { assignee_id: 1 },
+        { assignee_id: null },
         { points: 5 },
         { labels: ['docs', 'release'] },
         { parent: 'WEB-7' },
@@ -289,5 +293,76 @@ describe('issue detail', () => {
     expect(await bodiesOf(requests, CREATE)).toEqual([
       { summary: 'Check the logs', issue_type: 'subtask', parent: 'WEB-1' },
     ])
+  })
+
+  it('keeps the summary when it is emptied, and drops a cancelled description', async () => {
+    const requests = inProjects({ [PATCH]: pending })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await screen.getByLabelText('Summary').fill('')
+    await userEvent.keyboard('{Tab}')
+    await screen.getByRole('button', { name: 'Edit description' }).click()
+    await screen
+      .getByRole('textbox', { name: 'Description' })
+      .fill('Never mind.')
+    await screen.getByRole('button', { name: 'Cancel' }).click()
+
+    await expect
+      .element(screen.getByLabelText('Summary'))
+      .toHaveValue('Write the release notes')
+    await expect.element(screen.getByText('Then the backlog.')).toBeVisible()
+    expect(await bodiesOf(requests, PATCH)).toEqual([])
+  })
+
+  it('copies the link to the issue page', async () => {
+    inProjects()
+    const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await screen.getByRole('button', { name: 'Copy link' }).click()
+
+    await expect.element(screen.getByText('Link copied')).toBeVisible()
+    expect(copy).toHaveBeenCalledWith(
+      expect.stringMatching(/\/p\/WEB\/issues\/1$/)
+    )
+  })
+
+  it('opens from a board link and closes onto the bare board', async () => {
+    inProjects({
+      'GET /api/projects/WEB/issues/7': {
+        status: 500,
+        body: problem(500, 'The database is away.'),
+      },
+    })
+    const { screen, router } = await renderApp('/p/WEB/board?issue=7')
+
+    await expect
+      .element(screen.getByRole('dialog', { name: 'WEB-7' }))
+      .toHaveTextContent("Couldn't open WEB-7: The database is away.")
+    await userEvent.keyboard('{Escape}')
+
+    await expect.poll(() => router.state.location.search).toEqual({})
+    expect(router.state.location.pathname).toBe('/p/WEB/board')
+  })
+
+  it('answers a malformed issue number with the not-found page, and a failure with the error page', async () => {
+    inProjects({
+      'GET /api/projects/WEB/issues/8': {
+        status: 500,
+        body: problem(500, 'The database is away.'),
+      },
+    })
+    const { screen, router } = await renderApp('/p/WEB/issues/abc')
+
+    await expect
+      .element(screen.getByRole('heading', { name: 'Page not found' }))
+      .toBeVisible()
+    await router.navigate({
+      to: '/p/$key/issues/$number',
+      params: { key: 'WEB', number: '8' },
+    })
+    await expect
+      .element(screen.getByRole('heading', { name: 'Something went wrong' }))
+      .toBeVisible()
   })
 })

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
@@ -115,6 +115,27 @@ describe('create issue', () => {
     await expect
       .element(createDialog(screen).getByLabelText('Project'))
       .toHaveValue('WEB')
+  })
+
+  it('falls back to the first project when the browser keeps no storage', async () => {
+    const blocked = () => {
+      throw new DOMException('Blocked', 'SecurityError')
+    }
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(blocked)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(blocked)
+    inProjects()
+    const { screen, router } = await renderApp('/p/OPS/board')
+    await expect
+      .element(screen.getByRole('heading', { name: 'Operations' }))
+      .toBeVisible()
+
+    await router.navigate({ to: '/' })
+    await screen.getByRole('button', { name: 'Create', exact: true }).click()
+
+    await expect
+      .element(createDialog(screen).getByLabelText('Project'))
+      .toHaveValue('WEB')
+    vi.restoreAllMocks()
   })
 
   it('creates the issue, toasts a link to it and shows its card', async () => {
