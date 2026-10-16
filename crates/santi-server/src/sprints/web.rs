@@ -8,7 +8,7 @@ use chrono::{Days, NaiveDate, Utc};
 use santi_types::FieldError;
 use santi_types::boards::Backlog;
 use santi_types::issues::{CreateIssue, IssueFilter, IssueType, MoveIssue};
-use santi_types::projects::{BoardType, Project};
+use santi_types::projects::{BoardType, MemberInfo, Project};
 use santi_types::sprints::{
     CompleteSprint, CreateSprint, OpenIssuesDestination, Sprint, SprintState, StartSprint,
     UpdateSprint,
@@ -21,7 +21,7 @@ use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
 use crate::extract::PathParams;
 use crate::members::Member;
-use crate::projects::web::place_anchor;
+use crate::projects::web::{board_path, place_anchor};
 use crate::web::{PageUser, Shell, render, shell};
 use crate::{boards, issues, projects};
 
@@ -42,6 +42,7 @@ pub fn router() -> Router<AppState> {
 struct BacklogPage {
     shell: Shell,
     project: Project,
+    members: Vec<MemberInfo>,
     backlog: Backlog,
     today: NaiveDate,
     draft: IssueDraft,
@@ -135,8 +136,11 @@ async fn load_page(
 ) -> Result<BacklogPage, AppError> {
     let filter = IssueFilter::default();
     Ok(BacklogPage {
-        shell: shell(&state.pool, user, &member.project_key).await?,
+        shell: shell(&state.pool, user, &member.project_key)
+            .await?
+            .on("backlog"),
         project: projects::service::get_project(&state.pool, member).await?,
+        members: crate::members::service::list_members(&state.pool, member).await?,
         backlog: boards::service::backlog(&state.pool, member, &filter).await?,
         today: Utc::now().date_naive(),
         draft,
@@ -205,7 +209,7 @@ async fn backlog_page(
     member: Member,
 ) -> Result<Response, AppError> {
     if member.board_type == BoardType::Kanban {
-        return Ok(Redirect::to(&format!("/p/{}", member.project_key)).into_response());
+        return Ok(Redirect::to(&board_path(&member.project_key)).into_response());
     }
     let page = load_page(&state, &user, &member, IssueDraft::default(), None).await?;
     render(StatusCode::OK, &page)
@@ -385,7 +389,7 @@ async fn start_sprint(
     Form(input): Form<SprintForm>,
 ) -> Result<Response, AppError> {
     let result = start(&state, &member, sprint_id, input).await;
-    let board = format!("/p/{}", member.project_key);
+    let board = board_path(&member.project_key);
     respond(
         &state,
         &user,

@@ -50,7 +50,7 @@ async fn creating_a_project_opens_its_page(pool: PgPool) {
     let response = app.send(form("/projects", body, Some(&cookie))).await;
 
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
-    assert_eq!(location(&response), "/p/SANTI");
+    assert_eq!(location(&response), "/p/SANTI/board");
 }
 
 #[sqlx::test]
@@ -100,7 +100,7 @@ async fn home_and_sidebar_list_my_projects(pool: PgPool) {
     let html = text(app.send(page("/", Some(&cookie))).await).await;
 
     assert!(html.contains("Santi Tracker"));
-    assert!(html.contains(r#"href="/p/SANTI""#));
+    assert!(html.contains(r#"href="/p/SANTI/board""#));
     assert!(html.contains(r#"href="/projects/new""#));
     assert!(html.contains(r#"id="sidebar""#));
     assert!(!html.contains("No projects yet"));
@@ -112,7 +112,7 @@ async fn project_page_shows_members_and_the_invite_form_to_admins(pool: PgPool) 
     let cookie = sign_up(&app, "ana@example.com", "Ana+Lima").await;
     create_project(&app, &cookie, "SANTI", "Santi+Tracker").await;
 
-    let response = app.send(page("/p/SANTI", Some(&cookie))).await;
+    let response = app.send(page("/p/SANTI/board", Some(&cookie))).await;
 
     assert_eq!(response.status(), StatusCode::OK);
     let html = text(response).await;
@@ -134,12 +134,12 @@ async fn invite_link_lets_another_user_join_as_member(pool: PgPool) {
 
     let join_page = text(app.send(page(&link, Some(&bob))).await).await;
     let joined = app.send(form(&link, "", Some(&bob))).await;
-    let project = text(app.send(page("/p/SANTI", Some(&bob))).await).await;
+    let project = text(app.send(page("/p/SANTI/board", Some(&bob))).await).await;
     let reused = app.send(form(&link, "", Some(&bob))).await;
 
     assert!(join_page.contains(&format!(r#"action="{link}""#)));
     assert_eq!(joined.status(), StatusCode::SEE_OTHER);
-    assert_eq!(location(&joined), "/p/SANTI");
+    assert_eq!(location(&joined), "/p/SANTI/board");
     assert!(project.contains("Bob"));
     assert!(!project.contains(r#"action="/p/SANTI/invites""#));
     assert_eq!(reused.status(), StatusCode::NOT_FOUND);
@@ -152,12 +152,12 @@ async fn strangers_get_not_found_and_anonymous_visitors_sign_in(pool: PgPool) {
     let bob = sign_up(&app, "bob@example.com", "Bob").await;
     create_project(&app, &ana, "SANTI", "Santi").await;
 
-    let stranger = app.send(page("/p/SANTI", Some(&bob))).await;
+    let stranger = app.send(page("/p/SANTI/board", Some(&bob))).await;
     let unknown = app.send(page("/p/NOPE", Some(&ana))).await;
     let stranger_invite = app
         .send(form("/p/SANTI/invites", "role=member", Some(&bob)))
         .await;
-    let anonymous = app.send(page("/p/SANTI", None)).await;
+    let anonymous = app.send(page("/p/SANTI/board", None)).await;
 
     assert_eq!(stranger.status(), StatusCode::NOT_FOUND);
     assert_eq!(unknown.status(), StatusCode::NOT_FOUND);

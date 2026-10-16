@@ -2,24 +2,23 @@
 {% import "shared/ui.html" as ui %}
 {% block title %}Home{% endblock %}
 {% block main %}
-<h1 class="greeting">Hi, {{ shell.display_name }}</h1>
-{% if shell.projects.is_empty() %}
-<p class="lede">This is your starting point. Everything you track will show up here.</p>
-<section class="empty" aria-labelledby="empty-title">
-  <span class="empty-icon">{{ ui::icon("folder-plus") }}</span>
-  <h2 id="empty-title">No projects yet</h2>
-  <p>A project groups a board, its backlog and its sprints.</p>
-  <a class="button" href="/projects/new">{{ ui::icon("plus") }}<span>New project</span></a>
+<h1 class="text-2xl font-semibold tracking-tight">Hi, {{ shell.display_name }}</h1>
+{%- if shell.projects.is_empty() %}
+<section class="mt-6 grid justify-items-center gap-2 rounded-lg border border-dashed border-border bg-sunken px-5 py-10 text-center" aria-labelledby="empty-title">
+  <span class="grid size-12 place-items-center rounded-full bg-selected text-primary">{{ ui::icon("folder-plus") }}</span>
+  <h2 class="text-lg font-semibold" id="empty-title">No projects yet</h2>
+  <p class="max-w-[42ch] text-text-muted">A project groups a board, its backlog and its sprints.</p>
+  <div class="mt-2">{{ ui::link_button("/projects/new", "plus", "New project") }}</div>
 </section>
-{% else %}
-<div class="section-head">
-  <h2 id="projects-title">Your projects</h2>
-  <a class="button" href="/projects/new">{{ ui::icon("plus") }}<span>New project</span></a>
+{%- else %}
+<div class="mt-6 flex items-center justify-between gap-3">
+  <h2 class="text-lg font-semibold" id="projects-title">Your projects</h2>
+  {{ ui::link_button("/projects/new", "plus", "New project") }}
 </div>
-<ul class="cards" aria-labelledby="projects-title">
+<ul class="mt-4 grid gap-2 sm:grid-cols-2" aria-labelledby="projects-title">
   {%- for project in shell.projects %}
-  <li><a class="card" href="/p/{{ project.key }}">{{ ui::icon("folder") }}<span class="card-name">{{ project.name }}</span><span class="key">{{ project.key }}</span></a></li>
+  <li><a class="flex min-h-14 items-center gap-3 rounded-lg border border-border bg-raised px-4 hover:border-primary" href="/p/{{ project.key }}/board">{{ ui::avatar(project.name, "size-8 rounded-md") }}<span class="min-w-0 flex-1 truncate font-medium">{{ project.name }}</span><span class="text-xs tabular-nums text-text-subtle">{{ project.key }}</span></a></li>
   {%- endfor %}
 </ul>
-{% endif %}
+{%- endif %}
 {% endblock %}

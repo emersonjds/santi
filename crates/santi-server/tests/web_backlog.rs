@@ -88,12 +88,12 @@ async fn kanban_projects_have_no_backlog(pool: PgPool) {
     let (ana, cookie) = backlog_owner(pool).await;
     ana.create_project("FLOW", "kanban").await;
 
-    let board = text(ana.send(page("/p/FLOW", Some(&cookie))).await).await;
+    let board = text(ana.send(page("/p/FLOW/board", Some(&cookie))).await).await;
     let backlog = ana.send(page("/p/FLOW/backlog", Some(&cookie))).await;
 
     assert!(!board.contains(r#"href="/p/FLOW/backlog""#));
     assert_eq!(backlog.status(), StatusCode::SEE_OTHER);
-    assert_eq!(location(&backlog), "/p/FLOW");
+    assert_eq!(location(&backlog), "/p/FLOW/board");
 }
 
 #[sqlx::test]
@@ -240,7 +240,7 @@ async fn a_sprint_starts_from_its_form_and_a_second_is_refused(pool: PgPool) {
     .await;
     ana.create_issue("SANTI", json!({ "summary": "Unplanned" }))
         .await;
-    let idle_board = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    let idle_board = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
 
     let started = ana
         .send(form(
@@ -257,7 +257,7 @@ async fn a_sprint_starts_from_its_form_and_a_second_is_refused(pool: PgPool) {
         ))
         .await;
     let active = sprint(&ana, &first["id"]).await;
-    let board = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    let board = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
     let from_board = ana
         .send(form(
             "/p/SANTI/issues",
@@ -272,7 +272,7 @@ async fn a_sprint_starts_from_its_form_and_a_second_is_refused(pool: PgPool) {
     assert!(idle_board.contains("No sprint is running"));
     assert!(idle_board.contains(r#"href="/p/SANTI/backlog""#));
     assert_eq!(started.status(), StatusCode::SEE_OTHER);
-    assert_eq!(location(&started), "/p/SANTI");
+    assert_eq!(location(&started), "/p/SANTI/board");
     assert_eq!(active["state"], "active");
     assert_eq!(active["name"], "Alpha");
     assert_eq!(active["end_date"], "2026-10-29");

@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="light">
   <title>{% block title %}{% endblock %} · santi</title>
   <link rel="stylesheet" href="{{ crate::web::STATIC }}/app.css">
   <script src="{{ crate::web::STATIC }}/htmx.min.js" defer></script>
   <script src="{{ crate::web::STATIC }}/app.js" defer></script>
 </head>
-<body>
+<body class="min-h-screen bg-canvas text-text antialiased [overflow-wrap:anywhere]">
 {% block body %}{% endblock %}
 </body>
 </html>

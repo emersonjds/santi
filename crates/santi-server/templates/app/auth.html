@@ -1,0 +1,12 @@
+{% extends "app/layout.html" %}
+{% import "shared/ui.html" as ui %}
+{% block body %}
+<main class="flex min-h-screen items-start justify-center bg-surface px-4 py-8 sm:items-center">
+  <div class="w-full max-w-[400px] sm:rounded-xl sm:border sm:border-border sm:bg-raised sm:p-8 sm:shadow-sm">
+    {{ ui::brand("/login") }}
+    <h1 class="mt-6 text-2xl font-semibold tracking-tight">{% block heading %}{% endblock %}</h1>
+    <p class="mt-1.5 text-text-muted">{% block lede %}{% endblock %}</p>
+    {% block form %}{% endblock %}
+  </div>
+</main>
+{% endblock %}

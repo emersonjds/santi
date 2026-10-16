@@ -2,14 +2,13 @@
 {% import "shared/ui.html" as ui %}
 {% block title %}{{ project.name }}{% endblock %}
 {% block main %}
-<header class="project-head">
-  <p class="key">{{ project.key }}</p>
-  <h1 class="greeting">{{ project.name }}</h1>
-  <form class="search" method="get" action="/p/{{ project.key }}/search" role="search">
-    <input type="search" name="q" aria-label="Search issues in {{ project.name }}" placeholder="Search issues">
-    <button class="icon-button" type="submit" aria-label="Search">{{ ui::icon("search") }}</button>
-  </form>
-</header>
+{% include "widgets/project_header.html" %}
+{%- if let Some(invite) = invite %}
+<div class="mt-4 grid gap-1.5 rounded-md bg-success-bg px-3.5 py-3 text-success" role="status">
+  <p>Share this link. It works once and expires on {{ invite.expires_at.format("%b %-d") }}.</p>
+  <a class="font-mono text-sm break-all underline" href="/invites/{{ invite.token }}">/invites/{{ invite.token }}</a>
+</div>
+{%- endif %}
 <section class="board-area" aria-labelledby="board-title">
   <h2 id="board-title" class="visually-hidden">Board</h2>
   {%- if let Some(sprint) = board.sprint %}
@@ -99,29 +98,5 @@
   </div>
   </div>
   {% endblock %}
-</section>
-<section class="panel" aria-labelledby="members-title">
-  <h2 id="members-title">Members</h2>
-  <ul class="rows">
-    {%- for member in members %}
-    <li><span class="row-name">{{ member.display_name }}<small>{{ member.email }}</small></span><span class="badge">{% match member.role %}{% when MemberRole::Admin %}Admin{% when MemberRole::Member %}Member{% endmatch %}</span></li>
-    {%- endfor %}
-  </ul>
-  {% if project.role == MemberRole::Admin %}
-  <form class="invite" method="post" action="/p/{{ project.key }}/invites">
-    <label for="role">Invite as</label>
-    <select id="role" name="role">
-      <option value="member">Member</option>
-      <option value="admin">Admin</option>
-    </select>
-    <button class="button" type="submit">{{ ui::icon("user-plus") }}<span>Create invite link</span></button>
-  </form>
-  {% if let Some(invite) = invite %}
-  <div class="notice" role="status">
-    <p>Share this link. It works once and expires on {{ invite.expires_at.format("%b %-d") }}.</p>
-    <a class="invite-link" href="/invites/{{ invite.token }}">/invites/{{ invite.token }}</a>
-  </div>
-  {% endif %}
-  {% endif %}
 </section>
 {% endblock %}

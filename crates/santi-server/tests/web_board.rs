@@ -52,7 +52,7 @@ async fn board_with_issues(pool: PgPool, count: usize) -> (TestApp, String) {
 async fn cards_are_draggable_and_carry_a_move_to_control(pool: PgPool) {
     let (ana, cookie) = board_with_issues(pool, 1).await;
 
-    let html = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    let html = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
 
     assert!(html.contains(r#"id="board""#));
     assert!(html.contains(r#"draggable="true""#));
@@ -91,7 +91,7 @@ async fn dropping_a_card_moves_it_and_the_order_survives_a_reload(pool: PgPool) 
     let fragment = text(second).await;
     assert!(!fragment.contains("<html"));
     assert_eq!(column_keys(&fragment, doing), ["SANTI-1", "SANTI-3"]);
-    let html = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    let html = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
     assert_eq!(column_keys(&html, doing), ["SANTI-1", "SANTI-3"]);
     assert_eq!(column_keys(&html, todo), ["SANTI-2"]);
     let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
@@ -130,17 +130,17 @@ async fn move_to_form_places_the_card_at_the_top_or_bottom(pool: PgPool) {
             Some(&cookie),
         ))
         .await;
-    let after_top = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    let after_top = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
     ana.send(form(
         "/p/SANTI/issues/1/move",
         &format!("column_id={todo}&place=bottom"),
         Some(&cookie),
     ))
     .await;
-    let after_bottom = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    let after_bottom = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
 
     assert_eq!(top.status(), StatusCode::SEE_OTHER);
-    assert_eq!(location(&top), "/p/SANTI");
+    assert_eq!(location(&top), "/p/SANTI/board");
     assert_eq!(
         column_keys(&after_top, todo),
         ["SANTI-3", "SANTI-1", "SANTI-2"]
@@ -259,7 +259,7 @@ async fn board_shows_columns_cards_and_the_create_form(pool: PgPool) {
     )
     .await;
 
-    let response = ana.send(page("/p/SANTI", Some(&cookie))).await;
+    let response = ana.send(page("/p/SANTI/board", Some(&cookie))).await;
 
     assert_eq!(response.status(), StatusCode::OK);
     let html = text(response).await;
@@ -291,11 +291,11 @@ async fn creating_an_issue_from_the_form_lands_in_the_first_column(pool: PgPool)
         .await;
 
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
-    assert_eq!(location(&response), "/p/SANTI");
+    assert_eq!(location(&response), "/p/SANTI/board");
     let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
     assert_eq!(issue["status_id"], todo);
     assert_eq!(issue["issue_type"], "bug");
-    let html = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    let html = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
     assert!(html.contains("Fix login"));
     assert!(html.contains("Bug"));
 }

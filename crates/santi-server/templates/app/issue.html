@@ -3,7 +3,7 @@
 {% block title %}{{ issue.key }} {{ issue.summary }}{% endblock %}
 {% block main %}
 <div class="narrow">
-  <a class="back" href="/p/{{ shell.current }}">{{ ui::icon("kanban") }}<span>Back to board</span></a>
+  <a class="back" href="/p/{{ shell.current }}/board">{{ ui::icon("kanban") }}<span>Back to board</span></a>
   <header class="issue-head">
     <p class="issue-meta"><span class="key">{{ issue.key }}</span><span class="type">{{ issue.issue_type.label() }}</span><span class="badge">{{ status_name }}</span></p>
     <h1 class="greeting">{{ issue.summary }}</h1>
