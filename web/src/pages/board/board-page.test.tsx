@@ -17,7 +17,7 @@ describe('board page', () => {
 
     const todo = screen.getByRole('region', { name: 'To do' })
     await expect.element(todo.getByLabelText('2 issues')).toBeVisible()
-    const bug = todo.getByRole('listitem').nth(1)
+    const bug = todo.getByRole('article').nth(1)
     await expect
       .element(bug.getByRole('link', { name: 'Fix the login redirect loop' }))
       .toHaveAttribute('href', expect.stringMatching(/\/p\/WEB\/issues\/2$/))

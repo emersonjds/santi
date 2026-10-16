@@ -1,5 +1,7 @@
 import { type ReactNode, Suspense, lazy, memo, useCallback } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { Ellipsis } from 'lucide-react'
+import { BoardContext } from '@/entities/issue/board-context'
 import {
   type BoardSearch,
   boardFilters,
@@ -27,9 +29,33 @@ const SortableBoard = lazy(() =>
   }))
 )
 
+const CardMenu = lazy(() =>
+  import('@/features/issue-quick-actions/card-menu').then((module) => ({
+    default: module.CardMenu,
+  }))
+)
+
+// Same box as the menu button, so nothing moves when the menu chunk arrives.
+const MenuPlaceholder = () => (
+  <span
+    aria-hidden='true'
+    className='grid size-10 place-items-center text-muted-foreground'
+  >
+    <Ellipsis className='size-4' />
+  </span>
+)
+
 const BoardCard = memo(
   ({ card, projectKey }: { card: Card; projectKey: string }) => (
-    <IssueCard card={card} projectKey={projectKey} />
+    <IssueCard
+      card={card}
+      projectKey={projectKey}
+      menu={
+        <Suspense fallback={<MenuPlaceholder />}>
+          <CardMenu card={card} projectKey={projectKey} />
+        </Suspense>
+      }
+    />
   )
 )
 
@@ -119,14 +145,16 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
         columns={board.columns}
         shown={shown}
       />
-      <Columns
-        board={board}
-        projectKey={projectKey}
-        shown={shown}
-        doneWindow={
-          board.board_type === 'kanban' ? settings?.done_window_days : null
-        }
-      />
+      <BoardContext value={board}>
+        <Columns
+          board={board}
+          projectKey={projectKey}
+          shown={shown}
+          doneWindow={
+            board.board_type === 'kanban' ? settings?.done_window_days : null
+          }
+        />
+      </BoardContext>
     </>
   )
 }
