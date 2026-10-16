@@ -40,7 +40,7 @@ impl TestApp {
 
     /// Registers a new user on the same router and signs in with a fresh API token.
     pub async fn another_user(&self, email: &str) -> Self {
-        let register = json!({ "email": email, "password": PASSWORD, "display_name": email });
+        let register = json!({ "email": email, "password": PASSWORD, "display_name": email, "accept_terms": true });
         let response = self
             .send(json_request(
                 Method::POST,

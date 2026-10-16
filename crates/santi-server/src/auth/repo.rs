@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use santi_types::auth::{ApiToken, User};
 use sqlx::PgConnection;
 
+use super::domain::TERMS_VERSION;
 use super::extract::CurrentUser;
 
 pub struct UserWithHash {
@@ -19,11 +20,13 @@ pub async fn insert_user(
 ) -> Result<User, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, $2, $3)
+        "INSERT INTO app_user (email, display_name, password_hash, terms_accepted_at, terms_version)
+         VALUES ($1, $2, $3, now(), $4)
          RETURNING id, email, display_name",
         email,
         display_name,
-        password_hash
+        password_hash,
+        TERMS_VERSION
     )
     .fetch_one(&mut *conn)
     .await
@@ -237,4 +240,22 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     .execute(&mut *conn)
     .await?;
     Ok(())
+}
+
+pub struct TermsAcceptance {
+    pub terms_version: Option<String>,
+    pub terms_accepted_at: Option<DateTime<Utc>>,
+}
+
+pub async fn find_terms(
+    conn: &mut PgConnection,
+    user_id: i64,
+) -> Result<TermsAcceptance, sqlx::Error> {
+    sqlx::query_as!(
+        TermsAcceptance,
+        "SELECT terms_version, terms_accepted_at FROM app_user WHERE id = $1",
+        user_id
+    )
+    .fetch_one(&mut *conn)
+    .await
 }

@@ -579,6 +579,10 @@ export interface components {
             /** @description Projects the caller is a plain member of: named here, owned by their admins. */
             other_projects: components["schemas"]["Project"][];
             projects: components["schemas"]["ProjectExport"][];
+            /** Format: date-time */
+            terms_accepted_at?: string | null;
+            /** @description Which Terms of Use the person accepted, and when; null for accounts made before them. */
+            terms_version?: string | null;
             user: components["schemas"]["User"];
         };
         AddMember: {
@@ -1038,6 +1042,8 @@ export interface components {
             sprints: components["schemas"]["Sprint"][];
         };
         Register: {
+            /** @description Must be true: the person agrees to the Terms of Use and the Privacy Policy (D45). */
+            accept_terms?: boolean;
             display_name: string;
             email: string;
             password: string;
