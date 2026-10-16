@@ -59,35 +59,35 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     let cookie = session_cookie(&response);
 
     let budgets: [(&str, Method, &str, Option<Value>, usize); 7] = [
-        ("board", Method::GET, "/api/projects/PERF/board", None, 5),
-        ("kanban", Method::GET, "/api/projects/FLOW/board", None, 5),
+        ("board", Method::GET, "/api/projects/PERF/board", None, 4),
+        ("kanban", Method::GET, "/api/projects/FLOW/board", None, 4),
         (
             "backlog",
             Method::GET,
             "/api/projects/PERF/backlog",
             None,
-            5,
+            4,
         ),
         (
             "issue",
             Method::GET,
             "/api/projects/PERF/issues/300",
             None,
-            3,
+            2,
         ),
         (
             "search",
             Method::GET,
             "/api/projects/PERF/issues?q=search%20index&type=bug&limit=50",
             None,
-            3,
+            2,
         ),
         (
             "move",
             Method::POST,
             "/api/projects/PERF/issues/500/move",
             Some(json!({ "after": "PERF-520" })),
-            10,
+            9,
         ),
         ("me", Method::GET, "/api/me", None, 2),
     ];
