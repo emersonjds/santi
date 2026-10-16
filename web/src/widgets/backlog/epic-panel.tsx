@@ -87,7 +87,7 @@ const Progress = ({ epic }: { epic: Epic }) => {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        className='h-1.5 overflow-hidden rounded-full bg-muted'
+        className='h-1.5 overflow-hidden rounded-full bg-border'
       >
         <span
           className='block h-full bg-primary'
