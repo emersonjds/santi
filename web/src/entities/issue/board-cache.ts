@@ -1,12 +1,13 @@
 import type { BoardColumn, BoardView, Card, Issue } from '@/shared/api/client'
 
-/** A card going to `toIndex` among the visible cards of a column, with the D4 anchor the server places it by. */
+/** A card going to `toIndex` among the visible cards of a column, with the D4 anchor the server places it by, or a status (SB-17). */
 export type Move = {
   card: Card
   toColumnId: number
   toIndex: number
   after?: string
   before?: string
+  statusId?: number
 }
 
 const cardsOf = (board: BoardView, columnId: number) =>
@@ -28,7 +29,26 @@ export const planMove = (
   return { card, toColumnId, toIndex: 0, before: others[0]?.key }
 }
 
-const recount = (column: BoardColumn, delta: number): BoardColumn => {
+/** Where a card sits among a column's cards by rank: a status change keeps the rank (D4). */
+const rankIndex = (board: BoardView, card: Card, columnId: number) =>
+  cardsOf(board, columnId).filter(
+    (other) => other.key !== card.key && other.rank < card.rank
+  ).length
+
+/** SB-17: the card takes a status of the column, with no anchor so the server keeps its rank. */
+export const statusMove = (
+  board: BoardView,
+  card: Card,
+  toColumnId: number,
+  statusId: number
+): Move => ({
+  card,
+  toColumnId,
+  toIndex: rankIndex(board, card, toColumnId),
+  statusId,
+})
+
+export const recount = (column: BoardColumn, delta: number): BoardColumn => {
   const issue_count = column.issue_count + delta
   const over_limit = column.wip_limit != null && issue_count > column.wip_limit
   return { ...column, issue_count, over_limit }
@@ -36,12 +56,16 @@ const recount = (column: BoardColumn, delta: number): BoardColumn => {
 
 /** The board as it will look once the move lands; counts follow the card (D7). */
 export const moveCard = (board: BoardView, move: Move): BoardView => {
-  const { card, toColumnId, toIndex } = move
+  const { card, toColumnId, toIndex, statusId = card.status_id } = move
   const changesColumn = card.column_id !== toColumnId
   const columns = board.columns.map((column) => {
     const cards = column.cards.filter((other) => other.key !== card.key)
     if (column.id === toColumnId) {
-      cards.splice(toIndex, 0, { ...card, column_id: toColumnId })
+      cards.splice(toIndex, 0, {
+        ...card,
+        column_id: toColumnId,
+        status_id: statusId,
+      })
       return changesColumn
         ? recount({ ...column, cards }, 1)
         : { ...column, cards }
@@ -82,8 +106,11 @@ export const placeCard = (
     .find((each) => each.key === key)
   const target = board.columns.find((column) => column.id === columnId)
   if (!card || !target || card.column_id === target.id) return board
-  const toIndex = target.cards.filter((other) => other.rank < card.rank).length
-  return moveCard(board, { card, toColumnId: target.id, toIndex })
+  return moveCard(board, {
+    card,
+    toColumnId: target.id,
+    toIndex: rankIndex(board, card, target.id),
+  })
 }
 
 /** A new issue as a card; the assignee's name arrives with the next board refresh. */

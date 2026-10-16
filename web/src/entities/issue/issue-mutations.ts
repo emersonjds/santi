@@ -25,6 +25,7 @@ import {
 } from './board-cache'
 import { boardSettingsQuery, boardsKey, issueNumber } from './board-query'
 import { commentsQuery, issueQuery, subtasksQuery } from './issue-queries'
+import { statusesOf } from './statuses'
 
 const useBoardWrite = <Variables>(
   projectKey: string,
@@ -65,8 +66,7 @@ const statusFor = (
   columnId: number,
   current: number
 ) => {
-  const statuses =
-    settings.columns.find((column) => column.id === columnId)?.statuses ?? []
+  const statuses = statusesOf(settings, columnId)
   if (statuses.some((status) => status.id === current)) return undefined
   if (!statuses[0])
     throw new Error('Map a status to this column before moving issues into it.')
@@ -77,15 +77,16 @@ export const useMoveIssue = (projectKey: string) => {
   const queryClient = useQueryClient()
   return useBoardWrite<Move>(
     projectKey,
-    async ({ card, toColumnId, after, before }) => {
+    async ({ card, toColumnId, after, before, statusId }) => {
       const status_id =
-        card.column_id === toColumnId
+        statusId ??
+        (card.column_id === toColumnId
           ? undefined
           : statusFor(
               await queryClient.ensureQueryData(boardSettingsQuery(projectKey)),
               toColumnId,
               card.status_id
-            )
+            ))
       return dataOrThrow(
         await api.POST('/api/projects/{key}/issues/{number}/move', {
           params: { path: { key: projectKey, number: issueNumber(card.key) } },

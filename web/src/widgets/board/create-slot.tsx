@@ -13,14 +13,17 @@ const CREATE_ROW =
 type CreateSlotProps = {
   projectKey: string
   sprintId?: number | null
+  /** The board column the issue lands in, by its first status; none in the backlog. */
+  columnId?: number
   open: boolean
   setOpen: (open: boolean) => void
 }
 
-/** D5: inline create at the foot of the first column or a backlog section; the form loads on the first click. */
+/** D5: inline create at the foot of a board column or a backlog section; the form loads on the first click. */
 export const CreateSlot = ({
   projectKey,
   sprintId,
+  columnId,
   open,
   setOpen,
 }: CreateSlotProps) => {
@@ -39,6 +42,7 @@ export const CreateSlot = ({
     <Suspense fallback={<div className={CREATE_ROW} />}>
       <InlineCreate
         sprintId={sprintId}
+        columnId={columnId}
         projectKey={projectKey}
         onClose={() => setOpen(false)}
       />

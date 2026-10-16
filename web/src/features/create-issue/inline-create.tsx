@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
+import { statusesOf } from '@/entities/issue/statuses'
 import { type IssueType, fieldMessage } from '@/shared/api/client'
 import { Input } from '@/shared/ui/input'
 
@@ -13,13 +14,16 @@ type InlineCreateProps = {
   projectKey: string
   /** The sprint the issue lands in; none for the backlog (or a kanban board). */
   sprintId?: number | null
+  /** The board column it lands in; the backlog takes the first column. */
+  columnId?: number
   onClose: () => void
 }
 
-/** D5: summary and type at the foot of the first column or a backlog section; the issue takes the first status and that sprint. */
+/** D5: summary and type at the foot of a column or a backlog section; the issue takes the column's first status and that sprint. */
 export const InlineCreate = ({
   projectKey,
   sprintId,
+  columnId,
   onClose,
 }: InlineCreateProps) => {
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
@@ -36,7 +40,8 @@ export const InlineCreate = ({
         summary: text,
         issue_type: type,
         sprint_id: sprintId ?? undefined,
-        status_id: settings?.columns[0]?.statuses[0]?.id,
+        status_id: statusesOf(settings, columnId ?? settings?.columns[0]?.id)[0]
+          ?.id,
       },
       { onSuccess: () => setSummary('') }
     )

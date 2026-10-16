@@ -24,7 +24,7 @@ const firstCard = (screen: RenderResult) =>
 describe('card menu', () => {
   beforeEach(() => page.viewport(1280, 800))
 
-  it('moves a card to the bottom of another column', async () => {
+  it('moves a card to a status of a column holding several (SB-17), top or bottom elsewhere', async () => {
     const requests = inProjects({
       [MOVE]: { status: 200, body: {}, until: new Promise(() => {}) },
     })
@@ -32,16 +32,22 @@ describe('card menu', () => {
 
     await openMenu(screen, 'WEB-1')
     await screen.getByRole('menuitem', { name: 'Move to…' }).click()
-    await screen
-      .getByRole('menuitem', { name: 'Move to the bottom of In progress' })
-      .click()
+    await expect
+      .element(
+        screen.getByRole('menuitem', { name: 'Move to the bottom of Done' })
+      )
+      .toBeVisible()
+    expect(
+      screen
+        .getByRole('menuitem', { name: 'Move to the bottom of In progress' })
+        .elements()
+    ).toHaveLength(0)
+    await screen.getByRole('menuitem', { name: 'Move to In review' }).click()
 
     await expect
       .element(screen.getByRole('region', { name: 'In progress' }))
       .toHaveTextContent('Write the release notes')
-    await expect
-      .poll(() => bodyOf(requests, MOVE))
-      .toEqual({ status_id: 20, after: 'WEB-3' })
+    await expect.poll(() => bodyOf(requests, MOVE)).toEqual({ status_id: 21 })
   })
 
   it('assigns a teammate at once', async () => {

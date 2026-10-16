@@ -8,7 +8,7 @@ const plural = (count: number) => `${count} ${count === 1 ? 'issue' : 'issues'}`
 const WipBadge = ({ limit, over }: { limit: number; over: boolean }) => (
   <span
     className={cn(
-      'ms-auto rounded-full px-2 tracking-normal normal-case tabular-nums',
+      'rounded-full px-2 tracking-normal normal-case tabular-nums',
       over ? 'bg-warning-bg text-warning' : 'bg-background'
     )}
     title={over ? `Over the limit of ${limit}` : undefined}
@@ -51,6 +51,8 @@ type ColumnShellProps = {
   column: BoardColumn
   /** Hidden below 768px: only the picked column shows on a phone. */
   narrowHidden: boolean
+  /** KB-16: the admin's "…" next to the limit. */
+  menu?: ReactNode
   footer?: ReactNode
   children: ReactNode
 }
@@ -59,6 +61,7 @@ type ColumnShellProps = {
 export const ColumnShell = ({
   column,
   narrowHidden,
+  menu,
   footer,
   children,
 }: ColumnShellProps) => (
@@ -74,9 +77,12 @@ export const ColumnShell = ({
       <span className='tabular-nums' aria-label={plural(column.issue_count)}>
         {column.issue_count}
       </span>
-      {column.wip_limit != null && (
-        <WipBadge limit={column.wip_limit} over={column.over_limit} />
-      )}
+      <span className='ms-auto flex items-center gap-1'>
+        {column.wip_limit != null && (
+          <WipBadge limit={column.wip_limit} over={column.over_limit} />
+        )}
+        {menu}
+      </span>
     </h3>
     {children}
     {footer}

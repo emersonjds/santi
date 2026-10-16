@@ -57,19 +57,40 @@ test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'Hi, Perf' })).toBeVisible()
   const key = `P${unique().slice(-6).toUpperCase()}`
-  await page.evaluate(
+  // In Progress holds a second status, so the drop lands on a status zone (SB-17).
+  const review = await page.evaluate(
     async ({ key, cards }) => {
-      const post = (path: string, body: unknown) =>
-        fetch(path, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-      await post('/api/projects', { key, name: key, board_type: 'kanban' })
+      const send = async (method: string, path: string, body: unknown) =>
+        (
+          await fetch(path, {
+            method,
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(body),
+          })
+        ).json()
+      await send('POST', '/api/projects', {
+        key,
+        name: key,
+        board_type: 'kanban',
+      })
       for (let index = 1; index <= cards; index++)
-        await post(`/api/projects/${key}/issues`, {
+        await send('POST', `/api/projects/${key}/issues`, {
           summary: `Card number ${index}`,
         })
+      const settings: { columns: { id: number; name: string }[] } = await (
+        await fetch(`/api/projects/${key}/board/settings`)
+      ).json()
+      const doing = settings.columns.find((each) => each.name === 'In Progress')
+      const status: { id: number } = await send(
+        'POST',
+        `/api/projects/${key}/statuses`,
+        { name: 'In review', category: 'in_progress' }
+      )
+      await send('PUT', `/api/projects/${key}/statuses/${status.id}`, {
+        name: 'In review',
+        column_id: doing?.id,
+      })
+      return status.id
     },
     { key, cards: CARDS }
   )
@@ -88,11 +109,21 @@ test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
   await page.waitForTimeout(100)
   await page.keyboard.press('ArrowRight')
   await expect(page.getByText(/moved over droppable area/)).toBeAttached()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('group', { name: 'In review' })).toBeVisible()
+  // Zone ids end with the status id.
+  await expect(
+    page.getByText(new RegExp(`droppable area zone:\\d+:${review}\\.`))
+  ).toBeAttached()
+  const moved = page.waitForRequest((request) =>
+    request.url().endsWith(`/issues/1/move`)
+  )
   await page.keyboard.press('Space')
+  expect((await moved).postDataJSON()).toEqual({ status_id: review })
   await expect(
     page.getByRole('region', { name: 'In Progress', exact: true })
   ).toContainText('Card number 1')
-  const drop = await worstInteraction(page, 'keyboard drag and drop')
+  const drop = await worstInteraction(page, 'keyboard drop on a status zone')
 
   await page
     .getByRole('button', { name: `Actions for ${key}-2`, exact: true })

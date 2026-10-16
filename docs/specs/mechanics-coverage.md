@@ -32,18 +32,19 @@ Status:
 
 | Source | UI | API only | Missing | Divergent | Deferred | Rows |
 |---|---|---|---|---|---|---|
-| Scrum board | 19 | 1 | 0 | 2 | 10 | 32 |
-| Kanban board | 14 | 1 | 0 | 1 | 13 | 29 |
+| Scrum board | 21 | 1 | 0 | 0 | 10 | 32 |
+| Kanban board | 15 | 1 | 0 | 0 | 13 | 29 |
 | Backlog | 16 | 2 | 1 | 1 | 7 | 27 |
 | Sprint lifecycle | 19 | 1 | 0 | 0 | 10 | 30 |
 | UI layout (adoption + responsive) | 29 | 2 | 7 | 2 | 8 | 48 |
-| Decisions | 17 | 2 | 0 | 1 | 0 | 20 |
-| **Total** | **114** | **9** | **8** | **7** | **48** | **186** |
+| Decisions | 18 | 2 | 0 | 0 | 0 | 20 |
+| **Total** | **118** | **9** | **8** | **3** | **48** | **186** |
 
 Decision rows restate spec rules, so a few gaps count twice (SB-17/KB-27/D5, SB-25/UI-12/D3).
-Of the 138 rows that are in v1, 114 work in the SPA (83%); the other 24 are the gaps below.
+Of the 138 rows that are in v1, 118 work in the SPA (86%); the other 20 are the gaps below.
 SAN-44 (branch `feat/SAN-44-small-gaps`) closed R-4, R-8, BL-3 and D6 and added the members page (group 4).
 SAN-45 (branch `feat/SAN-45-board-settings`) added the board settings page (group 1) and the KB-4/KB-5 server guard.
+SAN-46 (branch `feat/SAN-46-board-drop-zones`) added status drop zones, live counts, inline create in every column and the column header limit (group 6, KB-16).
 
 ## Scrum board
 
@@ -65,13 +66,13 @@ SAN-45 (branch `feat/SAN-45-board-settings`) added the board settings page (grou
 | SB-14 | Sprints on/off toggle | Deferred | dropped: sprints always on | |
 | SB-15 | Parallel sprints | Deferred | dropped; `sprint_lifecycle::start_guards_are_enforced` | |
 | SB-16 | Drag to another column changes status | UI | `sortable-board.test` "moves a card to the next column at once"; `e2e/board.spec.ts` | |
-| SB-17 | Multi-status column splits into one drop zone per status | Divergent | Live: In Progress column holding In Progress + In review showed no zones; the drop set In Progress. `entities/issue/issue-mutations.ts:112` takes the column's first status | Second status reachable only from the issue's Status select |
+| SB-17 | Multi-status column splits into one drop zone per status | UI | `sortable-board.test` "splits a column holding several statuses into one zone per status (SB-17)"; `card-menu.test` "moves a card to a status of a column holding several"; `e2e/board.spec.ts` "drop a card on the \"In review\" zone…" | Zones show for columns other than the card's own; inside its own column the status changes from Move to… or the issue view |
 | SB-18 | Refused transitions | Deferred | dropped: free transitions; an empty column refuses drops (`sortable-board.test` "refuses a column that has no status to give the card") | |
 | SB-19 | Move keeps the assignee | UI | `MoveIssue` has no assignee field (`web/openapi.json`) | |
 | SB-20 | Re-rank within column; top/bottom action | UI | `sortable-board.test` "reorders inside a column without touching the status"; `card-menu.test` "moves a card to the bottom of another column" | |
 | SB-21 | Multi-select move (v1: CLI/MCP batch) | Deferred | CLI/MCP not built (E3); UI side is UI-22 | |
 | SB-22 | Last subtask done prompts for parent | Deferred | later; D6 silent | |
-| SB-23 | Inline create in a column, takes its status | Divergent | `widgets/board/board.tsx` renders `CreateSlot` only for the first column; `create-issue.test` "creates inline at the foot of the first column" | Other columns have no inline create (IA §4: "at column foot") |
+| SB-23 | Inline create in a column, takes its status | UI | `create-issue.test` "creates inline at the foot of any column, with its first status (SB-23, D5)"; `e2e/board.spec.ts` "create an issue inline in the Done column…" | A multi-status column creates with its first status |
 | SB-24 | Quick filters narrow only | UI | `filter-bar.test` "toggles my issues and recent ones, then clears every filter" | |
 | SB-25 | Filters: assignee, type, label, free text (API also parent) | API only | `board_view::board_quick_filters_combine`; `BoardSearch` holds only `assignee`, `recently_updated` (`entities/issue/board-query.ts`); live filter bar: avatars, "Only my issues", "Recently updated" | Type, label, epic, text unreachable on board and backlog |
 | SB-26 | Predefined and admin filters | Deferred | dropped; "updated in the last day" built per D18 amendment, "assigned to me" = "Only my issues" | |
@@ -100,14 +101,14 @@ SAN-45 (branch `feat/SAN-45-board-settings`) added the board settings page (grou
 | KB-12 | Max limit per column | UI | `board_settings::kanban_columns_take_a_wip_limit_and_scrum_columns_do_not`; `board-settings-page.test` "sets and clears a WIP limit on a kanban column (D7)"; `e2e/settings.spec.ts` | |
 | KB-13 | Min limit, counting modes | Deferred | dropped (D7) | |
 | KB-14 | Breach only warns | UI | `board-page.test` "warns on a column over its limit and tells when done work leaves"; `board_view::wip_limit_flags_a_full_column` | |
-| KB-15 | Counts include filtered cards | UI | `board_view::wip_counts_ignore_quick_filters`; header shows `issue_count` | Counts freeze while a card is held (live) |
-| KB-16 | Limits from column menu and settings | UI | `board-settings-page.test` "sets and clears a WIP limit on a kanban column (D7)" | No board column header menu; settings only |
+| KB-15 | Counts include filtered cards | UI | `board_view::wip_counts_ignore_quick_filters`; header shows `issue_count`, live while a card is held (`sortable-board.test` "counts follow the held card…") | |
+| KB-16 | Limits from column menu and settings | UI | `board-settings-page.test` "sets and clears a WIP limit on a kanban column (D7)"; `board-page.test` "lets an admin set a column limit from its header…"; `e2e/board.spec.ts` "an admin sets a column limit from its header…" | |
 | KB-17..KB-21 | Kanban backlog (5 rules) | Deferred | dropped (D9); `project-header.test` "sends a kanban backlog to the board" | |
 | KB-22 | Sub-filter | Deferred | dropped | |
 | KB-23 | Done hidden after 7/14/30 days or never, default 14 | UI | `board_view::kanban_hides_done_work_past_the_window`; `board-settings-page.test` "changes how long done work stays on a kanban board (KB-23)" | |
 | KB-24 | Window restarts on edit | Deferred | replaced by D8 (timer from entering done) | |
 | KB-25, KB-26 | Releases, versions | Deferred | dropped | |
-| KB-27 | Moves follow SB-16..21 | Divergent | as SB-17 | No per-status drop zones |
+| KB-27 | Moves follow SB-16..21 | UI | as SB-17; counts recount during the drag and restore on cancel | Multi-select (SB-21) is still group 11 |
 | KB-28 | Days-in-column on by default | Deferred | later | |
 | KB-29 | Filters as SB-24..27 | API only | as SB-25 | |
 
@@ -234,9 +235,9 @@ Responsive (375px).
 | D2 | Done = category, done only in the rightmost column | UI | close and hiding use the category (SB-8, KB-3); mapping guard shown inline (SB-7) | |
 | D3 | AND across kinds, OR within | API only | `board_view::board_quick_filters_combine`; `comments_search::search_combines_filters_and_within_or_across_and` | SPA has one kind (assignee) on board/backlog |
 | D4 | Drop position wins, one order | UI | `issue_moves::*anchor*`; `sortable-board.test`, `sortable-backlog.test` | |
-| D5 | Inline create, bottom, column status | Divergent | as SB-23 | First column only |
+| D5 | Inline create, bottom, column status | UI | as SB-23 | |
 | D6 | Flat subtasks; parent `open/total`; backlog parent rows with count | UI | board card and backlog row (BL-3) | |
-| D7 | One max per column, warn only | UI | display (KB-14); setting on `/p/KEY/settings` (KB-12) | |
+| D7 | One max per column, warn only | UI | display (KB-14); setting on `/p/KEY/settings` (KB-12) and the column header (KB-16) | |
 | D8 | Done hidden after window from entering done | UI | `issue_moves::done_timer_follows_the_status_category`, `moving_between_done_statuses_keeps_the_timer`; window select (KB-23) | |
 | D9 | No kanban backlog | UI | `project-header.test` "sends a kanban backlog to the board" | |
 | D10 | Epic panel | API only | as BL-20 | |
@@ -257,8 +258,8 @@ Responsive (375px).
 Ranked by what blocks a small team using the MVP every day.
 
 1. **Board settings page** — L. Done in SAN-45: `/p/{key}/settings` (`board-settings-page.test`,
-   `e2e/settings.spec.ts`); the board column header menu for the limit (KB-16) and changing a
-   status's category (no API field) left out.
+   `e2e/settings.spec.ts`); changing a status's category (no API field) left out. The board
+   column header menu for the limit (KB-16) came in SAN-46.
    Rules: SB-2..SB-7, KB-2, KB-4, KB-5, KB-12, KB-16, KB-23 (window), D2 guard, D7, D8, D16, UI-8.
    API: none; `/board/columns*`, `/statuses*`, `/board/settings` exist and are tested.
    UI: `/p/{key}/settings` (admins; members get the 403 page, IA §9), Settings tab + sidebar
@@ -298,7 +299,8 @@ Ranked by what blocks a small team using the MVP every day.
    and a text box; "Filters (n)" with a bottom sheet at 375px.
    Why: a 6-person board with 40 cards needs "bugs only" or "this epic"; today it is assignee
    only.
-6. **Status drop zones and drag feedback** — M.
+6. **Status drop zones and drag feedback** — M. Done in SAN-46 (`sortable-board.test`,
+   `create-issue.test`, `board-page.test`, `e2e/board.spec.ts`, zone drop INP in `e2e/board-perf.spec.ts`).
    Rules: SB-17, KB-27, SB-23/D5, KB-15 (live counts).
    API: none; `move` takes `status_id`.
    UI: when a column holds more than one status, show one droppable zone per status while a
@@ -350,11 +352,7 @@ Ranked by what blocks a small team using the MVP every day.
 
 ## Divergent rules that are bugs
 
-- **SB-17**: drop into a multi-status column always takes its first status. Repro: map a
-  second in-progress status ("In review") into In Progress with
-  `PUT /api/projects/{key}/statuses/{id}`, then drag a To Do card onto that column. No zones
-  appear and the issue lands in "In Progress". `entities/issue/issue-mutations.ts:112`.
 - Fixed in SAN-44: R-8 targets, the inline subtask field (Esc and Cancel, `issue-detail.test`
   "drops an open subtask field on Esc or Cancel, leaving the dialog open") and the BL-3/D6 count.
-- **SB-23/D5**: inline create exists only at the foot of the first board column.
-  `widgets/board/board.tsx` (`column === first`).
+- Fixed in SAN-46: SB-17 (a drop into a multi-status column always took its first status) and
+  SB-23/D5 (inline create only at the foot of the first column).
