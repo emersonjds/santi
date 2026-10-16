@@ -65,6 +65,27 @@ describe('board page', () => {
     ).toHaveLength(0)
   })
 
+  it.each([
+    [{ end_date: new Date().toLocaleDateString('sv') }, 'Ends today'],
+    [
+      { end_date: new Date(Date.now() + 86_400_000).toLocaleDateString('sv') },
+      '1 day left',
+    ],
+    [{ overdue: true }, 'Overdue'],
+  ])('tells how long the sprint has left: %o', async (change, text) => {
+    inProjects({
+      'GET /api/projects/WEB/board': {
+        status: 200,
+        body: { ...WEB_BOARD, sprint: { ...WEB_BOARD.sprint, ...change } },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await expect
+      .element(screen.getByRole('region', { name: 'Active sprint' }))
+      .toHaveTextContent(text)
+  })
+
   it('points to the backlog when no sprint is running', async () => {
     inProjects({
       'GET /api/projects/WEB/board': {
