@@ -1,5 +1,7 @@
 import { type ReactNode, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
+  type CollisionDetection,
   DndContext,
   type DragEndEvent,
   type DragOverEvent,
@@ -20,9 +22,16 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
-import { planMove } from '@/entities/issue/board-cache'
+import {
+  moveCard,
+  planMove,
+  recount,
+  statusMove,
+} from '@/entities/issue/board-cache'
+import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { CARD_LIST, EmptySlot } from '@/entities/issue/issue-card'
 import { useMoveIssue } from '@/entities/issue/issue-mutations'
+import { CATEGORY, type Status, statusesOf } from '@/entities/issue/statuses'
 import type { BoardColumn, BoardView, Card } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
 
@@ -35,14 +44,48 @@ const lanesOf = (board: BoardView): Lanes =>
   Object.fromEntries(board.columns.map((column) => [column.id, column.cards]))
 
 const COLUMN = 'column:'
+const ZONE = 'zone:'
+
+/** `zone:<column>:<status>`: one drop zone per status of a column holding several (SB-17). */
+const zoneOf = (id: UniqueIdentifier) => {
+  const name = String(id)
+  if (!name.startsWith(ZONE)) return undefined
+  const [columnId, statusId] = name.slice(ZONE.length).split(':').map(Number)
+  return { columnId, statusId }
+}
 
 const laneOf = (lanes: Lanes, id: UniqueIdentifier) => {
   const name = String(id)
   if (name.startsWith(COLUMN)) return Number(name.slice(COLUMN.length))
+  const zone = zoneOf(id)
+  if (zone) return zone.columnId
   const found = Object.entries(lanes).find(([, cards]) =>
     cards.some((card) => card.key === name)
   )
   return found && Number(found[0])
+}
+
+/**
+ * A zone under the pointer wins over the cards around it. The keyboard sensor
+ * puts the card's top-left corner on its target, so that corner stands in for the pointer.
+ */
+const zonesFirst: CollisionDetection = (args) => {
+  const { x, y } = args.pointerCoordinates ?? {
+    x: args.collisionRect.left + 1,
+    y: args.collisionRect.top + 1,
+  }
+  const zone = args.droppableContainers.find((container) => {
+    const rect = args.droppableRects.get(container.id)
+    return (
+      zoneOf(container.id) &&
+      rect &&
+      x >= rect.left &&
+      x <= rect.right &&
+      y >= rect.top &&
+      y <= rect.bottom
+    )
+  })
+  return zone ? [{ id: zone.id }] : closestCorners(args)
 }
 
 /** The lane once the held card sits where the pointer or arrow points. */
@@ -57,9 +100,11 @@ const placed = (lane: Card[], held: Card, target: UniqueIdentifier) => {
 
 const SortableCard = ({
   card,
+  zoned,
   renderCard,
 }: {
   card: Card
+  zoned: boolean
   renderCard: (card: Card) => ReactNode
 }) => {
   const {
@@ -69,7 +114,10 @@ const SortableCard = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: card.key })
+  } = useSortable({
+    id: card.key,
+    disabled: { draggable: false, droppable: zoned },
+  })
   return (
     <li
       ref={setNodeRef}
@@ -94,27 +142,107 @@ const SortableCard = ({
   )
 }
 
+const Zone = ({
+  columnId,
+  status,
+  shown,
+  enabled,
+}: {
+  columnId: number
+  status: Status
+  shown: boolean
+  enabled: boolean
+}) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${ZONE}${columnId}:${status.id}`,
+    disabled: !enabled,
+  })
+  const { icon: Icon, label } = CATEGORY[status.category]
+  return (
+    <div
+      ref={setNodeRef}
+      role={shown ? 'group' : undefined}
+      aria-label={shown ? status.name : undefined}
+      className={cn(
+        'flex flex-1 flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed text-sm',
+        shown ? 'bg-background' : 'border-transparent',
+        shown && (isOver ? 'border-primary bg-accent' : 'border-input')
+      )}
+    >
+      {shown && (
+        <>
+          <span className='font-semibold'>{status.name}</span>
+          <span className='flex items-center gap-1 text-xs text-muted-foreground'>
+            <Icon className='size-3.5' />
+            {label}
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
+
+type LaneProps = {
+  columnId: number
+  cards: Card[]
+  statuses: Status[]
+  /** A card from another column is held: this column takes it by status, not by position. */
+  zoned: boolean
+  /** The held card hovers this column: its zones show. */
+  hovered: boolean
+  renderCard: (card: Card) => ReactNode
+}
+
 const Lane = ({
   columnId,
   cards,
+  statuses,
+  zoned,
+  hovered,
   renderCard,
-}: {
-  columnId: number
-  cards: Card[]
-  renderCard: (card: Card) => ReactNode
-}) => {
-  const { setNodeRef } = useDroppable({ id: `${COLUMN}${columnId}` })
+}: LaneProps) => {
+  const { setNodeRef } = useDroppable({
+    id: `${COLUMN}${columnId}`,
+    disabled: zoned,
+  })
+  const several = statuses.length > 1
   return (
     <SortableContext
       items={cards.map((card) => card.key)}
       strategy={verticalListSortingStrategy}
     >
-      <ol ref={setNodeRef} className={CARD_LIST}>
-        {cards.map((card) => (
-          <SortableCard key={card.key} card={card} renderCard={renderCard} />
-        ))}
-        {cards.length === 0 && <EmptySlot />}
-      </ol>
+      {/* Room for every zone, kept off drag so the column never jumps. */}
+      <div
+        className='relative flex flex-1 flex-col'
+        style={
+          several ? { minHeight: `${statuses.length * 4.5}rem` } : undefined
+        }
+      >
+        <ol ref={setNodeRef} className={CARD_LIST}>
+          {cards.map((card) => (
+            <SortableCard
+              key={card.key}
+              card={card}
+              zoned={zoned}
+              renderCard={renderCard}
+            />
+          ))}
+          {cards.length === 0 && <EmptySlot />}
+        </ol>
+        {several && (
+          <div className='pointer-events-none absolute inset-0 z-10 flex flex-col gap-2 px-2 pb-2'>
+            {statuses.map((status) => (
+              <Zone
+                key={status.id}
+                columnId={columnId}
+                status={status}
+                shown={zoned && hovered}
+                enabled={zoned}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </SortableContext>
   )
 }
@@ -134,6 +262,7 @@ export const SortableBoard = ({
   renderCard,
 }: SortableBoardProps) => {
   const move = useMoveIssue(projectKey)
+  const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const [drag, setDrag] = useState<Drag | null>(null)
   const pending = drag?.base === board ? drag : null
   const lanes = pending?.lanes ?? lanesOf(board)
@@ -171,6 +300,16 @@ export const SortableBoard = ({
     const held = pending?.held
     const to = target ? laneOf(lanes, target.id) : undefined
     if (!held || !target || to === undefined) return setDrag(null)
+    const zone = zoneOf(target.id)
+    if (zone) {
+      const plan = statusMove(board, held, zone.columnId, zone.statusId)
+      setDrag({
+        base: board,
+        lanes: lanesOf(moveCard(board, plan)),
+        held: null,
+      })
+      return move.mutate(plan)
+    }
     const final = placed(lanes[to], held, target.id)
     const toIndex = final.findIndex((card) => card.key === held.key)
     const before = board.columns.find((column) => column.id === to)?.cards
@@ -183,22 +322,31 @@ export const SortableBoard = ({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={zonesFirst}
       onDragStart={start}
       onDragOver={over}
       onDragEnd={end}
       onDragCancel={() => setDrag(null)}
     >
-      {board.columns.map((column) =>
-        renderColumn(
-          column,
+      {board.columns.map((column) => {
+        const cards = lanes[column.id]
+        const statuses = statusesOf(settings, column.id)
+        const held = pending?.held
+        const zoned =
+          !!held && statuses.length > 1 && held.column_id !== column.id
+        return renderColumn(
+          // KB-27: the header counts the held card where it hovers; a cancel restores it.
+          recount(column, cards.length - column.cards.length),
           <Lane
             columnId={column.id}
-            cards={lanes[column.id]}
+            cards={cards}
+            statuses={statuses}
+            zoned={zoned}
+            hovered={cards.some((card) => card.key === held?.key)}
             renderCard={renderCard}
           />
         )
-      )}
+      })}
       <DragOverlay>
         {pending?.held && (
           <div className='rounded-md shadow-lg'>{renderCard(pending.held)}</div>

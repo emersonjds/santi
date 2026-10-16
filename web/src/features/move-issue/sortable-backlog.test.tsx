@@ -22,6 +22,9 @@ const dragWithKeys = async (
   await userEvent.keyboard('[Space]')
 }
 
+const countOf = (requests: Request[], route: string) =>
+  requests.filter((request) => routeOf(request) === route).length
+
 const bodyOf = async (requests: Request[], route: string) =>
   requests
     .find((request) => routeOf(request) === route)
@@ -60,15 +63,12 @@ describe('planning the backlog', () => {
       .poll(() => bodyOf(requests, moveOf(6)))
       .toEqual({ sprint_id: 6 })
 
+    // Mount refetches vary with timing; only a fetch after the answer proves the refresh.
+    const seen = countOf(requests, 'GET /api/projects/WEB/backlog')
     answer()
     await expect
-      .poll(
-        () =>
-          requests.filter(
-            (request) => routeOf(request) === 'GET /api/projects/WEB/backlog'
-          ).length
-      )
-      .toBe(2)
+      .poll(() => countOf(requests, 'GET /api/projects/WEB/backlog'))
+      .toBeGreaterThan(seen)
   })
 
   it('reorders inside a section without changing the sprint', async () => {

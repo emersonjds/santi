@@ -1,11 +1,13 @@
 import { use } from 'react'
-import { useSuspenseQuery } from '@tanstack/react-query'
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { Copy, Ellipsis } from 'lucide-react'
 import { toast } from 'sonner'
-import { planMove } from '@/entities/issue/board-cache'
+import { planMove, statusMove } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
+import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { useMoveIssue, useUpdateIssue } from '@/entities/issue/issue-mutations'
 import { PRIORITY_LABEL, isPriority } from '@/entities/issue/labels'
+import { statusesOf } from '@/entities/issue/statuses'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Card } from '@/shared/api/client'
@@ -35,38 +37,62 @@ const UNASSIGNED = 'none'
 const MoveTo = ({ card, projectKey }: CardMenuProps) => {
   const board = use(BoardContext)
   const move = useMoveIssue(projectKey)
+  const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   if (!board) return null
 
   return (
     <DropdownMenuSub>
       <DropdownMenuSubTrigger className={ROW}>Move to…</DropdownMenuSubTrigger>
       <DropdownMenuSubContent className='w-40'>
-        {board.columns.map((column) => (
-          <DropdownMenuGroup key={column.id}>
-            <DropdownMenuLabel className='text-xs text-muted-foreground'>
-              {column.name}
-            </DropdownMenuLabel>
-            {PLACES.map((place) => (
-              <DropdownMenuItem
-                className={ROW}
-                key={place}
-                aria-label={`Move to the ${place} of ${column.name}`}
-                onSelect={() =>
-                  move.mutate(
-                    planMove(
-                      board,
-                      card,
-                      column.id,
-                      place === 'top' ? 0 : column.cards.length
-                    )
-                  )
-                }
-              >
-                {place === 'top' ? 'Top' : 'Bottom'}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuGroup>
-        ))}
+        {board.columns.map((column) => {
+          const statuses = statusesOf(settings, column.id)
+          // SB-17: a column holding several statuses offers each; top and bottom stay for single-status columns and the card's own.
+          const several = statuses.length > 1
+          return (
+            <DropdownMenuGroup key={column.id}>
+              <DropdownMenuLabel className='text-xs text-muted-foreground'>
+                {column.name}
+              </DropdownMenuLabel>
+              {(!several || column.id === card.column_id) &&
+                PLACES.map((place) => (
+                  <DropdownMenuItem
+                    className={ROW}
+                    key={place}
+                    aria-label={`Move to the ${place} of ${column.name}`}
+                    onSelect={() =>
+                      move.mutate(
+                        planMove(
+                          board,
+                          card,
+                          column.id,
+                          place === 'top' ? 0 : column.cards.length
+                        )
+                      )
+                    }
+                  >
+                    {place === 'top' ? 'Top' : 'Bottom'}
+                  </DropdownMenuItem>
+                ))}
+              {several &&
+                statuses
+                  .filter((status) => status.id !== card.status_id)
+                  .map((status) => (
+                    <DropdownMenuItem
+                      className={ROW}
+                      key={status.id}
+                      aria-label={`Move to ${status.name}`}
+                      onSelect={() =>
+                        move.mutate(
+                          statusMove(board, card, column.id, status.id)
+                        )
+                      }
+                    >
+                      {status.name}
+                    </DropdownMenuItem>
+                  ))}
+            </DropdownMenuGroup>
+          )
+        })}
       </DropdownMenuSubContent>
     </DropdownMenuSub>
   )
