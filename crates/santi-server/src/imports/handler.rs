@@ -71,7 +71,7 @@ pub async fn preview_import(
     require_admin(&member)?; // before the up to 10 MB body is read
     let parts = read_parts(upload).await?;
     Ok(Json(
-        service::preview(&state.pool, &member, &parts.file).await?,
+        service::preview(&state.pool, &member, parts.file).await?,
     ))
 }
 
@@ -97,6 +97,6 @@ pub async fn import(
     let mapping: ImportMapping = serde_json::from_str(&mapping)
         .map_err(|error| AppError::invalid("mapping", &error.to_string()))?;
     Ok(Json(
-        service::import(&state.pool, &member, &parts.file, mapping).await?,
+        service::import(&state.pool, &member, parts.file, mapping).await?,
     ))
 }

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, NaiveDate, Utc};
 use santi_types::FieldError;
@@ -21,6 +21,8 @@ pub const BATCH_SIZE: usize = 500;
 pub const MAX_COLUMNS: usize = 1_000;
 pub const MAX_RECORDS: usize = 100_000;
 pub const MAX_FIELDS: usize = 3_000_000;
+/// Statuses, types, people and sprints each: a mapping screen past this is unusable.
+pub const MAX_DISTINCT: usize = 500;
 
 pub struct Table {
     pub header: Vec<String>,
@@ -377,7 +379,7 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
         failed: 0,
         problems: Vec::new(),
     };
-    let mut seen = std::collections::HashSet::new();
+    let mut seen = HashSet::new();
     for record in &table.records {
         let problem = |message: String| RowProblem {
             line: record.line,
@@ -406,7 +408,47 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
         }
         export.rows.push(row);
     }
+    check_distinct(&export.rows)?;
     Ok(export)
+}
+
+fn check_distinct(rows: &[SourceRow]) -> Result<(), AppError> {
+    let kinds: [(&str, HashSet<&str>); 4] = [
+        (
+            "statuses",
+            rows.iter().map(|row| row.status.as_str()).collect(),
+        ),
+        (
+            "types",
+            rows.iter().map(|row| row.issue_type.as_str()).collect(),
+        ),
+        ("people", people(rows).collect()),
+        ("sprints", sprint_names(rows).collect()),
+    ];
+    for (kind, names) in kinds {
+        if names.len() > MAX_DISTINCT {
+            return Err(AppError::invalid(
+                "file",
+                &format!(
+                    "the file has more than {MAX_DISTINCT} different {kind}; split it or merge {kind} first"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn people(rows: &[SourceRow]) -> impl Iterator<Item = &str> {
+    rows.iter().flat_map(|row| {
+        [row.assignee.as_deref(), row.reporter.as_deref()]
+            .into_iter()
+            .flatten()
+    })
+}
+
+fn sprint_names(rows: &[SourceRow]) -> impl Iterator<Item = &str> {
+    rows.iter()
+        .flat_map(|row| row.sprints.iter().map(String::as_str))
 }
 
 fn read_row(
@@ -588,22 +630,31 @@ fn type_from_name(name: &str) -> IssueType {
 /// Counts by name, in order of first appearance.
 fn tally<'a>(names: impl Iterator<Item = &'a str>) -> Vec<(&'a str, i64)> {
     let mut counts: Vec<(&str, i64)> = Vec::new();
+    let mut index: HashMap<&str, usize> = HashMap::new();
     for name in names {
-        match counts.iter_mut().find(|(seen, _)| *seen == name) {
-            Some((_, count)) => *count += 1,
-            None => counts.push((name, 1)),
+        match index.get(name) {
+            Some(at) => counts[*at].1 += 1,
+            None => {
+                index.insert(name, counts.len());
+                counts.push((name, 1));
+            }
         }
     }
     counts
 }
 
-fn sprint_closed(export: &Export, name: &str, today: NaiveDate) -> bool {
-    export.rows.iter().any(|row| {
-        let listed = row.sprints.iter().position(|sprint| sprint == name);
-        let moved_on = listed.is_some_and(|index| index + 1 < row.sprints.len());
-        let ended = listed.is_some() && row.sprint_end.is_some_and(|end| end < today);
-        moved_on || ended
-    })
+/// Sprints an issue moved on from, or that ended before today.
+fn closed_sprints(export: &Export, today: NaiveDate) -> HashSet<&str> {
+    let mut closed = HashSet::new();
+    for row in &export.rows {
+        let ended = row.sprint_end.is_some_and(|end| end < today);
+        for (index, name) in row.sprints.iter().enumerate() {
+            if ended || index + 1 < row.sprints.len() {
+                closed.insert(name.as_str());
+            }
+        }
+    }
+    closed
 }
 
 pub fn preview(
@@ -613,18 +664,16 @@ pub fn preview(
     today: NaiveDate,
 ) -> ImportPreview {
     let status_names = tally(export.rows.iter().map(|row| row.status.as_str()));
-    let people = tally(export.rows.iter().flat_map(|row| {
-        [row.assignee.as_deref(), row.reporter.as_deref()]
-            .into_iter()
-            .flatten()
-    }));
-    let sprints = tally(
-        export
-            .rows
-            .iter()
-            .flat_map(|row| row.sprints.iter().map(String::as_str)),
-    );
+    let people = tally(people(&export.rows));
+    let sprints = tally(sprint_names(&export.rows));
     let types = tally(export.rows.iter().map(|row| row.issue_type.as_str()));
+    let closed = closed_sprints(export, today);
+    let mut categories: HashMap<&str, Option<StatusCategory>> = HashMap::new();
+    for row in &export.rows {
+        categories
+            .entry(row.status.as_str())
+            .or_insert(row.status_category);
+    }
     ImportPreview {
         source: export.source,
         row_count: export.row_count,
@@ -632,12 +681,7 @@ pub fn preview(
         statuses: status_names
             .into_iter()
             .map(|(name, count)| {
-                let category = export
-                    .rows
-                    .iter()
-                    .find(|row| row.status == name)
-                    .and_then(|row| row.status_category)
-                    .unwrap_or_else(|| category_from_name(name));
+                let category = categories[name].unwrap_or_else(|| category_from_name(name));
                 StatusFound {
                     name: name.to_string(),
                     count,
@@ -662,7 +706,7 @@ pub fn preview(
             .map(|(name, count)| SprintFound {
                 name: name.to_string(),
                 count,
-                closed: sprint_closed(export, name, today),
+                closed: closed.contains(name),
             })
             .collect(),
         issue_types: types
@@ -904,6 +948,7 @@ impl Types<'_> {
 /// Sprints the mapping creates, dated by their cycle or by the issues in them.
 fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> {
     let mut sprints: Vec<PlannedSprint> = Vec::new();
+    let mut index: HashMap<&str, usize> = HashMap::new();
     for row in &export.rows {
         for name in &row.sprints {
             let action = mapping
@@ -920,9 +965,10 @@ fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> 
             let end = row
                 .sprint_end
                 .or(row.updated.or(row.created).map(|date| date.date_naive()));
-            let Some(sprint) = sprints.iter_mut().find(|sprint| &sprint.name == name) else {
+            let Some(sprint) = index.get(name.as_str()).map(|at| &mut sprints[*at]) else {
                 let today = Utc::now().date_naive();
                 let start = start.unwrap_or(today);
+                index.insert(name, sprints.len());
                 sprints.push(PlannedSprint {
                     name: name.clone(),
                     closed: action == SprintAction::Closed,

@@ -1,7 +1,7 @@
 mod common;
 
 use std::fmt::Write as _;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
@@ -529,4 +529,76 @@ async fn issues_imported_into_a_running_sprint_count_as_added(pool: PgPool) {
             .await
             .unwrap();
     assert_eq!(joined, [true]);
+}
+
+/// `rows` Jira rows with `distinct` different statuses, types, people and sprints.
+fn wide_export(rows: usize, distinct: usize) -> String {
+    let mut csv = String::from("Issue key,Summary,Issue Type,Status,Assignee,Sprint,Sprint\n");
+    for row in 0..rows {
+        let value = row % distinct;
+        writeln!(
+            csv,
+            "W-{row},Row {row},Type {value},Status {value},person{value}@example.com,Sprint {value},Sprint {}",
+            (value + 1) % distinct
+        )
+        .unwrap();
+    }
+    csv
+}
+
+/// The preview's work stays off the async workers: `/health` answers while it runs.
+async fn preview_beside_health(app: &TestApp, csv: String) -> (StatusCode, Value, Duration) {
+    let started = Instant::now();
+    let preview = tokio::spawn({
+        let app = app.clone();
+        async move { preview(&app, &csv).await }
+    });
+    while !preview.is_finished() {
+        let asked = Instant::now();
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        let (status, _) = app.get("/health").await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(
+            asked.elapsed() < Duration::from_millis(300),
+            "/health waited {:?} behind the preview",
+            asked.elapsed()
+        );
+    }
+    let (status, body) = preview.await.unwrap();
+    (status, body, started.elapsed())
+}
+
+#[sqlx::test]
+async fn previews_of_large_files_stay_fast_and_off_the_workers(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+
+    let (status, preview, elapsed) = preview_beside_health(&ana, wide_export(40_000, 400)).await;
+
+    println!("previewed 40k rows (400 of each) in {elapsed:?}");
+    assert_eq!(status, StatusCode::OK, "{}", preview["errors"]);
+    assert_eq!(preview["statuses"].as_array().unwrap().len(), 400);
+    assert_eq!(preview["sprints"][0]["closed"], true);
+    assert!(elapsed < Duration::from_secs(2), "preview took {elapsed:?}");
+}
+
+#[sqlx::test]
+async fn files_with_too_many_different_values_are_refused_quickly(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+
+    let (status, problem, elapsed) = preview_beside_health(&ana, wide_export(40_000, 40_000)).await;
+
+    assert_eq!(
+        status,
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "{}",
+        problem["errors"]
+    );
+    assert_eq!(
+        problem["errors"][0]["message"],
+        "the file has more than 500 different statuses; split it or merge statuses first"
+    );
+    assert!(
+        elapsed < Duration::from_secs(2),
+        "refusing took {elapsed:?}"
+    );
 }

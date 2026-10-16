@@ -16,19 +16,30 @@ use crate::{boards, issues, members, projects, sprints};
 pub async fn preview(
     pool: &PgPool,
     member: &Member,
-    file: &[u8],
+    file: Vec<u8>,
 ) -> Result<ImportPreview, AppError> {
     members::domain::require_admin(member)?;
-    let export = domain::read_file(file)?;
-    let mut conn = pool.acquire().await?;
-    let statuses = boards::repo::list_statuses(&mut conn, member.project_id).await?;
-    let people = members::repo::list_members(&mut conn, member.project_id).await?;
-    Ok(domain::preview(
-        &export,
-        &statuses,
-        &people,
-        Utc::now().date_naive(),
-    ))
+    let (statuses, people) = {
+        let mut conn = pool.acquire().await?;
+        let statuses = boards::repo::list_statuses(&mut conn, member.project_id).await?;
+        let people = members::repo::list_members(&mut conn, member.project_id).await?;
+        (statuses, people)
+    };
+    let today = Utc::now().date_naive();
+    in_background(move || {
+        let export = domain::read_file(&file)?;
+        Ok(domain::preview(&export, &statuses, &people, today))
+    })
+    .await?
+}
+
+/// Parsing and planning 10 MB is CPU work: off the async workers, holding no connection.
+async fn in_background<T: Send + 'static>(
+    work: impl FnOnce() -> T + Send + 'static,
+) -> Result<T, AppError> {
+    tokio::task::spawn_blocking(work)
+        .await
+        .map_err(|error| AppError::Internal(error.to_string()))
 }
 
 /// D41: one transaction for numbers and sprints, one per batch of 500 issues (tier by tier, so
@@ -36,12 +47,12 @@ pub async fn preview(
 pub async fn import(
     pool: &PgPool,
     member: &Member,
-    file: &[u8],
+    file: Vec<u8>,
     mapping: ImportMapping,
 ) -> Result<ImportResult, AppError> {
     members::domain::require_admin(member)?;
-    let export = domain::read_file(file)?;
-    let plan = plan(pool, member, &export, &mapping).await?;
+    let export = in_background(move || domain::read_file(&file)).await??;
+    let (export, plan) = plan(pool, member, export, mapping).await?;
     let mut tx = pool.begin().await?;
     let count = plan.issues.len() as i64;
     let first_number = repo::take_issue_numbers(&mut tx, member.project_id, count).await?;
@@ -139,13 +150,13 @@ async fn finish(
 async fn plan(
     pool: &PgPool,
     member: &Member,
-    export: &Export,
-    mapping: &ImportMapping,
-) -> Result<Plan, AppError> {
+    export: Export,
+    mapping: ImportMapping,
+) -> Result<(Export, Plan), AppError> {
     let mut conn = pool.acquire().await?;
     let statuses = boards::repo::list_statuses(&mut conn, member.project_id).await?;
     let people = members::repo::list_members(&mut conn, member.project_id).await?;
-    domain::check_mapping(mapping, &statuses, &people, member.board_type)?;
+    domain::check_mapping(&mapping, &statuses, &people, member.board_type)?;
     let keys: Vec<String> = export
         .rows
         .iter()
@@ -157,18 +168,17 @@ async fn plan(
             .await?
             .into_iter()
             .collect();
+    drop(conn);
     let categories = statuses
         .iter()
         .map(|status| (status.id, status.category))
         .collect();
-    Ok(domain::plan_import(
-        export,
-        mapping,
-        &categories,
-        &existing,
-        member.user_id,
-        Utc::now(),
-    ))
+    let (reporter_id, now) = (member.user_id, Utc::now());
+    in_background(move || {
+        let plan = domain::plan_import(&export, &mapping, &categories, &existing, reporter_id, now);
+        (export, plan)
+    })
+    .await
 }
 
 /// A sprint of the same name in the state the mapping asks for (future or closed) is reused, so a
