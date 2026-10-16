@@ -43,7 +43,6 @@
         <span class="ml-auto flex flex-wrap items-center gap-1.5">
           <span class="inline-flex items-center gap-1 rounded-full bg-status-todo-bg px-2 py-0.5 text-xs font-semibold tabular-nums text-status-todo" title="{{ tally[0] }} to do">{{ ui::icon("circle", "size-3.5") }}{{ tally[0] }}<span class="sr-only"> to do</span></span>
           <span class="inline-flex items-center gap-1 rounded-full bg-status-progress-bg px-2 py-0.5 text-xs font-semibold tabular-nums text-status-progress" title="{{ tally[1] }} in progress">{{ ui::icon("circle-dot", "size-3.5") }}{{ tally[1] }}<span class="sr-only"> in progress</span></span>
-          <span class="inline-flex items-center gap-1 rounded-full bg-status-done-bg px-2 py-0.5 text-xs font-semibold tabular-nums text-status-done" title="{{ tally[2] }} done">{{ ui::icon("circle-check", "size-3.5") }}{{ tally[2] }}<span class="sr-only"> done</span></span>
           {{ issue::points_pill(section.total_points) }}
         </span>
         {%- if let Some(sprint) = section.sprint %}
@@ -215,7 +214,7 @@
           <button class="{{ close }}" type="button" aria-label="Close" commandfor="complete-{{ sprint.id }}" command="close">{{ ui::icon("x") }}</button>
           <form class="grid gap-4" method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/complete">
             <h2 class="{{ title }}" id="complete-{{ sprint.id }}-title">Complete {{ sprint.name }}</h2>
-            <p class="text-sm text-text-muted">{{ tally[2] }} done, {{ tally[0] + tally[1] }} unfinished.</p>
+            <p class="text-sm text-text-muted">{{ self.count(section.issue_count) }} still open.</p>
             <fieldset class="grid gap-2">
               <legend class="mb-1.5 {{ label }}">Unfinished issues go to</legend>
               {{ ui::choice("open_issues", "backlog", "Backlog", "", true) }}

@@ -455,7 +455,7 @@ async fn sections_carry_status_chips_estimates_and_drop_zones(pool: PgPool) {
     let (running, empty) = (running["id"].to_string(), empty["id"].to_string());
     assert!(html.contains(r#"title="1 to do""#));
     assert!(html.contains(r#"title="1 in progress""#));
-    assert!(html.contains(r#"title="0 done""#));
+    assert!(!html.contains(" done\""));
     assert!(html.contains("2 issues<"));
     assert!(html.contains(r#"aria-label="5 points""#));
     assert!(html.contains("2 of 2 issues visible · Estimate: 5 of 5"));

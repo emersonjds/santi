@@ -140,6 +140,7 @@ impl BacklogPage {
     }
 
     /// Visible issues per status category: to do, in progress, done.
+    // ponytail: the backlog read model drops done issues, so the done slot stays 0 and is not shown.
     fn tally(&self, section: &BacklogSection) -> [usize; 3] {
         let mut tally = [0; 3];
         for card in &section.cards {
@@ -152,7 +153,11 @@ impl BacklogPage {
     }
 
     fn visible_points(&self, section: &BacklogSection) -> f64 {
-        section.cards.iter().filter_map(|card| card.points).sum()
+        section
+            .cards
+            .iter()
+            .filter_map(|card| card.points)
+            .fold(0.0, |total, points| total + points)
     }
 
     fn epic_of(&self, card: &Card) -> Option<&EpicSummary> {
