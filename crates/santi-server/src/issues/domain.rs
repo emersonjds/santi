@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Duration, Utc};
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueFilter, IssueType, Priority, UpdateIssue};
 
@@ -128,6 +128,8 @@ pub struct EditableIssue {
     pub points: Option<f64>,
     pub labels: Vec<String>,
     pub parent_id: Option<i64>,
+    /// Read for sprint planning; written by `change_sprint`, not with the plain fields.
+    pub sprint_id: Option<i64>,
 }
 
 pub fn check_summary(summary: &str) -> Result<String, AppError> {
@@ -340,9 +342,19 @@ pub struct SearchQuery {
     pub labels: Vec<String>,
     pub parent_numbers: Vec<i64>,
     pub pattern: Option<String>,
+    pub updated_since: Option<DateTime<Utc>>,
 }
 
-pub fn to_search_query(project_key: &str, filter: &IssueFilter) -> Result<SearchQuery, AppError> {
+/// SB-26 and D18: "recently updated" means changed within the last 24 hours.
+pub fn updated_since(recently_updated: bool, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    recently_updated.then(|| now - Duration::hours(24))
+}
+
+pub fn to_search_query(
+    project_key: &str,
+    filter: &IssueFilter,
+    now: DateTime<Utc>,
+) -> Result<SearchQuery, AppError> {
     let parent_numbers = filter
         .parent
         .iter()
@@ -354,6 +366,7 @@ pub fn to_search_query(project_key: &str, filter: &IssueFilter) -> Result<Search
         labels: filter.label.clone(),
         parent_numbers,
         pattern: like_pattern(filter.q.as_deref()),
+        updated_since: updated_since(filter.recently_updated, now),
     })
 }
 
@@ -576,6 +589,7 @@ mod tests {
             points: Some(3.0),
             labels: vec![],
             parent_id: None,
+            sprint_id: None,
         };
         let change = UpdateIssue {
             summary: Some("New".into()),
@@ -624,14 +638,30 @@ mod tests {
             q: Some("bug".into()),
             ..IssueFilter::default()
         };
-        let query = to_search_query("SANTI", &filter).unwrap();
+        let query = to_search_query("SANTI", &filter, Utc::now()).unwrap();
         assert_eq!(query.parent_numbers, [4]);
         assert_eq!(query.pattern.as_deref(), Some("%bug%"));
         let bad = IssueFilter {
             parent: vec!["OTHER-4".into()],
             ..IssueFilter::default()
         };
-        assert!(to_search_query("SANTI", &bad).is_err());
+        assert!(to_search_query("SANTI", &bad, Utc::now()).is_err());
+    }
+
+    #[test]
+    fn recently_updated_means_the_last_day() {
+        let now = "2026-10-16T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        assert_eq!(
+            updated_since(true, now),
+            Some("2026-10-15T12:00:00Z".parse().unwrap())
+        );
+        assert_eq!(updated_since(false, now), None);
+        let filter = IssueFilter {
+            recently_updated: true,
+            ..IssueFilter::default()
+        };
+        let query = to_search_query("SANTI", &filter, now).unwrap();
+        assert_eq!(query.updated_since, updated_since(true, now));
     }
 
     #[test]

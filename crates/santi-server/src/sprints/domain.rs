@@ -93,6 +93,19 @@ pub fn check_issue_can_change_sprint(issue_type: IssueType) -> Result<(), AppErr
     }
 }
 
+/// False when the issue already sits in `target`, so a full-form edit resending it is a no-op.
+pub fn sprint_change_needed(
+    issue_type: IssueType,
+    current: Option<i64>,
+    target: Option<i64>,
+) -> Result<bool, AppError> {
+    if current == target {
+        return Ok(false);
+    }
+    check_issue_can_change_sprint(issue_type)?;
+    Ok(true)
+}
+
 pub fn check_sprint_open(state: SprintState) -> Result<(), AppError> {
     if state == SprintState::Closed {
         return Err(AppError::conflict(
@@ -260,6 +273,40 @@ mod tests {
         assert!(check_issue_can_change_sprint(IssueType::Epic).is_err());
         assert!(check_sprint_open(SprintState::Active).is_ok());
         assert!(check_sprint_open(SprintState::Closed).is_err());
+    }
+
+    #[test]
+    fn sprint_edits_skip_no_ops_and_keep_subtasks_and_epics_out() {
+        assert_eq!(
+            sprint_change_needed(IssueType::Story, None, Some(5)),
+            Ok(true)
+        );
+        assert_eq!(
+            sprint_change_needed(IssueType::Bug, Some(5), None),
+            Ok(true)
+        );
+        assert_eq!(
+            sprint_change_needed(IssueType::Story, Some(5), Some(5)),
+            Ok(false)
+        );
+        assert_eq!(
+            sprint_change_needed(IssueType::Subtask, Some(5), Some(5)),
+            Ok(false)
+        );
+        assert_eq!(
+            sprint_change_needed(IssueType::Subtask, Some(5), None),
+            Err(AppError::invalid(
+                "sprint_id",
+                "a subtask always shares its parent's sprint"
+            ))
+        );
+        assert_eq!(
+            sprint_change_needed(IssueType::Epic, None, Some(5)),
+            Err(AppError::invalid(
+                "sprint_id",
+                "epics are not planned into sprints"
+            ))
+        );
     }
 
     #[test]

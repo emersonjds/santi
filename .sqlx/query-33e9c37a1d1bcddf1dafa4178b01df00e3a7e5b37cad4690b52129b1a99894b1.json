@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           WHERE i.project_id = $1\n             AND i.id > $2\n             AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))\n             AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))\n             AND (cardinality($5::text[]) = 0 OR i.labels && $5)\n             AND (cardinality($6::bigint[]) = 0 OR parent.number = ANY($6))\n             AND ($7::text IS NULL OR i.summary ILIKE $7)\n           ORDER BY i.id\n           LIMIT $8",
+  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           WHERE i.project_id = $1 AND i.number = $2",
   "describe": {
     "columns": [
       {
@@ -179,17 +179,22 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 17,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "updated_at"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Int8",
-        "Int8",
-        "Int8Array",
-        "TextArray",
-        "TextArray",
-        "Int8Array",
-        "Text",
         "Int8"
       ]
     },
@@ -210,8 +215,9 @@
       true,
       false,
       true,
+      false,
       false
     ]
   },
-  "hash": "f0b636553d1f1886238b2f77aad6bc5f517fa5c3c8a2ee6124a7dda973b7968e"
+  "hash": "33e9c37a1d1bcddf1dafa4178b01df00e3a7e5b37cad4690b52129b1a99894b1"
 }

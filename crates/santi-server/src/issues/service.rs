@@ -84,6 +84,14 @@ pub async fn update_issue(
         let parent = resolve_parent(&mut tx, member, next.issue_type, parent.as_deref()).await?;
         next.parent_id = parent.map(|parent| parent.id);
     }
+    if let Some(target) = change.sprint_id {
+        let issue = IssueKind {
+            id: current.id,
+            issue_type: next.issue_type,
+            sprint_id: current.sprint_id,
+        };
+        change_sprint(&mut tx, member, &issue, target).await?;
+    }
     repo::update_fields(&mut tx, &next).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
@@ -106,7 +114,12 @@ pub async fn move_issue(
     let issue = repo::find_position_for_update(&mut tx, member.project_id, number).await?;
     let issue = issue.ok_or(AppError::NotFound)?;
     if let Some(target) = input.sprint_id {
-        change_sprint(&mut tx, member, &issue, target).await?;
+        let kind = IssueKind {
+            id: issue.id,
+            issue_type: issue.issue_type,
+            sprint_id: issue.sprint_id,
+        };
+        change_sprint(&mut tx, member, &kind, target).await?;
     }
     let (status_id, done_at) = next_status(&mut tx, member, &issue, input.status_id).await?;
     let rank = next_rank(&mut tx, member, &issue, anchor).await?;
@@ -119,10 +132,12 @@ pub async fn move_issue(
 pub async fn change_sprint(
     conn: &mut PgConnection,
     member: &Member,
-    issue: &Position,
+    issue: &IssueKind,
     target: Option<i64>,
 ) -> Result<(), AppError> {
-    sprints::domain::check_issue_can_change_sprint(issue.issue_type)?;
+    if !sprints::domain::sprint_change_needed(issue.issue_type, issue.sprint_id, target)? {
+        return Ok(());
+    }
     if let Some(sprint_id) = target {
         require_open_sprint(conn, member, sprint_id).await?;
     }
@@ -141,6 +156,7 @@ async fn require_open_sprint(
     member: &Member,
     sprint_id: i64,
 ) -> Result<(), AppError> {
+    sprints::domain::require_scrum(member.board_type)?;
     let sprint = sprints::repo::find_sprint(conn, member.board_id, sprint_id).await?;
     let sprint =
         sprint.ok_or_else(|| AppError::invalid("sprint_id", "no such sprint on this board"))?;
@@ -204,7 +220,7 @@ pub async fn search_issues(
     page: PageParams,
 ) -> Result<Page<Issue>, AppError> {
     let limit = pagination::page_limit(page.limit)?;
-    let query = domain::to_search_query(&member.project_key, &filter)?;
+    let query = domain::to_search_query(&member.project_key, &filter, Utc::now())?;
     let mut conn = pool.acquire().await?;
     let issues = repo::search_issues(
         &mut conn,
