@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM invite WHERE token_hash = $1 AND expires_at > now()\n           RETURNING project_id, role AS \"role: MemberRole\"",
+  "query": "UPDATE invite SET used_at = now()\n           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()\n           RETURNING project_id, role AS \"role: MemberRole\"",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "a878c117a6ef97b393985455a65c3de4b26d36a28c1f8c68d5b8ef92265c81ca"
+  "hash": "48c5d9e9557dfa924ae4fcd7520e9002ae5e78f7b0acf31bfc3c017476dfb1e0"
 }
