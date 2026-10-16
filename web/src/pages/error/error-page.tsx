@@ -1,13 +1,18 @@
+import { useEffect } from 'react'
 import {
   type ErrorComponentProps,
   Link,
   useRouter,
 } from '@tanstack/react-router'
+import { isChunkError, reloadOnce } from '@/shared/lib/stale-chunks'
 import { Button } from '@/shared/ui/button'
 
 export const ErrorPage = ({ error }: ErrorComponentProps) => {
   const router = useRouter()
   const retry = () => void router.invalidate()
+  useEffect(() => {
+    if (isChunkError(error)) reloadOnce()
+  }, [error])
 
   return (
     <main className='mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-4 px-4 text-center'>
