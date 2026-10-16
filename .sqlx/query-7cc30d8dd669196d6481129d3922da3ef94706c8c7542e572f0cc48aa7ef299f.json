@@ -1,0 +1,232 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           JOIN status s ON s.id = i.status_id\n           WHERE i.project_id = $1\n             AND i.id > $2\n             AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))\n             AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))\n             AND (cardinality($5::text[]) = 0 OR i.labels && $5)\n             AND ((cardinality($6::bigint[]) = 0 AND NOT $7)\n                  OR parent.number = ANY($6)\n                  OR ($7 AND i.parent_id IS NULL))\n             AND ($8::text IS NULL OR i.summary ILIKE $8 OR p.key || '-' || i.number ILIKE $8)\n             AND ($9::timestamptz IS NULL OR i.updated_at > $9)\n             AND (cardinality($10::text[]) = 0 OR s.category = ANY($10))\n           ORDER BY i.id\n           LIMIT $11",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "number",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "number"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "issue_type: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "priority: Priority",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "priority"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "status_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "status_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "assignee_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "assignee_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "reporter_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "reporter_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "points",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "points"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "labels",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "labels"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "parent_key",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 13,
+        "name": "sprint_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "sprint_id"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "rank",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "rank"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "done_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "done_at"
+          }
+        }
+      },
+      {
+        "ordinal": 16,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 17,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "Bool",
+        "Text",
+        "Timestamptz",
+        "TextArray",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false,
+      null,
+      true,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "7cc30d8dd669196d6481129d3922da3ef94706c8c7542e572f0cc48aa7ef299f"
+}

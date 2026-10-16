@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue (project_id, number, issue_type, summary, description, priority, status_id,\n                              assignee_id, reporter_id, points, labels, parent_id, sprint_id, rank, done_at,\n                              created_at, updated_at, external_source, external_key)\n           SELECT $1, r.number, r.issue_type, r.summary, r.description, r.priority, r.status_id,\n                  nullif(r.assignee_id, 0), r.reporter_id, nullif(r.points, -1),\n                  coalesce(string_to_array(nullif(r.labels, ''), ','), '{}'), parent.id,\n                  CASE WHEN r.issue_type = 'subtask' THEN parent.sprint_id ELSE nullif(r.sprint_id, 0) END,\n                  r.rank, CASE WHEN r.done THEN r.updated_at END, r.created_at, r.updated_at, $2, r.key\n           FROM unnest($3::text[], $4::bigint[], $5::text[], $6::text[], $7::text[], $8::text[], $9::bigint[],\n                       $10::bool[], $11::bigint[], $12::bigint[], $13::float8[], $14::text[], $15::text[],\n                       $16::bigint[], $17::text[], $18::timestamptz[], $19::timestamptz[])\n                AS r(key, number, issue_type, summary, description, priority, status_id, done, assignee_id,\n                     reporter_id, points, labels, parent_key, sprint_id, rank, created_at, updated_at)\n           LEFT JOIN issue parent ON parent.project_id = $1 AND parent.external_source = $2\n                                 AND parent.external_key = nullif(r.parent_key, '')\n           ON CONFLICT (project_id, external_source, external_key) WHERE external_key IS NOT NULL DO NOTHING\n           RETURNING external_key AS \"key!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "external_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "TextArray",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "BoolArray",
+        "Int8Array",
+        "Int8Array",
+        "Float8Array",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "TextArray",
+        "TimestamptzArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "ddd3b82a7c91ac9ac4a81332661aa5ad1ff1663404938b22a55cd664f6f3f46f"
+}

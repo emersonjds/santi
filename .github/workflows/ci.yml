@@ -10,19 +10,6 @@ env:
   COVERAGE_IGNORE: '/main\.rs$'
 
 jobs:
-  css:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Install Tailwind standalone CLI
-        run: |
-          curl -fsSLo "$RUNNER_TEMP/tailwindcss" https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-x64
-          chmod +x "$RUNNER_TEMP/tailwindcss"
-          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-      - run: scripts/css.sh
-      - name: Committed app.css matches the templates
-        run: git diff --exit-code crates/santi-server/static/app.css
-
   check:
     runs-on: ubuntu-latest
     services:
@@ -88,3 +75,81 @@ jobs:
           jq -r '.data[0].files[] | select(.summary.branches.count > .summary.branches.covered)
             | "\(.filename): \(.summary.branches.covered)/\(.summary.branches.count) branches"' coverage.json
           jq -e '.data[0].totals.branches | .count == 0 or .percent >= 90' coverage.json
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test:coverage
+      - run: pnpm build
+      - run: pnpm size
+      - run: pnpm audit --prod
+      - name: Generated API types match the committed openapi.json
+        run: pnpm gen:api && git diff --exit-code src/shared/api/schema.d.ts
+
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: santi
+          POSTGRES_PASSWORD: santi
+          POSTGRES_DB: santi
+        ports:
+          - 5440:5432
+        options: >-
+          --health-cmd "pg_isready -U santi -d santi"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgres://santi:santi@localhost:5440/santi
+      SQLX_OFFLINE: "true"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: web
+      - run: pnpm build
+        working-directory: web
+      - run: cargo build -p santi-server
+      - name: Start the server with the SPA build
+        run: |
+          SANTI_ADDR=127.0.0.1:8089 SANTI_WEB_DIR=web/dist target/debug/santi-server > server.log 2>&1 &
+          for attempt in $(seq 60); do curl -sf http://127.0.0.1:8089/health && exit 0; sleep 1; done
+          cat server.log
+          exit 1
+      - run: pnpm e2e
+        working-directory: web
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t santi:ci .
+      - run: docker image ls santi:ci

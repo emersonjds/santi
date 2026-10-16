@@ -20,24 +20,39 @@ tracker into this repository. Describe behavior in your own words in
 
 ## Database
 
-santi needs PostgreSQL 17. Start it on OrbStack and point the tools at it:
+santi needs PostgreSQL 17. Start only the database from `compose.yaml` (on macOS we use
+[OrbStack](https://orbstack.dev)) and point the tools at it:
 
-    docker --context orbstack compose up -d --wait
+    docker compose up -d --wait postgres
     export DATABASE_URL=postgres://santi:santi@localhost:5440/santi
     cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
     sqlx migrate run --source crates/santi-server/migrations
 
+`docker compose up -d` without a service name also builds and starts santi itself on 8080, which
+then holds the port `cargo run -p santi-server` wants.
+
 Tests create a throwaway database per test (`#[sqlx::test]`). After changing any SQL, refresh the
-offline query data with `cargo sqlx prepare --workspace` and commit `.sqlx/`.
+offline query data with `scripts/sqlx-prepare.sh` (a fresh empty database, the same plans CI sees;
+never `cargo sqlx prepare` against your dev database) and commit `.sqlx/`. The Docker build and
+CI compile with `SQLX_OFFLINE=true`, so a stale `.sqlx/` breaks them. Locally, after pulling new
+migrations, run `sqlx migrate run` before building, or build with `SQLX_OFFLINE=true`.
+
+Migrations after release: once a version ships, a migration runs against tables full of data on
+servers that are still serving. Backfill large tables in batches rather than one `UPDATE`, add
+constraints `NOT VALID` and `VALIDATE` them in a later step, and build indexes on big tables with
+`CREATE INDEX CONCURRENTLY` in a migration of its own, since it cannot run inside a transaction.
 
 ## Quality gate
 
-CI runs these on every push; run them locally first:
+CI runs these on every push; run them locally first.
+
+Server, from the repository root:
 
 ```bash
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+cargo test --workspace -- --test-threads=4
+scripts/sqlx-prepare.sh --check
 ```
 
 Coverage must stay at or above 90% for lines, regions and functions (stable toolchain)
@@ -55,15 +70,51 @@ LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
 cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
-## Styles
+Web UI, from `web/` (Node ^20.19 or >= 22.12, pnpm; component tests run in Chromium, install it
+once with `pnpm exec playwright install chromium`):
 
-Styles are Tailwind v4 utilities in the askama templates; tokens live in `crates/santi-server/styles/app.css`.
-Install the standalone CLI (`brew install tailwindcss`, v4.3.3), run `scripts/css.sh --watch` while editing and
-commit the generated `crates/santi-server/static/app.css`; CI fails when it is stale.
+```bash
+pnpm typecheck && pnpm lint && pnpm test:coverage && pnpm build && pnpm size && pnpm audit --prod
+```
+
+End to end, Playwright against a running server that serves the build (any port; the tests
+register their own users and projects):
+
+```bash
+(cd web && pnpm build)
+SANTI_ADDR=127.0.0.1:8089 cargo run -p santi-server &
+cd web && pnpm e2e                                    # E2E_BASE_URL, default http://localhost:8089
+```
+
+The image must build too: `docker build -t santi:local .`
+
+## Web UI
+
+The UI is the React SPA in `web/`; the server serves its build from `SANTI_WEB_DIR`
+(default `web/dist`).
+
+```bash
+cargo run -p santi-server                  # API on 127.0.0.1:8080
+cd web && pnpm install && pnpm dev         # Vite on http://localhost:5173, proxying /api to 8080
+```
+
+`pnpm gen:api` regenerates the API types from `web/openapi.json`; a server test rewrites that
+snapshot with `UPDATE_OPENAPI=1 cargo test -p santi-server --test openapi`. More in
+[`web/README.md`](web/README.md).
+
+## Release
+
+1. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version.
+2. Bump `version` in the root `Cargo.toml` and in `web/package.json` (semver; before 1.0 a minor
+   bump may change the API).
+3. Merge `developer` into `main` through a pull request, then tag `vX.Y.Z` on `main`.
 
 ## Deploy
 
-Behind a reverse proxy, forward the original `Host` header (nginx: `proxy_set_header Host $host;`); the cross-site write check compares it with `Origin`.
+See the [README](README.md#quick-start): `docker compose up -d`. On any host other than
+`localhost`, terminate HTTPS in a reverse proxy (the session cookie is `Secure`) and forward the
+original `Host` header (nginx: `proxy_set_header Host $host;`); the cross-site write check compares
+it with `Origin`.
 
 ## Conduct and security
 

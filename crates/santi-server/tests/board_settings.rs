@@ -280,6 +280,43 @@ async fn mapping_a_done_status_to_a_middle_column_is_refused(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn the_board_keeps_a_done_status_and_a_column_before_it(pool: PgPool) {
+    let ana = admin_with_project(pool, "kanban").await;
+    let todo = ana.column_id("SANTI", "To Do").await;
+    let doing = ana.column_id("SANTI", "In Progress").await;
+    let done_url = format!(
+        "/api/projects/SANTI/statuses/{}",
+        ana.status_id("SANTI", "Done").await
+    );
+    ana.delete(&format!(
+        "/api/projects/SANTI/board/columns/{todo}?move_statuses_to={doing}"
+    ))
+    .await;
+    for name in ["To Do", "In Progress"] {
+        let id = ana.status_id("SANTI", name).await;
+        ana.put(
+            &format!("/api/projects/SANTI/statuses/{id}"),
+            json!({ "name": name }),
+        )
+        .await;
+    }
+
+    let (unmapped, problem) = ana.put(&done_url, json!({ "name": "Done" })).await;
+    let (deleted, _) = ana.delete(&done_url).await;
+    let (single, _) = ana
+        .delete(&format!("/api/projects/SANTI/board/columns/{doing}"))
+        .await;
+
+    assert_eq!(unmapped, StatusCode::CONFLICT);
+    assert_eq!(problem["type"], "urn:santi:error:keep-done-column");
+    assert_eq!(deleted, StatusCode::CONFLICT);
+    assert_eq!(single, StatusCode::CONFLICT);
+    let settings = ana.settings("SANTI").await;
+    assert_eq!(column_names(&settings), ["In Progress", "Done"]);
+    assert_eq!(settings["columns"][1]["statuses"][0]["name"], "Done");
+}
+
+#[sqlx::test]
 async fn status_edits_validate_their_inputs(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     ana.create_project("SANTI", "scrum").await;
@@ -373,4 +410,50 @@ async fn openapi_lists_board_settings_routes(pool: PgPool) {
     ] {
         assert!(api["paths"][path].is_object(), "{path} missing");
     }
+}
+
+/// Each write re-reads the settings; doing that on a second connection while holding the first
+/// deadlocks a small pool under concurrency.
+#[sqlx::test]
+async fn concurrent_settings_writes_finish_on_a_small_pool(pool: PgPool) {
+    let small = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .acquire_timeout(std::time::Duration::from_secs(3))
+        .connect_with((*pool.connect_options()).clone())
+        .await
+        .unwrap();
+    let ana = TestApp::signed_in(small, "ana@example.com").await;
+    ana.create_project("FLOW", "kanban").await;
+    let doing = ana.column_id("FLOW", "In Progress").await;
+    let mut writes = tokio::task::JoinSet::new();
+    for index in 0..60 {
+        let ana = ana.clone();
+        writes.spawn(async move {
+            match index % 2 {
+                0 => {
+                    ana.put(
+                        "/api/projects/FLOW/board/settings",
+                        json!({ "done_window_days": 30 }),
+                    )
+                    .await
+                    .0
+                }
+                _ => {
+                    let url = format!("/api/projects/FLOW/board/columns/{doing}");
+                    ana.put(&url, json!({ "name": "Doing", "wip_limit": 3 }))
+                        .await
+                        .0
+                }
+            }
+        });
+    }
+
+    let statuses = tokio::time::timeout(std::time::Duration::from_secs(30), writes.join_all())
+        .await
+        .expect("the writes finish");
+
+    assert!(
+        statuses.iter().all(|status| *status == StatusCode::OK),
+        "{statuses:?}"
+    );
 }

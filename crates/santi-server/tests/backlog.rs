@@ -67,6 +67,10 @@ async fn backlog_lists_active_then_future_sprints_then_the_rest(pool: PgPool) {
     assert_eq!(backlog["sections"][2]["sprint"], Value::Null);
     assert_eq!(section_keys(&backlog, 2), ["SANTI-5"]);
     assert_eq!(backlog["sections"][2]["cards"][0]["total_subtasks"], 1);
+    assert_eq!(
+        backlog["sections"][2]["cards"][0]["reporter_id"],
+        ana.user_id
+    );
     let epic = &backlog["epics"][0];
     assert_eq!(epic["key"], "SANTI-1");
     assert_eq!(epic["child_count"], 2);

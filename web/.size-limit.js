@@ -1,0 +1,99 @@
+// Initial JS of a first visit: the entry, its static imports and the landing route's chunks,
+// read from the Vite manifest so the budget follows renamed chunks. `pnpm build` moves it out of
+// dist, so the server never ships it.
+import { readFileSync } from 'node:fs'
+
+const manifest = JSON.parse(readFileSync('node_modules/.tmp/vite-manifest.json', 'utf8'))
+
+const withImports = (key, seen = new Set()) => {
+  if (seen.has(key)) return seen
+  seen.add(key)
+  for (const imported of manifest[key].imports ?? [])
+    withImports(imported, seen)
+  return seen
+}
+
+const firstVisit = (...routes) => {
+  const keys = new Set(
+    ['index.html', ...routes].flatMap((key) => [...withImports(key)])
+  )
+  return [...keys].map((key) => `dist/${manifest[key].file}`)
+}
+
+const split = (route) => `src/app/routes/${route}?tsr-split=component`
+const SHELL = split('_authenticated/route.tsx')
+
+export default [
+  {
+    name: 'initial JS, /login',
+    path: firstVisit(split('login.tsx')),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, / (home, with the shell)',
+    path: firstVisit(SHELL, split('_authenticated/index.tsx')),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, /p/KEY/board (project page)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/board.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, /p/KEY/issues/N (issue page)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/issues/$number.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, /p/KEY/backlog (backlog)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/backlog.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, /p/KEY/settings/members (members)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/settings/members.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, /p/KEY/settings (board settings)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/settings/index.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, /p/KEY/settings/import (importer)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/settings/import.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+]

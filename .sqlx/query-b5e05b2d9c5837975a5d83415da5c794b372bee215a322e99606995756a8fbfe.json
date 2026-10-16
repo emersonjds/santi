@@ -1,0 +1,137 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT id, summary, description, issue_type AS \"issue_type: IssueType\", priority AS \"priority: Priority\",\n                  assignee_id, points, labels, parent_id, sprint_id\n           FROM issue WHERE project_id = $1 AND number = $2\n           FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "issue_type: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "priority: Priority",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "priority"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "assignee_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "assignee_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "points",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "points"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "labels",
+        "type_info": "TextArray",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "labels"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "parent_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "parent_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "sprint_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "sprint_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "b5e05b2d9c5837975a5d83415da5c794b372bee215a322e99606995756a8fbfe"
+}

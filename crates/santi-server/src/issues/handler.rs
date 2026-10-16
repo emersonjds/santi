@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use santi_types::Problem;
 use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
-    UpdateIssue,
+    StatusFilter, UpdateIssue,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -18,9 +18,10 @@ use crate::members::Member;
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(create_issue, search_issues))
-        .routes(routes!(get_issue, update_issue))
+        .routes(routes!(get_issue, update_issue, delete_issue))
         .routes(routes!(move_issue))
         .routes(routes!(add_comment, list_comments))
+        .routes(routes!(list_labels))
 }
 
 #[utoipa::path(post, path = "/api/projects/{key}/issues", tag = "issues", request_body = CreateIssue,
@@ -78,6 +79,24 @@ pub async fn update_issue(
     ))
 }
 
+#[utoipa::path(delete, path = "/api/projects/{key}/issues/{number}", tag = "issues",
+    params(
+        ("key" = String, Path, description = "Project key"),
+        ("number" = i64, Path, description = "Issue number, the N of KEY-N")),
+    responses(
+        (status = 204, description = "Deleted with its subtasks and comments; an epic's children stay without an epic; the number is never reused (D40)"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json", description = "Neither an admin nor the reporter"),
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
+pub async fn delete_issue(
+    State(state): State<AppState>,
+    member: Member,
+    PathParams((_key, number)): PathParams<(String, i64)>,
+) -> Result<StatusCode, AppError> {
+    service::delete_issue(&state.pool, &member, number).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 #[utoipa::path(post, path = "/api/projects/{key}/issues/{number}/move", tag = "issues", request_body = MoveIssue,
     params(
         ("key" = String, Path, description = "Project key"),
@@ -100,7 +119,7 @@ pub async fn move_issue(
 }
 
 #[utoipa::path(get, path = "/api/projects/{key}/issues", tag = "issues",
-    params(("key" = String, Path, description = "Project key"), IssueFilter, PageParams),
+    params(("key" = String, Path, description = "Project key"), IssueFilter, StatusFilter, PageParams),
     responses(
         (status = 200, body = Page<Issue>, description = "Matching issues by id (D3, D29)"),
         (status = 400, body = Problem, content_type = "application/problem+json", description = "Unparsable query value"),
@@ -111,11 +130,25 @@ pub async fn search_issues(
     State(state): State<AppState>,
     member: Member,
     QueryParams(filter): QueryParams<IssueFilter>,
+    QueryParams(status): QueryParams<StatusFilter>,
     QueryParams(page): QueryParams<PageParams>,
 ) -> Result<Json<Page<Issue>>, AppError> {
     Ok(Json(
-        service::search_issues(&state.pool, &member, filter, page).await?,
+        service::search_issues(&state.pool, &member, filter, status, page).await?,
     ))
+}
+
+#[utoipa::path(get, path = "/api/projects/{key}/labels", tag = "issues",
+    params(("key" = String, Path, description = "Project key")),
+    responses(
+        (status = 200, body = Vec<String>, description = "Labels in use, once each, alphabetical"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
+pub async fn list_labels(
+    State(state): State<AppState>,
+    member: Member,
+) -> Result<Json<Vec<String>>, AppError> {
+    Ok(Json(service::list_labels(&state.pool, &member).await?))
 }
 
 #[utoipa::path(post, path = "/api/projects/{key}/issues/{number}/comments", tag = "issues", request_body = CreateComment,

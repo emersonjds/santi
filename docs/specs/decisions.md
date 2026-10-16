@@ -26,6 +26,7 @@ Options: A) AND across all B) AND across kinds, OR within one kind C) fully user
 Product vote: B — standard faceted-search behavior (Linear, GitHub Projects): picking two assignees is "either", adding a type filter narrows further. Predictable, no settings screen.
 Architecture vote: B — compiles to one `WHERE` in the board query: each kind is `= ANY($n)` (OR within), kinds are AND-ed, free text is `ILIKE` on summary.
 Winner: B — the market's mental model with the simplest SQL; accepted: no saved or query-based filters.
+Amended (SAN-47): free text also matches the issue key, not only the summary.
 
 ## D4 — Drop position and rank
 Context: SB OQ-6/7, BL OQ-3/11/12; design.md defines rank as one fractional-index order.
@@ -142,6 +143,7 @@ Market: Jira and Linear both persist filter toggles per viewer across sessions/d
 Product vote: A — store per user per board server-side; trivial given the existing member/board relation, and follows the user across devices unlike local storage.
 Architecture vote: D — filters live in the board URL (`?assignee=…&type=…`, htmx `hx-push-url`): bookmarkable, shareable in a standup chat, back/forward work, read by the server on render. A needs a table, a write per toggle, a URL-vs-stored precedence rule, and silently restores filters the user forgot (cards look missing).
 Winner: D — visible, shareable state with zero schema; accepted: opening the board from navigation shows it unfiltered on any device. Upgrade path: store the last query string per member if users ask.
+Amended (SAN-33): the predefined "recently updated" filter (SB-26) is `?recently_updated=true` on board, backlog and search, matching issues whose `updated_at` falls in the last 24 hours. `issue.updated_at` is kept by triggers (migration 0009): any change to the row, a comment, or a child added under or moved between parents bumps it; a write that sets `updated_at` itself wins (imports). Triggers over service code so no write path, FK cascade or sprint close can forget it, at zero extra round trips (D39). Board and backlog filter in Rust after their one query, so no index; search adds one predicate to its project-scoped keyset scan.
 
 ## D19 — Primary keys
 Context: every table needs an id; issues are addressed publicly by `KEY-N` (D20), the rest by id.
@@ -157,7 +159,7 @@ Product vote: n/a
 Architecture vote: C — `UPDATE project SET next_issue_number = next_issue_number + 1 … RETURNING` inside the create transaction; the row lock serializes concurrent creates and `UNIQUE (project_id, number)` backs it. A races and reuses after deletes; B needs DDL per project.
 Winner: C — one statement, no duplicates, never reused; accepted: creates within one project are serialized (irrelevant at human speed).
 
-## D21 — Rank encoding
+## D21 — Rank encoding (open-ended keys amended by D39)
 Context: one total order per project (D4); a move must rewrite one row.
 Options: A) fractional index string B) integer with gaps C) LexoRank-like buckets
 Product vote: n/a
@@ -185,6 +187,7 @@ Options: A) RFC 9457 `application/problem+json` B) ad hoc `{code, message}`
 Product vote: n/a
 Architecture vote: A — one `AppError` enum maps to `type` (`urn:santi:error:<slug>`, stable for clients), `title`, `status`, `detail`, plus `errors: [{field, message}]` for validation; documented once in OpenAPI. CLI and MCP print `detail` and branch on `type`; HTML routes render the same error as inline messages.
 Winner: A — a standard every HTTP client already understands; accepted: slightly more fields than an ad hoc body.
+Amended (SAN-51): text input never holds U+0000 (PostgreSQL text cannot): every text validator and the search `q`/`label` answer 422 on the field, and SQLSTATE 22021 maps to 422 as a net. Descriptions are capped at 65,536 characters (domain rule plus a CHECK in migration 0013), next to summaries (255) and comments (20,000); an import cuts longer ones and reports a problem row.
 
 ## D25 — Crate and slice layout (consequence of D1; `web.rs` and `templates/` go away at the D37 cutover)
 Context: D1 drops Leptos, so `santi-web` has no WASM to hold.
@@ -312,6 +315,17 @@ Tokens (contrast is against the surface the token sits on; ≥ 4.5 text, ≥ 3 i
 
 Rules: status, type and priority always show glyph and text; color is the second cue. Warning (WIP over limit, overdue sprint) shares amber with the epic glyph; they never appear in the same slot.
 
+Amendment (SAN-35, 2026-10-16, visual pass, `visual-review.md`): tokens added, contrast against the token's own background.
+
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `primary-pressed` | #34258F | #D7D0F7 | pressed primary button (the "pressed" step of the table above, now a token) |
+| `hover` | #EEF0F3 | #33302D | hover of rows, menu items, ghost and outline buttons, skeletons (the "hover row" neutral, now a token); the purple tint stays for selection only |
+| `avatar-1…6` / `-foreground` | #ECE8FB/#3F2CB0 (7.96), #ECFCCB/#3F6212 (6.52), #FEF3C7/#92400E (6.37), #FFE4E6/#9F1239 (6.68), #EEF0F3/#3D4354 (8.64), #FCE7F3/#9D174D (6.71) | #2C2075/#C4B8F5 (7.34), #1A2E05/#BEF264 (11.19), #3A2A0A/#FBBF24 (8.30), #4C0519/#FDA4AF (8.27), #33302D/#D6D3D1 (8.80), #500724/#F9A8D4 (8.29) | initials avatars, tone picked from the name (`avatarTone`); no teal (done) and no blue |
+| `select-chevron` | chevron in #5E6475 | chevron in #A8A29E | the one arrow every native select draws |
+
+Motion: menus, popovers and selects 150 ms, dialogs and sheets 200 ms, ease-out; `prefers-reduced-motion: reduce` collapses every animation and transition. Board columns flex between 18rem and 26rem.
+
 ## D37 — Web UI: React SPA on shadcn-admin (supersedes D1, D26, D35 for the web UI)
 Context: the owner decided (binding) to replace the askama + htmx UI with a React SPA built on satnaing/shadcn-admin (MIT, v2.2.1, checked 2026-10-15 at `e16c87f`). The owner maintains React and shadcn daily, and the next screens need rich client behavior that htmx makes awkward: dnd-kit drag and drop with keyboard sensors, optimistic moves, a command palette, stacked dialogs and sheets. The JSON API (D34) already covers every page, so the server keeps one front door after the cutover.
 Options: A) keep htmx (D1) B) React SPA on shadcn-admin C) React SPA from scratch on the shadcn CLI
@@ -322,7 +336,7 @@ Winner: B — accepted: a Node toolchain (pnpm) for anyone touching the UI, a se
 
 Stack (template versions, `package.json` at `e16c87f`): Vite ^8.0.8, React ^19.2.5, TypeScript ~6.0.3, TanStack Router ^1.168.22 (file routes, `@tanstack/router-plugin`), TanStack Query ^5.99.0, react-hook-form ^7.72.1 + zod ^4.3.6 (`@hookform/resolvers` ^5.2.2), zustand ^5.0.12, Radix + shadcn components (`new-york`, lucide icons), Tailwind ^4.2.2 via `@tailwindcss/vite`, sonner, cmdk 1.1.1, Vitest ^4.1.4. Added by santi: `@dnd-kit/core` 6.3.1 + `@dnd-kit/sortable` 10.0.0 (stable line; `@dnd-kit/react` 0.5 is pre-1.0), `openapi-typescript` 7.13.0 + `openapi-fetch` 0.17.0, `@playwright/test`. Package manager pnpm (template lockfile). Node ^20.19 or >= 22.12 (Vite 8).
 
-State: server data lives only in TanStack Query; zustand holds client UI state only (sidebar, open dialogs, drag preview), never server data or credentials. Filters stay in the URL (D18) as TanStack Router search params validated by zod. Optimistic writes: `onMutate` patches the board/backlog cache, `onError` rolls back and toasts the D24 `detail`, `onSettled` invalidates; a move sends the D4 anchor (`before`/`after`), never a computed rank.
+State: server data lives only in TanStack Query; client UI state (sidebar, open dialogs, drag preview) lives in component state and the URL. zustand was dropped as unused (SAN-52): add it when needed, for client UI state only, never server data or credentials. Filters stay in the URL (D18) as TanStack Router search params validated by zod. Optimistic writes: `onMutate` patches the board/backlog cache, `onError` rolls back and toasts the D24 `detail`, `onSettled` invalidates; a move sends the D4 anchor (`before`/`after`), never a computed rank.
 
 Testing: Vitest + Testing Library queries. Component tests run in Vitest browser mode (template default: real Chromium through Playwright, `vitest-browser-react`, whose `getByRole`/`getByText` follow Testing Library semantics), because Radix portals and dnd-kit pointer sensors need real layout that jsdom lacks; pure logic in `entities`/`shared` runs in the same suite. API calls are stubbed by passing a `fetch` to the `openapi-fetch` client, no mock server. Playwright end to end for the key flows only, against the real server, Postgres and the built SPA: sign in, create issue, drag a card across columns (and the keyboard "Move to…" path), plan and start a sprint, complete a sprint with open issues. Coverage gate > 90% on statements, branches, functions and lines with `coverage.include: ['src/**']`, so untested files count as 0%; excluded: generated files (`routeTree.gen.ts`, `shared/api/schema.d.ts`), unmodified shadcn primitives in `shared/ui`, and route files (thin, like `main.rs`).
 
@@ -351,6 +365,8 @@ Serving: until parity the SPA runs from Vite in dev only, and production keeps t
 
 License: shadcn-admin is MIT (Copyright (c) 2024 Sat Naing). `web/LICENSE-shadcn-admin` keeps its notice verbatim and `web/README.md` credits the template; santi's own code stays MIT OR Apache-2.0.
 
+Done at cutover (SAN-42, 2026-10-16): the SPA serves from `/` (Vite `base` and router basepath `/`); the `web.rs` files, `templates/`, `static/`, `styles/`, `scripts/css.sh`, the `css` CI job, the askama dependency and the htmx tests are deleted. Slices keep `domain.rs`, `repo.rs`, `service.rs` and `handler.rs` (D25 without `web.rs`).
+
 ## D38 — Repository layout: monorepo now, split-ready
 Context: D37 puts the SPA in `web/`, and the owner plans to move it to its own repository later. The question is where it lives now, how self-hosters run it, and what keeps the later move cheap.
 Options: A) monorepo, `web/` next to `crates/`, independent toolchains, no split rules B) separate `santi-web` repository now C) monorepo now with split boundaries and a written split procedure
@@ -371,3 +387,75 @@ Packaging: one image, one service, one origin. A multi-stage `Dockerfile` builds
 Split procedure: `git subtree split --prefix=web -b web-split`, push `web-split` to the new `santi-web` repository as `main`, move the `web` CI job there, delete `web/` here, keep the snapshot test writing `openapi.json` at this repository's root, and have the image build download the `santi-web` release `dist` by pinned version. The web repository updates its snapshot from server releases.
 
 Split trigger: never before the cutover (htmx removed) and v1.0.0 (API under semver). After that, split at the first of: a UI change needs a release without a server release; regular contributors work only in `web/`; the SPA build gets a second consumer (CDN-hosted or desktop shell).
+
+## D39 — Performance budgets (SAN-43)
+Context: the owner asked for extreme performance: the copy must beat the tracker it replaces on every screen. Budgets need numbers, a dataset to measure them on, and a guard that fails CI before a regression ships.
+Options: A) no budgets, profile when someone complains B) budgets measured by hand once C) written budgets, a repeatable seed + load script, and a CI guard on statement counts and a latency ceiling
+Product vote: C — speed is a feature only while it lasts; the boards and the backlog are opened hundreds of times a day.
+Architecture vote: C — wall-clock numbers flake in CI, statement counts do not: the guard counts SQL statements per request (no N+1 can hide) and keeps a generous latency ceiling for pathological regressions; the tight latency budget is checked with the load script on a laptop.
+Winner: C — accepted: the load numbers are laptop numbers, rerun by hand (`docs/perf.md`) when a hot query changes.
+
+API budgets, at 5k issues / 50 users / 20 sprints (`seed`), release build, 10 concurrent connections on a laptop (`scripts/perf.sh`):
+- p95 < 30 ms and p99 < 60 ms for board (scrum and kanban), backlog, issue detail, search and move.
+- One SQL round trip per read model where possible, never one per row; statement budgets per request are pinned in `tests/perf_budget.rs` (board and backlog 4, issue and search 2, move 9, delete 5).
+- Every hot query backed by an index, checked with `EXPLAIN ANALYZE` on generic plans (sqlx prepares statements). At 5k issues the planner seq-scans `issue` for board and backlog because one project fills most of a small table; the `issue_project_*` indexes take over as the table grows.
+- Response compression on (gzip and br through `tower-http`, br at quality 4).
+- Connection pool sized: twice the cores, clamped 10–50, `SANTI_DB_POOL` overrides; sqlx's default of 10 capped throughput at 50 concurrent clients.
+
+Fixes that came out of the first measurement:
+- Rank keys (amends D21): an open-ended `rank_between` halved the gap to the edge, so every append (new issue, move after the last) added a character every ~6 issues; 5k issues carried 667-char keys into every card and the backlog weighed 906 KB. Open-ended keys now step one unit with escape levels (`level` leading 'z' or '0' digits, then a `level + 1` digit counter), staying ≤ 5 chars for 10k appends or moves to the top. Keys already stored keep working; data seeded before the change keeps its long keys (no re-spread migration while v1 is unreleased).
+- Token and membership resolve in one query (`members::repo::find_member_by_token`), one round trip less on every project-scoped request.
+
+Known ceilings: the backlog loads unpaged (D29) and is the endpoint closest to budget (~1.2k cards, 375 KB raw, 26–28 KB compressed); upgrade: lazy no-sprint section. Moves in one project are serialized by the D21 project lock, so concurrent moves in one project queue.
+
+SPA budgets (enforced by the SPA cards): initial JS < 170 KB gzip (`size-limit`, SAN-38); LCP < 1.0 s; INP < 100 ms; writes optimistic (D37); lists over 200 rows virtualized; no layout shift (CLS 0: skeletons and reserved sizes).
+
+## D40 — Issue delete (SAN-49; lifts IA resolved #5)
+Context: UI-25 and UI-31 put Delete in the row and issue menus; duplicates and typos could only be parked in Done. Who may delete, and what happens to children, comments and sprint facts?
+Options: A) admins only B) admins and the issue's reporter C) any member
+Market: most trackers let the reporter and admins delete, and ask for confirmation that names what goes with it; Linear soft-deletes to a trash.
+Product vote: B — the person who filed a duplicate fixes it without asking an admin; other members' work is safe. A confirm dialog names the subtasks and comments that go with it; no trash in v1.
+Architecture vote: B — one pure check (`issues::domain::check_delete`: admin or `reporter_id`); hard delete in one transaction: lock the row, mark its removal in the running sprint (`record_leave`, issue and subtasks), then one `DELETE` of the issue and its subtasks. The schema does the rest (migration 0011): comments cascade, an epic's children get `parent_id` NULL (`ON DELETE SET NULL`), `sprint_issue.issue_id` becomes NULL so a running sprint keeps its `removed` facts and points; the D20 counter is never decremented, so a number is never reused. A soft delete would add a `deleted_at` predicate to every read model (D39).
+Winner: B, hard delete — accepted: no undo; a deleted issue's sprint facts lose the issue they named (the counts stay); 404 for unknown issues and non-members (D28), 403 for members who are neither admin nor reporter; delete budget 5 statements (D39).
+
+## D41 — Importing from Jira and Linear CSV (SAN-29, E5)
+Context: the real need behind the old compatibility idea is migration (design spec, E5). A team leaving Jira Cloud or Linear needs its open work, history dates, parents and sprints in santi without retyping. Both tools export issues as CSV without admin API keys.
+Options: A) CSV import of each tool's own export B) importers that read each tool's REST/GraphQL API with a token C) A now, B later on the same mapping step
+Market: Atono imports Linear's CSV export, matching people by email and statuses by name; most other importers read the source's API with a user token. Jira Cloud and Linear both let a user export issues as CSV.
+Product vote: C — a file the admin already knows how to produce, a preview that shows what will happen (statuses, people, sprints, types, problem rows), one confirm. API importers bring comments and attachments later without changing that screen.
+Architecture vote: C — CSV keeps the importer offline, credential-free and testable with hand-written fixtures; an API importer later only produces the same `Export` rows. One slice (`imports/`): pure parsing and planning in `domain.rs`, a handful of batched SQL statements in `repo.rs`. B now means OAuth or token storage, pagination and rate limits for a one-off job.
+Winner: C, CSV only in v1 — accepted: the export is the ceiling (no attachments, no history, no links other than parent, Linear exports carry no comments), the file's times without an offset are read as UTC, and the source is told from the header row only.
+
+Format (public interop docs only: Atlassian's "Export issues from Jira Cloud in CSV format" and "Common CSV file questions and known issues" support pages, which give the default `dd/MMM/yy h:mm a` date format; Linear's "Exporting data" docs, which list the columns; Atono's "Import from Linear" guide, which notes creator and assignee are emails). Jira "CSV (all fields)" repeats one column per value for multi-value fields (Labels, Sprint, Comment), so columns are read by position, never by a header-keyed map.
+
+| santi | Jira CSV | Linear CSV |
+|---|---|---|
+| detected by | `Issue key` + `Summary` | `ID` + `Title` |
+| external key | Issue key (Issue id resolves numeric parent refs) | ID |
+| type | Issue Type (Epic, Story, Task, Bug, Sub-task; others → story, editable in the mapping) | none: `Issue`, or `Sub-issue` when it has a parent |
+| summary, description | Summary, Description (wiki text kept as is) | Title, Description (markdown kept) |
+| status | Status, with Status Category as the suggestion | Status; category guessed from the name |
+| priority | Highest/Blocker/Critical → urgent, High/Major → high, Medium, Low/Lowest/Minor/Trivial → low | Urgent, High, Medium, Low; No priority → medium |
+| people | Assignee, Reporter | Assignee, Creator |
+| dates | Created, Updated | Created, Updated (ISO 8601 and JavaScript date strings) |
+| labels | every Labels column | Labels, comma-joined; spaces → `-`, 50 chars, 20 per issue |
+| sprint | last Sprint column (closed if an issue moved on from it) | Cycle Name or `Cycle N` (closed once Cycle End passed) |
+| parent | Parent / Parent id / Parent key / Epic Link | Parent issue |
+| points | Story Points / Story point estimate | Estimate |
+| comments | every Comment column (`date;author;body`), authored by the importing admin | not exported |
+
+Dropped: components, fix versions, resolution, due dates, time tracking, attachments, watchers, custom fields other than points, Linear projects, milestones and initiatives, comment authors.
+
+Flow: `POST /api/projects/{key}/imports/preview` and `POST /api/projects/{key}/imports`, admins only (403 for members, 404 for strangers), `multipart/form-data` with the file (≤ 10 MB, else 422) and, for the import, a JSON `mapping`: status name → status id (unlisted statuses fail their rows), person → member id or none (default: nobody; reporter: the admin), sprint name → `future` / `closed` / `skip` (scrum only; a sprint of the same name on the board is reused), type name → santi type. Every id must belong to the project (422, field `mapping.<kind>.<name>`).
+- Rules that keep the schema's invariants: a subtask whose parent is not a story, task or bug becomes a task; a parent santi does not allow is dropped with a problem row; epics and subtasks never join a sprint directly (D6); a closed sprint keeps only issues in a `done` status, others land in the backlog; subtasks carry no points (D11).
+- Idempotent: migration 0012 adds `issue.external_source` + `external_key` with a unique index per project; rows whose key was imported from the same source are skipped, and the insert is `ON CONFLICT DO NOTHING` on that index, so two imports racing never duplicate.
+- Writes: numbers reserved for the whole file in one statement (D20, file order), sprints in the same transaction; issues in batches of 500 per transaction, inserted tier by tier (epics, children, subtasks) with parents joined by original key; a last transaction ranks the new issues after the project's last rank in file order (D21 open-ended keys) and restores the export's `updated_at`, which the 0009 triggers bumped when children and comments arrived.
+- D39: 5k rows (50 epics, 3,950 stories, 1,000 subtasks, 5k comments) import in ~1.3 s on a laptop (debug build, `tests/imports.rs`), budget 10 s.
+- Known ceilings: an import cut off mid-way leaves its committed batches ranked by tier and with bumped `updated_at` (re-running it imports the rest); the whole file is held in memory (10 MB).
+
+Amended (SAN-51, adversarial review):
+- Limits, refused with 422 on `file` before planning: 1,000 columns per row, 100,000 rows, 3,000,000 fields, 500 different statuses, types, people or sprints each. Parsing, preview and planning run in `spawn_blocking` with no pool connection held, counting through hash maps; 40k rows with 400 of each preview in ~0.5 s (debug build).
+- Rows the schema would refuse fail alone as problem rows before any insert (a NUL anywhere in the row, a key over 255 characters), so they never fail their batch; sprint names are cut to 100 characters.
+- A mapped status must sit in a board column (`mapping.statuses.<name>`), like issue creation.
+- Dates later than the import (created, updated, done, comments) are clamped to its time.
+- Sprint reuse: a sprint of the same name is reused only when it is future (mapping `future`) or closed (mapping `closed`); a running sprint is never reused, so a new one is made. Imported issues that still land in a running sprint (subtasks following their parent) are recorded as added after its start, as planning does.

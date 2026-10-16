@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
@@ -106,6 +107,8 @@ pub struct Card {
     pub column_id: i64,
     pub assignee_id: Option<i64>,
     pub assignee_name: Option<String>,
+    /// Shows Delete to the reporter as well as admins (D40).
+    pub reporter_id: i64,
     pub points: Option<f64>,
     pub labels: Vec<String>,
     /// Shown as a chip on subtasks and children of epics (D6).
@@ -114,6 +117,7 @@ pub struct Card {
     pub open_subtasks: i64,
     pub total_subtasks: i64,
     pub rank: String,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]

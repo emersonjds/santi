@@ -1,0 +1,182 @@
+import { useMemo } from 'react'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { FilterBar } from '@/widgets/board/filter-bar'
+import { boardSettingsQuery, issueNumber } from '@/entities/issue/board-query'
+import { TypeGlyph } from '@/entities/issue/issue-glyphs'
+import {
+  type IssueSearch,
+  searchFilters,
+  searchQuery,
+} from '@/entities/issue/search-query'
+import { StatusPill } from '@/entities/issue/status-pill'
+import {
+  CATEGORY,
+  type Category,
+  type Status,
+  statusesById,
+} from '@/entities/issue/statuses'
+import { timeAgo } from '@/entities/issue/time-ago'
+import { membersQuery } from '@/entities/project/project-queries'
+import { AssigneeAvatar } from '@/entities/user/user-avatar'
+import type { Issue } from '@/shared/api/client'
+import { Button } from '@/shared/ui/button'
+import { NativeSelect } from '@/shared/ui/native-select'
+import { Skeleton } from '@/shared/ui/skeleton'
+
+type SearchResultsProps = { projectKey: string; search: IssueSearch }
+
+const CATEGORIES = Object.keys(CATEGORY).filter(
+  (value): value is Category => Object.hasOwn(CATEGORY, value)
+)
+
+const capitalized = (text: string) => text[0].toUpperCase() + text.slice(1)
+
+const StatusSelect = ({ status }: { status?: Category }) => {
+  const navigate = useNavigate({ from: '/p/$key/search' })
+  return (
+    <NativeSelect
+      aria-label='Status'
+      value={status ?? ''}
+      onChange={({ target }) =>
+        void navigate({
+          search: (prev) => ({
+            ...prev,
+            status: CATEGORIES.find((each) => each === target.value),
+          }),
+        })
+      }
+    >
+      <option value=''>Any status</option>
+      {CATEGORIES.map((category) => (
+        <option key={category} value={category}>
+          {capitalized(CATEGORY[category].label)}
+        </option>
+      ))}
+    </NativeSelect>
+  )
+}
+
+type SearchRowProps = {
+  issue: Issue
+  projectKey: string
+  status?: Status
+  assignee?: string
+}
+
+const SearchRow = ({ issue, projectKey, status, assignee }: SearchRowProps) => (
+  <li className='relative flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1 bg-card px-3 py-2 text-sm hover:bg-hover md:flex-nowrap md:py-1.5'>
+    <TypeGlyph type={issue.issue_type} />
+    <span className='text-xs tracking-wide whitespace-nowrap text-subtle-foreground tabular-nums'>
+      {issue.key}
+    </span>
+    {/* IA §7: results open the issue dialog, the address bar showing the issue page. */}
+    <Link
+      to='.'
+      search={(prev) => ({ ...prev, issue: issueNumber(issue.key) })}
+      mask={{
+        to: '/p/$key/issues/$number',
+        params: { key: projectKey, number: String(issueNumber(issue.key)) },
+      }}
+      data-issue-key={issue.key}
+      className='line-clamp-2 min-w-0 flex-1 basis-full outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring md:line-clamp-1 md:basis-auto'
+    >
+      {issue.summary}
+    </Link>
+    {/* Fixed slots on wide screens: pills and avatars line up down the list. */}
+    <span className='flex shrink-0 empty:hidden md:w-32 md:justify-end md:empty:flex'>
+      {status && <StatusPill status={status} />}
+    </span>
+    <span className='shrink-0 empty:hidden md:size-6 md:empty:block'>
+      {assignee && <AssigneeAvatar name={assignee} />}
+    </span>
+    <time
+      dateTime={issue.updated_at}
+      className='shrink-0 text-xs text-subtle-foreground md:w-24 md:text-end'
+    >
+      {timeAgo(issue.updated_at)}
+    </time>
+  </li>
+)
+
+const ResultsSkeleton = () => (
+  <div role='status' aria-label='Loading results' className='grid gap-px'>
+    {[0, 1, 2, 3].map((row) => (
+      <Skeleton key={row} className='h-11' />
+    ))}
+  </div>
+)
+
+const nothingFound = (q?: string) =>
+  q
+    ? `No issues match “${q}”. Try fewer words or clear filters.`
+    : 'No issues match these filters.'
+
+/** IA §7: matches by id, 50 per page; done issues included. */
+export const SearchResults = ({ projectKey, search }: SearchResultsProps) => {
+  const results = useInfiniteQuery({
+    ...searchQuery(projectKey, searchFilters(search)),
+    placeholderData: keepPreviousData,
+  })
+  const { data: settings } = useQuery(boardSettingsQuery(projectKey))
+  const { data: members } = useQuery(membersQuery(projectKey))
+  const statuses = useMemo(() => statusesById(settings), [settings])
+  const names = useMemo(
+    () =>
+      new Map((members ?? []).map((each) => [each.user_id, each.display_name])),
+    [members]
+  )
+  if (results.error) throw results.error
+
+  const issues = (results.data?.pages ?? []).flatMap((each) => each.items)
+
+  return (
+    <div className='grid gap-3'>
+      <FilterBar
+        projectKey={projectKey}
+        search={search}
+        pageFilters={search.status ? 1 : 0}
+      >
+        <StatusSelect status={search.status} />
+      </FilterBar>
+      {!results.data ? (
+        <ResultsSkeleton />
+      ) : issues.length === 0 ? (
+        <p className='rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground'>
+          {nothingFound(search.q)}
+        </p>
+      ) : (
+        // ponytail: plain list; D39 virtualizes past 200 rows, reached here only after three "Show more".
+        <ul className='grid gap-px overflow-hidden rounded-md border bg-border'>
+          {issues.map((issue) => (
+            <SearchRow
+              key={issue.id}
+              issue={issue}
+              projectKey={projectKey}
+              status={statuses.get(issue.status_id)}
+              assignee={
+                issue.assignee_id == null
+                  ? undefined
+                  : names.get(issue.assignee_id)
+              }
+            />
+          ))}
+        </ul>
+      )}
+      {results.hasNextPage && (
+        <Button
+          variant='outline'
+          className='h-11 justify-self-center md:h-9'
+          disabled={results.isFetchingNextPage}
+          onClick={() => void results.fetchNextPage()}
+        >
+          Show more
+        </Button>
+      )}
+    </div>
+  )
+}
