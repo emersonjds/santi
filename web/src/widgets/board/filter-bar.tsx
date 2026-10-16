@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import type { BoardSearch } from '@/entities/issue/board-query'
@@ -13,14 +14,21 @@ const toggled = (ids: number[], id: number) =>
 
 const orNothing = (ids: number[]) => (ids.length > 0 ? ids : undefined)
 
-/** D18: every filter is a link to the board URL with that filter flipped. */
+type FilterBarProps = {
+  projectKey: string
+  search: BoardSearch
+  /** Page-specific filters (search: type, status), drawn before Clear. */
+  children?: ReactNode
+  filtered?: boolean
+}
+
+/** D18: every filter is a link to the page URL with that filter flipped. */
 export const FilterBar = ({
   projectKey,
   search,
-}: {
-  projectKey: string
-  search: BoardSearch
-}) => {
+  children,
+  filtered = false,
+}: FilterBarProps) => {
   const { data: members } = useSuspenseQuery(membersQuery(projectKey))
   const { data: me } = useSuspenseQuery(sessionQuery)
   const assignee = search.assignee ?? []
@@ -79,10 +87,11 @@ export const FilterBar = ({
       >
         Recently updated
       </Link>
-      {(assignee.length > 0 || search.recently_updated) && (
+      {children}
+      {(filtered || assignee.length > 0 || search.recently_updated) && (
         <Link
           {...link}
-          search={({ column }) => ({ column })}
+          search={({ column, q }) => ({ column, q })}
           className='inline-flex h-11 items-center px-2 text-sm font-medium text-primary hover:underline md:h-9'
         >
           Clear filters
