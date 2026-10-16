@@ -98,7 +98,7 @@ fn bearer_token(headers: &HeaderMap) -> Option<&str> {
     scheme.eq_ignore_ascii_case("bearer").then_some(token)
 }
 
-fn session_token(headers: &HeaderMap) -> Option<&str> {
+pub fn session_token(headers: &HeaderMap) -> Option<&str> {
     headers
         .get_all(COOKIE)
         .iter()
