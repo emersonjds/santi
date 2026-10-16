@@ -1,0 +1,12 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% block title %}Join a project{% endblock %}
+{% block main %}
+<div class="narrow">
+  <h1 class="greeting">Join a project</h1>
+  <p class="lede">You were invited to a project. Joining adds it to your sidebar.</p>
+  <form class="form-top" method="post" action="/invites/{{ token }}">
+    <button class="button" type="submit">Join project</button>
+  </form>
+</div>
+{% endblock %}

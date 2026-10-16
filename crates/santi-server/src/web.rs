@@ -6,6 +6,8 @@ use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::request::Parts;
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::get;
+use santi_types::projects::Project;
+use sqlx::PgPool;
 
 use crate::AppState;
 use crate::auth::extract::CurrentUser;
@@ -25,6 +27,7 @@ pub fn router() -> Router<AppState> {
         .route("/", get(home))
         .route("/static/{version}/{file}", get(asset))
         .merge(crate::auth::web::router())
+        .merge(crate::projects::web::router())
 }
 
 /// The signed-in caller on an HTML page; anonymous visitors are sent to the sign-in form.
@@ -51,23 +54,36 @@ pub fn render(status: StatusCode, page: &impl Template) -> Result<Response, AppE
     Ok((status, Html(html)).into_response())
 }
 
+/// What every signed-in page needs for the top bar and the sidebar.
+pub struct Shell {
+    pub display_name: String,
+    pub projects: Vec<Project>,
+    /// Key of the project being viewed; empty outside a project.
+    pub current: String,
+}
+
+pub async fn shell(pool: &PgPool, user: &CurrentUser, current: &str) -> Result<Shell, AppError> {
+    let me = service::me(pool, user).await?;
+    let projects = crate::projects::service::list_projects(pool, user).await?;
+    Ok(Shell {
+        display_name: me.display_name,
+        projects,
+        current: current.into(),
+    })
+}
+
 #[derive(Template)]
 #[template(path = "app/home.html")]
 struct HomePage {
-    display_name: String,
+    shell: Shell,
 }
 
 async fn home(
     State(state): State<AppState>,
     PageUser(user): PageUser,
 ) -> Result<Response, AppError> {
-    let user = service::me(&state.pool, &user).await?;
-    render(
-        StatusCode::OK,
-        &HomePage {
-            display_name: user.display_name,
-        },
-    )
+    let shell = shell(&state.pool, &user, "").await?;
+    render(StatusCode::OK, &HomePage { shell })
 }
 
 async fn asset(PathParams((version, file)): PathParams<(String, String)>) -> Response {

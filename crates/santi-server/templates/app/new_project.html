@@ -1,0 +1,20 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% block title %}New project{% endblock %}
+{% block main %}
+<div class="narrow">
+  <h1 class="greeting">New project</h1>
+  <p class="lede">You will be its admin and can invite your team next.</p>
+  <form class="stack form-top" method="post" action="/projects">
+    {{ ui::field("name", "Name", "text", self.name, "off", self.error("name")) }}
+    {{ ui::field("key", "Key", "text", self.key, "off", self.error("key")) }}
+    <p class="hint">2 to 10 letters or digits, like WEB. It starts every issue number: WEB-1.</p>
+    <fieldset class="choice">
+      <legend>Board</legend>
+      <label><input type="radio" name="board_type" value="scrum"{% if board_type == BoardType::Scrum %} checked{% endif %}><span><strong>Scrum</strong> Plan work in sprints.</span></label>
+      <label><input type="radio" name="board_type" value="kanban"{% if board_type == BoardType::Kanban %} checked{% endif %}><span><strong>Kanban</strong> Keep work flowing, no sprints.</span></label>
+    </fieldset>
+    <button class="button" type="submit">Create project</button>
+  </form>
+</div>
+{% endblock %}

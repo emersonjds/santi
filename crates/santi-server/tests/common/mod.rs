@@ -127,3 +127,41 @@ pub fn session_cookie(response: &Response) -> String {
     let set_cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
     set_cookie.split(';').next().unwrap().to_string()
 }
+
+impl TestApp {
+    pub async fn create_project(&self, key: &str, board_type: &str) -> Value {
+        let body =
+            json!({ "key": key, "name": format!("Project {key}"), "board_type": board_type });
+        let (status, project) = self.post("/api/projects", body).await;
+        assert_eq!(status, StatusCode::CREATED, "{project}");
+        project
+    }
+}
+
+/// A browser form post: urlencoded body and the same-origin fetch metadata D22 expects.
+pub fn form(uri: &str, body: &str, cookie: Option<&str>) -> Request<Body> {
+    let mut builder = Request::post(uri)
+        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        .header("sec-fetch-site", "same-origin");
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    builder.body(Body::from(body.to_string())).unwrap()
+}
+
+pub fn page(uri: &str, cookie: Option<&str>) -> Request<Body> {
+    let mut builder = Request::get(uri);
+    if let Some(cookie) = cookie {
+        builder = builder.header(header::COOKIE, cookie);
+    }
+    builder.body(Body::empty()).unwrap()
+}
+
+pub async fn text(response: Response) -> String {
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+pub fn location(response: &Response) -> &str {
+    response.headers()[header::LOCATION].to_str().unwrap()
+}

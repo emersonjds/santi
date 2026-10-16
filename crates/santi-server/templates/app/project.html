@@ -1,0 +1,38 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% block title %}{{ project.name }}{% endblock %}
+{% block main %}
+<header class="project-head">
+  <p class="key">{{ project.key }}</p>
+  <h1 class="greeting">{{ project.name }}</h1>
+</header>
+<section class="empty" aria-labelledby="board-title">
+  <span class="empty-icon">{{ ui::icon("kanban") }}</span>
+  <h2 id="board-title">Board coming next</h2>
+  <p>Issues, columns and sprints land here in the next release.</p>
+</section>
+<section class="panel" aria-labelledby="members-title">
+  <h2 id="members-title">Members</h2>
+  <ul class="rows">
+    {%- for member in members %}
+    <li><span class="row-name">{{ member.display_name }}<small>{{ member.email }}</small></span><span class="badge">{% match member.role %}{% when MemberRole::Admin %}Admin{% when MemberRole::Member %}Member{% endmatch %}</span></li>
+    {%- endfor %}
+  </ul>
+  {% if project.role == MemberRole::Admin %}
+  <form class="invite" method="post" action="/p/{{ project.key }}/invites">
+    <label for="role">Invite as</label>
+    <select id="role" name="role">
+      <option value="member">Member</option>
+      <option value="admin">Admin</option>
+    </select>
+    <button class="button" type="submit">{{ ui::icon("user-plus") }}<span>Create invite link</span></button>
+  </form>
+  {% if let Some(invite) = invite %}
+  <div class="notice" role="status">
+    <p>Share this link. It works once and expires on {{ invite.expires_at.format("%b %-d") }}.</p>
+    <a class="invite-link" href="/invites/{{ invite.token }}">/invites/{{ invite.token }}</a>
+  </div>
+  {% endif %}
+  {% endif %}
+</section>
+{% endblock %}
