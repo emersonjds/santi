@@ -329,10 +329,14 @@ fn stdio_without_a_token_answers_tool_errors() {
 }
 
 /// Starts `santi mcp --http 127.0.0.1:0` and returns the child with the endpoint it printed.
-async fn http_server(config: &tempfile::TempDir) -> (tokio::process::Child, String) {
+async fn http_server(
+    config: &tempfile::TempDir,
+    extra: &[&str],
+) -> (tokio::process::Child, String) {
     let mut command = santi(config);
     command
         .args(["--http", "127.0.0.1:0"])
+        .args(extra)
         .stderr(Stdio::piped());
     let mut child = command.spawn().unwrap();
     let mut lines = BufReader::new(child.stderr.take().unwrap()).lines();
@@ -344,46 +348,193 @@ async fn http_server(config: &tempfile::TempDir) -> (tokio::process::Child, Stri
     (child, endpoint.to_string())
 }
 
+/// Ctrl-C shuts the server down cleanly.
+async fn interrupt(mut child: tokio::process::Child) {
+    let pid = child.id().unwrap().to_string();
+    let interrupted = std::process::Command::new("kill")
+        .args(["-INT", &pid])
+        .status();
+    assert!(interrupted.unwrap().success());
+    let exit = tokio::time::timeout(std::time::Duration::from_secs(10), child.wait()).await;
+    assert!(exit.unwrap().unwrap().success());
+}
+
+fn initialize() -> Value {
+    json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "test", "version": "1" } } })
+}
+
+/// A hand-made Streamable HTTP request, for what the rmcp client never sends.
+fn raw(method: reqwest::Method, endpoint: &str, authorization: &str) -> reqwest::RequestBuilder {
+    reqwest::Client::new()
+        .request(method, endpoint)
+        .header("accept", "application/json, text/event-stream")
+        .header("authorization", authorization)
+}
+
+async fn connect(endpoint: &str, token: &str) -> Result<Client, String> {
+    let config = StreamableHttpClientTransportConfig::with_uri(endpoint).auth_header(token);
+    ().serve(StreamableHttpClientTransport::from_config(config))
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[test]
 fn streamable_http_requires_a_bearer_and_acts_as_its_user() {
     let token = server().user();
     server().project(&token, "HTP", "kanban");
     let config = tempfile::tempdir().unwrap();
     server().block_on(async {
-        let (mut child, endpoint) = http_server(&config).await;
+        let (child, endpoint) = http_server(&config, &[]).await;
 
-        let initialize = json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": { "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": { "name": "test", "version": "1" } } });
         let anonymous = reqwest::Client::new()
             .post(&endpoint)
             .header("accept", "application/json, text/event-stream")
-            .json(&initialize)
+            .json(&initialize())
             .send()
             .await
             .unwrap();
         assert_eq!(anonymous.status(), 401);
         assert_eq!(anonymous.headers()["www-authenticate"], "Bearer");
 
-        let config = StreamableHttpClientTransportConfig::with_uri(endpoint.as_str()).auth_header(token);
-        let client = ().serve(StreamableHttpClientTransport::from_config(config)).await.unwrap();
+        let lowercase = raw(
+            reqwest::Method::POST,
+            &endpoint,
+            &format!("bearer  {token}"),
+        )
+        .json(&initialize())
+        .send()
+        .await
+        .unwrap();
+        assert_eq!(lowercase.status(), 200);
+        assert!(lowercase.headers().contains_key("mcp-session-id"));
+
+        let client = connect(&endpoint, &token).await.unwrap();
         assert_eq!(client.list_all_tools().await.unwrap().len(), TOOLS.len());
-        let created = ok(&client, "create_issue", json!({ "project": "HTP", "summary": "Over HTTP" })).await;
+        let created = ok(
+            &client,
+            "create_issue",
+            json!({ "project": "HTP", "summary": "Over HTTP" }),
+        )
+        .await;
         assert_eq!(created["key"], "HTP-1");
-        ok(&client, "move_issue", json!({ "issue": "HTP-1", "status": "Done" })).await;
-        let found = ok(&client, "search_issues", json!({ "project": "HTP", "q": "http", "status": ["done"] })).await;
+        ok(
+            &client,
+            "move_issue",
+            json!({ "issue": "HTP-1", "status": "Done" }),
+        )
+        .await;
+        let found = ok(
+            &client,
+            "search_issues",
+            json!({ "project": "HTP", "q": "http", "status": ["done"] }),
+        )
+        .await;
         assert_eq!(found["items"][0]["key"], "HTP-1");
         client.cancel().await.unwrap();
 
-        let stranger = StreamableHttpClientTransportConfig::with_uri(endpoint.as_str()).auth_header("santi_unknown");
-        let client = ().serve(StreamableHttpClientTransport::from_config(stranger)).await.unwrap();
-        let denied = call(&client, "list_projects", json!({})).await;
-        assert_eq!(denied.is_error, Some(true));
-        client.cancel().await.unwrap();
+        let stranger = raw(reqwest::Method::POST, &endpoint, "Bearer santi_unknown")
+            .json(&initialize())
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(stranger.status(), 401);
+        let message = stranger.text().await.unwrap();
+        assert!(
+            message.ends_with("Send a valid santi API token as `Authorization: Bearer <token>`."),
+            "{message}"
+        );
+        assert!(connect(&endpoint, "santi_unknown").await.is_err());
 
-        // Ctrl-C shuts the server down cleanly.
-        let pid = child.id().unwrap().to_string();
-        let interrupted = std::process::Command::new("kill").args(["-INT", &pid]).status();
-        assert!(interrupted.unwrap().success());
-        let exit = tokio::time::timeout(std::time::Duration::from_secs(10), child.wait()).await;
-        assert!(exit.unwrap().unwrap().success());
+        interrupt(child).await;
+    });
+}
+
+#[test]
+fn streamable_http_keeps_each_session_to_its_token() {
+    let (alice, bob) = (server().user(), server().user());
+    server().project(&alice, "ALC", "kanban");
+    server().project(&bob, "BOB", "kanban");
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let (child, endpoint) = http_server(&config, &[]).await;
+
+        let (first, second) = tokio::join!(connect(&endpoint, &alice), connect(&endpoint, &bob));
+        let (first, second) = (first.unwrap(), second.unwrap());
+        let (seen_first, seen_second) = tokio::join!(
+            ok(&first, "list_projects", json!({})),
+            ok(&second, "list_projects", json!({}))
+        );
+        let keys = |projects: &Value| -> Vec<String> {
+            let projects = projects.as_array().unwrap();
+            projects
+                .iter()
+                .map(|project| project["key"].as_str().unwrap().to_string())
+                .collect()
+        };
+        assert_eq!(keys(&seen_first), ["ALC"]);
+        assert_eq!(keys(&seen_second), ["BOB"]);
+        first.cancel().await.unwrap();
+        second.cancel().await.unwrap();
+
+        let opened = raw(reqwest::Method::POST, &endpoint, &format!("Bearer {alice}"))
+            .json(&initialize())
+            .send()
+            .await
+            .unwrap();
+        let session = opened.headers()["mcp-session-id"]
+            .to_str()
+            .unwrap()
+            .to_string();
+        let list = json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list" });
+        for method in [
+            reqwest::Method::POST,
+            reqwest::Method::GET,
+            reqwest::Method::DELETE,
+        ] {
+            let hijack = raw(method.clone(), &endpoint, &format!("Bearer {bob}"))
+                .header("mcp-session-id", &session)
+                .json(&list)
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(hijack.status(), 404, "{method}");
+        }
+        let closed = raw(
+            reqwest::Method::DELETE,
+            &endpoint,
+            &format!("Bearer {alice}"),
+        )
+        .header("mcp-session-id", &session)
+        .send()
+        .await
+        .unwrap();
+        assert!(closed.status().is_success(), "{}", closed.status());
+
+        interrupt(child).await;
+    });
+}
+
+#[test]
+fn streamable_http_checks_the_host_and_caps_sessions() {
+    let token = server().user();
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let (child, endpoint) =
+            http_server(&config, &["--allowed-host", "santi.example.com"]).await;
+        let open = |host: &'static str| {
+            raw(reqwest::Method::POST, &endpoint, &format!("Bearer {token}"))
+                .header("host", host)
+                .json(&initialize())
+                .send()
+        };
+        assert_eq!(open("evil.example.com").await.unwrap().status(), 403);
+        assert_eq!(open("santi.example.com").await.unwrap().status(), 200);
+        for _ in 1..100 {
+            assert_eq!(open("localhost").await.unwrap().status(), 200);
+        }
+        let full = open("localhost").await.unwrap();
+        assert_eq!(full.status(), 503);
+
+        interrupt(child).await;
     });
 }
