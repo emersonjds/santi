@@ -2,13 +2,14 @@
 
 Date: 2026-10-15. Card: SAN-32. Inputs: `2026-10-15-santi-v1-design.md`, `decisions.md` (D1–D36),
 `behavior/ui-layout.md`, `scrum-board.md`, `kanban-board.md`, `backlog.md`, `sprint-lifecycle.md`.
-Only what v1 builds is listed as v1; everything else is marked "later".
+Only what v1 builds is listed as v1; everything else is marked "later". SAN-74: every "later" below is
+reinstated into `parity-backlog.md` and names its card.
 
 ## 1. Objects
 
 ```
 user ── member (role: admin | member) ── project (key, name)
-                                           ├─ board (exactly one, scrum | kanban; D31)
+                                           ├─ board (exactly one, scrum | kanban; D31; several: reinstated → P12)
                                            │    ├─ columns (ordered; kanban: WIP max, D7)
                                            │    │    └─ statuses (category todo | in_progress | done; unmapped pool, D30)
                                            │    └─ sprints (scrum only: future | active | closed; one active, D13)
@@ -16,7 +17,7 @@ user ── member (role: admin | member) ── project (key, name)
                                            │    ├─ epic ── parent of story / task / bug (shown in the epic panel, D10)
                                            │    ├─ story / task / bug ── parent of subtasks (flat cards + chip, D6)
                                            │    └─ comments
-                                           └─ invites (one-time links, no email)
+                                           └─ invites (one-time links, no email; email: reinstated → SAN-69)
 user ── API tokens (CLI, MCP; D23)
 ```
 
@@ -30,12 +31,12 @@ Top bar (every signed-in page), left to right:
 
 | Slot | v1 | Notes |
 |---|---|---|
-| Sidebar toggle | yes | `panel-left`; `Ctrl+[` later |
+| Sidebar toggle | yes | `panel-left`; `Ctrl+[` later (reinstated → P9) |
 | santi mark | yes | links to `/` |
-| Search field | yes, project pages only | placeholder "Search KEY"; Enter → `/p/{key}/search?q=`. Hidden outside a project. Global search: later |
+| Search field | yes, project pages only | placeholder "Search KEY"; Enter → `/p/{key}/search?q=`. Hidden outside a project. Global search: later (reinstated → P10) |
 | + Create | yes | purple, the one solid button in the bar; `c` opens it (UI-32) |
 | Account menu (avatar) | yes | name, email, API tokens, keyboard shortcuts (`?`), log out |
-| Notifications, help | later | no notifications in v1 |
+| Notifications, help | later | no notifications in v1; reinstated → SAN-54 (notifications), P10 (help) |
 
 Sidebar, top to bottom:
 
@@ -44,7 +45,7 @@ Sidebar, top to bottom:
 | Home | yes | `/` |
 | Projects (header + "New project" icon) | yes | one row per project: avatar, name, key |
 | └ current project expanded | yes | Board, Backlog (scrum only), Settings (admins only) |
-| Recent, Starred, Filters, Dashboards | later | no view history, favorites or saved filters in the v1 model |
+| Recent, Starred, Filters, Dashboards | later | no view history, favorites or saved filters in the v1 model; reinstated → SAN-73, SAN-72, SAN-56, SAN-57 |
 
 Project navigation: the project header carries tabs; the sidebar repeats the same links for the
 current project (ui-layout OQ-7: both).
@@ -54,9 +55,9 @@ current project (ui-layout OQ-7: both).
 | Board | yes | everyone |
 | Backlog | yes, scrum only | everyone |
 | Settings | yes | admins only |
-| Summary, List, Calendar, Releases, Reports | later | — |
+| Summary, List, Calendar, Releases, Reports | later | reinstated → P5 (Summary, List, Calendar), SAN-55 (Releases, Reports) |
 
-Tabs are fixed in v1 (UI-8 reordering: later).
+Tabs are fixed in v1 (UI-8 reordering: later; reinstated → P5).
 
 ## 3. URL map
 
@@ -97,7 +98,7 @@ overlay (modal, sheet, menu).
 |---|---|---|---|---|---|---|
 | Login / register | none (no shell) | — | centered form | — | Sign in / Create account | switch to the other form |
 | Join project | none | — | project name, role offered | — | Join project | sign in or create account first |
-| Home | "Hi, {name}" | — | Assigned to me (later); Your projects cards | — | New project | open a project |
+| Home | "Hi, {name}" | — | Assigned to me (later; reinstated → SAN-72); Your projects cards | — | New project | open a project |
 | New project | "New project" | — | name, key (derived, editable), board type Scrum/Kanban with one-line help | — | Create project | Cancel |
 | Board | project header | filter bar | columns; uppercase name, count, WIP `n/max` (kanban); cards | issue modal, card menu, start/complete dialogs | + Create (top bar), inline "Create issue" at column foot | Complete sprint (header, scrum), Settings link (admin) |
 | Backlog | project header | filter bar + Epics toggle | sprint sections, then "Backlog" section | epic panel (right, pushes the list), issue modal, row menu | Create sprint | Start / Complete per sprint, inline create per section |
@@ -114,7 +115,7 @@ member avatars (5 + "+n", opens the member list), Invite (admins), then the tabs
 
 Filter bar (board, backlog, search): search box, assignee avatars (click toggles; "Only mine"),
 Type, Label, Epic dropdowns, "Filters (n)" with Clear. AND across kinds, OR within (D3). Group by
-(swimlanes): later (SB-29 dropped).
+(swimlanes): later (SB-29 dropped; reinstated → P1).
 
 Card: type glyph, key, summary (2 lines), points pill, priority glyph (urgent only colored),
 avatar; subtasks add a parent-key chip; parents show `open/total` subtasks (D6). Card menu
@@ -133,10 +134,10 @@ sprint: dashed drop zone.
    (cookie), else the first in the list. With no projects, "+ Create" goes to `/projects/new`.
 3. Changing the project re-fetches the form for that project (statuses, members, sprints differ).
 4. Fields per UI-33 trimmed: type (default Story), summary, description, assignee, points, sprint.
-   Status = project's first `todo` status. Expand to full form, draft docking: later.
+   Status = project's first `todo` status. Expand to full form, draft docking: later (reinstated → P7).
 5. Placement (UI-36): sprint chosen → bottom of that sprint; otherwise top of the backlog
    (kanban: top of the first column). Today every create appends at the bottom (D5's rule),
-   so the global modal needs a "top" rank; open question for the owner. Success: toast "KEY-N created" with Open link;
+   so the global modal needs a "top" rank; open question for the owner (reinstated → P7). Success: toast "KEY-N created" with Open link;
    "Create another" keeps the modal open with type and sprint kept.
 6. Inline create (column foot, section foot) posts to the same route with the context fixed (D5).
 
@@ -146,7 +147,7 @@ sprint: dashed drop zone.
   (`<dialog>`, max 960px, two columns) and pushes the URL; reload or a shared link lands on the
   full page. Close (`x`, Esc, backdrop) goes back in history to the board URL with its filters.
 - Modal over side panel (resolves ui-layout OQ-6): the board keeps every column visible, and
-  board and backlog get the same behavior. Right panel with J/K follow (UI-26): later.
+  board and backlog get the same behavior. Right panel with J/K follow (UI-26): later (reinstated → P9).
 - Edits save per field (`PATCH /api/projects/{key}/issues/{n}`, card refreshed from the query
   cache), so closing shows
   the current state without a reload.
@@ -156,7 +157,7 @@ sprint: dashed drop zone.
 - v1: project scope only, `/p/{key}/search?q=`; free text over summary plus the filter params;
   keyset pages of 50 (D29). Done issues are included (the way to reach work hidden by D8).
 - Results open the issue modal. Empty: "No issues match “{q}”. Try fewer words or clear filters."
-- Later: global search across projects (`/search`), field in the top bar on every page.
+- Later: global search across projects (`/search`), field in the top bar on every page (reinstated → P10).
 
 ## 8. Empty states and first run
 
@@ -183,7 +184,7 @@ First run: register → home (empty) → New project (name, key, type) → backl
 | Action | Admin | Member | UI for members |
 |---|---|---|---|
 | Create, edit, move, rank, comment on issues | yes | yes | — |
-| Create, edit, start, complete, delete future sprints | yes | yes | — (SP-15 dropped) |
+| Create, edit, start, complete, delete future sprints | yes | yes | — (SP-15 dropped; reinstated → SAN-66) |
 | Board settings: columns, statuses, mapping, WIP, done window | yes | no | Settings tab and sidebar link hidden; direct URL → 403 page "Only project admins can change settings." |
 | Members: roles, remove, invite links | yes | no | Invite button hidden; member avatars still open a read-only list |
 | Create a project | any signed-in user | — | creator becomes admin |
@@ -216,17 +217,23 @@ Follows ui-layout "Responsive". IA specifics:
 | 8 | Login, register, join, new project, search restyled | SAN-32 |
 | 9 | Settings: board and members pages | new card |
 | 10 | Account page with API tokens | new card (needed before the CLI ships, E3) |
-| 11 | Home "Assigned to me"; Recent; global search | later |
-| 12 | Dark theme switched on and checked screen by screen | later |
+| 11 | Home "Assigned to me"; Recent; global search | later; reinstated → SAN-72, SAN-73, P10 |
+| 12 | Dark theme switched on and checked screen by screen | later; reinstated → P10 |
 
 ## Resolved questions (orchestrator, 2026-10-15)
 
 The owner delegated these calls; defaults chosen to keep v1 small.
 
-1. Dark theme: tokens defined, switched off in v1 (item 12).
-2. New issues land at the bottom of the backlog, as `create_issue` already does; UI-36 "top of backlog" is dropped for v1.
-3. Home "Assigned to me" and sidebar "Recent" stay later (item 11).
+1. Dark theme: tokens defined, switched off in v1 (item 12). Reinstated → P10.
+2. New issues land at the bottom of the backlog, as `create_issue` already does; UI-36 "top of backlog" is dropped for v1. Reinstated → P7.
+3. Home "Assigned to me" and sidebar "Recent" stay later (item 11). Reinstated → SAN-72, SAN-73.
 4. Account page with API tokens is v1 and gets its own card before the CLI ships.
 5. Issue delete was deferred until a delete service existed; SAN-49 built it (D40): card, row and issue menus.
 6. Settings are hidden from members; the URL answers 403.
 7. After creation a scrum project opens on the backlog and a kanban project on the board.
+
+Amendment (SAN-74, 2026-10-16): the owner set a binding parity rule. santi reaches full parity with
+every reference feature in the clean-room specs; nothing the reference has stays "later" without the
+owner's explicit OK, and only the vendor's separate platform products may be skipped, with a reason.
+The "keep v1 small" defaults above stand as v1 history; each "later" is reinstated in
+`parity-backlog.md`.

@@ -142,9 +142,25 @@ async fn wrong_password_and_unknown_email_get_the_same_problem(pool: PgPool) {
     assert_eq!(wrong_password.status(), StatusCode::UNAUTHORIZED);
     assert_eq!(unknown_email.status(), StatusCode::UNAUTHORIZED);
     assert!(wrong_password.headers().get(header::SET_COOKIE).is_none());
+    let wrong_password = body_json(wrong_password).await;
+    assert_eq!(wrong_password, body_json(unknown_email).await);
     assert_eq!(
-        body_json(wrong_password).await,
-        body_json(unknown_email).await
+        wrong_password["type"],
+        "urn:santi:error:invalid-credentials"
+    );
+    assert_eq!(wrong_password["detail"], "Email or password is incorrect.");
+}
+
+#[sqlx::test]
+async fn a_malformed_email_gets_the_same_credentials_problem(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
+
+    let response = login(&app, "not an email", PASSWORD).await;
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    assert_eq!(
+        body_json(response).await["detail"],
+        "Email or password is incorrect."
     );
 }
 
