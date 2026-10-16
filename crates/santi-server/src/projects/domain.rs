@@ -1,6 +1,9 @@
-use santi_types::projects::BoardType;
+use santi_types::projects::{BoardType, ProjectState};
 
 use crate::error::{AppError, reject_nul};
+
+/// OR-58: a trashed project is purged this many days after it was trashed.
+pub const TRASH_DAYS: i32 = 60;
 
 pub fn check_project_key(key: &str) -> Result<String, AppError> {
     let key = key.trim().to_uppercase();
@@ -27,6 +30,33 @@ pub fn check_project_name(name: &str) -> Result<String, AppError> {
         return Err(AppError::invalid("name", "must have 1 to 100 characters"));
     }
     Ok(name.to_string())
+}
+
+pub fn archived() -> AppError {
+    AppError::conflict(
+        "project-archived",
+        "This project is archived and read-only; an admin can unarchive it.",
+    )
+}
+
+pub fn not_trashed() -> AppError {
+    AppError::conflict("project-not-trashed", "This project is not in the trash.")
+}
+
+/// OR-60: an archived or trashed project keeps its key until it is purged.
+pub fn check_key_free(key: &str, held: Option<ProjectState>) -> Result<(), AppError> {
+    let detail = match held {
+        None | Some(ProjectState::Active) => return Ok(()),
+        Some(ProjectState::Archived) => {
+            format!(
+                "The key {key} is held by an archived project; unarchive it or pick another key."
+            )
+        }
+        Some(ProjectState::Trashed) => format!(
+            "The key {key} is held by a project in the trash; restore or purge it, or pick another key."
+        ),
+    };
+    Err(AppError::conflict("project-key-held", &detail))
 }
 
 const DIGITS: &[u8; 36] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";

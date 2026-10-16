@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE member SET starred_at = CASE WHEN $3 THEN coalesce(starred_at, now()) END\n         FROM project p\n         WHERE p.id = member.project_id AND p.key = $2 AND member.user_id = $1\n           AND p.trashed_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Bool"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1d6301240455d004f1db40b57c4543361899ca25d3c2183d0a6ac2024764aec5"
+}

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE project SET archived_at = now(), archived_by = $2\n         WHERE id = $1 AND archived_at IS NULL AND trashed_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a0bb71863b0f13d380e3e7cfd315d91c777c1bd28482f15b4996f847df0b180c"
+}

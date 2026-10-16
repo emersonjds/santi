@@ -107,6 +107,12 @@ pub async fn purge_expired(pool: &PgPool) -> Result<(u64, u64), sqlx::Error> {
     Ok((sessions.rows_affected(), invites.rows_affected()))
 }
 
+/// OR-58: deletes projects trashed 60 days ago or earlier; returns how many.
+pub async fn purge_trash(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let mut conn = pool.acquire().await?;
+    projects::repo::purge_expired_trash(&mut conn).await
+}
+
 #[derive(OpenApi)]
 #[openapi(
     info(

@@ -2,7 +2,7 @@
 //! user would call (D39, SAN-62).
 
 use santi_types::issues::{CreateComment, CreateIssue, Issue, IssueType, Priority};
-use santi_types::projects::{BoardType, CreateProject, MemberRole, Project};
+use santi_types::projects::{BoardType, CreateProject, MemberRole, Project, ProjectState};
 use santi_types::sprints::{CreateSprint, StartSprint};
 use sqlx::PgPool;
 
@@ -54,7 +54,7 @@ pub async fn create_sample(pool: &PgPool, user: &CurrentUser) -> Result<(Project
 /// The caller's sample: a `MOB…` project they administer under the sample's name.
 async fn existing(pool: &PgPool, user: &CurrentUser) -> Result<Option<Project>, AppError> {
     let mut conn = pool.acquire().await?;
-    let projects = repo::list_projects(&mut conn, user.id).await?;
+    let projects = repo::list_projects(&mut conn, user.id, Some(ProjectState::Active)).await?;
     Ok(projects.into_iter().find(|project| {
         project.name == SAMPLE_NAME
             && project.role == MemberRole::Admin

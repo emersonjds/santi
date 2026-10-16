@@ -1,0 +1,140 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.id, p.key, p.name, b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\",\n                  s.state AS \"state!: ProjectState\", p.archived_at, ab.display_name AS \"archived_by?\",\n                  p.trashed_at, tb.display_name AS \"trashed_by?\",\n                  p.trashed_at + make_interval(days => $3) AS purge_at\n           FROM member m\n           JOIN project p ON p.id = m.project_id\n           JOIN board b ON b.project_id = p.id\n           CROSS JOIN LATERAL (SELECT CASE WHEN p.trashed_at IS NOT NULL THEN 'trashed'\n                                           WHEN p.archived_at IS NOT NULL THEN 'archived'\n                                           ELSE 'active' END AS state) s\n           LEFT JOIN app_user ab ON ab.id = p.archived_by\n           LEFT JOIN app_user tb ON tb.id = p.trashed_by\n           WHERE m.user_id = $1\n             AND ($2::text IS NULL OR s.state = $2 AND (s.state = 'active' OR m.role = 'admin'))\n           ORDER BY p.key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "board_type: BoardType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "board",
+            "name": "board_type"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "role: MemberRole",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "state!: ProjectState",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "archived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "archived_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "trashed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "trashed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "trashed_by?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "purge_at",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      true,
+      false,
+      true,
+      false,
+      null
+    ]
+  },
+  "hash": "c255a3d2716559027a6aea7c861811ad50f08b0e3be75c879ed84a9d167de101"
+}
