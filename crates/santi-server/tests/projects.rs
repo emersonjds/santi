@@ -251,3 +251,22 @@ async fn openapi_lists_project_routes(pool: PgPool) {
         assert!(api["paths"][path].is_object(), "{path} missing");
     }
 }
+
+#[sqlx::test]
+async fn unknown_tokens_get_401_on_project_routes(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let forged = TestApp {
+        token: Some("santi_forged".into()),
+        ..ana.clone()
+    };
+
+    assert_eq!(
+        forged.get("/api/projects/SANTI/board").await.0,
+        StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(
+        forged.get("/api/projects/NOPE/board").await.0,
+        StatusCode::UNAUTHORIZED
+    );
+}

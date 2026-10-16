@@ -331,7 +331,8 @@ pub async fn board_cards(
     .await
 }
 
-/// Open parent rows for the backlog, in rank order: one query (BL-2, D6, D10).
+/// Open parent rows for the backlog, in rank order: one query (BL-2, D6, D10); subtask counts
+/// come from one aggregate per project, cheaper than a per-row lookup at backlog size (D39).
 /// An issue left in a closed sprint (reopened after close) shows in the no-sprint section.
 pub async fn backlog_cards(
     conn: &mut PgConnection,
@@ -345,18 +346,20 @@ pub async fn backlog_cards(
                   assignee.display_name AS "assignee_name?", i.points, i.labels,
                   p.key || '-' || parent.number AS parent_key,
                   CASE WHEN sprint.state = 'closed' THEN NULL ELSE i.sprint_id END AS sprint_id,
-                  sub.open_count AS "open_subtasks!", sub.total_count AS "total_subtasks!", i.rank
+                  coalesce(sub.open_count, 0) AS "open_subtasks!", coalesce(sub.total_count, 0) AS "total_subtasks!", i.rank
            FROM issue i
            JOIN project p ON p.id = i.project_id
            JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL
            LEFT JOIN sprint ON sprint.id = i.sprint_id
            LEFT JOIN issue parent ON parent.id = i.parent_id
            LEFT JOIN app_user assignee ON assignee.id = i.assignee_id
-           CROSS JOIN LATERAL (
-               SELECT count(*) AS total_count, count(*) FILTER (WHERE child_status.category <> 'done') AS open_count
+           LEFT JOIN (
+               SELECT child.parent_id, count(*) AS total_count,
+                      count(*) FILTER (WHERE child_status.category <> 'done') AS open_count
                FROM issue child JOIN status child_status ON child_status.id = child.status_id
-               WHERE child.parent_id = i.id AND child.issue_type = 'subtask'
-           ) sub
+               WHERE child.project_id = $1 AND child.issue_type = 'subtask'
+               GROUP BY child.parent_id
+           ) sub ON sub.parent_id = i.id
            WHERE i.project_id = $1
              AND i.issue_type NOT IN ('epic', 'subtask')
              AND s.category <> 'done'

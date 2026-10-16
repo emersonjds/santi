@@ -1436,6 +1436,7 @@ dependencies = [
  "chrono",
  "getrandom",
  "http-body-util",
+ "log",
  "santi-types",
  "serde",
  "serde_json",

@@ -9,24 +9,36 @@ pub struct InviteGrant {
     pub role: MemberRole,
 }
 
-pub async fn find_member(
+/// D28 + D39: the caller's token and membership in one round trip. `None` = unknown or expired
+/// token (401); `Some(None)` = signed in but not a member of `project_key` (404).
+pub async fn find_member_by_token(
     conn: &mut PgConnection,
     project_key: &str,
-    user_id: i64,
-) -> Result<Option<Member>, sqlx::Error> {
-    sqlx::query_as!(
-        Member,
-        r#"SELECT m.user_id, p.id AS project_id, p.key AS project_key, b.id AS board_id,
-                  b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole"
-           FROM project p
-           JOIN board b ON b.project_id = p.id
-           JOIN member m ON m.project_id = p.id AND m.user_id = $2
-           WHERE p.key = $1"#,
-        project_key,
-        user_id
+    token_hash: &[u8],
+) -> Result<Option<Option<Member>>, sqlx::Error> {
+    let row = sqlx::query!(
+        r#"SELECT t.user_id, p.id AS "project_id?", p.key AS "project_key?", b.id AS "board_id?",
+                  b.board_type AS "board_type?: BoardType", m.role AS "role?: MemberRole"
+           FROM auth_token t
+           LEFT JOIN project p ON p.key = $2
+           LEFT JOIN member m ON m.project_id = p.id AND m.user_id = t.user_id
+           LEFT JOIN board b ON b.project_id = m.project_id
+           WHERE t.token_hash = $1 AND (t.expires_at IS NULL OR t.expires_at > now())"#,
+        token_hash,
+        project_key
     )
     .fetch_optional(&mut *conn)
-    .await
+    .await?;
+    Ok(row.map(|row| {
+        Some(Member {
+            user_id: row.user_id,
+            project_id: row.project_id?,
+            project_key: row.project_key?,
+            board_id: row.board_id?,
+            board_type: row.board_type?,
+            role: row.role?,
+        })
+    }))
 }
 
 pub async fn insert_member(

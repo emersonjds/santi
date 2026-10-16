@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT m.user_id, p.id AS project_id, p.key AS project_key, b.id AS board_id,\n                  b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\"\n           FROM project p\n           JOIN board b ON b.project_id = p.id\n           JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.key = $1",
+  "query": "SELECT t.user_id, p.id AS \"project_id?\", p.key AS \"project_key?\", b.id AS \"board_id?\",\n                  b.board_type AS \"board_type?: BoardType\", m.role AS \"role?: MemberRole\"\n           FROM auth_token t\n           LEFT JOIN project p ON p.key = $2\n           LEFT JOIN member m ON m.project_id = p.id AND m.user_id = t.user_id\n           LEFT JOIN board b ON b.project_id = m.project_id\n           WHERE t.token_hash = $1 AND (t.expires_at IS NULL OR t.expires_at > now())",
   "describe": {
     "columns": [
       {
@@ -9,14 +9,14 @@
         "type_info": "Int8",
         "origin": {
           "Table": {
-            "table": "member",
+            "table": "auth_token",
             "name": "user_id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "project_id",
+        "name": "project_id?",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "project_key",
+        "name": "project_key?",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -38,7 +38,7 @@
       },
       {
         "ordinal": 3,
-        "name": "board_id",
+        "name": "board_id?",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "board_type: BoardType",
+        "name": "board_type?: BoardType",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -60,7 +60,7 @@
       },
       {
         "ordinal": 5,
-        "name": "role: MemberRole",
+        "name": "role?: MemberRole",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -72,18 +72,18 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Int8"
+        "Bytea",
+        "Text"
       ]
     },
     "nullable": [
       false,
-      false,
-      false,
-      false,
-      false,
-      false
+      true,
+      true,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "cd2f17a023aa4fcb6e15a35b56befd7ddd44407e9e28670b69e54c9bb5a42521"
+  "hash": "29c7c1130367478576c31e64ae632a1d969d8ca8067cfd5983973de594f30c50"
 }

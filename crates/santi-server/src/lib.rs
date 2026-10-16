@@ -6,6 +6,7 @@ pub mod issues;
 pub mod members;
 pub mod pagination;
 pub mod projects;
+pub mod seed;
 pub mod sprints;
 pub mod web;
 
