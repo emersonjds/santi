@@ -164,6 +164,36 @@ async fn repeated_failures_lock_an_email_whether_or_not_it_has_an_account(pool: 
 }
 
 #[sqlx::test]
+async fn failures_from_elsewhere_never_lock_the_owner_out(pool: PgPool) {
+    let router = router(pool, 0);
+    send(&router, register_request("ana@example.com")).await;
+    for _ in 0..8 {
+        let guess = from_peer(login_request("ana@example.com", "wrong"), [203, 0, 113, 7]);
+        send(&router, guess).await;
+    }
+    let attacker = send(
+        &router,
+        from_peer(
+            login_request("ana@example.com", PASSWORD),
+            [203, 0, 113, 99],
+        ),
+    )
+    .await;
+
+    let owner = send(
+        &router,
+        from_peer(
+            login_request("ana@example.com", PASSWORD),
+            [198, 51, 100, 1],
+        ),
+    )
+    .await;
+
+    assert_eq!(attacker.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(owner.status(), StatusCode::OK);
+}
+
+#[sqlx::test]
 async fn a_correct_password_before_the_lock_clears_the_failures(pool: PgPool) {
     let router = router(pool, 0);
     send(&router, register_request("ana@example.com")).await;

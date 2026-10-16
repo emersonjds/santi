@@ -62,7 +62,7 @@ pub async fn login(
     JsonBody(input): JsonBody<Login>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::Login, address, None)?;
-    let key = state.limits.login_attempt(&input.email)?;
+    let key = state.limits.login_attempt(&input.email, address)?;
     let (user, session) = service::login(&state.pool, input).await?;
     state.limits.login_succeeded(&key);
     Ok(([(SET_COOKIE, domain::session_cookie(&session))], Json(user)))
@@ -141,16 +141,16 @@ pub async fn export_account(
         (status = 204, description = "Account deleted and signed out everywhere. Projects only the caller used are deleted; where the caller was the last admin, the member with the oldest account becomes admin; issues and comments in shared projects stay under \"Deleted user\" (D45)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "Wrong password (`password`)"),
-        (status = 429, body = Problem, content_type = "application/problem+json", description = "Too many wrong passwords for this account (D44); wait `Retry-After` seconds")))]
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Too many password attempts for this account (D44); wait `Retry-After` seconds")))]
 pub async fn delete_account(
     State(state): State<AppState>,
     user: CurrentUser,
     JsonBody(input): JsonBody<DeleteAccount>,
 ) -> Result<impl IntoResponse, AppError> {
-    let email = service::me(&state.pool, &user).await?.email;
-    let key = state.limits.login_attempt(&email)?;
+    state
+        .limits
+        .check(Action::Reauthenticate, None, Some(user.id))?;
     service::delete_account(&state.pool, &user, input).await?;
-    state.limits.login_succeeded(&key);
     Ok((
         StatusCode::NO_CONTENT,
         [(SET_COOKIE, domain::expired_session_cookie())],

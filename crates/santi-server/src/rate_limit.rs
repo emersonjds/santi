@@ -22,6 +22,8 @@ pub enum Action {
     InviteAccept,
     /// Preview and import share one bucket.
     Import,
+    /// The password check of `DELETE /api/me`, apart from the login lockout.
+    Reauthenticate,
 }
 
 impl Action {
@@ -33,6 +35,7 @@ impl Action {
             Action::Token => (10, 360),
             Action::InviteAccept => (10, 60),
             Action::Import => (20, 30),
+            Action::Reauthenticate => (5, 60),
         };
         (burst, Duration::from_secs(seconds))
     }
@@ -64,9 +67,10 @@ const FORGET_FAILURES_AFTER: Duration = Duration::from_secs(60 * 60);
 /// can reset someone's counters; a shared store (Redis) if that or a second replica matters.
 const MAX_ENTRIES: usize = 100_000;
 
-/// A login lockout entry: the SHA-256 of the normalized email, never the raw input.
+/// A login lockout entry: the SHA-256 of the normalized email, never the raw input, and the
+/// client's network, so failures from elsewhere never lock the owner out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LoginKey([u8; 32]);
+pub struct LoginKey([u8; 32], Option<IpAddr>);
 
 pub struct RateLimits {
     trusted_proxies: usize,
@@ -139,14 +143,27 @@ impl RateLimits {
     /// Counts an attempt before the password is checked, so parallel guesses count too.
     /// Unknown emails count the same way: the answer never says whether an account exists.
     /// Something that is not an email address is refused (401) before it takes an entry.
-    pub fn login_attempt(&self, email: &str) -> Result<LoginKey, AppError> {
-        self.login_attempt_at(email, Instant::now())
+    pub fn login_attempt(
+        &self,
+        email: &str,
+        address: Option<IpAddr>,
+    ) -> Result<LoginKey, AppError> {
+        self.login_attempt_at(email, address, Instant::now())
     }
 
-    fn login_attempt_at(&self, email: &str, now: Instant) -> Result<LoginKey, AppError> {
+    fn login_attempt_at(
+        &self,
+        email: &str,
+        address: Option<IpAddr>,
+        now: Instant,
+    ) -> Result<LoginKey, AppError> {
         let email =
             crate::auth::domain::normalize_email(email).map_err(|_| AppError::Unauthorized)?;
-        let key = LoginKey(Sha256::digest(email.as_bytes()).into());
+        let network = address.map(|address| match network(address) {
+            IpAddr::V4(v4) => IpAddr::V4((u32::from(v4) & 0xffff_ff00).into()),
+            v6 => v6,
+        });
+        let key = LoginKey(Sha256::digest(email.as_bytes()).into(), network);
         let mut logins = self
             .logins
             .lock()
@@ -382,20 +399,30 @@ mod tests {
         let limits = RateLimits::new(0, true);
         let mut now = Instant::now();
         for _ in 0..5 {
-            assert!(limits.login_attempt_at("ana@example.com", now).is_ok());
+            assert!(
+                limits
+                    .login_attempt_at("ana@example.com", None, now)
+                    .is_ok()
+            );
         }
         assert_eq!(
-            limits.login_attempt_at("ana@example.com", now),
+            limits.login_attempt_at("ana@example.com", None, now),
             Err(AppError::TooManyRequests { retry_after: 30 })
         );
-        assert!(limits.login_attempt_at("bob@example.com", now).is_ok());
+        assert!(
+            limits
+                .login_attempt_at("bob@example.com", None, now)
+                .is_ok()
+        );
 
         let mut waits = Vec::new();
         for _ in 0..8 {
             now += Duration::from_secs(15 * 60);
-            limits.login_attempt_at("ana@example.com", now).unwrap();
+            limits
+                .login_attempt_at("ana@example.com", None, now)
+                .unwrap();
             let Err(AppError::TooManyRequests { retry_after }) =
-                limits.login_attempt_at("ana@example.com", now)
+                limits.login_attempt_at("ana@example.com", None, now)
             else {
                 panic!("locked");
             };
@@ -410,12 +437,20 @@ mod tests {
         let now = Instant::now();
         let mut key = None;
         for _ in 0..4 {
-            key = Some(limits.login_attempt_at("ana@example.com", now).unwrap());
+            key = Some(
+                limits
+                    .login_attempt_at("ana@example.com", None, now)
+                    .unwrap(),
+            );
         }
         limits.login_succeeded(&key.unwrap());
 
         for _ in 0..4 {
-            assert!(limits.login_attempt_at(" Ana@Example.com", now).is_ok());
+            assert!(
+                limits
+                    .login_attempt_at(" Ana@Example.com", None, now)
+                    .is_ok()
+            );
         }
     }
 
@@ -424,12 +459,18 @@ mod tests {
         let limits = RateLimits::new(0, true);
         let now = Instant::now();
         for _ in 0..4 {
-            limits.login_attempt_at("ana@example.com", now).unwrap();
+            limits
+                .login_attempt_at("ana@example.com", None, now)
+                .unwrap();
         }
         let later = now + Duration::from_secs(60 * 60);
 
         for _ in 0..4 {
-            assert!(limits.login_attempt_at("ana@example.com", later).is_ok());
+            assert!(
+                limits
+                    .login_attempt_at("ana@example.com", None, later)
+                    .is_ok()
+            );
         }
     }
 
@@ -483,18 +524,54 @@ mod tests {
     }
 
     #[test]
+    fn a_lockout_holds_only_for_the_network_that_failed() {
+        let limits = RateLimits::new(0, true);
+        let now = Instant::now();
+        let attacker = Some(ip("203.0.113.7"));
+        for _ in 0..5 {
+            limits
+                .login_attempt_at("ana@example.com", attacker, now)
+                .unwrap();
+        }
+
+        let same_24 = Some(ip("203.0.113.200"));
+        assert!(
+            limits
+                .login_attempt_at("ana@example.com", same_24, now)
+                .is_err()
+        );
+        let owner = Some(ip("198.51.100.1"));
+        assert!(
+            limits
+                .login_attempt_at("ana@example.com", owner, now)
+                .is_ok()
+        );
+        for _ in 0..5 {
+            limits
+                .login_attempt_at("bob@example.com", Some(ip("2001:db8::1")), now)
+                .unwrap();
+        }
+        let same_64 = Some(ip("2001:db8::ffff"));
+        assert!(
+            limits
+                .login_attempt_at("bob@example.com", same_64, now)
+                .is_err()
+        );
+    }
+
+    #[test]
     fn malformed_or_huge_emails_are_refused_without_an_entry() {
         let limits = RateLimits::new(0, true);
         let now = Instant::now();
         for attempt in 0..200 {
             let huge = format!("{}{attempt}@example.com", "a".repeat(64 * 1024));
             assert_eq!(
-                limits.login_attempt_at(&huge, now),
+                limits.login_attempt_at(&huge, None, now),
                 Err(AppError::Unauthorized)
             );
         }
         assert_eq!(
-            limits.login_attempt_at("not an email", now),
+            limits.login_attempt_at("not an email", None, now),
             Err(AppError::Unauthorized)
         );
 
@@ -507,7 +584,7 @@ mod tests {
         let now = Instant::now();
         for user in 0..(MAX_ENTRIES + 50) {
             limits
-                .login_attempt_at(&format!("user{user}@example.com"), now)
+                .login_attempt_at(&format!("user{user}@example.com"), None, now)
                 .unwrap();
             limits
                 .check_at(Action::Import, None, Some(user as i64), now)
@@ -523,15 +600,21 @@ mod tests {
         let limits = RateLimits::new(0, true);
         let now = Instant::now();
         limits.check_at(Action::Import, None, Some(1), now).unwrap();
-        limits.login_attempt_at("ana@example.com", now).unwrap();
+        limits
+            .login_attempt_at("ana@example.com", None, now)
+            .unwrap();
         for _ in 0..5 {
-            limits.login_attempt_at("bob@example.com", now).unwrap();
+            limits
+                .login_attempt_at("bob@example.com", None, now)
+                .unwrap();
         }
         let later = now + Duration::from_secs(60 * 60);
         limits
             .check_at(Action::Import, None, Some(2), later)
             .unwrap();
-        limits.login_attempt_at("carol@example.com", later).unwrap();
+        limits
+            .login_attempt_at("carol@example.com", None, later)
+            .unwrap();
 
         limits.prune_at(later);
 
