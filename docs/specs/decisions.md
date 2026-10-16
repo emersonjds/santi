@@ -452,3 +452,10 @@ Flow: `POST /api/projects/{key}/imports/preview` and `POST /api/projects/{key}/i
 - Writes: numbers reserved for the whole file in one statement (D20, file order), sprints in the same transaction; issues in batches of 500 per transaction, inserted tier by tier (epics, children, subtasks) with parents joined by original key; a last transaction ranks the new issues after the project's last rank in file order (D21 open-ended keys) and restores the export's `updated_at`, which the 0009 triggers bumped when children and comments arrived.
 - D39: 5k rows (50 epics, 3,950 stories, 1,000 subtasks, 5k comments) import in ~1.3 s on a laptop (debug build, `tests/imports.rs`), budget 10 s.
 - Known ceilings: an import cut off mid-way leaves its committed batches ranked by tier and with bumped `updated_at` (re-running it imports the rest); the whole file is held in memory (10 MB).
+
+Amended (SAN-51, adversarial review):
+- Limits, refused with 422 on `file` before planning: 1,000 columns per row, 100,000 rows, 3,000,000 fields, 500 different statuses, types, people or sprints each. Parsing, preview and planning run in `spawn_blocking` with no pool connection held, counting through hash maps; 40k rows with 400 of each preview in ~0.5 s (debug build).
+- Rows the schema would refuse fail alone as problem rows before any insert (a NUL anywhere in the row, a key over 255 characters), so they never fail their batch; sprint names are cut to 100 characters.
+- A mapped status must sit in a board column (`mapping.statuses.<name>`), like issue creation.
+- Dates later than the import (created, updated, done, comments) are clamped to its time.
+- Sprint reuse: a sprint of the same name is reused only when it is future (mapping `future`) or closed (mapping `closed`); a running sprint is never reused, so a new one is made. Imported issues that still land in a running sprint (subtasks following their parent) are recorded as added after its start, as planning does.
