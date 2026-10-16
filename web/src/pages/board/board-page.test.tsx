@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { WEB_BOARD, inProjects } from '@/test/stub-api'
+import { WEB_BOARD, inProjects, routeOf } from '@/test/stub-api'
 
 describe('board page', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -84,6 +84,30 @@ describe('board page', () => {
     await expect
       .element(screen.getByRole('region', { name: 'Active sprint' }))
       .toHaveTextContent(text)
+  })
+
+  it('completes the running sprint from the header menu (R-4)', async () => {
+    const requests = inProjects({
+      'POST /api/projects/WEB/sprints/4/complete': { status: 200, body: {} },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'More for Sprint 4' }).click()
+    await screen.getByRole('menuitem', { name: 'Complete sprint' }).click()
+    const dialog = screen.getByRole('dialog', { name: 'Complete Sprint 4' })
+    // Parents only, as the backlog counts them: the subtask WEB-3 follows WEB-2.
+    await expect.element(dialog).toHaveTextContent('0 issues done · 2 open')
+    await dialog.getByRole('radio', { name: 'Sprint 5' }).click()
+    await dialog.getByRole('button', { name: 'Complete sprint' }).click()
+
+    await expect.element(dialog).not.toBeInTheDocument()
+    const post = requests.find(
+      (request) =>
+        routeOf(request) === 'POST /api/projects/WEB/sprints/4/complete'
+    )
+    expect(await post?.json()).toEqual({
+      open_issues: { to: 'sprint', sprint_id: 5 },
+    })
   })
 
   it('points to the backlog when no sprint is running', async () => {

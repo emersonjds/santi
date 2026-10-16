@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { Sprint } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
@@ -13,8 +14,14 @@ const timeLeft = (endDate: string) => {
   return 'Ends today'
 }
 
-/** SB-11: name, time left and goal of the running sprint. */
-export const SprintStrip = ({ sprint }: { sprint: Sprint }) => (
+/** SB-11: name, time left and goal of the running sprint; its "…" menu on the same line (R-4). */
+export const SprintStrip = ({
+  sprint,
+  menu,
+}: {
+  sprint: Sprint
+  menu?: ReactNode
+}) => (
   <section
     aria-label='Active sprint'
     className='flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground'
@@ -27,6 +34,7 @@ export const SprintStrip = ({ sprint }: { sprint: Sprint }) => (
     ) : (
       sprint.end_date && <span>{timeLeft(sprint.end_date)}</span>
     )}
+    <span className='ms-auto'>{menu}</span>
     {sprint.goal && <p className='line-clamp-2 basis-full'>{sprint.goal}</p>}
   </section>
 )

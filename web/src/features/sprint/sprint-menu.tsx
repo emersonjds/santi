@@ -1,4 +1,4 @@
-import { Ellipsis, Pencil, Trash2 } from 'lucide-react'
+import { CircleCheck, Ellipsis, Pencil, Trash2 } from 'lucide-react'
 import type { Sprint } from '@/shared/api/client'
 import {
   DropdownMenu,
@@ -12,11 +12,17 @@ const ROW = 'max-md:min-h-11'
 type SprintMenuProps = {
   sprint: Sprint
   onEdit: () => void
-  onDelete: () => void
+  onDelete?: () => void
+  onComplete?: () => void
 }
 
-/** The sprint's "…" (lazy chunk): edit; delete only while it is planned (D14). */
-export const SprintMenu = ({ sprint, onEdit, onDelete }: SprintMenuProps) => (
+/** The sprint's "…" (lazy chunk): edit; complete when asked for (R-4); delete only while it is planned (D14). */
+export const SprintMenu = ({
+  sprint,
+  onEdit,
+  onDelete,
+  onComplete,
+}: SprintMenuProps) => (
   <DropdownMenu>
     <DropdownMenuTrigger
       aria-label={`More for ${sprint.name}`}
@@ -29,7 +35,13 @@ export const SprintMenu = ({ sprint, onEdit, onDelete }: SprintMenuProps) => (
         <Pencil />
         Edit sprint
       </DropdownMenuItem>
-      {sprint.state === 'future' && (
+      {sprint.state === 'active' && onComplete && (
+        <DropdownMenuItem className={ROW} onSelect={onComplete}>
+          <CircleCheck />
+          Complete sprint
+        </DropdownMenuItem>
+      )}
+      {sprint.state === 'future' && onDelete && (
         <DropdownMenuItem
           className={ROW}
           variant='destructive'
