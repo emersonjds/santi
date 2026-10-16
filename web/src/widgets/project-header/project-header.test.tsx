@@ -25,7 +25,7 @@ describe('project header', () => {
       .getByRole('link', { name: 'Projects' })
       .click()
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
   })
 

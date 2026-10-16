@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE member SET visited_at = now()\n         WHERE project_id = $1 AND user_id = $2\n           AND (visited_at IS NULL OR visited_at < now() - interval '1 minute')",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "606f89a2eb21212844f60499cd30a77ec51ebdbd97aa946218482c489dd0315d"
+}
