@@ -27,7 +27,11 @@ impl FromRequestParts<AppState> for CurrentUser {
 
 /// Middleware: answers 403 to cross-site browser writes before any handler runs (D22).
 pub async fn reject_cross_site_writes(request: Request, next: Next) -> Response {
-    if domain::is_cross_site_write(request.method(), request.headers()) {
+    let authority = request
+        .uri()
+        .authority()
+        .map(|authority| authority.as_str());
+    if domain::is_cross_site_write(request.method(), request.headers(), authority) {
         return AppError::Forbidden.into_response();
     }
     next.run(request).await
