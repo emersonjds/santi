@@ -1691,6 +1691,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `project-archived`: the project is archived */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description `invite-used` or `invite-expired` */
             410: {
                 headers: {
@@ -2315,6 +2324,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Unknown, or trashed and the caller is not an admin */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -3797,6 +3807,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Unknown, or trashed and the caller is not an admin */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4322,7 +4333,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description In the trash: 404 for everyone until restored; purged 60 days later */
+            /** @description In the trash (an archived project is unarchived): 404 for everyone until restored; purged 60 days later */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -4347,15 +4358,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description `project-archived`: unarchive it first */
-            409: {
                 headers: {
                     [name: string]: unknown;
                 };
