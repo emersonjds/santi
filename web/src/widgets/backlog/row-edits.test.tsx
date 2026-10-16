@@ -102,6 +102,34 @@ describe('backlog row edits', () => {
     expect(await bodiesOf(requests, PATCH_6)).toEqual([{ assignee_id: 2 }])
   })
 
+  it('clears points and the assignee; Esc leaves points as they were', async () => {
+    const requests = inProjects({
+      [PATCH_7]: pending,
+      'PATCH /api/projects/WEB/issues/2': pending,
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const backlog = screen.getByRole('region', { name: 'Backlog' })
+
+    await backlog.getByRole('button', { name: '2 points' }).click()
+    await backlog.getByRole('spinbutton', { name: 'Points of WEB-7' }).fill('8')
+    await userEvent.keyboard('{Escape}')
+    await backlog.getByRole('button', { name: '2 points' }).click()
+    await backlog.getByRole('spinbutton', { name: 'Points of WEB-7' }).fill('')
+    await userEvent.keyboard('{Enter}')
+    await screen
+      .getByRole('region', { name: 'Sprint 4' })
+      .getByRole('combobox', { name: 'Assignee of WEB-2' })
+      .selectOptions('Unassigned')
+
+    await expect
+      .element(backlog.getByRole('button', { name: 'Add points to WEB-7' }))
+      .toBeVisible()
+    expect(await bodiesOf(requests, PATCH_7)).toEqual([{ points: null }])
+    await expect
+      .poll(() => bodiesOf(requests, 'PATCH /api/projects/WEB/issues/2'))
+      .toEqual([{ assignee_id: null }])
+  })
+
   it('leaves row fields to the issue dialog on a phone', async () => {
     await page.viewport(375, 800)
     inProjects()
