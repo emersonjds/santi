@@ -8,7 +8,7 @@ const plural = (count: number) => `${count} ${count === 1 ? 'issue' : 'issues'}`
 const WipBadge = ({ limit, over }: { limit: number; over: boolean }) => (
   <span
     className={cn(
-      'ms-auto rounded-full px-2 py-0.5 tracking-normal normal-case tabular-nums',
+      'ms-auto rounded-full px-2 tracking-normal normal-case tabular-nums',
       over ? 'bg-warning-bg text-warning' : 'bg-background'
     )}
     title={over ? `Over the limit of ${limit}` : undefined}

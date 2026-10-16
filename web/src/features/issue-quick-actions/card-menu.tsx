@@ -26,6 +26,9 @@ import {
 
 type CardMenuProps = { card: Card; projectKey: string }
 
+// 44px touch targets on phones (ui-layout, Responsive).
+const ROW = 'max-md:min-h-11'
+
 const PLACES = ['top', 'bottom'] as const
 const UNASSIGNED = 'none'
 
@@ -38,13 +41,16 @@ const MoveTo = ({ card, projectKey }: CardMenuProps) => {
 
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger>Move to…</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent className='w-48'>
+      <DropdownMenuSubTrigger className={ROW}>Move to…</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent className='w-40'>
         {board.columns.map((column) => (
           <DropdownMenuGroup key={column.id}>
-            <DropdownMenuLabel>{column.name}</DropdownMenuLabel>
+            <DropdownMenuLabel className='text-xs text-muted-foreground'>
+              {column.name}
+            </DropdownMenuLabel>
             {PLACES.map((place) => (
               <DropdownMenuItem
+                className={ROW}
                 key={place}
                 aria-label={`Move to the ${place} of ${column.name}`}
                 onSelect={() =>
@@ -88,24 +94,25 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
   return (
     <>
       {me && card.assignee_id !== me.id && (
-        <DropdownMenuItem onSelect={() => assign(me.id)}>
+        <DropdownMenuItem className={ROW} onSelect={() => assign(me.id)}>
           Assign to me
         </DropdownMenuItem>
       )}
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger>Assign…</DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className='max-h-80 w-56 overflow-y-auto'>
+        <DropdownMenuSubTrigger className={ROW}>Assign…</DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className='max-h-80 w-40 overflow-y-auto'>
           <DropdownMenuRadioGroup
             value={String(card.assignee_id ?? UNASSIGNED)}
             onValueChange={(value) =>
               assign(value === UNASSIGNED ? null : Number(value))
             }
           >
-            <DropdownMenuRadioItem value={UNASSIGNED}>
+            <DropdownMenuRadioItem className={ROW} value={UNASSIGNED}>
               Unassigned
             </DropdownMenuRadioItem>
             {members.map((member) => (
               <DropdownMenuRadioItem
+                className={ROW}
                 key={member.user_id}
                 value={String(member.user_id)}
               >
@@ -116,7 +123,9 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
         </DropdownMenuSubContent>
       </DropdownMenuSub>
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger>Set priority</DropdownMenuSubTrigger>
+        <DropdownMenuSubTrigger className={ROW}>
+          Set priority
+        </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
           <DropdownMenuRadioGroup
             value={card.priority}
@@ -126,7 +135,7 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
             }
           >
             {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
-              <DropdownMenuRadioItem key={value} value={value}>
+              <DropdownMenuRadioItem className={ROW} key={value} value={value}>
                 {label}
               </DropdownMenuRadioItem>
             ))}
@@ -152,11 +161,12 @@ export const CardMenu = ({ card, projectKey }: CardMenuProps) => (
     >
       <Ellipsis className='size-4' />
     </DropdownMenuTrigger>
-    <DropdownMenuContent align='end' className='w-52'>
+    {/* Menu and submenu fit side by side in 375px: the submenu opens to the left on a phone. */}
+    <DropdownMenuContent align='end' className='w-44'>
       <MoveTo card={card} projectKey={projectKey} />
       <Edits card={card} projectKey={projectKey} />
       <DropdownMenuSeparator />
-      <DropdownMenuItem onSelect={() => void copyKey(card.key)}>
+      <DropdownMenuItem className={ROW} onSelect={() => void copyKey(card.key)}>
         <Copy />
         Copy issue key
       </DropdownMenuItem>
