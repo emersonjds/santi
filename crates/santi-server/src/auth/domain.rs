@@ -12,7 +12,7 @@ pub const API_TOKEN_PREFIX: &str = "santi_";
 /// Versions of `web/terms.html` and `web/privacy.html` (and their pt-BR pages); bump one when its
 /// text changes and everyone is asked to accept it again (D45).
 pub const TERMS_VERSION: &str = "2026-10-16";
-pub const PRIVACY_VERSION: &str = "2026-10-16";
+pub const PRIVACY_VERSION: &str = "2026-10-16.2";
 pub const AGE_DECLARATION: &str = "18+";
 
 /// Argon2 default parameters with a password nobody knows. Login verifies against it when the
