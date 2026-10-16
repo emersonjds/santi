@@ -41,10 +41,19 @@ export const anonymous = (replies: Record<string, Reply> = {}) =>
     ...replies,
   })
 
-/** Alice is signed in and has no projects, unless `replies` says otherwise. */
+/** Alice is signed in, has accepted the current terms and has no projects, unless `replies` says otherwise. */
 export const signedIn = (replies: Record<string, Reply> = {}) =>
   stubApi({
     'GET /api/me': { status: 200, body: ALICE },
+    'GET /api/me/legal': {
+      status: 200,
+      body: {
+        required: true,
+        terms_version: '2026-10-16',
+        privacy_version: '2026-10-16',
+        accepted: true,
+      },
+    },
     'GET /api/projects': { status: 200, body: [] },
     ...replies,
   })
