@@ -9,26 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
-import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
+import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
 import { Route as AuthenticatedPKeyRouteRouteImport } from './routes/_authenticated/p/$key/route'
+import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
 import { Route as AuthenticatedPKeyIndexRouteImport } from './routes/_authenticated/p/$key/index'
-import { Route as AuthenticatedPKeySearchRouteImport } from './routes/_authenticated/p/$key/search'
-import { Route as AuthenticatedPKeyBoardRouteImport } from './routes/_authenticated/p/$key/board'
 import { Route as AuthenticatedPKeyBacklogRouteImport } from './routes/_authenticated/p/$key/backlog'
-import { Route as AuthenticatedPKeySettingsIndexRouteImport } from './routes/_authenticated/p/$key/settings/index'
-import { Route as AuthenticatedPKeySettingsMembersRouteImport } from './routes/_authenticated/p/$key/settings/members'
-import { Route as AuthenticatedPKeySettingsImportRouteImport } from './routes/_authenticated/p/$key/settings/import'
+import { Route as AuthenticatedPKeyBoardRouteImport } from './routes/_authenticated/p/$key/board'
+import { Route as AuthenticatedPKeySearchRouteImport } from './routes/_authenticated/p/$key/search'
 import { Route as AuthenticatedPKeyIssuesNumberRouteImport } from './routes/_authenticated/p/$key/issues/$number'
+import { Route as AuthenticatedPKeySettingsIndexRouteImport } from './routes/_authenticated/p/$key/settings/index'
+import { Route as AuthenticatedPKeySettingsImportRouteImport } from './routes/_authenticated/p/$key/settings/import'
+import { Route as AuthenticatedPKeySettingsMembersRouteImport } from './routes/_authenticated/p/$key/settings/members'
 
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -36,8 +35,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
@@ -45,14 +45,19 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const InvitesTokenRoute = InvitesTokenRouteImport.update({
   id: '/invites/$token',
   path: '/invites/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
-  id: '/account',
-  path: '/account',
+const AuthenticatedPKeyRouteRoute = AuthenticatedPKeyRouteRouteImport.update({
+  id: '/p/$key',
+  path: '/p/$key',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProjectsNewRoute =
@@ -61,24 +66,9 @@ const AuthenticatedProjectsNewRoute =
     path: '/projects/new',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedPKeyRouteRoute = AuthenticatedPKeyRouteRouteImport.update({
-  id: '/p/$key',
-  path: '/p/$key',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedPKeyIndexRoute = AuthenticatedPKeyIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedPKeyRouteRoute,
-} as any)
-const AuthenticatedPKeySearchRoute = AuthenticatedPKeySearchRouteImport.update({
-  id: '/search',
-  path: '/search',
-  getParentRoute: () => AuthenticatedPKeyRouteRoute,
-} as any)
-const AuthenticatedPKeyBoardRoute = AuthenticatedPKeyBoardRouteImport.update({
-  id: '/board',
-  path: '/board',
   getParentRoute: () => AuthenticatedPKeyRouteRoute,
 } as any)
 const AuthenticatedPKeyBacklogRoute =
@@ -87,16 +77,26 @@ const AuthenticatedPKeyBacklogRoute =
     path: '/backlog',
     getParentRoute: () => AuthenticatedPKeyRouteRoute,
   } as any)
+const AuthenticatedPKeyBoardRoute = AuthenticatedPKeyBoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => AuthenticatedPKeyRouteRoute,
+} as any)
+const AuthenticatedPKeySearchRoute = AuthenticatedPKeySearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AuthenticatedPKeyRouteRoute,
+} as any)
+const AuthenticatedPKeyIssuesNumberRoute =
+  AuthenticatedPKeyIssuesNumberRouteImport.update({
+    id: '/issues/$number',
+    path: '/issues/$number',
+    getParentRoute: () => AuthenticatedPKeyRouteRoute,
+  } as any)
 const AuthenticatedPKeySettingsIndexRoute =
   AuthenticatedPKeySettingsIndexRouteImport.update({
     id: '/settings/',
     path: '/settings/',
-    getParentRoute: () => AuthenticatedPKeyRouteRoute,
-  } as any)
-const AuthenticatedPKeySettingsMembersRoute =
-  AuthenticatedPKeySettingsMembersRouteImport.update({
-    id: '/settings/members',
-    path: '/settings/members',
     getParentRoute: () => AuthenticatedPKeyRouteRoute,
   } as any)
 const AuthenticatedPKeySettingsImportRoute =
@@ -105,10 +105,10 @@ const AuthenticatedPKeySettingsImportRoute =
     path: '/settings/import',
     getParentRoute: () => AuthenticatedPKeyRouteRoute,
   } as any)
-const AuthenticatedPKeyIssuesNumberRoute =
-  AuthenticatedPKeyIssuesNumberRouteImport.update({
-    id: '/issues/$number',
-    path: '/issues/$number',
+const AuthenticatedPKeySettingsMembersRoute =
+  AuthenticatedPKeySettingsMembersRouteImport.update({
+    id: '/settings/members',
+    path: '/settings/members',
     getParentRoute: () => AuthenticatedPKeyRouteRoute,
   } as any)
 
@@ -227,11 +227,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -241,11 +241,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/': {
@@ -255,6 +255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/account': {
+      id: '/_authenticated/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/invites/$token': {
       id: '/invites/$token'
       path: '/invites/$token'
@@ -262,11 +269,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InvitesTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/account': {
-      id: '/_authenticated/account'
-      path: '/account'
-      fullPath: '/account'
-      preLoaderRoute: typeof AuthenticatedAccountRouteImport
+    '/_authenticated/p/$key': {
+      id: '/_authenticated/p/$key'
+      path: '/p/$key'
+      fullPath: '/p/$key'
+      preLoaderRoute: typeof AuthenticatedPKeyRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/projects/new': {
@@ -276,32 +283,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/p/$key': {
-      id: '/_authenticated/p/$key'
-      path: '/p/$key'
-      fullPath: '/p/$key'
-      preLoaderRoute: typeof AuthenticatedPKeyRouteRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/p/$key/': {
       id: '/_authenticated/p/$key/'
       path: '/'
       fullPath: '/p/$key/'
       preLoaderRoute: typeof AuthenticatedPKeyIndexRouteImport
-      parentRoute: typeof AuthenticatedPKeyRouteRoute
-    }
-    '/_authenticated/p/$key/search': {
-      id: '/_authenticated/p/$key/search'
-      path: '/search'
-      fullPath: '/p/$key/search'
-      preLoaderRoute: typeof AuthenticatedPKeySearchRouteImport
-      parentRoute: typeof AuthenticatedPKeyRouteRoute
-    }
-    '/_authenticated/p/$key/board': {
-      id: '/_authenticated/p/$key/board'
-      path: '/board'
-      fullPath: '/p/$key/board'
-      preLoaderRoute: typeof AuthenticatedPKeyBoardRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
     '/_authenticated/p/$key/backlog': {
@@ -311,18 +297,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPKeyBacklogRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
+    '/_authenticated/p/$key/board': {
+      id: '/_authenticated/p/$key/board'
+      path: '/board'
+      fullPath: '/p/$key/board'
+      preLoaderRoute: typeof AuthenticatedPKeyBoardRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
+    '/_authenticated/p/$key/search': {
+      id: '/_authenticated/p/$key/search'
+      path: '/search'
+      fullPath: '/p/$key/search'
+      preLoaderRoute: typeof AuthenticatedPKeySearchRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
+    '/_authenticated/p/$key/issues/$number': {
+      id: '/_authenticated/p/$key/issues/$number'
+      path: '/issues/$number'
+      fullPath: '/p/$key/issues/$number'
+      preLoaderRoute: typeof AuthenticatedPKeyIssuesNumberRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
     '/_authenticated/p/$key/settings/': {
       id: '/_authenticated/p/$key/settings/'
       path: '/settings'
       fullPath: '/p/$key/settings/'
       preLoaderRoute: typeof AuthenticatedPKeySettingsIndexRouteImport
-      parentRoute: typeof AuthenticatedPKeyRouteRoute
-    }
-    '/_authenticated/p/$key/settings/members': {
-      id: '/_authenticated/p/$key/settings/members'
-      path: '/settings/members'
-      fullPath: '/p/$key/settings/members'
-      preLoaderRoute: typeof AuthenticatedPKeySettingsMembersRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
     '/_authenticated/p/$key/settings/import': {
@@ -332,11 +332,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPKeySettingsImportRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
-    '/_authenticated/p/$key/issues/$number': {
-      id: '/_authenticated/p/$key/issues/$number'
-      path: '/issues/$number'
-      fullPath: '/p/$key/issues/$number'
-      preLoaderRoute: typeof AuthenticatedPKeyIssuesNumberRouteImport
+    '/_authenticated/p/$key/settings/members': {
+      id: '/_authenticated/p/$key/settings/members'
+      path: '/settings/members'
+      fullPath: '/p/$key/settings/members'
+      preLoaderRoute: typeof AuthenticatedPKeySettingsMembersRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
   }
