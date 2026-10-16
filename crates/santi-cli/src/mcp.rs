@@ -283,7 +283,7 @@ impl Santi {
 
     #[tool(
         description = "Move a project to the trash: hidden from everyone and deleted for good 60 days later unless restored. Admins only. Requires `project`.",
-        annotations(read_only_hint = false, destructive_hint = false)
+        annotations(read_only_hint = false, destructive_hint = true)
     )]
     async fn trash_project(
         &self,
