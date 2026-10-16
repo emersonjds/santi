@@ -2,7 +2,7 @@
 //! user would call, so it always obeys the current rules.
 
 use santi_types::issues::{CreateComment, CreateIssue, Issue, IssueType, Priority};
-use santi_types::projects::{BoardType, CreateProject, Project};
+use santi_types::projects::{BoardType, CreateProject, MemberRole, Project};
 use santi_types::sprints::{CreateSprint, StartSprint};
 use sqlx::PgPool;
 
@@ -15,29 +15,30 @@ use crate::{boards, issues, sprints};
 pub const SAMPLE_NAME: &str = "Sample: Mobile app";
 
 /// Returns the caller's sample project and whether this call created it. A second call, or one
-/// racing the first, gets the existing project.
+/// racing the first, gets the existing project. When someone else's project holds the caller's
+/// key, the sample gets a random one.
 pub async fn create_sample(pool: &PgPool, user: &CurrentUser) -> Result<(Project, bool), AppError> {
-    let key = domain::sample_key(user.id);
-    if let Some(project) = existing(pool, user, &key).await? {
+    if let Some(project) = existing(pool, user).await? {
         return Ok((project, false));
     }
-    let input = CreateProject {
-        key: key.clone(),
-        name: SAMPLE_NAME.into(),
-        board_type: BoardType::Scrum,
-    };
-    let project = match service::create_project(pool, user, input).await {
-        Err(AppError::Conflict { .. }) => {
-            let project = existing(pool, user, &key).await?;
-            let taken = || {
-                AppError::conflict(
-                    "already-exists",
-                    "Another project already uses the sample's key.",
-                )
-            };
-            return Ok((project.ok_or_else(taken)?, false));
+    let mut key = domain::sample_key(user.id);
+    let mut attempts = 0;
+    let project = loop {
+        let input = CreateProject {
+            key: key.clone(),
+            name: SAMPLE_NAME.into(),
+            board_type: BoardType::Scrum,
+        };
+        match service::create_project(pool, user, input).await {
+            Err(AppError::Conflict { .. }) if attempts < 3 => {
+                if let Some(project) = existing(pool, user).await? {
+                    return Ok((project, false));
+                }
+                attempts += 1;
+                key = domain::random_sample_key();
+            }
+            created => break created?,
         }
-        created => created?,
     };
     let mut conn = pool.acquire().await?;
     let member = members::repo::find_member(&mut conn, &key, user.id)
@@ -50,18 +51,15 @@ pub async fn create_sample(pool: &PgPool, user: &CurrentUser) -> Result<(Project
     Ok((project, true))
 }
 
-async fn existing(
-    pool: &PgPool,
-    user: &CurrentUser,
-    key: &str,
-) -> Result<Option<Project>, AppError> {
+/// The caller's sample: a `MOB…` project they administer under the sample's name.
+async fn existing(pool: &PgPool, user: &CurrentUser) -> Result<Option<Project>, AppError> {
     let mut conn = pool.acquire().await?;
-    let Some(member) = members::repo::find_member(&mut conn, key, user.id).await? else {
-        return Ok(None);
-    };
-    Ok(Some(
-        repo::find_project(&mut conn, member.project_id, user.id).await?,
-    ))
+    let projects = repo::list_projects(&mut conn, user.id).await?;
+    Ok(projects.into_iter().find(|project| {
+        project.name == SAMPLE_NAME
+            && project.role == MemberRole::Admin
+            && project.key.starts_with("MOB")
+    }))
 }
 
 struct Draft {
