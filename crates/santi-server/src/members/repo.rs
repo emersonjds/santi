@@ -41,6 +41,27 @@ pub async fn find_member_by_token(
     }))
 }
 
+/// The user's membership in the project with this key, if any.
+pub async fn find_member(
+    conn: &mut PgConnection,
+    project_key: &str,
+    user_id: i64,
+) -> Result<Option<Member>, sqlx::Error> {
+    sqlx::query_as!(
+        Member,
+        r#"SELECT m.user_id, p.id AS project_id, p.key AS project_key, b.id AS board_id,
+                  b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole"
+           FROM project p
+           JOIN board b ON b.project_id = p.id
+           JOIN member m ON m.project_id = p.id AND m.user_id = $2
+           WHERE p.key = $1"#,
+        project_key,
+        user_id
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
 pub async fn insert_member(
     conn: &mut PgConnection,
     project_id: i64,

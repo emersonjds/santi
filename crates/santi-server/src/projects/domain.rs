@@ -29,6 +29,23 @@ pub fn check_project_name(name: &str) -> Result<String, AppError> {
     Ok(name.to_string())
 }
 
+/// The caller's sample project key: `MOB` and the user id in base 36, unique per user and
+/// within the 10-character limit for ids below 36^7.
+pub fn sample_key(user_id: i64) -> String {
+    const DIGITS: &[u8; 36] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    let mut rest = user_id.unsigned_abs();
+    let mut digits = Vec::new();
+    loop {
+        digits.push(DIGITS[(rest % 36) as usize]);
+        rest /= 36;
+        if rest == 0 {
+            break;
+        }
+    }
+    digits.reverse();
+    format!("MOB{}", String::from_utf8_lossy(&digits))
+}
+
 /// KB-23: kanban boards hide done work after 14 days by default; scrum boards never hide.
 pub fn default_done_window(board_type: BoardType) -> Option<i32> {
     match board_type {
@@ -41,6 +58,15 @@ pub fn default_done_window(board_type: BoardType) -> Option<i32> {
 mod tests {
     use super::*;
     use santi_types::projects::BoardType;
+
+    #[test]
+    fn sample_keys_are_valid_project_keys_per_user() {
+        assert_eq!(sample_key(1), "MOB1");
+        assert_eq!(sample_key(35), "MOBZ");
+        assert_eq!(sample_key(36), "MOB10");
+        assert_eq!(sample_key(36_i64.pow(7) - 1), "MOBZZZZZZZ");
+        assert!(check_project_key(&sample_key(36_i64.pow(7) - 1)).is_ok());
+    }
 
     #[test]
     fn project_key_is_trimmed_and_uppercased() {

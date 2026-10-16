@@ -412,6 +412,8 @@ Known ceilings: the backlog loads unpaged (D29) and is the endpoint closest to b
 
 SPA budgets (enforced by the SPA cards): initial JS < 170 KB gzip (`size-limit`, SAN-38); LCP < 1.0 s; INP < 100 ms; writes optimistic (D37); lists over 200 rows virtualized; no layout shift (CLS 0: skeletons and reserved sizes).
 
+Amended (SAN-62): `POST /api/sample-project` writes a whole sample project through the use cases (2 sprints, 15 issues, 3 comments, sprint start) once per user: budget 150 statements and 1 s in `tests/perf_budget.rs` (148 measured); a repeat call only looks the project up (3).
+
 ## D40 — Issue delete (SAN-49; lifts IA resolved #5)
 Context: UI-25 and UI-31 put Delete in the row and issue menus; duplicates and typos could only be parked in Done. Who may delete, and what happens to children, comments and sprint facts?
 Options: A) admins only B) admins and the issue's reporter C) any member
