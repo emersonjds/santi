@@ -154,8 +154,8 @@ impl Client {
             let next = self.comments(key, &page).await?;
             comments.extend(next.items);
             match next.next_cursor {
-                Some(cursor) => page.cursor = Some(cursor),
-                None => return Ok(comments),
+                Some(cursor) if page.cursor != Some(cursor) => page.cursor = Some(cursor),
+                _ => return Ok(comments),
             }
         }
     }
@@ -443,5 +443,40 @@ mod tests {
         ]
         .map(|(key, value)| (key.to_string(), value.to_string()));
         assert_eq!(pairs, expected);
+    }
+
+    #[tokio::test]
+    async fn all_comments_stops_when_the_cursor_repeats() {
+        let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = calls.clone();
+        let page = move || {
+            counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            async {
+                axum::Json(serde_json::json!({
+                    "items": [{ "id": 1, "author_id": 1, "author_name": "ana", "body": "hi",
+                        "created_at": "2026-10-16T12:00:00Z" }],
+                    "next_cursor": 7,
+                }))
+            }
+        };
+        let router = axum::Router::new().route(
+            "/api/projects/WEB/issues/1/comments",
+            axum::routing::get(page),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async { axum::serve(listener, router).await });
+        let client = Client::new(&format!("http://{address}"), None).unwrap();
+
+        let comments = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            client.all_comments(&"WEB-1".parse().unwrap()),
+        )
+        .await
+        .expect("a repeated cursor must not loop forever")
+        .unwrap();
+
+        assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+        assert_eq!(comments.len(), 2);
     }
 }
