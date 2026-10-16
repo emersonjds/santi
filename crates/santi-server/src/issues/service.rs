@@ -1,13 +1,17 @@
-use chrono::Utc;
-use santi_types::issues::{CreateIssue, Issue, IssueType, UpdateIssue};
+use chrono::{DateTime, Utc};
+use santi_types::issues::{
+    Comment, CreateComment, CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, Page,
+    PageParams, UpdateIssue,
+};
 use sqlx::{PgConnection, PgPool};
 
-use super::repo::{IssueKind, NewIssue};
+use super::domain::Anchor;
+use super::repo::{IssueKind, NewIssue, Position};
 use super::{domain, repo};
 use crate::boards::repo::StatusRef;
 use crate::error::AppError;
 use crate::members::Member;
-use crate::{boards, members, projects};
+use crate::{boards, members, pagination, projects};
 
 pub async fn create_issue(
     pool: &PgPool,
@@ -76,22 +80,133 @@ pub async fn update_issue(
     get_issue(pool, member, number).await
 }
 
-/// D1 keyboard fallback: moves an issue to another status, keeping its rank.
-// ponytail: status only; Task 6 move_issue adds rank anchors and replaces this.
-pub async fn change_status(
+pub async fn move_issue(
     pool: &PgPool,
     member: &Member,
     number: i64,
-    status_id: i64,
+    input: MoveIssue,
 ) -> Result<Issue, AppError> {
+    let anchor = domain::anchor_for(
+        &member.project_key,
+        number,
+        input.after.as_deref(),
+        input.before.as_deref(),
+    )?;
     let mut tx = pool.begin().await?;
-    let issue = repo::find_status_state_for_update(&mut tx, member.project_id, number).await?;
+    projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: moves in one project are serialized
+    let issue = repo::find_position_for_update(&mut tx, member.project_id, number).await?;
     let issue = issue.ok_or(AppError::NotFound)?;
-    let status = resolve_status(&mut tx, member, Some(status_id)).await?;
-    let done_at = domain::next_done_at(issue.category, status.category, issue.done_at, Utc::now());
-    repo::set_status(&mut tx, issue.id, status.id, done_at).await?;
+    let (status_id, done_at) = next_status(&mut tx, member, &issue, input.status_id).await?;
+    let rank = next_rank(&mut tx, member, &issue, anchor).await?;
+    repo::update_position(&mut tx, issue.id, status_id, &rank, done_at).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
+}
+
+async fn next_status(
+    conn: &mut PgConnection,
+    member: &Member,
+    issue: &Position,
+    requested: Option<i64>,
+) -> Result<(i64, Option<DateTime<Utc>>), AppError> {
+    let Some(status_id) = requested else {
+        return Ok((issue.status_id, issue.done_at));
+    };
+    let status = resolve_status(conn, member, Some(status_id)).await?;
+    let done_at = domain::next_done_at(issue.category, status.category, issue.done_at, Utc::now());
+    Ok((status.id, done_at))
+}
+
+/// D4: the issue lands right next to its anchor in the project's single order.
+async fn next_rank(
+    conn: &mut PgConnection,
+    member: &Member,
+    issue: &Position,
+    anchor: Anchor,
+) -> Result<String, AppError> {
+    match anchor {
+        Anchor::Keep => Ok(issue.rank.clone()),
+        Anchor::After(number) => {
+            let anchor_rank = anchor_rank(conn, member, "after", number).await?;
+            let next = repo::rank_after(conn, member.project_id, &anchor_rank, issue.id).await?;
+            Ok(domain::rank_between(Some(&anchor_rank), next.as_deref()))
+        }
+        Anchor::Before(number) => {
+            let anchor_rank = anchor_rank(conn, member, "before", number).await?;
+            let previous =
+                repo::rank_before(conn, member.project_id, &anchor_rank, issue.id).await?;
+            Ok(domain::rank_between(
+                previous.as_deref(),
+                Some(&anchor_rank),
+            ))
+        }
+    }
+}
+
+async fn anchor_rank(
+    conn: &mut PgConnection,
+    member: &Member,
+    field: &str,
+    number: i64,
+) -> Result<String, AppError> {
+    let rank = repo::find_rank(conn, member.project_id, number).await?;
+    rank.ok_or_else(|| AppError::invalid(field, "no such issue in this project"))
+}
+
+pub async fn search_issues(
+    pool: &PgPool,
+    member: &Member,
+    filter: IssueFilter,
+    page: PageParams,
+) -> Result<Page<Issue>, AppError> {
+    let limit = pagination::page_limit(page.limit)?;
+    let query = domain::to_search_query(&member.project_key, &filter)?;
+    let mut conn = pool.acquire().await?;
+    let issues = repo::search_issues(
+        &mut conn,
+        member.project_id,
+        &query,
+        page.cursor.unwrap_or(0),
+        limit + 1,
+    )
+    .await?;
+    Ok(pagination::into_page(issues, limit, |issue: &Issue| {
+        issue.id
+    }))
+}
+
+pub async fn add_comment(
+    pool: &PgPool,
+    member: &Member,
+    number: i64,
+    input: CreateComment,
+) -> Result<Comment, AppError> {
+    let body = domain::check_comment_body(&input.body)?;
+    let mut conn = pool.acquire().await?;
+    let issue_id = repo::find_id(&mut conn, member.project_id, number)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    Ok(repo::insert_comment(&mut conn, issue_id, member.user_id, &body).await?)
+}
+
+pub async fn list_comments(
+    pool: &PgPool,
+    member: &Member,
+    number: i64,
+    page: PageParams,
+) -> Result<Page<Comment>, AppError> {
+    let limit = pagination::page_limit(page.limit)?;
+    let mut conn = pool.acquire().await?;
+    let issue_id = repo::find_id(&mut conn, member.project_id, number)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let comments =
+        repo::list_comments(&mut conn, issue_id, page.cursor.unwrap_or(0), limit + 1).await?;
+    Ok(pagination::into_page(
+        comments,
+        limit,
+        |comment: &Comment| comment.id,
+    ))
 }
 
 /// The status a write may use: the given one (mapped, of this project) or the default to-do status.

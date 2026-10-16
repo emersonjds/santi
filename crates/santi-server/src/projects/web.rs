@@ -1,15 +1,17 @@
 use askama::Template;
 use axum::Router;
 use axum::extract::{Form, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use santi_types::FieldError;
-use santi_types::boards::BoardView;
-use santi_types::issues::{CreateIssue, IssueType};
+use santi_types::boards::{BoardColumnView, BoardView};
+use santi_types::issues::{CreateIssue, IssueType, MoveIssue};
 use santi_types::projects::{
     BoardType, CreateInvite, CreateProject, Invite, MemberInfo, MemberRole, Project,
 };
+
+use serde::Deserialize;
 
 use super::service;
 use crate::AppState;
@@ -26,6 +28,7 @@ pub fn router() -> Router<AppState> {
         .route("/projects", post(create_project))
         .route("/p/{key}", get(project_page))
         .route("/p/{key}/issues", post(create_issue))
+        .route("/p/{key}/issues/{number}/move", post(move_card))
         .route("/p/{key}/invites", post(create_invite))
         .route("/invites/{token}", get(invite_page).post(accept_invite))
 }
@@ -50,7 +53,7 @@ impl NewProjectPage {
 }
 
 #[derive(Template)]
-#[template(path = "app/project.html")]
+#[template(path = "app/project.html", blocks = ["board"])]
 struct ProjectPage {
     shell: Shell,
     project: Project,
@@ -58,6 +61,8 @@ struct ProjectPage {
     invite: Option<Invite>,
     board: BoardView,
     draft: IssueDraft,
+    /// Why the last drag or "Move to…" was refused; the card stays where it was.
+    move_error: Option<String>,
 }
 
 /// What the create-issue form shows: typed values and their errors.
@@ -227,5 +232,113 @@ async fn load_project_page(
         invite,
         board: boards::service::board_view(&state.pool, member).await?,
         draft,
+        move_error: None,
     })
+}
+
+/// A drop or a "Move to…" pick: the target column plus a neighbour key (drag) or top/bottom (form).
+#[derive(Deserialize)]
+struct MoveCard {
+    column_id: i64,
+    #[serde(default)]
+    after: String,
+    #[serde(default)]
+    before: String,
+    #[serde(default)]
+    place: String,
+}
+
+/// D1: drag and drop and the "Move to…" control both post here; htmx gets the board fragment back.
+async fn move_card(
+    State(state): State<AppState>,
+    PageUser(user): PageUser,
+    member: Member,
+    PathParams((_key, number)): PathParams<(String, i64)>,
+    headers: HeaderMap,
+    Form(card): Form<MoveCard>,
+) -> Result<Response, AppError> {
+    let moved = match to_move(&state, &member, number, card).await {
+        Ok(input) => issues::service::move_issue(&state.pool, &member, number, input).await,
+        Err(error) => Err(error),
+    };
+    let (status, move_error) = match moved {
+        Ok(_) => (StatusCode::OK, None),
+        Err(AppError::Validation(errors)) => {
+            let messages: Vec<String> = errors.into_iter().map(|error| error.message).collect();
+            (StatusCode::UNPROCESSABLE_ENTITY, Some(messages.join("; ")))
+        }
+        Err(AppError::Conflict { detail, .. }) => (StatusCode::CONFLICT, Some(detail)),
+        Err(error) => return Err(error),
+    };
+    let from_htmx = headers.contains_key("hx-request");
+    if !from_htmx && move_error.is_none() {
+        return Ok(Redirect::to(&format!("/p/{}", member.project_key)).into_response());
+    }
+    let mut page = load_project_page(&state, &user, &member, None, IssueDraft::default()).await?;
+    page.move_error = move_error;
+    if from_htmx {
+        return render(status, &page.as_board());
+    }
+    render(status, &page)
+}
+
+/// The column's status (the issue's own when it already sits there, else the column's first) and the rank anchor.
+async fn to_move(
+    state: &AppState,
+    member: &Member,
+    number: i64,
+    card: MoveCard,
+) -> Result<MoveIssue, AppError> {
+    let settings = boards::service::get_settings(&state.pool, member).await?;
+    let column = settings
+        .columns
+        .into_iter()
+        .find(|column| column.id == card.column_id)
+        .ok_or_else(|| AppError::invalid("column_id", "no such column on this board"))?;
+    let issue = issues::service::get_issue(&state.pool, member, number).await?;
+    let status_id = if column
+        .statuses
+        .iter()
+        .any(|status| status.id == issue.status_id)
+    {
+        None
+    } else {
+        let first = column.statuses.first().ok_or_else(|| {
+            AppError::conflict(
+                "column-without-status",
+                "Map a status to this column before moving issues into it.",
+            )
+        })?;
+        Some(first.id)
+    };
+    let (after, before) = if card.after.is_empty() && card.before.is_empty() {
+        let board = boards::service::board_view(&state.pool, member).await?;
+        let target = board.columns.iter().find(|target| target.id == column.id);
+        target.map_or((None, None), |target| {
+            place_anchor(target, &issue.key, &card.place)
+        })
+    } else {
+        (
+            Some(card.after).filter(|key| !key.is_empty()),
+            Some(card.before).filter(|key| !key.is_empty()),
+        )
+    };
+    Ok(MoveIssue {
+        status_id,
+        after,
+        before,
+    })
+}
+
+/// "top" lands before the column's first other card; anything else after its last one.
+fn place_anchor(
+    column: &BoardColumnView,
+    moving_key: &str,
+    place: &str,
+) -> (Option<String>, Option<String>) {
+    let mut others = column.cards.iter().filter(|card| card.key != moving_key);
+    if place == "top" {
+        return (None, others.next().map(|card| card.key.clone()));
+    }
+    (others.next_back().map(|card| card.key.clone()), None)
 }

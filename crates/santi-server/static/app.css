@@ -456,3 +456,47 @@ a.button, a.button:hover { color: var(--on-accent); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* Board moves: drag on pointer devices, "Move to…" everywhere */
+.card-slot { display: grid; gap: 4px; }
+.card-slot[draggable="true"] { cursor: grab; }
+.card-slot.dragging { opacity: 0.5; }
+.move-to summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  list-style: none;
+}
+.move-to summary::-webkit-details-marker { display: none; }
+.move-to summary .icon { width: 16px; height: 16px; }
+.move-to summary:hover, .move-to[open] summary { background: var(--bg); color: var(--text); }
+.move-to form { display: grid; gap: 6px; padding: 8px; }
+.move-to label { font-weight: 600; font-size: 0.875rem; }
+.move-to select, .search input {
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+#board > .alert { margin-top: 20px; }
+
+/* Search and comments */
+.search { display: flex; gap: 8px; margin-top: 12px; }
+.search input { flex: 1; min-width: 0; }
+.comments { margin-top: 32px; }
+.comments h2 { font-size: 1.125rem; }
+.comment-list { display: grid; gap: 12px; margin: 12px 0 16px; padding: 0; list-style: none; }
+.comment { padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.comment-meta { color: var(--muted); font-size: 0.875rem; }
+.comment-meta strong { color: var(--text); }
+.comment-body { margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -1,0 +1,22 @@
+{% extends "app/shell.html" %}
+{% import "shared/ui.html" as ui %}
+{% block title %}Search {{ shell.current }}{% endblock %}
+{% block main %}
+<div class="narrow">
+  <a class="back" href="/p/{{ shell.current }}">{{ ui::icon("kanban") }}<span>Back to board</span></a>
+  <h1 class="greeting">Search</h1>
+  <form class="search" method="get" action="/p/{{ shell.current }}/search" role="search">
+    <input type="search" name="q" value="{{ q }}" aria-label="Search issues">
+    <button class="icon-button" type="submit" aria-label="Search">{{ ui::icon("search") }}</button>
+  </form>
+  {%- if issues.is_empty() %}
+  <p class="lede">No issues match “{{ q }}”.</p>
+  {%- else %}
+  <ul class="rows">
+    {%- for issue in issues %}
+    <li><a class="row-name" href="/p/{{ shell.current }}/issues/{{ issue.number }}">{{ issue.summary }}<small>{{ issue.key }}</small></a></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</div>
+{% endblock %}

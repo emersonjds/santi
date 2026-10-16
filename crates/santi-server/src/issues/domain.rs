@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use santi_types::boards::StatusCategory;
-use santi_types::issues::{IssueType, Priority, UpdateIssue};
+use santi_types::issues::{IssueFilter, IssueType, Priority, UpdateIssue};
 
 use crate::error::AppError;
 
@@ -233,11 +233,90 @@ pub fn apply_field_changes(
     Ok(next)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Anchor {
+    Keep,
+    After(i64),
+    Before(i64),
+}
+
+pub fn anchor_for(
+    project_key: &str,
+    moving_number: i64,
+    after: Option<&str>,
+    before: Option<&str>,
+) -> Result<Anchor, AppError> {
+    let anchor = match (after, before) {
+        (None, None) => return Ok(Anchor::Keep),
+        (Some(_), Some(_)) => {
+            return Err(AppError::invalid(
+                "after",
+                "send either after or before, not both",
+            ));
+        }
+        (Some(key), None) => Anchor::After(parse_issue_key("after", project_key, key)?),
+        (None, Some(key)) => Anchor::Before(parse_issue_key("before", project_key, key)?),
+    };
+    if matches!(anchor, Anchor::After(number) | Anchor::Before(number) if number == moving_number) {
+        return Err(AppError::invalid(
+            "after",
+            "an issue cannot be placed next to itself",
+        ));
+    }
+    Ok(anchor)
+}
+
+/// `ILIKE` pattern matching the text anywhere; `%`, `_` and `\` in the text match literally.
+pub fn like_pattern(text: Option<&str>) -> Option<String> {
+    let text = text?.trim();
+    if text.is_empty() {
+        return None;
+    }
+    let escaped = text
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    Some(format!("%{escaped}%"))
+}
+
+/// The filter in the shape the search query binds.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SearchQuery {
+    pub assignee_ids: Vec<i64>,
+    pub types: Vec<IssueType>,
+    pub labels: Vec<String>,
+    pub parent_numbers: Vec<i64>,
+    pub pattern: Option<String>,
+}
+
+pub fn to_search_query(project_key: &str, filter: &IssueFilter) -> Result<SearchQuery, AppError> {
+    let parent_numbers = filter
+        .parent
+        .iter()
+        .map(|key| parse_issue_key("parent", project_key, key))
+        .collect::<Result<Vec<i64>, AppError>>()?;
+    Ok(SearchQuery {
+        assignee_ids: filter.assignee.clone(),
+        types: filter.issue_type.clone(),
+        labels: filter.label.clone(),
+        parent_numbers,
+        pattern: like_pattern(filter.q.as_deref()),
+    })
+}
+
+pub fn check_comment_body(body: &str) -> Result<String, AppError> {
+    let body = body.trim();
+    if body.is_empty() || body.chars().count() > 20_000 {
+        return Err(AppError::invalid("body", "must have 1 to 20000 characters"));
+    }
+    Ok(body.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use santi_types::boards::StatusCategory;
-    use santi_types::issues::{IssueType::*, Priority, UpdateIssue};
+    use santi_types::issues::{IssueFilter, IssueType::*, Priority, UpdateIssue};
 
     #[test]
     fn first_rank_is_the_middle_digit() {
@@ -420,5 +499,55 @@ mod tests {
         assert_eq!(next.summary, "New");
         assert_eq!(next.points, None);
         assert_eq!(next.assignee_id, Some(7));
+    }
+
+    #[test]
+    fn anchors_are_parsed_and_checked() {
+        assert_eq!(anchor_for("SANTI", 1, None, None).unwrap(), Anchor::Keep);
+        assert_eq!(
+            anchor_for("SANTI", 1, Some("SANTI-2"), None).unwrap(),
+            Anchor::After(2)
+        );
+        assert_eq!(
+            anchor_for("SANTI", 1, None, Some("SANTI-3")).unwrap(),
+            Anchor::Before(3)
+        );
+        assert!(anchor_for("SANTI", 1, Some("SANTI-2"), Some("SANTI-3")).is_err());
+        assert!(anchor_for("SANTI", 1, Some("SANTI-1"), None).is_err());
+        assert!(anchor_for("SANTI", 1, None, Some("OTHER-3")).is_err());
+    }
+
+    #[test]
+    fn free_text_becomes_an_escaped_like_pattern() {
+        assert_eq!(like_pattern(Some(" login ")), Some("%login%".into()));
+        assert_eq!(
+            like_pattern(Some("50%_off\\")),
+            Some("%50\\%\\_off\\\\%".into())
+        );
+        assert_eq!(like_pattern(Some("  ")), None);
+        assert_eq!(like_pattern(None), None);
+    }
+
+    #[test]
+    fn filters_become_a_search_query() {
+        let filter = IssueFilter {
+            parent: vec!["SANTI-4".into()],
+            q: Some("bug".into()),
+            ..IssueFilter::default()
+        };
+        let query = to_search_query("SANTI", &filter).unwrap();
+        assert_eq!(query.parent_numbers, [4]);
+        assert_eq!(query.pattern.as_deref(), Some("%bug%"));
+        let bad = IssueFilter {
+            parent: vec!["OTHER-4".into()],
+            ..IssueFilter::default()
+        };
+        assert!(to_search_query("SANTI", &bad).is_err());
+    }
+
+    #[test]
+    fn comment_body_is_trimmed_and_required() {
+        assert_eq!(check_comment_body(" hi ").unwrap(), "hi");
+        assert!(check_comment_body("  ").is_err());
     }
 }

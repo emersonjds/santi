@@ -1,6 +1,7 @@
 mod common;
 
-use axum::http::StatusCode;
+use axum::body::Body;
+use axum::http::{Request, StatusCode};
 use common::{PASSWORD, TestApp, form, location, page, session_cookie, text};
 use serde_json::json;
 use sqlx::PgPool;
@@ -14,6 +15,239 @@ async fn board_owner(pool: PgPool) -> (TestApp, String) {
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     let cookie = session_cookie(&response);
     (ana, cookie)
+}
+
+/// A request as htmx sends it: the board answers with its fragment instead of a redirect.
+fn htmx(mut request: Request<Body>) -> Request<Body> {
+    request
+        .headers_mut()
+        .insert("hx-request", "true".parse().unwrap());
+    request
+}
+
+/// Card keys of one column, top to bottom, as the board HTML lists them.
+fn column_keys(html: &str, column_id: i64) -> Vec<String> {
+    let start = html
+        .find(&format!(r#"data-column="{column_id}""#))
+        .expect("column on the board");
+    let column = &html[start..];
+    let column = &column[..column.find("</section>").unwrap()];
+    column
+        .split(r#"data-key=""#)
+        .skip(1)
+        .map(|rest| rest[..rest.find('"').unwrap()].to_string())
+        .collect()
+}
+
+async fn board_with_issues(pool: PgPool, count: usize) -> (TestApp, String) {
+    let (ana, cookie) = board_owner(pool).await;
+    for index in 1..=count {
+        ana.create_issue("SANTI", json!({ "summary": format!("issue {index}") }))
+            .await;
+    }
+    (ana, cookie)
+}
+
+#[sqlx::test]
+async fn cards_are_draggable_and_carry_a_move_to_control(pool: PgPool) {
+    let (ana, cookie) = board_with_issues(pool, 1).await;
+
+    let html = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+
+    assert!(html.contains(r#"id="board""#));
+    assert!(html.contains(r#"draggable="true""#));
+    assert!(html.contains(r#"data-key="SANTI-1""#));
+    assert!(html.contains(r#"data-move="/p/SANTI/issues/1/move""#));
+    assert!(html.contains(r#"action="/p/SANTI/issues/1/move""#));
+    assert!(html.contains(r#"name="column_id""#));
+    assert!(html.contains(r#"name="place""#));
+    assert!(html.contains(r#"action="/p/SANTI/search""#));
+}
+
+#[sqlx::test]
+async fn dropping_a_card_moves_it_and_the_order_survives_a_reload(pool: PgPool) {
+    let (ana, cookie) = board_with_issues(pool, 3).await;
+    let todo = ana.column_id("SANTI", "To Do").await;
+    let doing = ana.column_id("SANTI", "In Progress").await;
+    let in_progress = ana.status_id("SANTI", "In Progress").await;
+
+    let first = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/3/move",
+            &format!("column_id={doing}"),
+            Some(&cookie),
+        )))
+        .await;
+    let second = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1/move",
+            &format!("column_id={doing}&before=SANTI-3"),
+            Some(&cookie),
+        )))
+        .await;
+
+    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(second.status(), StatusCode::OK);
+    let fragment = text(second).await;
+    assert!(!fragment.contains("<html"));
+    assert_eq!(column_keys(&fragment, doing), ["SANTI-1", "SANTI-3"]);
+    let html = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    assert_eq!(column_keys(&html, doing), ["SANTI-1", "SANTI-3"]);
+    assert_eq!(column_keys(&html, todo), ["SANTI-2"]);
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    assert_eq!(issue["status_id"], in_progress);
+}
+
+#[sqlx::test]
+async fn dropping_between_cards_of_the_same_column_reorders_them(pool: PgPool) {
+    let (ana, cookie) = board_with_issues(pool, 3).await;
+    let todo = ana.column_id("SANTI", "To Do").await;
+
+    let response = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1/move",
+            &format!("column_id={todo}&after=SANTI-2"),
+            Some(&cookie),
+        )))
+        .await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        column_keys(&text(response).await, todo),
+        ["SANTI-2", "SANTI-1", "SANTI-3"]
+    );
+}
+
+#[sqlx::test]
+async fn move_to_form_places_the_card_at_the_top_or_bottom(pool: PgPool) {
+    let (ana, cookie) = board_with_issues(pool, 3).await;
+    let todo = ana.column_id("SANTI", "To Do").await;
+
+    let top = ana
+        .send(form(
+            "/p/SANTI/issues/3/move",
+            &format!("column_id={todo}&place=top"),
+            Some(&cookie),
+        ))
+        .await;
+    let after_top = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    ana.send(form(
+        "/p/SANTI/issues/1/move",
+        &format!("column_id={todo}&place=bottom"),
+        Some(&cookie),
+    ))
+    .await;
+    let after_bottom = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+
+    assert_eq!(top.status(), StatusCode::SEE_OTHER);
+    assert_eq!(location(&top), "/p/SANTI");
+    assert_eq!(
+        column_keys(&after_top, todo),
+        ["SANTI-3", "SANTI-1", "SANTI-2"]
+    );
+    assert_eq!(
+        column_keys(&after_bottom, todo),
+        ["SANTI-3", "SANTI-2", "SANTI-1"]
+    );
+}
+
+#[sqlx::test]
+async fn refused_moves_show_an_error_and_keep_the_card_in_place(pool: PgPool) {
+    let (ana, cookie) = board_with_issues(pool, 1).await;
+    let todo = ana.column_id("SANTI", "To Do").await;
+    ana.post(
+        "/api/projects/SANTI/board/columns",
+        json!({ "name": "Review" }),
+    )
+    .await;
+    let review = ana.column_id("SANTI", "Review").await;
+
+    let no_status = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1/move",
+            &format!("column_id={review}"),
+            Some(&cookie),
+        )))
+        .await;
+    let no_column = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1/move",
+            "column_id=999999",
+            Some(&cookie),
+        )))
+        .await;
+    let plain = ana
+        .send(form(
+            "/p/SANTI/issues/1/move",
+            &format!("column_id={review}"),
+            Some(&cookie),
+        ))
+        .await;
+
+    assert_eq!(no_status.status(), StatusCode::CONFLICT);
+    let fragment = text(no_status).await;
+    assert!(fragment.contains(r#"role="alert""#));
+    assert!(fragment.contains("Map a status to this column"));
+    assert_eq!(column_keys(&fragment, todo), ["SANTI-1"]);
+    assert_eq!(no_column.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text(no_column).await.contains("no such column"));
+    assert_eq!(plain.status(), StatusCode::CONFLICT);
+    assert!(text(plain).await.contains("<html"));
+}
+
+#[sqlx::test]
+async fn strangers_cannot_move_cards(pool: PgPool) {
+    let (ana, _) = board_with_issues(pool, 1).await;
+    let todo = ana.column_id("SANTI", "To Do").await;
+    let body = format!("email=bob%40example.com&display_name=Bob&password={PASSWORD}");
+    let bob = session_cookie(&ana.send(form("/register", &body, None)).await);
+
+    let response = ana
+        .send(form(
+            "/p/SANTI/issues/1/move",
+            &format!("column_id={todo}"),
+            Some(&bob),
+        ))
+        .await;
+    let unknown = ana
+        .send(form(
+            "/p/SANTI/issues/9/move",
+            &format!("column_id={todo}"),
+            Some(&session_cookie_of(&ana).await),
+        ))
+        .await;
+
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
+}
+
+async fn session_cookie_of(ana: &TestApp) -> String {
+    let body = format!("email=ana%40example.com&password={PASSWORD}");
+    session_cookie(&ana.send(form("/login", &body, None)).await)
+}
+
+#[sqlx::test]
+async fn search_lists_matching_issues_with_links(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "Fix login" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Write docs" }))
+        .await;
+
+    let found = ana
+        .send(page("/p/SANTI/search?q=LOGIN", Some(&cookie)))
+        .await;
+    let nothing = ana
+        .send(page("/p/SANTI/search?q=zebra", Some(&cookie)))
+        .await;
+
+    assert_eq!(found.status(), StatusCode::OK);
+    let html = text(found).await;
+    assert!(html.contains(r#"href="/p/SANTI/issues/1""#));
+    assert!(html.contains("Fix login"));
+    assert!(!html.contains("Write docs"));
+    assert!(html.contains(r#"value="LOGIN""#));
+    assert!(text(nothing).await.contains("No issues match"));
 }
 
 #[sqlx::test]

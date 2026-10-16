@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
@@ -142,4 +142,66 @@ mod tests {
         .to_vec();
         assert_eq!(labels, ["Epic", "Story", "Task", "Bug", "Subtask"]);
     }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+pub struct MoveIssue {
+    /// New status; absent keeps the current one.
+    #[serde(default)]
+    pub status_id: Option<i64>,
+    /// Place right after this issue key (D4). Send at most one of `after` and `before`.
+    #[serde(default)]
+    pub after: Option<String>,
+    /// Place right before this issue key.
+    #[serde(default)]
+    pub before: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct Comment {
+    pub id: i64,
+    pub author_id: i64,
+    pub body: String,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreateComment {
+    pub body: String,
+}
+
+/// One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Page<T> {
+    pub items: Vec<T>,
+    pub next_cursor: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct PageParams {
+    /// 1 to 200, default 50.
+    #[serde(default)]
+    pub limit: Option<i64>,
+    #[serde(default)]
+    pub cursor: Option<i64>,
+}
+
+/// Quick filters (D3): repeated values of one key mean "any of them"; different keys must all match.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct IssueFilter {
+    /// Assignee user ids.
+    #[serde(default)]
+    pub assignee: Vec<i64>,
+    #[serde(default, rename = "type")]
+    pub issue_type: Vec<IssueType>,
+    #[serde(default)]
+    pub label: Vec<String>,
+    /// Parent issue keys, e.g. an epic's `SANTI-3`.
+    #[serde(default)]
+    pub parent: Vec<String>,
+    /// Free text matched against the summary, ignoring case.
+    #[serde(default)]
+    pub q: Option<String>,
 }
