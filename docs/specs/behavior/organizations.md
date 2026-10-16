@@ -25,6 +25,17 @@ Live, maintainer's session, 2026-10-16:
 - [L6] Project access pages of SAN and LAB (team-managed) and people page of PRM (company-managed).
 - [L7] URL probes: board and issue paths with right, wrong, lower-case and unknown keys and ids.
 
+Live, maintainer's session, 2026-10-16, card SAN-70 (same read-only rule; row menus were opened and
+closed without choosing an item, no dialog was opened):
+- [L8] Admin project pages: project directory, trash and archive lists, and the row menus of the
+  directory (one team-managed, one company-managed project) and of the trash.
+- [L9] REST reads on the two trashed projects: project search by status, project by key and by id,
+  key and name checks, items by key and by id, search by project, board list and boards by id,
+  saved filters.
+- [L10] URL probes into a trashed project: an item path, a team-managed board path and a
+  company-managed board path.
+- [L11] Own row on the SAN access page (the maintainer is its only member and admin).
+
 Docs (support.atlassian.com):
 - [D1] /organization-administration/docs/what-is-an-atlassian-organization/
 - [D2] /organization-administration/docs/get-started-with-an-atlassian-organization/
@@ -53,6 +64,10 @@ Docs (support.atlassian.com):
 - [D25] /jira-cloud-administration/docs/explore-jira-cloud-plans/
 - [D26] /jira-software-cloud/docs/delete-project/ and /jira-cloud-administration/docs/archive-a-project/
 - [D27] /jira-cloud-administration/docs/space-access-and-configuration-permissions/
+- [D28] /jira-cloud-administration/docs/trash-for-jira-cloud-projects/, /move-a-project-to-trash/,
+  /restore-a-project-from-trash/ and /delete-a-project/
+- [D29] /jira-cloud-administration/docs/hide-a-project/
+- [D30] /atlassian-account/docs/delete-your-atlassian-account/
 
 Context of the live site: one site on the Free plan with a 10-seat limit and 2 accounts, 11
 projects (9 company-managed, 2 team-managed), 20 boards. The maintainer's account belongs to 5
@@ -253,6 +268,88 @@ Lifecycle
 - OR-49 Free sites may be deactivated after inactivity, after warning emails to site admins.
   `documented` [D19]
 
+## Project lifecycle
+
+Live context: the trash holds 2 projects (one team-managed, one company-managed), both moved there
+by the maintainer on 2026-10-01; the archive is empty. OR-47 is the summary; the rules below detail
+it.
+
+States: live → trashed → live (restore) or gone (purge, manual or at day 60); live → archived →
+live (restore). Gone is final. A project is never trashed and archived at once.
+
+Trash
+- OR-50 A project is live, trashed or archived; gone after a purge. The site lists projects by each
+  of these three statuses separately. Trash and archive are both reversible; permanent deletion
+  exists only from the trash, never straight from live. `observed` [L9]; `documented` [D26][D28]
+- OR-51 Who may trash: tracker and site admins, any project kind; project admins only their
+  team-managed projects. Restoring and permanent deletion are for tracker and site admins only;
+  a project admin who trashed a project cannot bring it back alone. `documented` [D26][D28]
+- OR-52 Trashing starts from the row menu of the admin project directory, which offers, for both
+  project kinds, project settings, move to trash and archive. One confirmation dialog follows, with
+  a single confirm action. `observed` [L8]: the menu; `documented` [D26][D28]: the dialog. The
+  dialog's content was not opened (OQ-12).
+- OR-53 The project's items, components, attachments and versions go to the trash with it.
+  Configuration shared with other projects (schemes, workflows, item types) is left untouched.
+  `documented` [D28]
+- OR-54 A trashed project vanishes for everyone, admins included: it leaves the project directory
+  (11 listed, the 2 trashed absent), the recent-projects list and the live project search. Reading
+  it by key or by id answers not found. Its items, by key or by id, answer the same not-found that
+  a missing permission gives. A search by its key returns an empty result with no error, exactly
+  like an unknown key. `observed` [L8][L9]
+- OR-55 Opening a trashed project's URLs: an item path shows the generic can't-show-this-project
+  page (no permission or does not exist) with an access-request offer and other projects to open; a
+  team-managed board path redirects to the project-not-found page carrying the key; a
+  company-managed board path stays put, says the board cannot be opened because of its filter, and
+  raises a project-not-found notice. `observed` [L10]. The docs say items stay openable read-only
+  by direct link; see OQ-11.
+- OR-56 Boards and saved filters of a trashed project survive. A board still answers by id with its
+  name and type but loses its project location and drops out of the board list. The saved filter
+  behind a board stays listed with its query still naming the trashed key. `observed` [L9]
+- OR-57 The trash page sits in the tracker admin settings next to the project directory, project
+  categories and the archive. One row per project: name, key, kind, lead, when and by whom it was
+  trashed, and the time left before purge as a day count. The list has a text search and an app
+  filter, and sorts by name, key, lead or trash date. Each row's menu offers immediate permanent
+  deletion and restore. `observed` [L8]; `documented` [D28]
+- OR-58 Purge happens exactly 60 days after trashing (same time of day). The countdown shows whole
+  days: 45 on day 15. An admin may purge earlier from the row. Purging cannot be undone.
+  `observed` [L8][L9]: both projects show a purge stamp 60 days after the trash stamp;
+  `documented` [D26][D28]
+- OR-59 Restoring returns the project to the directories and its items to search results. Legacy
+  invalid parent links are not recovered. `documented` [D28]. Whether restore asks for confirmation
+  was not seen (OQ-12).
+- OR-60 A trashed project keeps its key, name, id and board ids. The key check refuses the key and
+  names the trashed project as holder, proposing the key plus a digit; the name check proposes a
+  numbered variant of the trashed name. `observed` [L9]
+
+Archive
+- OR-61 Archiving is for the top paid plans only. On Free the directory menu still lists it, marked
+  with a plan badge, and the archive page opens empty. A site that downgrades keeps its archive and
+  can restore from it but cannot archive more. `observed` [L8]; `documented` [D26]
+- OR-62 Who may archive and restore: tracker and site admins, any project kind; project admins
+  archive only team-managed projects. Archiving asks once for confirmation. The archive list and
+  restore are for tracker and site admins. `documented` [D26]
+- OR-63 Archived means frozen and out of search: the project's items, components, attachments and
+  versions are archived with it; its items leave basic and advanced search but still open by direct
+  link, read-only. People who had rights may still read the project's details through the API
+  (schemes, owner, who archived and when); hiding those needs a permission change before archiving.
+  Shared configuration is untouched. Restore drops legacy invalid parent links. `documented` [D26]
+- OR-64 The archive page lists archived projects with name, key, kind, lead and archive date, an app
+  filter, and a row menu to restore. `observed` [L8]: columns and filter on the empty list;
+  `documented` [D26]: who archived and the restore action.
+- OR-65 A softer option than archive or trash is hiding: an empty permission scheme makes the
+  project invisible to everyone but admins. Not available on Free. `documented` [D29]
+
+Leaving and the last admin
+- OR-66 There is no self-service leave from a project, site or organization. On a project's access
+  page the member's own row offers only the role picker, with no remove action. The ways out are an
+  admin removing the person (OR-45, OR-46) or the person deleting their account: 14 days
+  deactivated and cancellable, then gone, shown to others as a former user; the content they wrote
+  stays. Accounts managed by an organization cannot self-delete. `observed` [L11]; `documented`
+  [D18][D30]
+- OR-67 No last-admin guard is documented for projects. A project cannot lose administration
+  because tracker admins always reach every project's settings (OR-26). `documented` [D16][D18].
+  Not tested: removing or demoting the sole project admin would change the project.
+
 ## santi today
 
 santi has global users, global projects, project members with admin or member role, add-by-email
@@ -297,6 +394,9 @@ access level.
 | OR-46 | Same at project level. The last admin cannot be removed or demoted. A member cannot leave a project alone: only admins remove members. |
 | OR-47 | Missing: no project delete, trash or archive. |
 | OR-48, OR-49 | Not applicable: no organization; self-hosted. |
+| OR-50 to OR-65 | Missing: no project delete, trash, archive or hide. |
+| OR-66 | Same: no self-service leave; only admins remove members. |
+| OR-67 | Different: santi blocks removing or demoting the last project admin, since no instance admin exists above it. |
 
 Main gaps if santi grows a tenant layer: a container above projects with its own admins, a viewer
 role, project access levels (private today, open or limited as options), invites that make a
@@ -310,6 +410,9 @@ pending membership, key aliases, and self-service leave.
 - OQ-2 Leaving: no self-service way for a user to leave an organization, site or project was found
   in the docs or the console. Is leaving only possible by an admin removing you, or by deleting
   the account?
+  Answer (SAN-70): yes, both, and nothing else (OR-66). Still open: the own row lacked a remove
+  action, but the maintainer is the sole member and admin of SAN, so it is unknown whether a
+  plain member sees one for themselves.
 - OQ-3 Two team-managed projects on the same always-Free site report different access levels (one
   everyone-admin, one open). Does the level depend on when the project was created, or on a past
   plan of the site?
@@ -318,7 +421,12 @@ pending membership, key aliases, and self-service leave.
 - OQ-5 The name check returned a numbered variant for a one-character name that no visible project
   uses. Is there a minimum length, or does a trashed project hold that name? Is a duplicate project
   name refused on creation, or only flagged?
+  Answer (SAN-70), partial: trashed projects hold their names (OR-60), and the docs state project
+  names are unique on the site, so a duplicate is refused, not just flagged. Neither trashed name
+  is one character long, so the earlier one-character variant is still unexplained.
 - OQ-6 Does a trashed project still hold its key and board ids?
+  Answer (SAN-70): yes. Key, name, id and board ids stay taken while in the trash (OR-56, OR-60).
+  Whether a purge frees them is OQ-13.
 - OQ-7 What exactly can a pending invitee do before accepting, and does a pending invite expire?
   The docs give 30 days for invitation links but no lifetime for email invites.
 - OQ-8 What the switcher lists when an account reaches several sites of the same organization
@@ -327,3 +435,13 @@ pending membership, key aliases, and self-service leave.
   API). Which groups the console hides is unknown.
 - OQ-10 The user counts page is plan-gated; how seats are counted on Free (invited users included?)
   was not seen.
+- OQ-11 Docs say a trashed project's items open read-only by direct link; on the live site the
+  item path and item reads answered not found for the maintainer, an org and site admin. Is the
+  doc stale, does it apply only to company-managed projects, or did the probed item numbers not
+  exist?
+- OQ-12 What the trash and archive confirmation dialogs show (consequences, purge date, typing the
+  key), and whether restore and immediate permanent deletion ask for confirmation. Not opened.
+- OQ-13 After a purge, are the key, name and board ids freed for reuse? Observable after
+  2026-11-30, when both trashed projects purge.
+- OQ-14 Does an archived project hold its key and name like a trashed one? No archived project
+  exists on this Free site to probe.
