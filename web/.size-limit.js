@@ -1,8 +1,9 @@
 // Initial JS of a first visit: the entry, its static imports and the landing route's chunks,
-// read from the Vite manifest so the budget follows renamed chunks.
+// read from the Vite manifest so the budget follows renamed chunks. `pnpm build` moves it out of
+// dist, so the server never ships it.
 import { readFileSync } from 'node:fs'
 
-const manifest = JSON.parse(readFileSync('dist/.vite/manifest.json', 'utf8'))
+const manifest = JSON.parse(readFileSync('node_modules/.tmp/vite-manifest.json', 'utf8'))
 
 const withImports = (key, seen = new Set()) => {
   if (seen.has(key)) return seen

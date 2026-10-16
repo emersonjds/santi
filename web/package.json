@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node -e \"const fs = require('node:fs'); fs.renameSync('dist/.vite/manifest.json', 'node_modules/.tmp/vite-manifest.json'); fs.rmSync('dist/.vite', { recursive: true })\"",
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "lint": "eslint .",
