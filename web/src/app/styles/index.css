@@ -2,6 +2,8 @@
 @import 'tw-animate-css';
 @import './theme.css';
 
+@source not '../../../landing.html';
+
 @custom-variant dark (&:is([data-theme='dark'] *));
 
 @layer base {

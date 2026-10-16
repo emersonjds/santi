@@ -8,6 +8,9 @@ RUN corepack enable
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY web/ ./
+# Public address for the landing page's canonical and social links, robots.txt and sitemap.xml.
+ARG VITE_SITE_URL
+ARG RAILWAY_PUBLIC_DOMAIN
 RUN pnpm build
 
 FROM rust:slim-trixie AS server

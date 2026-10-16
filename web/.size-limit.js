@@ -3,7 +3,9 @@
 // dist, so the server never ships it.
 import { readFileSync } from 'node:fs'
 
-const manifest = JSON.parse(readFileSync('node_modules/.tmp/vite-manifest.json', 'utf8'))
+const manifest = JSON.parse(
+  readFileSync('node_modules/.tmp/vite-manifest.json', 'utf8')
+)
 
 const withImports = (key, seen = new Set()) => {
   if (seen.has(key)) return seen
@@ -23,7 +25,28 @@ const firstVisit = (...routes) => {
 const split = (route) => `src/app/routes/${route}?tsr-split=component`
 const SHELL = split('_authenticated/route.tsx')
 
+const landing = [...withImports('landing.html')]
+
 export default [
+  {
+    name: 'landing page JS (/ signed out, /about)',
+    path: landing.map((key) => `dist/${manifest[key].file}`),
+    limit: '10 KB',
+    gzip: true,
+  },
+  {
+    name: 'landing page CSS',
+    path: manifest['landing.html'].css.map((file) => `dist/${file}`),
+    limit: '10 KB',
+    gzip: true,
+  },
+  {
+    name: 'landing page hero screenshot',
+    path: 'dist/landing/board.webp',
+    limit: '60 KB',
+    gzip: false,
+    brotli: false,
+  },
   {
     name: 'initial JS, /login',
     path: firstVisit(split('login.tsx')),
