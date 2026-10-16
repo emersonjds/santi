@@ -191,9 +191,14 @@ impl From<sqlx::Error> for AppError {
 /// SQLSTATE 22021, raised for a NUL character in text.
 const UNTRANSLATABLE_CHARACTER: &str = "22021";
 
+/// Valid JSON of the wrong shape (an unknown field, a wrong type) is a 422 naming the problem;
+/// anything else (broken syntax, wrong content type) stays a 400.
 impl From<JsonRejection> for AppError {
     fn from(rejection: JsonRejection) -> Self {
-        AppError::BadRequest(rejection.body_text())
+        match rejection {
+            JsonRejection::JsonDataError(error) => AppError::invalid("body", &error.body_text()),
+            rejection => AppError::BadRequest(rejection.body_text()),
+        }
     }
 }
 

@@ -48,6 +48,7 @@ pub struct BoardSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateBoardSettings {
     /// 7, 14, 30, or null for never (kanban only, D8).
     #[serde(default)]
@@ -55,6 +56,7 @@ pub struct UpdateBoardSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateColumn {
     pub name: String,
     /// Also create a status with the column's name and this category (SB-5).
@@ -63,6 +65,7 @@ pub struct CreateColumn {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateColumn {
     pub name: String,
     #[serde(default)]
@@ -70,6 +73,7 @@ pub struct UpdateColumn {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct ReorderColumns {
     pub column_ids: Vec<i64>,
 }
@@ -83,12 +87,14 @@ pub struct DeleteColumnParams {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateStatus {
     pub name: String,
     pub category: StatusCategory,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateStatus {
     pub name: String,
     /// The column to map to; null unmaps the status.

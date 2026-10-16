@@ -31,6 +31,7 @@ pub struct Sprint {
 
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateSprint {
     /// Defaults to `Sprint N`, N counting every sprint ever created on the board (D12).
     #[serde(default)]
@@ -40,6 +41,7 @@ pub struct CreateSprint {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateSprint {
     pub name: String,
     #[serde(default)]
@@ -52,6 +54,7 @@ pub struct UpdateSprint {
 
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct StartSprint {
     /// Defaults to today.
     #[serde(default)]
@@ -62,6 +65,7 @@ pub struct StartSprint {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CompleteSprint {
     pub open_issues: OpenIssuesDestination,
 }
@@ -69,7 +73,7 @@ pub struct CompleteSprint {
 /// Where every unfinished issue goes when the sprint closes (D13).
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(tag = "to", rename_all = "snake_case")]
+#[serde(tag = "to", rename_all = "snake_case", deny_unknown_fields)]
 pub enum OpenIssuesDestination {
     Backlog,
     Sprint { sprint_id: i64 },

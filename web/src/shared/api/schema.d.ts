@@ -825,6 +825,7 @@ export interface components {
         Comment: {
             /** Format: int64 */
             author_id: number;
+            author_name: string;
             body: string;
             /** Format: date-time */
             created_at: string;
@@ -1023,6 +1024,7 @@ export interface components {
         Issue: {
             /** Format: int64 */
             assignee_id?: number | null;
+            assignee_name?: string | null;
             /** Format: date-time */
             created_at: string;
             description: string;
@@ -1042,10 +1044,13 @@ export interface components {
             rank: string;
             /** Format: int64 */
             reporter_id: number;
+            reporter_name: string;
             /** Format: int64 */
             sprint_id?: number | null;
+            sprint_name?: string | null;
             /** Format: int64 */
             status_id: number;
+            status_name: string;
             summary: string;
             /**
              * Format: date-time
@@ -1151,6 +1156,7 @@ export interface components {
             items: {
                 /** Format: int64 */
                 author_id: number;
+                author_name: string;
                 body: string;
                 /** Format: date-time */
                 created_at: string;
@@ -1185,6 +1191,7 @@ export interface components {
             items: {
                 /** Format: int64 */
                 assignee_id?: number | null;
+                assignee_name?: string | null;
                 /** Format: date-time */
                 created_at: string;
                 description: string;
@@ -1204,10 +1211,13 @@ export interface components {
                 rank: string;
                 /** Format: int64 */
                 reporter_id: number;
+                reporter_name: string;
                 /** Format: int64 */
                 sprint_id?: number | null;
+                sprint_name?: string | null;
                 /** Format: int64 */
                 status_id: number;
+                status_name: string;
                 summary: string;
                 /**
                  * Format: date-time

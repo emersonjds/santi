@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Register {
     pub email: String,
     pub password: String,
@@ -34,6 +35,7 @@ pub struct LegalStatus {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct AcceptLegal {
     #[serde(default)]
     pub accept_terms: bool,
@@ -52,6 +54,7 @@ pub struct LegalAcceptance {
 }
 
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct Login {
     pub email: String,
     pub password: String,
@@ -65,6 +68,7 @@ pub struct User {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct CreateToken {
     pub name: String,
 }
@@ -86,6 +90,7 @@ pub struct ApiToken {
 
 /// Deleting the account asks for the password again.
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct DeleteAccount {
     pub password: String,
 }
