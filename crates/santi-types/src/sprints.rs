@@ -75,7 +75,48 @@ pub struct CompleteSprint {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[serde(tag = "to", rename_all = "snake_case", deny_unknown_fields)]
 pub enum OpenIssuesDestination {
-    Backlog,
+    Backlog {},
     Sprint { sprint_id: i64 },
-    NewSprint,
+    NewSprint {},
+}
+
+#[cfg(test)]
+mod tests {
+    use super::OpenIssuesDestination;
+    use serde_json::json;
+
+    #[test]
+    fn destinations_keep_their_wire_format() {
+        for (destination, wire) in [
+            (
+                OpenIssuesDestination::Backlog {},
+                json!({ "to": "backlog" }),
+            ),
+            (
+                OpenIssuesDestination::NewSprint {},
+                json!({ "to": "new_sprint" }),
+            ),
+            (
+                OpenIssuesDestination::Sprint { sprint_id: 3 },
+                json!({ "to": "sprint", "sprint_id": 3 }),
+            ),
+        ] {
+            assert_eq!(serde_json::to_value(&destination).unwrap(), wire);
+            assert_eq!(
+                serde_json::from_value::<OpenIssuesDestination>(wire).unwrap(),
+                destination
+            );
+        }
+    }
+
+    #[test]
+    fn destinations_refuse_fields_they_do_not_take() {
+        for wire in [
+            json!({ "to": "backlog", "sprint_id": 3 }),
+            json!({ "to": "new_sprint", "sprint_id": 3 }),
+        ] {
+            let error = serde_json::from_value::<OpenIssuesDestination>(wire).unwrap_err();
+            assert!(error.to_string().contains("sprint_id"), "{error}");
+        }
+    }
 }

@@ -158,7 +158,7 @@ pub struct CompleteSprintArgs {
 }
 
 fn backlog() -> OpenIssuesDestination {
-    OpenIssuesDestination::Backlog
+    OpenIssuesDestination::Backlog {}
 }
 
 type Reply = Result<String, String>;
