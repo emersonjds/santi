@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH gone AS (DELETE FROM member WHERE project_id = $1 AND user_id = $2),\n              stars AS (DELETE FROM issue_star s USING issue i\n                        WHERE i.id = s.issue_id AND i.project_id = $1 AND s.user_id = $2)\n         DELETE FROM issue_activity a USING issue i\n         WHERE i.id = a.issue_id AND i.project_id = $1 AND a.user_id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "631f46409d8d517534093a60e56435d19a4b336510954e0eea6483c831d4c674"
+}

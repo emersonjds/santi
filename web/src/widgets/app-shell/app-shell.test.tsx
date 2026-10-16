@@ -42,12 +42,12 @@ describe('app shell', () => {
     )
   })
 
-  it('marks Home as the open page on home', async () => {
+  it('marks For you as the open page on home', async () => {
     signedIn()
     const { screen } = await renderApp('/')
 
     await expect
-      .element(sidebar(screen).getByRole('link', { name: 'Home' }))
+      .element(sidebar(screen).getByRole('link', { name: 'For you' }))
       .toHaveAttribute('aria-current', 'page')
   })
 
@@ -91,7 +91,7 @@ describe('app shell', () => {
     inProjects()
     const { screen, router } = await renderApp('/')
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
 
     await userEvent.keyboard('{Meta>}k{/Meta}')
@@ -110,7 +110,7 @@ describe('app shell', () => {
     inProjects()
     const { screen, router } = await renderApp('/')
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
 
     await userEvent.keyboard('k')

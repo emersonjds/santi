@@ -60,6 +60,12 @@ export default [
     gzip: true,
   },
   {
+    name: 'initial JS, /projects (all projects)',
+    path: firstVisit(SHELL, split('_authenticated/projects/index.tsx')),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
     name: 'initial JS, /p/KEY/board (project page)',
     path: firstVisit(
       SHELL,

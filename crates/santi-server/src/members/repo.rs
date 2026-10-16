@@ -164,13 +164,18 @@ pub async fn set_role(
     Ok(())
 }
 
+/// Also drops the user's issue stars, views and work in the project (SAN-72).
 pub async fn delete_member(
     conn: &mut PgConnection,
     project_id: i64,
     user_id: i64,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "DELETE FROM member WHERE project_id = $1 AND user_id = $2",
+        "WITH gone AS (DELETE FROM member WHERE project_id = $1 AND user_id = $2),
+              stars AS (DELETE FROM issue_star s USING issue i
+                        WHERE i.id = s.issue_id AND i.project_id = $1 AND s.user_id = $2)
+         DELETE FROM issue_activity a USING issue i
+         WHERE i.id = a.issue_id AND i.project_id = $1 AND a.user_id = $2",
         project_id,
         user_id
     )

@@ -15,7 +15,10 @@ const register = async (page: Page, name: string) => {
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: `Hi, ${name}` })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: `Account (${name})` })
+  ).toBeVisible()
 }
 
 const landingHeading = (page: Page) =>
@@ -53,7 +56,10 @@ test('signed in, / is the app and /about is still the landing page', async ({
   await register(page, 'Lin')
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Hi, Lin' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Account (Lin)' })
+  ).toBeVisible()
   await expect(
     page.getByRole('banner').locator('img[src="/brand/mark.svg"]')
   ).toBeVisible()

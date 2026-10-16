@@ -7,7 +7,7 @@
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
     },
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -406,6 +406,92 @@
         }
       }
     },
+    "/api/me/issues": {
+      "get": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "my_issues",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "The lists of the home (\"For you\").",
+              "enum": [
+                "recommended",
+                "assigned",
+                "starred",
+                "worked",
+                "viewed"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 200, default 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Newest first across the caller's projects; `cursor` is an offset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_HomeIssue"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown view",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Limit out of range",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/legal": {
       "get": {
         "tags": [
@@ -481,6 +567,141 @@
           },
           "429": {
             "description": "Rate limited per account (D44); wait `Retry-After` seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/projects": {
+      "get": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "my_projects",
+        "responses": {
+          "200": {
+            "description": "The caller's projects: recently visited or worked first, then starred, then by key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MyProject"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/stars": {
+      "post": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "star",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Star"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Starred; starring again keeps the first time"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project or issue among the caller's projects",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/stars/{key}": {
+      "delete": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "unstar",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key (`WEB`) or issue key (`WEB-12`)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Not starred any more (also when it was not)"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such project or issue among the caller's projects",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2257,6 +2478,58 @@
         }
       }
     },
+    "/api/projects/{key}/issues/{number}/view": {
+      "post": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "view_issue",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "description": "Issue number, the N of KEY-N",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The browser session opened the issue: it joins the caller's Viewed list (at most once a minute). API tokens are ignored."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/{key}/labels": {
       "get": {
         "tags": [
@@ -3242,6 +3515,48 @@
         }
       }
     },
+    "/api/projects/{key}/visit": {
+      "post": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "visit_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The browser session opened the project: it moves up the caller's home (at most once a minute). API tokens are ignored."
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sample-project": {
       "post": {
         "tags": [
@@ -3476,14 +3791,15 @@
       },
       "AccountExport": {
         "type": "object",
-        "description": "Everything santi holds about the caller (D45): the account, its API tokens (names only) and\nevery project the caller administers, in full.",
+        "description": "Everything santi holds about the caller (D45): the account, its API tokens (names only),\nevery project the caller administers, in full, and the home's stars and history.",
         "required": [
           "exported_at",
           "user",
           "legal_acceptances",
           "api_tokens",
           "projects",
-          "other_projects"
+          "other_projects",
+          "home"
         ],
         "properties": {
           "api_tokens": {
@@ -3495,6 +3811,9 @@
           "exported_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "home": {
+            "$ref": "#/components/schemas/HomeExport"
           },
           "legal_acceptances": {
             "type": "array",
@@ -4207,6 +4526,78 @@
           }
         }
       },
+      "HomeExport": {
+        "type": "object",
+        "description": "D45: what the home keeps about the caller, with the times.",
+        "required": [
+          "projects",
+          "issues"
+        ],
+        "properties": {
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssueActivity"
+            },
+            "description": "Issues the caller starred, opened or worked on."
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectActivity"
+            },
+            "description": "Projects the caller starred or opened."
+          }
+        }
+      },
+      "HomeIssue": {
+        "type": "object",
+        "description": "One row of a home list, from any project the caller belongs to.",
+        "required": [
+          "key",
+          "summary",
+          "issue_type",
+          "status_category",
+          "project_key",
+          "project_name",
+          "starred",
+          "at"
+        ],
+        "properties": {
+          "assignee_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the row entered the list: last view, last write, star, or last change (assigned)."
+          },
+          "issue_type": {
+            "$ref": "#/components/schemas/IssueType"
+          },
+          "key": {
+            "type": "string"
+          },
+          "project_key": {
+            "type": "string"
+          },
+          "project_name": {
+            "type": "string"
+          },
+          "starred": {
+            "type": "boolean"
+          },
+          "status_category": {
+            "$ref": "#/components/schemas/StatusCategory"
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      },
       "ImportMapping": {
         "type": "object",
         "description": "The confirmed mapping; names are as they appear in the file.",
@@ -4530,6 +4921,39 @@
           }
         }
       },
+      "IssueActivity": {
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "starred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "viewed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "worked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Last create, edit, move or comment."
+          }
+        }
+      },
       "IssueType": {
         "type": "string",
         "enum": [
@@ -4693,6 +5117,47 @@
           }
         }
       },
+      "MyProject": {
+        "type": "object",
+        "description": "A project on the caller's home: recently visited or worked first, then starred, then by key.",
+        "required": [
+          "key",
+          "name",
+          "board_type",
+          "role",
+          "starred",
+          "open_assigned"
+        ],
+        "properties": {
+          "board_type": {
+            "$ref": "#/components/schemas/BoardType"
+          },
+          "key": {
+            "type": "string"
+          },
+          "lead_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The project's oldest admin account, if it has one."
+          },
+          "name": {
+            "type": "string"
+          },
+          "open_assigned": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Issues assigned to the caller that are not done."
+          },
+          "role": {
+            "$ref": "#/components/schemas/MemberRole"
+          },
+          "starred": {
+            "type": "boolean"
+          }
+        }
+      },
       "OpenIssuesDestination": {
         "oneOf": [
           {
@@ -4777,6 +5242,73 @@
                 "id": {
                   "type": "integer",
                   "format": "int64"
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "Page_HomeIssue": {
+        "type": "object",
+        "description": "One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "One row of a home list, from any project the caller belongs to.",
+              "required": [
+                "key",
+                "summary",
+                "issue_type",
+                "status_category",
+                "project_key",
+                "project_name",
+                "starred",
+                "at"
+              ],
+              "properties": {
+                "assignee_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When the row entered the list: last view, last write, star, or last change (assigned)."
+                },
+                "issue_type": {
+                  "$ref": "#/components/schemas/IssueType"
+                },
+                "key": {
+                  "type": "string"
+                },
+                "project_key": {
+                  "type": "string"
+                },
+                "project_name": {
+                  "type": "string"
+                },
+                "starred": {
+                  "type": "boolean"
+                },
+                "status_category": {
+                  "$ref": "#/components/schemas/StatusCategory"
+                },
+                "summary": {
+                  "type": "string"
                 }
               }
             }
@@ -5020,6 +5552,31 @@
           }
         }
       },
+      "ProjectActivity": {
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "starred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "visited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
       "ProjectExport": {
         "type": "object",
         "required": [
@@ -5227,6 +5784,18 @@
           "active",
           "closed"
         ]
+      },
+      "Star": {
+        "type": "object",
+        "description": "A project key (`WEB`) or an issue key (`WEB-12`).",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          }
+        }
       },
       "StartSprint": {
         "type": "object",

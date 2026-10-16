@@ -13,7 +13,10 @@ const register = async (page: Page, email: string) => {
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Hi, Sam' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Account (Sam)' })
+  ).toBeVisible()
 }
 
 test('the sample project opens a running sprint, and a second click reopens it', async ({

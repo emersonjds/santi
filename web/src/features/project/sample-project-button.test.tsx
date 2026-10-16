@@ -4,6 +4,7 @@ import { WEB, inProjects, problem, routeOf, signedIn } from '@/test/stub-api'
 
 const sample = () => ({
   'GET /api/projects': { status: 200, body: [] },
+  'GET /api/me/projects': { status: 200, body: [] },
   'POST /api/sample-project': { status: 201, body: WEB },
 })
 

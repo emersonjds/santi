@@ -33,6 +33,16 @@ impl log::Log for StatementCounter {
     fn flush(&self) {}
 }
 
+/// Name, method, URI, body, statement budget, expected status.
+type Budget = (
+    &'static str,
+    Method,
+    &'static str,
+    Option<Value>,
+    usize,
+    StatusCode,
+);
+
 const CEILING: Duration = Duration::from_millis(250);
 
 #[sqlx::test]
@@ -58,15 +68,30 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [(&str, Method, &str, Option<Value>, usize); 8] = [
-        ("board", Method::GET, "/api/projects/PERF/board", None, 4),
-        ("kanban", Method::GET, "/api/projects/FLOW/board", None, 4),
+    let budgets: [Budget; 18] = [
+        (
+            "board",
+            Method::GET,
+            "/api/projects/PERF/board",
+            None,
+            4,
+            StatusCode::OK,
+        ),
+        (
+            "kanban",
+            Method::GET,
+            "/api/projects/FLOW/board",
+            None,
+            4,
+            StatusCode::OK,
+        ),
         (
             "backlog",
             Method::GET,
             "/api/projects/PERF/backlog",
             None,
             4,
+            StatusCode::OK,
         ),
         (
             "issue",
@@ -74,6 +99,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             "/api/projects/PERF/issues/300",
             None,
             2,
+            StatusCode::OK,
         ),
         (
             "search",
@@ -81,6 +107,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             "/api/projects/PERF/issues?q=search%20index&type=bug&status=todo&parent=none&limit=50",
             None,
             2,
+            StatusCode::OK,
         ),
         (
             "move",
@@ -88,11 +115,99 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             "/api/projects/PERF/issues/500/move",
             Some(json!({ "after": "PERF-520" })),
             9,
+            StatusCode::OK,
         ),
-        ("labels", Method::GET, "/api/projects/PERF/labels", None, 2),
-        ("me", Method::GET, "/api/me", None, 2),
+        (
+            "labels",
+            Method::GET,
+            "/api/projects/PERF/labels",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        ("me", Method::GET, "/api/me", None, 2, StatusCode::OK),
+        (
+            "my projects",
+            Method::GET,
+            "/api/me/projects",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "star",
+            Method::POST,
+            "/api/me/stars",
+            Some(json!({ "key": "PERF-300" })),
+            2,
+            StatusCode::NO_CONTENT,
+        ),
+        (
+            "recommended",
+            Method::GET,
+            "/api/me/issues?view=recommended",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "assigned",
+            Method::GET,
+            "/api/me/issues?view=assigned",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "worked",
+            Method::GET,
+            "/api/me/issues?view=worked",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "starred",
+            Method::GET,
+            "/api/me/issues?view=starred",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "viewed",
+            Method::GET,
+            "/api/me/issues?view=viewed",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "view",
+            Method::POST,
+            "/api/projects/PERF/issues/300/view",
+            None,
+            2,
+            StatusCode::NO_CONTENT,
+        ),
+        (
+            "visit",
+            Method::POST,
+            "/api/projects/PERF/visit",
+            None,
+            2,
+            StatusCode::NO_CONTENT,
+        ),
+        (
+            "unstar",
+            Method::DELETE,
+            "/api/me/stars/PERF-300",
+            None,
+            2,
+            StatusCode::NO_CONTENT,
+        ),
     ];
-    for (name, method, uri, body, budget) in budgets {
+    for (name, method, uri, body, budget, expected) in budgets {
         let mut fastest = Duration::MAX;
         let mut statements = 0;
         let mut payload = Value::Null;
@@ -107,7 +222,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             payload = body_json(response).await;
             fastest = fastest.min(started.elapsed());
             statements = STATEMENTS.load(Ordering::SeqCst);
-            assert_eq!(status, StatusCode::OK, "{name}: {payload}");
+            assert_eq!(status, expected, "{name}: {payload}");
         }
         assert!(
             (1..=budget).contains(&statements),

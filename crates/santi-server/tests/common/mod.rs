@@ -87,6 +87,19 @@ impl TestApp {
         self.call(Method::PATCH, uri, Some(body)).await
     }
 
+    /// A body-less POST as the browser sends it: the session cookie of a fresh login, no Bearer token.
+    pub async fn browser_post(&self, email: &str, uri: &str) -> StatusCode {
+        let login = json!({ "email": email, "password": PASSWORD });
+        let request = json_request(Method::POST, "/api/auth/login", None, Some(login));
+        let response = self.send(request).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        let mut request = json_request(Method::POST, uri, None, None);
+        request
+            .headers_mut()
+            .insert(header::COOKIE, session_cookie(&response).parse().unwrap());
+        self.send(request).await.status()
+    }
+
     async fn call(&self, method: Method, uri: &str, body: Option<Value>) -> (StatusCode, Value) {
         let request = json_request(method, uri, self.token.as_deref(), body);
         let response = self.send(request).await;
