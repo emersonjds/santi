@@ -7,7 +7,7 @@ import { Skeleton } from '@/shared/ui/skeleton'
 
 const CARDS = 4
 const CARD = 'h-36 rounded-lg border'
-const GRID = 'grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-4'
+const GRID = 'grid grid-cols-2 gap-3 lg:grid-cols-4'
 
 const assignedLine = (count: number) =>
   count === 0
@@ -24,10 +24,13 @@ export const ProjectCardsSkeleton = () => (
 
 const ProjectCard = ({ project }: { project: MyProject }) => (
   <li
-    className={`${CARD} group relative flex flex-col bg-card p-4 transition-[background-color,border-color] duration-150 ease-out focus-within:ring-2 focus-within:ring-ring hover:border-input/60 hover:bg-hover`}
+    className={`${CARD} group relative flex flex-col bg-card p-3 transition-[background-color,border-color] duration-150 ease-out focus-within:ring-2 focus-within:ring-ring hover:border-input/60 hover:bg-hover sm:p-4`}
   >
     <div className='flex items-start gap-3'>
-      <ProjectAvatar name={project.name} className='size-10 text-base' />
+      <ProjectAvatar
+        name={project.name}
+        className='size-8 text-sm sm:size-10 sm:text-base'
+      />
       <div className='grid min-w-0 flex-1'>
         <Link
           to='/p/$key'
@@ -39,7 +42,7 @@ const ProjectCard = ({ project }: { project: MyProject }) => (
         <span className='text-xs text-muted-foreground'>Software project</span>
       </div>
     </div>
-    <p className='mt-auto truncate text-xs text-muted-foreground'>
+    <p className='mt-auto line-clamp-2 text-xs text-muted-foreground'>
       {assignedLine(project.open_assigned)}
     </p>
     <div className='mt-2 flex items-center justify-between'>
