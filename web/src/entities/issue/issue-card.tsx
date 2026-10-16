@@ -28,6 +28,33 @@ export const SubtaskCount = ({ card }: { card: Card }) =>
     </span>
   )
 
+/** SAN-101: two labels on one line, then how many more; the rest on hover. */
+export const LabelChips = ({ labels }: { labels: string[] }) => {
+  if (labels.length === 0) return null
+  const rest = labels.slice(2)
+  return (
+    <span className='flex min-w-0 items-center gap-1'>
+      {labels.slice(0, 2).map((label) => (
+        <span
+          key={label}
+          title={label}
+          className='max-w-20 min-w-0 truncate rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'
+        >
+          {label}
+        </span>
+      ))}
+      {rest.length > 0 && (
+        <span
+          title={rest.join(', ')}
+          className='shrink-0 text-xs text-muted-foreground tabular-nums'
+        >
+          +{rest.length}
+        </span>
+      )}
+    </span>
+  )
+}
+
 type IssueCardProps = { card: Card; projectKey: string; menu?: ReactNode }
 
 export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
@@ -60,6 +87,7 @@ export const IssueCard = memo(({ card, projectKey, menu }: IssueCardProps) => (
         {card.key}
       </span>
       <SubtaskCount card={card} />
+      <LabelChips labels={card.labels} />
       <span className='ms-auto flex items-center gap-2'>
         {card.points != null && (
           <span
