@@ -339,3 +339,32 @@ test('on a phone, the Filters sheet applies a filter', async ({ page }) => {
   await expect(todo.getByRole('article')).toHaveCount(1)
   await expect(todo).toContainText('Gamma task')
 })
+
+test('delete an issue with its subtask from the card menu; a reload shows neither', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  await api(page, 'POST', `/api/projects/${key}/issues`, {
+    summary: 'Delta step',
+    issue_type: 'subtask',
+    parent: `${key}-1`,
+  })
+  await page.reload()
+  const todo = column(page, 'To Do')
+  await expect(todo).toContainText('Delta step')
+
+  await todo.getByRole('button', { name: `Actions for ${key}-1` }).click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  const confirm = page.getByRole('alertdialog', { name: `Delete ${key}-1?` })
+  await expect(confirm).toContainText('Also deleted: 1 subtask.')
+  const deleted = page.waitForResponse(
+    (response) => response.request().method() === 'DELETE'
+  )
+  await confirm.getByRole('button', { name: 'Delete issue' }).click()
+  expect((await deleted).status()).toBe(204)
+
+  await page.reload()
+  await expect(todo).toContainText('Beta task')
+  await expect(todo).not.toContainText('Alpha task')
+  await expect(todo).not.toContainText('Delta step')
+})
