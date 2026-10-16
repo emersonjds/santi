@@ -30,5 +30,29 @@
     </div>
     <button class="button" type="submit">Save changes</button>
   </form>
+  <section class="comments" id="comments" aria-labelledby="comments-title">
+    <h2 id="comments-title">Comments</h2>
+    {%- if comments.is_empty() %}
+    <p class="lede">No comments yet.</p>
+    {%- endif %}
+    <ol class="comment-list">
+      {%- for comment in comments %}
+      <li class="comment">
+        <p class="comment-meta"><strong>{{ comment.author }}</strong> <time datetime="{{ comment.created_at.to_rfc3339() }}">{{ comment.created_at.format("%b %-d, %H:%M UTC") }}</time></p>
+        <p class="comment-body">{{ comment.body }}</p>
+      </li>
+      {%- endfor %}
+    </ol>
+    <form class="stack" method="post" action="/p/{{ shell.current }}/issues/{{ issue.number }}/comments">
+      <div class="field">
+        <label for="body">Add a comment</label>
+        <textarea id="body" name="body" rows="3" required{% if !self.error("body").is_empty() %} aria-invalid="true" aria-describedby="body-error"{% endif %}>{{ comment }}</textarea>
+        {%- if !self.error("body").is_empty() %}
+        <p class="field-error" id="body-error">Comment {{ self.error("body") }}.</p>
+        {%- endif %}
+      </div>
+      <button class="button" type="submit">Comment</button>
+    </form>
+  </section>
 </div>
 {% endblock %}

@@ -3,23 +3,27 @@ use axum::Router;
 use axum::extract::{Form, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
+use chrono::{DateTime, Utc};
 use santi_types::FieldError;
 use santi_types::boards::Status;
-use santi_types::issues::{Issue, MoveIssue, UpdateIssue};
+use santi_types::issues::{CreateComment, Issue, IssueFilter, MoveIssue, PageParams, UpdateIssue};
 use serde::Deserialize;
 
 use super::service;
 use crate::AppState;
 use crate::auth::extract::CurrentUser;
-use crate::boards;
 use crate::error::AppError;
-use crate::extract::PathParams;
-use crate::members::Member;
+use crate::extract::{PathParams, QueryParams};
+use crate::members::{self, Member};
 use crate::web::{PageUser, Shell, render, shell};
+use crate::{boards, pagination};
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/p/{key}/issues/{number}", get(issue_page).post(edit_issue))
+    Router::new()
+        .route("/p/{key}/issues/{number}", get(issue_page).post(edit_issue))
+        .route("/p/{key}/issues/{number}/comments", post(add_comment))
+        .route("/p/{key}/search", get(search_page))
 }
 
 #[derive(Deserialize)]
@@ -38,7 +42,24 @@ struct IssuePage {
     statuses: Vec<Status>,
     status_name: String,
     edit: EditIssue,
+    comments: Vec<CommentView>,
+    /// Typed text of a refused comment.
+    comment: String,
     errors: Vec<FieldError>,
+}
+
+struct CommentView {
+    author: String,
+    created_at: DateTime<Utc>,
+    body: String,
+}
+
+#[derive(Template)]
+#[template(path = "app/search.html")]
+struct SearchPage {
+    shell: Shell,
+    q: String,
+    issues: Vec<Issue>,
 }
 
 impl IssuePage {
@@ -132,12 +153,80 @@ async fn load_issue_page(
         .into_iter()
         .filter(|status| status.column_id.is_some())
         .collect();
+    // ponytail: first 200 comments; page with next_cursor when issues get longer threads.
+    let first_page = PageParams {
+        limit: Some(pagination::MAX_LIMIT),
+        cursor: None,
+    };
+    let comments = service::list_comments(&state.pool, member, issue.number, first_page).await?;
+    let people = members::service::list_members(&state.pool, member).await?;
+    let comments = comments
+        .items
+        .into_iter()
+        .map(|comment| CommentView {
+            author: people
+                .iter()
+                .find(|person| person.user_id == comment.author_id)
+                .map_or_else(
+                    || "Former member".into(),
+                    |person| person.display_name.clone(),
+                ),
+            created_at: comment.created_at,
+            body: comment.body,
+        })
+        .collect();
     Ok(IssuePage {
         shell: shell(&state.pool, user, &member.project_key).await?,
         issue,
         statuses,
         status_name,
         edit,
+        comments,
+        comment: String::new(),
         errors,
     })
+}
+
+async fn add_comment(
+    State(state): State<AppState>,
+    PageUser(user): PageUser,
+    member: Member,
+    PathParams((_key, number)): PathParams<(String, i64)>,
+    Form(input): Form<CreateComment>,
+) -> Result<Response, AppError> {
+    let typed = input.body.clone();
+    let errors = match service::add_comment(&state.pool, &member, number, input).await {
+        Ok(_) => {
+            let path = format!("/p/{}/issues/{number}#comments", member.project_key);
+            return Ok(Redirect::to(&path).into_response());
+        }
+        Err(AppError::Validation(errors)) => errors,
+        Err(error) => return Err(error),
+    };
+    let issue = service::get_issue(&state.pool, &member, number).await?;
+    let edit = EditIssue {
+        summary: issue.summary.clone(),
+        description: issue.description.clone(),
+        status_id: issue.status_id,
+    };
+    let mut page = load_issue_page(&state, &user, &member, issue, edit, errors).await?;
+    page.comment = typed;
+    render(StatusCode::UNPROCESSABLE_ENTITY, &page)
+}
+
+// ponytail: first page only (50 by id); add next links when projects outgrow it.
+async fn search_page(
+    State(state): State<AppState>,
+    PageUser(user): PageUser,
+    member: Member,
+    QueryParams(filter): QueryParams<IssueFilter>,
+) -> Result<Response, AppError> {
+    let q = filter.q.clone().unwrap_or_default();
+    let found = service::search_issues(&state.pool, &member, filter, PageParams::default()).await?;
+    let page = SearchPage {
+        shell: shell(&state.pool, &user, &member.project_key).await?,
+        q,
+        issues: found.items,
+    };
+    render(StatusCode::OK, &page)
 }

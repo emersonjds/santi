@@ -5,6 +5,10 @@
 <header class="project-head">
   <p class="key">{{ project.key }}</p>
   <h1 class="greeting">{{ project.name }}</h1>
+  <form class="search" method="get" action="/p/{{ project.key }}/search" role="search">
+    <input type="search" name="q" aria-label="Search issues in {{ project.name }}" placeholder="Search issues">
+    <button class="icon-button" type="submit" aria-label="Search">{{ ui::icon("search") }}</button>
+  </form>
 </header>
 <section class="board-area" aria-labelledby="board-title">
   <h2 id="board-title" class="visually-hidden">Board</h2>
@@ -23,16 +27,21 @@
     </div>
     <button class="button" type="submit">{{ ui::icon("plus") }}<span>Create issue</span></button>
   </form>
+  {% block board %}
+  <div id="board">
+    {%- if let Some(error) = move_error %}
+    <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>{{ error }}</span></p>
+    {%- endif %}
   <div class="board">
     {%- for column in board.columns %}
-    <section class="column" aria-labelledby="column-{{ column.id }}">
+    <section class="column" data-column="{{ column.id }}" aria-labelledby="column-{{ column.id }}">
       <h3 class="column-head" id="column-{{ column.id }}">
         <span>{{ column.name }}</span>
         <span class="count{% if column.over_limit %} over-limit{% endif %}">{{ column.issue_count }}{% if let Some(limit) = column.wip_limit %} of {{ limit }}{% endif %}</span>
       </h3>
       <ul class="column-cards">
         {%- for card in column.cards %}
-        <li>
+        <li class="card-slot" draggable="true" data-key="{{ card.key }}" data-move="{{ self.issue_path(card.key) }}/move">
           <a class="issue-card" href="{{ self.issue_path(card.key) }}">
             <span class="issue-title">{{ card.summary }}</span>
             <span class="issue-meta">
@@ -43,12 +52,31 @@
               {%- endif %}
             </span>
           </a>
+          <details class="move-to">
+            <summary>{{ ui::icon("move") }}<span>Move to…</span></summary>
+            <form method="post" action="{{ self.issue_path(card.key) }}/move" hx-post="{{ self.issue_path(card.key) }}/move" hx-target="#board" hx-swap="outerHTML">
+              <label for="move-{{ card.id }}-column">Column</label>
+              <select id="move-{{ card.id }}-column" name="column_id">
+                {%- for target in board.columns %}
+                <option value="{{ target.id }}"{% if target.id == column.id %} selected{% endif %}>{{ target.name }}</option>
+                {%- endfor %}
+              </select>
+              <label for="move-{{ card.id }}-place">Place</label>
+              <select id="move-{{ card.id }}-place" name="place">
+                <option value="top">Top</option>
+                <option value="bottom" selected>Bottom</option>
+              </select>
+              <button class="button" type="submit">Move {{ card.key }}</button>
+            </form>
+          </details>
         </li>
         {%- endfor %}
       </ul>
     </section>
     {%- endfor %}
   </div>
+  </div>
+  {% endblock %}
 </section>
 <section class="panel" aria-labelledby="members-title">
   <h2 id="members-title">Members</h2>
