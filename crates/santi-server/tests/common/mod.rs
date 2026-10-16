@@ -157,6 +157,14 @@ pub fn page(uri: &str, cookie: Option<&str>) -> Request<Body> {
     builder.body(Body::empty()).unwrap()
 }
 
+/// A request as htmx sends it: pages answer with their fragment instead of the whole document.
+pub fn htmx(mut request: Request<Body>) -> Request<Body> {
+    request
+        .headers_mut()
+        .insert("hx-request", "true".parse().unwrap());
+    request
+}
+
 pub async fn text(response: Response) -> String {
     let bytes = response.into_body().collect().await.unwrap().to_bytes();
     String::from_utf8(bytes.to_vec()).unwrap()

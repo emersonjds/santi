@@ -1,0 +1,24 @@
+{#- One board card; expects `card` and the page's `issue_path`. Opens the issue dialog (D1). #}
+{%- let path = self.issue_path(card.key) %}
+<a class="grid gap-2 rounded-md border border-border bg-raised p-3 pr-11 text-sm shadow-xs hover:border-primary" href="{{ path }}" hx-get="{{ path }}" hx-target="#dialog-body" hx-swap="innerHTML" data-push>
+  {%- if let Some(parent) = card.parent_key %}
+  <span class="w-fit rounded-sm bg-hover px-1.5 text-xs tabular-nums text-text-muted">{{ parent }}</span>
+  {%- endif %}
+  <span class="line-clamp-2">{{ card.summary }}</span>
+  <span class="flex min-h-6 items-center gap-2 text-xs">
+    {{ issue::type_glyph(card.issue_type) }}
+    <span class="tabular-nums tracking-wide text-text-subtle">{{ card.key }}</span>
+    {%- if card.total_subtasks > 0 %}
+    <span class="inline-flex items-center gap-1 rounded-full bg-hover px-1.5 tabular-nums text-text-muted" title="{{ card.open_subtasks }} of {{ card.total_subtasks }} subtasks open">{{ ui::icon("list-tree", "size-3.5") }}{{ card.open_subtasks }}/{{ card.total_subtasks }}</span>
+    {%- endif %}
+    <span class="ml-auto flex items-center gap-2">
+      {%- if let Some(points) = card.points %}
+      {{ issue::points_pill(points) }}
+      {%- endif %}
+      {{ issue::priority_glyph(card.priority) }}
+      {%- if let Some(name) = card.assignee_name %}
+      <span class="grid size-6 place-items-center rounded-full bg-selected-strong text-[0.6875rem] font-bold text-primary" title="Assigned to {{ name }}">{{ crate::web::initials(name) }}</span>
+      {%- endif %}
+    </span>
+  </span>
+</a>

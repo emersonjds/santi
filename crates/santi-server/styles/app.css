@@ -1,6 +1,7 @@
 /* Source of static/app.css (D35): run scripts/css.sh after editing this file or a template. */
 @import "tailwindcss" source(none);
 @source "../templates";
+@source "../src/issues/web.rs";
 
 /* D36 semantic tokens; templates use these names only, never raw hex or scale steps. */
 @theme {
@@ -243,6 +244,7 @@
   .sheet fieldset label { display: flex; align-items: center; gap: 0.5rem; min-height: 2.75rem; }
   .board-sprint { padding: 0 0 0.75rem; }
   .backlog-rows { display: grid; gap: 0.5rem; min-height: 3.5rem; padding: 0 0.75rem 0.75rem; }
+  .drop-slot { min-height: 3rem; border: 2px dashed var(--color-primary); border-radius: 0.375rem; background: var(--color-selected); list-style: none; }
   .drop-hint { padding: 0.75rem; border: 1px dashed var(--color-control); border-radius: 0.375rem; color: var(--color-text-subtle); font-size: 0.875rem; }
   #board > .alert, #backlog > .alert { margin-top: 1.25rem; }
 

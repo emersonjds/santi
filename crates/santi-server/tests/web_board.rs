@@ -1,8 +1,7 @@
 mod common;
 
-use axum::body::Body;
-use axum::http::{Request, StatusCode};
-use common::{PASSWORD, TestApp, form, location, page, session_cookie, text};
+use axum::http::StatusCode;
+use common::{PASSWORD, TestApp, form, htmx, location, page, session_cookie, text};
 use serde_json::json;
 use sqlx::PgPool;
 
@@ -15,14 +14,6 @@ async fn board_owner(pool: PgPool) -> (TestApp, String) {
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     let cookie = session_cookie(&response);
     (ana, cookie)
-}
-
-/// A request as htmx sends it: the board answers with its fragment instead of a redirect.
-fn htmx(mut request: Request<Body>) -> Request<Body> {
-    request
-        .headers_mut()
-        .insert("hx-request", "true".parse().unwrap());
-    request
 }
 
 /// Card keys of one column, top to bottom, as the board HTML lists them.
@@ -270,7 +261,7 @@ async fn board_shows_columns_cards_and_the_create_form(pool: PgPool) {
     assert!(html.contains("Fix login"));
     assert!(html.contains("Story"));
     assert!(html.contains(r#"href="/p/SANTI/issues/1""#));
-    assert!(html.contains(r#"title="Assigned to ana@example.com">A</abbr>"#));
+    assert!(html.contains(r#"title="Assigned to ana@example.com""#));
     assert!(html.contains(r#"action="/p/SANTI/issues""#));
     assert!(html.contains(r#"name="summary""#));
     assert!(html.contains(r#"name="issue_type""#));
@@ -463,4 +454,120 @@ async fn board_without_a_todo_status_explains_why_it_cannot_create(pool: PgPool)
 
     assert_eq!(response.status(), StatusCode::CONFLICT);
     assert!(text(response).await.contains("Map a to-do status"));
+}
+
+/// The opening `<section …>` tag of one board column.
+fn column_tag(html: &str, column_id: i64) -> &str {
+    let start = html
+        .find(&format!(r#"<section data-column="{column_id}""#))
+        .expect("column on the board");
+    let tag = &html[start..];
+    &tag[..tag.find('>').unwrap()]
+}
+
+#[sqlx::test]
+async fn cards_show_type_priority_points_subtasks_and_assignee(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    let parent = json!({ "summary": "Fix login", "priority": "urgent", "points": 3.0, "assignee_id": ana.user_id });
+    ana.create_issue("SANTI", parent).await;
+    ana.create_issue("SANTI", json!({ "summary": "Reset form", "issue_type": "subtask", "parent": "SANTI-1", "priority": "low" }))
+        .await;
+
+    let html = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
+
+    assert!(html.contains(r#"title="Story""#));
+    assert!(html.contains(r#"title="Subtask""#));
+    assert!(html.contains(r#"title="Urgent priority""#));
+    assert!(html.contains(r#"title="Low priority""#));
+    assert!(html.contains(r#"aria-label="3 points""#));
+    assert!(html.contains(r#"title="1 of 1 subtasks open""#));
+    assert!(html.contains(r#"title="Assigned to ana@example.com""#));
+    assert!(html.contains(r#"hx-get="/p/SANTI/issues/1""#));
+}
+
+#[sqlx::test]
+async fn card_menu_assigns_and_sets_priority(pool: PgPool) {
+    let (ana, cookie) = board_with_issues(pool, 1).await;
+    let me = ana.user_id;
+
+    let html = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
+    let assigned = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1",
+            &format!("assignee={me}"),
+            Some(&cookie),
+        )))
+        .await;
+    let prioritized = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1",
+            "priority=high",
+            Some(&cookie),
+        )))
+        .await;
+
+    assert!(html.contains(r#"name="assignee""#));
+    assert!(html.contains(r#"name="priority""#));
+    assert!(html.contains(r#"data-copy="SANTI-1""#));
+    assert!(!html.contains("Delete"));
+    assert_eq!(assigned.status(), StatusCode::OK);
+    assert_eq!(assigned.headers()["hx-trigger"], "issue-saved");
+    assert_eq!(prioritized.status(), StatusCode::OK);
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    assert_eq!(issue["assignee_id"], me);
+    assert_eq!(issue["priority"], "high");
+    assert_eq!(issue["summary"], "issue 1");
+    ana.send(form("/p/SANTI/issues/1", "assignee=", Some(&cookie)))
+        .await;
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    assert!(issue["assignee_id"].is_null());
+}
+
+#[sqlx::test]
+async fn column_query_keeps_one_column_on_small_screens(pool: PgPool) {
+    let (ana, cookie) = board_with_issues(pool, 1).await;
+    let todo = ana.column_id("SANTI", "To Do").await;
+    let doing = ana.column_id("SANTI", "In Progress").await;
+
+    let first = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
+    let picked = text(
+        ana.send(page(
+            &format!("/p/SANTI/board?column={doing}"),
+            Some(&cookie),
+        ))
+        .await,
+    )
+    .await;
+
+    assert!(!column_tag(&first, todo).contains("max-md:hidden"));
+    assert!(column_tag(&first, doing).contains("max-md:hidden"));
+    assert!(column_tag(&picked, todo).contains("max-md:hidden"));
+    assert!(!column_tag(&picked, doing).contains("max-md:hidden"));
+    assert!(picked.contains(&format!(
+        r#"href="/p/SANTI/board?column={doing}" aria-current="true""#
+    )));
+}
+
+#[sqlx::test]
+async fn board_filters_by_assignee_from_the_url(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    let me = ana.user_id;
+    ana.create_issue("SANTI", json!({ "summary": "Mine", "assignee_id": me }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Nobody's" }))
+        .await;
+
+    let all = text(ana.send(page("/p/SANTI/board", Some(&cookie))).await).await;
+    let mine_uri = format!("/p/SANTI/board?assignee={me}");
+    let mine = text(ana.send(page(&mine_uri, Some(&cookie))).await).await;
+    let fragment = text(ana.send(htmx(page(&mine_uri, Some(&cookie)))).await).await;
+
+    assert!(all.contains(&format!(r#"href="/p/SANTI/board?assignee={me}""#)));
+    assert!(all.contains("Only my issues"));
+    assert!(mine.contains("SANTI-1"));
+    assert!(!mine.contains("SANTI-2"));
+    assert!(mine.contains(r#"aria-pressed="true""#));
+    assert!(!fragment.contains("<html"));
+    assert!(fragment.contains(r#"id="board""#));
+    assert!(fragment.contains("SANTI-1"));
 }
