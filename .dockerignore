@@ -1,0 +1,17 @@
+.git
+.github
+.claude
+target
+research
+docs
+**/node_modules
+**/*.md
+!web/**/*.md
+web/dist
+web/coverage
+web/test-results
+web/playwright-report
+web/.vitest-attachments
+web/.tanstack
+.env
+**/.DS_Store

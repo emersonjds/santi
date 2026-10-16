@@ -98,6 +98,7 @@ jobs:
       - run: pnpm test:coverage
       - run: pnpm build
       - run: pnpm size
+      - run: pnpm audit --prod
       - name: Generated API types match the committed openapi.json
         run: pnpm gen:api && git diff --exit-code src/shared/api/schema.d.ts
 
@@ -145,3 +146,10 @@ jobs:
           exit 1
       - run: pnpm e2e
         working-directory: web
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t santi:ci .
+      - run: docker image ls santi:ci

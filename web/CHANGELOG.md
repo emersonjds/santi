@@ -1,7 +1,5 @@
 # Changelog
 
-UI changes of `web/`; server changes are in the release notes (D38).
-
-## Unreleased
-
-- SPA bootstrap on shadcn-admin `e16c87f`: sign in, sign up, sign out, empty home, served at `/app`.
+UI changes ship with the server in one image and one version (D38); they are listed in the
+repository's [CHANGELOG.md](../CHANGELOG.md). This file takes its own entries again if the UI
+moves to its own repository.
