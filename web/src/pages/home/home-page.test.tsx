@@ -395,6 +395,28 @@ describe('home', () => {
       .not.toHaveClass('text-muted-foreground')
   })
 
+  it('moves the row status next to the key on a 375px phone, so the summary keeps the width', async () => {
+    await page.viewport(375, 800)
+    inProjects({
+      'GET /api/me/issues': pageOf([
+        homeIssue({
+          key: 'WEB-7',
+          summary: 'Ship the beta',
+          status_category: 'done',
+        }),
+      ]),
+    })
+    const { screen } = await renderApp('/')
+    const row = screen
+      .getByRole('tabpanel', { name: 'Recommended' })
+      .getByRole('listitem')
+
+    await expect.element(row.getByText('Done •')).toBeVisible()
+    await expect
+      .element(row.getByText('Done', { exact: true }))
+      .not.toBeVisible()
+  })
+
   it('loads more rows on demand', async () => {
     inProjects({
       'GET /api/me/issues': {
