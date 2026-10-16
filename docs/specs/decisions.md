@@ -142,6 +142,7 @@ Market: Jira and Linear both persist filter toggles per viewer across sessions/d
 Product vote: A — store per user per board server-side; trivial given the existing member/board relation, and follows the user across devices unlike local storage.
 Architecture vote: D — filters live in the board URL (`?assignee=…&type=…`, htmx `hx-push-url`): bookmarkable, shareable in a standup chat, back/forward work, read by the server on render. A needs a table, a write per toggle, a URL-vs-stored precedence rule, and silently restores filters the user forgot (cards look missing).
 Winner: D — visible, shareable state with zero schema; accepted: opening the board from navigation shows it unfiltered on any device. Upgrade path: store the last query string per member if users ask.
+Amended (SAN-33): the predefined "recently updated" filter (SB-26) is `?recently_updated=true` on board, backlog and search, matching issues whose `updated_at` falls in the last 24 hours. `issue.updated_at` is kept by triggers (migration 0009): any change to the row, a comment, or a child added under or moved between parents bumps it; a write that sets `updated_at` itself wins (imports). Triggers over service code so no write path, FK cascade or sprint close can forget it, at zero extra round trips (D39). Board and backlog filter in Rust after their one query, so no index; search adds one predicate to its project-scoped keyset scan.
 
 ## D19 — Primary keys
 Context: every table needs an id; issues are addressed publicly by `KEY-N` (D20), the rest by id.

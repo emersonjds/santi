@@ -1,3 +1,4 @@
+use chrono::Utc;
 use santi_types::boards::{
     Backlog, BoardSettings, BoardView, CreateColumn, CreateStatus, DeleteColumnParams,
     ReorderColumns, Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
@@ -49,7 +50,7 @@ pub async fn board_view(
     Ok(BoardView {
         board_type: member.board_type,
         sprint,
-        columns: domain::build_board_columns(columns, cards, filter),
+        columns: domain::build_board_columns(columns, cards, filter, Utc::now()),
     })
 }
 
@@ -64,7 +65,7 @@ pub async fn backlog(
     let cards = repo::backlog_cards(&mut conn, member.project_id).await?;
     let epics = repo::epic_summaries(&mut conn, member.project_id).await?;
     Ok(Backlog {
-        sections: domain::build_backlog_sections(sprints, cards, filter),
+        sections: domain::build_backlog_sections(sprints, cards, filter, Utc::now()),
         epics,
     })
 }

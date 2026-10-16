@@ -2,7 +2,9 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use santi_types::Problem;
-use santi_types::projects::{AddMember, CreateInvite, Invite, MemberInfo, Project, SetRole};
+use santi_types::projects::{
+    AddMember, CreateInvite, Invite, InvitePreview, MemberInfo, Project, SetRole,
+};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -17,6 +19,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(list_members, add_member))
         .routes(routes!(set_role, remove_member))
         .routes(routes!(create_invite))
+        .routes(routes!(preview_invite))
         .routes(routes!(accept_invite))
 }
 
@@ -117,4 +120,19 @@ pub async fn accept_invite(
     Ok(Json(
         service::accept_invite(&state.pool, &user, &token).await?,
     ))
+}
+
+#[utoipa::path(get, path = "/api/invites/{token}", tag = "members",
+    params(("token" = String, Path, description = "Invite token")),
+    responses(
+        (status = 200, body = InvitePreview, description = "What accepting the invite grants"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown token"),
+        (status = 410, body = Problem, content_type = "application/problem+json", description = "`invite-used` or `invite-expired`")))]
+pub async fn preview_invite(
+    State(state): State<AppState>,
+    _user: CurrentUser,
+    PathParams(token): PathParams<String>,
+) -> Result<Json<InvitePreview>, AppError> {
+    Ok(Json(service::preview_invite(&state.pool, &token).await?))
 }

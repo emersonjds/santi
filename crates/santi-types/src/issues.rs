@@ -78,6 +78,8 @@ pub struct Issue {
     pub rank: String,
     pub done_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
+    /// Last change a viewer can see: a field edit, a move, sprint planning, a comment or a child.
+    pub updated_at: DateTime<Utc>,
 }
 
 /// Absent fields stay as they are; `null` clears a nullable field.
@@ -114,6 +116,14 @@ pub struct UpdateIssue {
     )]
     #[schema(value_type = Option<String>)]
     pub parent: Option<Option<String>>,
+    /// Plans the issue (and its subtasks) into a sprint; `null` sends it to the backlog. Scrum only.
+    #[serde(
+        default,
+        deserialize_with = "crate::nullable_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Option<i64>)]
+    pub sprint_id: Option<Option<i64>>,
 }
 
 impl IssueType {
@@ -238,4 +248,7 @@ pub struct IssueFilter {
     /// Free text matched against the summary, ignoring case.
     #[serde(default)]
     pub q: Option<String>,
+    /// Only issues updated in the last 24 hours (SB-26, D18).
+    #[serde(default)]
+    pub recently_updated: bool,
 }

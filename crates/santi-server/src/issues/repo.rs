@@ -65,7 +65,7 @@ pub async fn find_issue(
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
                   i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
            LEFT JOIN issue parent ON parent.id = i.parent_id
@@ -112,7 +112,7 @@ pub async fn find_editable_for_update(
     sqlx::query_as!(
         EditableIssue,
         r#"SELECT id, summary, description, issue_type AS "issue_type: IssueType", priority AS "priority: Priority",
-                  assignee_id, points, labels, parent_id
+                  assignee_id, points, labels, parent_id, sprint_id
            FROM issue WHERE project_id = $1 AND number = $2
            FOR UPDATE"#,
         project_id,
@@ -305,7 +305,7 @@ pub async fn search_issues(
         r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.number, i.summary, i.description,
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
                   i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
            LEFT JOIN issue parent ON parent.id = i.parent_id
@@ -316,8 +316,9 @@ pub async fn search_issues(
              AND (cardinality($5::text[]) = 0 OR i.labels && $5)
              AND (cardinality($6::bigint[]) = 0 OR parent.number = ANY($6))
              AND ($7::text IS NULL OR i.summary ILIKE $7)
+             AND ($8::timestamptz IS NULL OR i.updated_at > $8)
            ORDER BY i.id
-           LIMIT $8"#,
+           LIMIT $9"#,
         project_id,
         after_id,
         &query.assignee_ids[..],
@@ -325,6 +326,7 @@ pub async fn search_issues(
         &query.labels[..],
         &query.parent_numbers[..],
         query.pattern.as_deref(),
+        query.updated_since,
         limit
     )
     .fetch_all(&mut *conn)

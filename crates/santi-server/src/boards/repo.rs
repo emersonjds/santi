@@ -306,7 +306,8 @@ pub async fn board_cards(
                   i.status_id, s.column_id AS "column_id!", i.assignee_id,
                   assignee.display_name AS "assignee_name?", i.points, i.labels,
                   p.key || '-' || parent.number AS parent_key, i.sprint_id,
-                  sub.open_count AS "open_subtasks!", sub.total_count AS "total_subtasks!", i.rank
+                  sub.open_count AS "open_subtasks!", sub.total_count AS "total_subtasks!", i.rank,
+                  i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
            JOIN board b ON b.project_id = p.id
@@ -346,7 +347,8 @@ pub async fn backlog_cards(
                   assignee.display_name AS "assignee_name?", i.points, i.labels,
                   p.key || '-' || parent.number AS parent_key,
                   CASE WHEN sprint.state = 'closed' THEN NULL ELSE i.sprint_id END AS sprint_id,
-                  coalesce(sub.open_count, 0) AS "open_subtasks!", coalesce(sub.total_count, 0) AS "total_subtasks!", i.rank
+                  coalesce(sub.open_count, 0) AS "open_subtasks!", coalesce(sub.total_count, 0) AS "total_subtasks!", i.rank,
+                  i.updated_at
            FROM issue i
            JOIN project p ON p.id = i.project_id
            JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL

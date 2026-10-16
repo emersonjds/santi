@@ -52,6 +52,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/invites/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["preview_invite"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/invites/{token}/accept": {
         parameters: {
             query?: never;
@@ -556,6 +572,8 @@ export interface components {
             summary: string;
             /** Format: int64 */
             total_subtasks: number;
+            /** Format: date-time */
+            updated_at: string;
         };
         Column: {
             /** Format: int64 */
@@ -659,6 +677,15 @@ export interface components {
             expires_at: string;
             token: string;
         };
+        /** @description What an invite link offers, shown before accepting it. */
+        InvitePreview: {
+            /** Format: date-time */
+            expires_at: string;
+            inviter_name: string;
+            project_key: string;
+            project_name: string;
+            role: components["schemas"]["MemberRole"];
+        };
         Issue: {
             /** Format: int64 */
             assignee_id?: number | null;
@@ -686,6 +713,11 @@ export interface components {
             /** Format: int64 */
             status_id: number;
             summary: string;
+            /**
+             * Format: date-time
+             * @description Last change a viewer can see: a field edit, a move, sprint planning, a comment or a child.
+             */
+            updated_at: string;
         };
         /** @enum {string} */
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
@@ -774,6 +806,11 @@ export interface components {
                 /** Format: int64 */
                 status_id: number;
                 summary: string;
+                /**
+                 * Format: date-time
+                 * @description Last change a viewer can see: a field edit, a move, sprint planning, a comment or a child.
+                 */
+                updated_at: string;
             }[];
             /** Format: int64 */
             next_cursor?: number | null;
@@ -876,6 +913,11 @@ export interface components {
             /** Format: double */
             points?: number | null;
             priority?: components["schemas"]["Priority"] | null;
+            /**
+             * Format: int64
+             * @description Plans the issue (and its subtasks) into a sprint; `null` sends it to the backlog. Scrum only.
+             */
+            sprint_id?: number | null;
             summary?: string | null;
         };
         UpdateSprint: {
@@ -998,6 +1040,55 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    preview_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Invite token */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What accepting the invite grants */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitePreview"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown token */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `invite-used` or `invite-expired` */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1199,6 +1290,8 @@ export interface operations {
                 parent?: string[];
                 /** @description Free text matched against the summary, ignoring case. */
                 q?: string;
+                /** @description Only issues updated in the last 24 hours (SB-26, D18). */
+                recently_updated?: boolean;
             };
             header?: never;
             path: {
@@ -1264,6 +1357,8 @@ export interface operations {
                 parent?: string[];
                 /** @description Free text matched against the summary, ignoring case. */
                 q?: string;
+                /** @description Only issues updated in the last 24 hours (SB-26, D18). */
+                recently_updated?: boolean;
             };
             header?: never;
             path: {
@@ -1694,6 +1789,8 @@ export interface operations {
                 parent?: string[];
                 /** @description Free text matched against the summary, ignoring case. */
                 q?: string;
+                /** @description Only issues updated in the last 24 hours (SB-26, D18). */
+                recently_updated?: boolean;
                 /** @description 1 to 200, default 50. */
                 limit?: number;
                 cursor?: number;

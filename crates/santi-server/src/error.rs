@@ -12,6 +12,7 @@ pub enum AppError {
     Forbidden,
     NotFound,
     Conflict { slug: &'static str, detail: String },
+    Gone { slug: &'static str, detail: String },
     Internal(String),
 }
 
@@ -25,6 +26,13 @@ impl AppError {
 
     pub fn conflict(slug: &'static str, detail: &str) -> Self {
         AppError::Conflict {
+            slug,
+            detail: detail.into(),
+        }
+    }
+
+    pub fn gone(slug: &'static str, detail: &str) -> Self {
+        AppError::Gone {
             slug,
             detail: detail.into(),
         }
@@ -60,6 +68,7 @@ impl AppError {
                 "Nothing exists here, or you cannot see it.".into(),
             ),
             AppError::Conflict { slug, detail } => (409, *slug, "Conflict", detail.clone()),
+            AppError::Gone { slug, detail } => (410, *slug, "Gone", detail.clone()),
             AppError::Internal(_) => (
                 500,
                 "internal",

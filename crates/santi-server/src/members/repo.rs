@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use santi_types::projects::{BoardType, MemberInfo, MemberRole};
+use santi_types::projects::{BoardType, InvitePreview, MemberInfo, MemberRole};
 use sqlx::PgConnection;
 
 use super::Member;
@@ -176,17 +176,51 @@ pub async fn insert_invite(
     Ok(())
 }
 
-/// Invites are single use: a valid one is deleted and its grant returned.
+/// Invites are single use: a valid one is marked used and its grant returned.
 pub async fn take_invite(
     conn: &mut PgConnection,
     token_hash: &[u8],
 ) -> Result<Option<InviteGrant>, sqlx::Error> {
     sqlx::query_as!(
         InviteGrant,
-        r#"DELETE FROM invite WHERE token_hash = $1 AND expires_at > now()
+        r#"UPDATE invite SET used_at = now()
+           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
            RETURNING project_id, role AS "role: MemberRole""#,
         token_hash
     )
     .fetch_optional(&mut *conn)
     .await
+}
+
+pub struct InviteRow {
+    pub preview: InvitePreview,
+    pub used_at: Option<DateTime<Utc>>,
+}
+
+/// The invite behind a token with its project and inviter, used or not.
+pub async fn find_invite(
+    conn: &mut PgConnection,
+    token_hash: &[u8],
+) -> Result<Option<InviteRow>, sqlx::Error> {
+    let row = sqlx::query!(
+        r#"SELECT p.key AS project_key, p.name AS project_name, i.role AS "role: MemberRole",
+                  i.expires_at, u.display_name AS inviter_name, i.used_at
+           FROM invite i
+           JOIN project p ON p.id = i.project_id
+           JOIN app_user u ON u.id = i.created_by
+           WHERE i.token_hash = $1"#,
+        token_hash
+    )
+    .fetch_optional(&mut *conn)
+    .await?;
+    Ok(row.map(|row| InviteRow {
+        preview: InvitePreview {
+            project_key: row.project_key,
+            project_name: row.project_name,
+            role: row.role,
+            expires_at: row.expires_at,
+            inviter_name: row.inviter_name,
+        },
+        used_at: row.used_at,
+    }))
 }

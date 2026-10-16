@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           WHERE i.project_id = $1 AND i.number = $2",
+  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, i.assignee_id, i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank, i.done_at, i.created_at, i.updated_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           WHERE i.project_id = $1\n             AND i.id > $2\n             AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))\n             AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))\n             AND (cardinality($5::text[]) = 0 OR i.labels && $5)\n             AND (cardinality($6::bigint[]) = 0 OR parent.number = ANY($6))\n             AND ($7::text IS NULL OR i.summary ILIKE $7)\n             AND ($8::timestamptz IS NULL OR i.updated_at > $8)\n           ORDER BY i.id\n           LIMIT $9",
   "describe": {
     "columns": [
       {
@@ -179,11 +179,29 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 17,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "updated_at"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
         "Int8",
+        "Int8",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "Text",
+        "Timestamptz",
         "Int8"
       ]
     },
@@ -204,8 +222,9 @@
       true,
       false,
       true,
+      false,
       false
     ]
   },
-  "hash": "1a563cf5fc142fa5c2340ff6da2d80797ca813c460ef3d1b62ef6c55c9dac01c"
+  "hash": "dc36190d8b9860a17ef0648049d18961cd679753f411868606fe1a9ed2a4e0c1"
 }
