@@ -56,6 +56,8 @@ export default defineConfig({
         landing: path.resolve(import.meta.dirname, 'landing.html'),
         privacy: path.resolve(import.meta.dirname, 'privacy.html'),
         terms: path.resolve(import.meta.dirname, 'terms.html'),
+        'privacy-pt': path.resolve(import.meta.dirname, 'privacy.pt-BR.html'),
+        'terms-pt': path.resolve(import.meta.dirname, 'terms.pt-BR.html'),
       },
       output: {
         // Every page loads React, the router and the query cache: one file compresses better than ten (D39).

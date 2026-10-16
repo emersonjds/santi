@@ -11,6 +11,7 @@ const register = async (page: Page, email: string) => {
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
+  await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'Hi, Sam' })).toBeVisible()
 }
@@ -80,6 +81,12 @@ test('the privacy policy and terms are linked from sign-up and the landing', asy
     page.getByRole('heading', { name: 'Terms of Use', level: 1 })
   ).toBeVisible()
   await expect(page.getByText('not legal advice').first()).toBeVisible()
+
+  await page.getByRole('link', { name: 'Português' }).click()
+  await expect(page).toHaveURL(/\/terms\?lang=pt-BR$/)
+  await expect(
+    page.getByRole('heading', { name: 'Termos de Uso', level: 1 })
+  ).toBeVisible()
 })
 
 test('a new user exports their data and deletes their account', async ({

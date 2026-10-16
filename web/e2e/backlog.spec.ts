@@ -11,6 +11,7 @@ const scrumWithIssues = async (page: Page) => {
   await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
+  await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
 
