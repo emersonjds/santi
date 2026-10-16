@@ -51,7 +51,7 @@ const ProjectCard = ({ project }: { project: MyProject }) => (
         <Link
           to='/p/$key'
           params={{ key: project.key }}
-          className='truncate font-medium outline-none after:absolute after:inset-0'
+          className='line-clamp-2 font-medium break-words outline-none after:absolute after:inset-0'
         >
           {project.name}
         </Link>

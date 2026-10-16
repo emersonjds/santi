@@ -26,6 +26,9 @@ const number = (key: string) => key.slice(key.lastIndexOf('-') + 1)
 
 const capitalized = (text: string) => text[0].toUpperCase() + text.slice(1)
 
+const statusName = (issue: HomeIssue) =>
+  capitalized(CATEGORY[issue.status_category].label)
+
 const IssueRow = ({ issue }: { issue: HomeIssue }) => (
   <li className='group relative flex min-h-14 items-center gap-3 bg-card py-1 ps-3 pe-1 hover:bg-hover'>
     <TypeGlyph type={issue.issue_type} />
@@ -41,15 +44,15 @@ const IssueRow = ({ issue }: { issue: HomeIssue }) => (
         {issue.summary}
       </Link>
       <span className='truncate text-xs text-muted-foreground'>
+        <span className='sm:hidden'>{statusName(issue)} • </span>
         {TYPE_LABEL[issue.issue_type]} • {issue.key} • {issue.project_name}
       </span>
     </div>
-    <StatusPill
-      status={{
-        name: capitalized(CATEGORY[issue.status_category].label),
-        category: issue.status_category,
-      }}
-    />
+    <span className='hidden shrink-0 sm:block'>
+      <StatusPill
+        status={{ name: statusName(issue), category: issue.status_category }}
+      />
+    </span>
     {issue.assignee_name && <AssigneeAvatar name={issue.assignee_name} />}
     <time
       dateTime={issue.at}
