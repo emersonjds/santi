@@ -58,7 +58,7 @@ test(`INP stays under ${INP_BUDGET} ms on a ${ISSUES}-issue backlog`, async ({
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Hi, Perf' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
   const key = `Q${unique().slice(-6).toUpperCase()}`
   await page.evaluate(
     async ({ key, issues }) => {
