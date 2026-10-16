@@ -41,3 +41,39 @@ pub struct ApiToken {
     pub name: String,
     pub created_at: DateTime<Utc>,
 }
+
+/// Deleting the account asks for the password again.
+#[derive(Clone, Serialize, Deserialize, ToSchema)]
+pub struct DeleteAccount {
+    pub password: String,
+}
+
+/// Everything santi holds about the caller (D45): the account, its API tokens (names only) and
+/// every project the caller administers, in full.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AccountExport {
+    pub exported_at: DateTime<Utc>,
+    pub user: User,
+    pub api_tokens: Vec<ApiToken>,
+    pub projects: Vec<ProjectExport>,
+    /// Projects the caller is a plain member of: named here, owned by their admins.
+    pub other_projects: Vec<crate::projects::Project>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ProjectExport {
+    pub project: crate::projects::Project,
+    pub members: Vec<crate::projects::MemberInfo>,
+    pub board: crate::boards::BoardSettings,
+    pub sprints: Vec<crate::sprints::Sprint>,
+    pub issues: Vec<crate::issues::Issue>,
+    pub comments: Vec<ExportedComment>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ExportedComment {
+    pub issue_key: String,
+    pub author_id: i64,
+    pub body: String,
+    pub created_at: DateTime<Utc>,
+}

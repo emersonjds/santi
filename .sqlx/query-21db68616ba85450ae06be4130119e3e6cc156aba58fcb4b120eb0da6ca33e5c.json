@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE app_user\n         SET email = 'deleted-' || id || '@deleted.invalid', display_name = 'Deleted user',\n             password_hash = '!'\n         WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "21db68616ba85450ae06be4130119e3e6cc156aba58fcb4b120eb0da6ca33e5c"
+}

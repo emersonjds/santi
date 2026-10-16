@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use santi_types::auth::ExportedComment;
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{Comment, Issue, IssueType, Priority};
 use sqlx::PgConnection;
@@ -319,6 +320,25 @@ pub async fn list_comments(
         issue_id,
         after_id,
         limit
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// Every comment in the project, for the account export (D45).
+pub async fn list_project_comments(
+    conn: &mut PgConnection,
+    project_id: i64,
+) -> Result<Vec<ExportedComment>, sqlx::Error> {
+    sqlx::query_as!(
+        ExportedComment,
+        r#"SELECT p.key || '-' || i.number AS "issue_key!", c.author_id, c.body, c.created_at
+           FROM issue_comment c
+           JOIN issue i ON i.id = c.issue_id
+           JOIN project p ON p.id = i.project_id
+           WHERE i.project_id = $1
+           ORDER BY c.id"#,
+        project_id
     )
     .fetch_all(&mut *conn)
     .await

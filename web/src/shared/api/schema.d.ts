@@ -94,6 +94,22 @@ export interface paths {
         get: operations["me"];
         put?: never;
         post?: never;
+        delete: operations["delete_account"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["export_account"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -552,6 +568,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description Everything santi holds about the caller (D45): the account, its API tokens (names only) and
+         *     every project the caller administers, in full.
+         */
+        AccountExport: {
+            api_tokens: components["schemas"]["ApiToken"][];
+            /** Format: date-time */
+            exported_at: string;
+            /** @description Projects the caller is a plain member of: named here, owned by their admins. */
+            other_projects: components["schemas"]["Project"][];
+            projects: components["schemas"]["ProjectExport"][];
+            user: components["schemas"]["User"];
+        };
         AddMember: {
             email: string;
             role: components["schemas"]["MemberRole"];
@@ -727,6 +756,10 @@ export interface components {
             name: string;
             token: string;
         };
+        /** @description Deleting the account asks for the password again. */
+        DeleteAccount: {
+            password: string;
+        };
         EpicSummary: {
             /** Format: int64 */
             child_count: number;
@@ -735,6 +768,14 @@ export interface components {
             done_child_count: number;
             key: string;
             summary: string;
+        };
+        ExportedComment: {
+            /** Format: int64 */
+            author_id: number;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            issue_key: string;
         };
         FieldError: {
             field: string;
@@ -987,6 +1028,14 @@ export interface components {
             key: string;
             name: string;
             role: components["schemas"]["MemberRole"];
+        };
+        ProjectExport: {
+            board: components["schemas"]["BoardSettings"];
+            comments: components["schemas"]["ExportedComment"][];
+            issues: components["schemas"]["Issue"][];
+            members: components["schemas"]["MemberInfo"][];
+            project: components["schemas"]["Project"];
+            sprints: components["schemas"]["Sprint"][];
         };
         Register: {
             display_name: string;
@@ -1380,6 +1429,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["User"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccount"];
+            };
+        };
+        responses: {
+            /** @description Account deleted and signed out everywhere. Projects only the caller used are deleted; where the caller was the last admin, the member with the oldest account becomes admin; issues and comments in shared projects stay under "Deleted user" (D45) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Wrong password (`password`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many wrong passwords for this account (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account, its token names and every project the caller administers, in full (D45) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
                 };
             };
             401: {

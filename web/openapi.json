@@ -295,6 +295,85 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "delete_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccount"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Account deleted and signed out everywhere. Projects only the caller used are deleted; where the caller was the last admin, the member with the oldest account becomes admin; issues and comments in shared projects stay under \"Deleted user\" (D45)"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Wrong password (`password`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many wrong passwords for this account (D44); wait `Retry-After` seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/export": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "export_account",
+        "responses": {
+          "200": {
+            "description": "The account, its token names and every project the caller administers, in full (D45)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountExport"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/projects": {
@@ -3238,6 +3317,45 @@
   },
   "components": {
     "schemas": {
+      "AccountExport": {
+        "type": "object",
+        "description": "Everything santi holds about the caller (D45): the account, its API tokens (names only) and\nevery project the caller administers, in full.",
+        "required": [
+          "exported_at",
+          "user",
+          "api_tokens",
+          "projects",
+          "other_projects"
+        ],
+        "properties": {
+          "api_tokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiToken"
+            }
+          },
+          "exported_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "other_projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            },
+            "description": "Projects the caller is a plain member of: named here, owned by their admins."
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectExport"
+            }
+          },
+          "user": {
+            "$ref": "#/components/schemas/User"
+          }
+        }
+      },
       "AddMember": {
         "type": "object",
         "required": [
@@ -3828,6 +3946,18 @@
           }
         }
       },
+      "DeleteAccount": {
+        "type": "object",
+        "description": "Deleting the account asks for the password again.",
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        }
+      },
       "EpicSummary": {
         "type": "object",
         "required": [
@@ -3853,6 +3983,31 @@
             "type": "string"
           },
           "summary": {
+            "type": "string"
+          }
+        }
+      },
+      "ExportedComment": {
+        "type": "object",
+        "required": [
+          "issue_key",
+          "author_id",
+          "body",
+          "created_at"
+        ],
+        "properties": {
+          "author_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "body": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "issue_key": {
             "type": "string"
           }
         }
@@ -4625,6 +4780,49 @@
           },
           "role": {
             "$ref": "#/components/schemas/MemberRole"
+          }
+        }
+      },
+      "ProjectExport": {
+        "type": "object",
+        "required": [
+          "project",
+          "members",
+          "board",
+          "sprints",
+          "issues",
+          "comments"
+        ],
+        "properties": {
+          "board": {
+            "$ref": "#/components/schemas/BoardSettings"
+          },
+          "comments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExportedComment"
+            }
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Issue"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemberInfo"
+            }
+          },
+          "project": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "sprints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Sprint"
+            }
           }
         }
       },

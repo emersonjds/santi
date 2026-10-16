@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE issue SET assignee_id = NULL WHERE assignee_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "07edbb9267b4908c72cc8f6e68e0416a574cb37222a08a4c599f5c7c02485e61"
+}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM project p\n         WHERE p.id IN (SELECT project_id FROM member WHERE user_id = $1)\n           AND NOT EXISTS (SELECT 1 FROM member o WHERE o.project_id = p.id AND o.user_id <> $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "081d46bb525a2784e1c01451e43906bbec0830c9ffb9292db9ca821e54d1f843"
+}
