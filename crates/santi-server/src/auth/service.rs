@@ -50,7 +50,7 @@ pub async fn login(pool: &PgPool, input: Login) -> Result<(User, String), AppErr
         });
     let password_matches = verify_in_background(input.password, stored_hash).await?;
     let Some(user) = found.filter(|_| password_matches) else {
-        return Err(AppError::Unauthorized);
+        return Err(AppError::InvalidCredentials);
     };
     repo::delete_expired_sessions(&mut conn, user.id).await?;
     let session = start_session(&mut conn, user.id).await?;
