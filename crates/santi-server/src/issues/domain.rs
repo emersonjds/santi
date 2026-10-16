@@ -145,8 +145,17 @@ pub fn check_summary(summary: &str) -> Result<String, AppError> {
     Ok(summary.to_string())
 }
 
+/// Characters; migration 0013 holds the same limit.
+pub const MAX_DESCRIPTION: usize = 65_536;
+
 pub fn check_description(description: &str) -> Result<String, AppError> {
     reject_nul("description", description)?;
+    if description.chars().count() > MAX_DESCRIPTION {
+        return Err(AppError::invalid(
+            "description",
+            "must have at most 65536 characters",
+        ));
+    }
     Ok(description.to_string())
 }
 
@@ -559,6 +568,12 @@ mod tests {
         assert_eq!(check_summary("  Fix login ").unwrap(), "Fix login");
         assert!(check_summary("   ").is_err());
         assert!(check_summary(&"x".repeat(256)).is_err());
+    }
+
+    #[test]
+    fn description_is_bounded() {
+        assert!(check_description(&"x".repeat(MAX_DESCRIPTION)).is_ok());
+        assert!(check_description(&"x".repeat(MAX_DESCRIPTION + 1)).is_err());
     }
 
     #[test]

@@ -754,6 +754,14 @@ pub fn plan_import(
         if summary.len() < row.summary.len() {
             problem("summary cut to 255 characters".into());
         }
+        let description: String = row
+            .description
+            .chars()
+            .take(issues::domain::MAX_DESCRIPTION)
+            .collect();
+        if description.len() < row.description.len() {
+            problem("description cut to 65536 characters".into());
+        }
         let done = categories.get(&status_id) == Some(&StatusCategory::Done);
         let created = row.created.unwrap_or(now);
         let sprint = row.sprints.last().filter(|name| {
@@ -774,7 +782,7 @@ pub fn plan_import(
             key: row.key.clone(),
             issue_type,
             summary,
-            description: row.description.clone(),
+            description,
             priority: row.priority,
             status_id,
             done,
@@ -1262,6 +1270,34 @@ mod tests {
         assert_eq!(
             plan.sprints[0].end,
             NaiveDate::from_ymd_opt(2026, 10, 6).unwrap()
+        );
+    }
+
+    #[test]
+    fn plan_cuts_long_descriptions() {
+        let csv = format!(
+            "Issue key,Summary,Status,Description\nA-1,Long,Done,{}\n",
+            "x".repeat(issues::domain::MAX_DESCRIPTION + 5)
+        );
+        let export = read_export(&csv).unwrap();
+
+        let plan = plan_import(
+            &export,
+            &jira_mapping(),
+            &categories(),
+            &HashMap::new(),
+            1,
+            Utc::now(),
+        );
+
+        assert_eq!(
+            plan.issues[0].description.chars().count(),
+            issues::domain::MAX_DESCRIPTION
+        );
+        assert!(
+            plan.problems
+                .iter()
+                .any(|problem| problem.message == "description cut to 65536 characters")
         );
     }
 

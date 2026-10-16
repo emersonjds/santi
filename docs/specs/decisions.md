@@ -187,6 +187,7 @@ Options: A) RFC 9457 `application/problem+json` B) ad hoc `{code, message}`
 Product vote: n/a
 Architecture vote: A — one `AppError` enum maps to `type` (`urn:santi:error:<slug>`, stable for clients), `title`, `status`, `detail`, plus `errors: [{field, message}]` for validation; documented once in OpenAPI. CLI and MCP print `detail` and branch on `type`; HTML routes render the same error as inline messages.
 Winner: A — a standard every HTTP client already understands; accepted: slightly more fields than an ad hoc body.
+Amended (SAN-51): text input never holds U+0000 (PostgreSQL text cannot): every text validator and the search `q`/`label` answer 422 on the field, and SQLSTATE 22021 maps to 422 as a net. Descriptions are capped at 65,536 characters (domain rule plus a CHECK in migration 0013), next to summaries (255) and comments (20,000); an import cuts longer ones and reports a problem row.
 
 ## D25 — Crate and slice layout (consequence of D1; `web.rs` and `templates/` go away at the D37 cutover)
 Context: D1 drops Leptos, so `santi-web` has no WASM to hold.

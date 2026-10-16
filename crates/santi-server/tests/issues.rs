@@ -411,3 +411,25 @@ async fn nul_characters_are_invalid_input(pool: PgPool) {
     assert_eq!(register, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(field(&register_problem), "display_name");
 }
+
+#[sqlx::test]
+async fn descriptions_are_capped(pool: PgPool) {
+    let ana = project(pool.clone()).await;
+    let long = "x".repeat(65_537);
+
+    let (status, problem) = ana
+        .post(
+            "/api/projects/SANTI/issues",
+            json!({ "summary": "Long", "description": long }),
+        )
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Short" }))
+        .await;
+    let stored = sqlx::query("UPDATE issue SET description = repeat('x', 65537)")
+        .execute(&pool)
+        .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(problem["errors"][0]["field"], "description");
+    assert!(stored.is_err(), "the database refuses it too");
+}
