@@ -5,6 +5,9 @@ import { Link2 } from 'lucide-react'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
+import { mayDelete } from '@/entities/issue/may-delete'
+import { projectQuery } from '@/entities/project/project-queries'
+import { sessionQuery } from '@/entities/session/session-query'
 import { type Issue, fieldMessage } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
@@ -190,6 +193,8 @@ export const IssueDetail = ({
   onDeleted,
 }: IssueDetailProps) => {
   const { data: issue, error } = useQuery(issueQuery(projectKey, number))
+  const { data: project } = useQuery(projectQuery(projectKey))
+  const { data: me } = useQuery(sessionQuery)
   const [deleting, setDeleting] = useState(false)
   if (error)
     return (
@@ -212,11 +217,13 @@ export const IssueDetail = ({
             actions={
               <>
                 {actions}
-                <Suspense
-                  fallback={<span className='block size-11 md:size-8' />}
-                >
-                  <IssueMenu onDelete={() => setDeleting(true)} />
-                </Suspense>
+                {mayDelete(project, me, issue.reporter_id) && (
+                  <Suspense
+                    fallback={<span className='block size-11 md:size-8' />}
+                  >
+                    <IssueMenu onDelete={() => setDeleting(true)} />
+                  </Suspense>
+                )}
               </>
             }
           />

@@ -3344,6 +3344,7 @@
           "priority",
           "status_id",
           "column_id",
+          "reporter_id",
           "labels",
           "open_subtasks",
           "total_subtasks",
@@ -3407,6 +3408,11 @@
           },
           "rank": {
             "type": "string"
+          },
+          "reporter_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Shows Delete to the reporter as well as admins (D40)."
           },
           "sprint_id": {
             "type": [

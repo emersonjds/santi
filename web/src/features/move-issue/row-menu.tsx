@@ -1,8 +1,12 @@
 import { use } from 'react'
+import { useSuspenseQuery } from '@tanstack/react-query'
 import { Ellipsis, Trash2 } from 'lucide-react'
 import { planRowMove } from '@/entities/issue/backlog-cache'
 import { BacklogContext } from '@/entities/issue/board-context'
 import { useMoveRow, useSetEpic } from '@/entities/issue/issue-mutations'
+import { mayDelete } from '@/entities/issue/may-delete'
+import { projectQuery } from '@/entities/project/project-queries'
+import { sessionQuery } from '@/entities/session/session-query'
 import type { Card } from '@/shared/api/client'
 import {
   DropdownMenu,
@@ -32,6 +36,8 @@ export const RowMenu = ({ card, projectKey, onDelete }: RowMenuProps) => {
   const backlog = use(BacklogContext)
   const move = useMoveRow(projectKey)
   const setEpic = useSetEpic(projectKey)
+  const { data: me } = useSuspenseQuery(sessionQuery)
+  const { data: project } = useSuspenseQuery(projectQuery(projectKey))
   if (!backlog) return null
 
   return (
@@ -104,15 +110,19 @@ export const RowMenu = ({ card, projectKey, onDelete }: RowMenuProps) => {
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className={ROW}
-          variant='destructive'
-          onSelect={() => onDelete(card)}
-        >
-          <Trash2 />
-          Delete
-        </DropdownMenuItem>
+        {mayDelete(project, me, card.reporter_id) && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className={ROW}
+              variant='destructive'
+              onSelect={() => onDelete(card)}
+            >
+              <Trash2 />
+              Delete
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { inProjects, problem, routeOf } from '@/test/stub-api'
+import { WEB, WEB_BACKLOG, inProjects, problem, routeOf } from '@/test/stub-api'
 
 const DELETE_7 = 'DELETE /api/projects/WEB/issues/7'
 const PATCH_6 = 'PATCH /api/projects/WEB/issues/6'
@@ -17,6 +17,42 @@ const bodiesOf = (requests: Request[], route: string) =>
 
 describe('backlog row edits', () => {
   beforeEach(() => page.viewport(1280, 800))
+
+  it('offers Delete to a member only on the rows they reported', async () => {
+    inProjects({
+      'GET /api/projects/WEB': {
+        status: 200,
+        body: { ...WEB, role: 'member' },
+      },
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: {
+          ...WEB_BACKLOG,
+          sections: WEB_BACKLOG.sections.map((section) => ({
+            ...section,
+            cards: section.cards.map((each) =>
+              each.key === 'WEB-7' ? { ...each, reporter_id: 2 } : each
+            ),
+          })),
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const backlog = screen.getByRole('region', { name: 'Backlog' })
+
+    await backlog.getByRole('button', { name: 'Actions for WEB-7' }).click()
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Move to…' }))
+      .toBeVisible()
+    expect(
+      screen.getByRole('menuitem', { name: 'Delete' }).elements()
+    ).toHaveLength(0)
+    await userEvent.keyboard('{Escape}')
+    await backlog.getByRole('button', { name: 'Actions for WEB-6' }).click()
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Delete' }))
+      .toBeVisible()
+  })
 
   it('deletes a row from its menu after asking, with the section totals', async () => {
     const requests = inProjects({

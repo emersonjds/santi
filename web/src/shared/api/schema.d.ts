@@ -613,6 +613,11 @@ export interface components {
             points?: number | null;
             priority: components["schemas"]["Priority"];
             rank: string;
+            /**
+             * Format: int64
+             * @description Shows Delete to the reporter as well as admins (D40).
+             */
+            reporter_id: number;
             /** Format: int64 */
             sprint_id?: number | null;
             /** Format: int64 */

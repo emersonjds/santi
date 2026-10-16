@@ -25,7 +25,7 @@ type DeleteIssueDialogProps = {
   issueKey: string
   issueType: IssueType
   onClose: () => void
-  /** Called right after the confirm: the issue view leaves the deleted issue. */
+  /** Called once the server confirms: the issue view leaves the deleted issue. */
   onDeleted?: () => void
 }
 
@@ -54,9 +54,9 @@ export const DeleteIssueDialog = ({
     .join(' and ')
 
   const confirm = () => {
-    remove.mutate(issueKey)
+    // The rejection is already shown by the mutation (rollback and toast).
+    remove.mutateAsync(issueKey).then(onDeleted, () => {})
     onClose()
-    onDeleted?.()
   }
 
   return (

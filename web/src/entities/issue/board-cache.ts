@@ -129,6 +129,7 @@ export const cardOf = (issue: Issue, columnId: number): Card => ({
   updated_at: issue.updated_at,
   assignee_id: issue.assignee_id,
   assignee_name: null,
+  reporter_id: issue.reporter_id,
   parent_key: issue.parent_key,
   points: issue.points,
   sprint_id: issue.sprint_id,

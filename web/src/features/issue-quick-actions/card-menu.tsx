@@ -15,8 +15,9 @@ import { BoardContext } from '@/entities/issue/board-context'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { useMoveIssue, useUpdateIssue } from '@/entities/issue/issue-mutations'
 import { PRIORITY_LABEL, isPriority } from '@/entities/issue/labels'
+import { mayDelete } from '@/entities/issue/may-delete'
 import { statusesOf } from '@/entities/issue/statuses'
-import { membersQuery } from '@/entities/project/project-queries'
+import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Card } from '@/shared/api/client'
 import {
@@ -197,31 +198,40 @@ export const CardMenu = ({
   card,
   projectKey,
   onDelete,
-}: CardMenuProps & { onDelete: (card: Card) => void }) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger
-      aria-label={`Actions for ${card.key}`}
-      className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-10'
-    >
-      <Ellipsis className='size-4' />
-    </DropdownMenuTrigger>
-    {/* Menu and submenu fit side by side in 375px: the submenu opens to the left on a phone. */}
-    <DropdownMenuContent align='end' className='w-44'>
-      <MoveTo card={card} projectKey={projectKey} />
-      <Edits card={card} projectKey={projectKey} />
-      <DropdownMenuSeparator />
-      <DropdownMenuItem className={ROW} onSelect={() => void copyKey(card.key)}>
-        <Copy />
-        Copy issue key
-      </DropdownMenuItem>
-      <DropdownMenuItem
-        className={ROW}
-        variant='destructive'
-        onSelect={() => onDelete(card)}
+}: CardMenuProps & { onDelete: (card: Card) => void }) => {
+  const { data: me } = useSuspenseQuery(sessionQuery)
+  const { data: project } = useSuspenseQuery(projectQuery(projectKey))
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Actions for ${card.key}`}
+        className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-10'
       >
-        <Trash2 />
-        Delete
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-)
+        <Ellipsis className='size-4' />
+      </DropdownMenuTrigger>
+      {/* Menu and submenu fit side by side in 375px: the submenu opens to the left on a phone. */}
+      <DropdownMenuContent align='end' className='w-44'>
+        <MoveTo card={card} projectKey={projectKey} />
+        <Edits card={card} projectKey={projectKey} />
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className={ROW}
+          onSelect={() => void copyKey(card.key)}
+        >
+          <Copy />
+          Copy issue key
+        </DropdownMenuItem>
+        {mayDelete(project, me, card.reporter_id) && (
+          <DropdownMenuItem
+            className={ROW}
+            variant='destructive'
+            onSelect={() => onDelete(card)}
+          >
+            <Trash2 />
+            Delete
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
