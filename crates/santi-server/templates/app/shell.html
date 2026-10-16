@@ -10,4 +10,11 @@
 {% block main %}{% endblock %}
 </main>
 </div>
+{#- Issue and create dialogs load here (D1); full-screen sheet below 640px. #}
+<dialog id="dialog" aria-label="Details" class="m-0 h-full max-h-none w-full max-w-none bg-raised p-0 text-text backdrop:bg-text/40 sm:m-auto sm:h-fit sm:max-h-[calc(100dvh-4rem)] sm:w-[min(960px,calc(100vw-2rem))] sm:rounded-lg sm:shadow-lg">
+  <div class="relative p-4 sm:p-6">
+    <button class="absolute top-2 right-2 grid size-11 place-items-center rounded-md text-text-muted hover:bg-hover hover:text-text" type="button" aria-label="Close" data-close>{{ ui::icon("x") }}</button>
+    <div id="dialog-body"></div>
+  </div>
+</dialog>
 {% endblock %}

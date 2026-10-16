@@ -128,9 +128,20 @@ impl IssueType {
     }
 }
 
+impl Priority {
+    pub fn label(self) -> &'static str {
+        match self {
+            Priority::Urgent => "Urgent",
+            Priority::High => "High",
+            Priority::Medium => "Medium",
+            Priority::Low => "Low",
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::IssueType;
+    use super::{IssueType, Priority};
 
     #[test]
     fn every_type_has_a_label() {
@@ -144,6 +155,18 @@ mod tests {
         .map(IssueType::label)
         .to_vec();
         assert_eq!(labels, ["Epic", "Story", "Task", "Bug", "Subtask"]);
+    }
+
+    #[test]
+    fn every_priority_has_a_label() {
+        let labels = [
+            Priority::Urgent,
+            Priority::High,
+            Priority::Medium,
+            Priority::Low,
+        ]
+        .map(Priority::label);
+        assert_eq!(labels, ["Urgent", "High", "Medium", "Low"]);
     }
 }
 

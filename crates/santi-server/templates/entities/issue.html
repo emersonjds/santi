@@ -1,0 +1,22 @@
+{# D36: type, priority and status show a glyph and text; color is the second cue. #}
+{% import "shared/ui.html" as ui %}
+
+{% macro type_glyph(kind) %}
+{%- let label = kind.label() -%}
+<span class="inline-flex shrink-0 {% if label == "Story" %}text-type-story{% else if label == "Task" %}text-type-task{% else if label == "Bug" %}text-type-bug{% else if label == "Epic" %}text-type-epic{% else %}text-type-subtask{% endif %}" title="{{ label }}">
+  {%- if label == "Story" %}{{ ui::icon("book-open", "size-4") }}{% else if label == "Task" %}{{ ui::icon("clipboard-check", "size-4") }}{% else if label == "Bug" %}{{ ui::icon("bug", "size-4") }}{% else if label == "Epic" %}{{ ui::icon("layers", "size-4") }}{% else %}{{ ui::icon("list-tree", "size-4") }}{% endif -%}
+  <span class="sr-only">{{ label }}</span>
+</span>
+{% endmacro %}
+
+{% macro priority_glyph(priority) %}
+{%- let label = priority.label() -%}
+<span class="inline-flex shrink-0 {% if label == "Urgent" %}text-priority-urgent{% else if label == "High" %}text-priority-high{% else if label == "Medium" %}text-priority-medium{% else %}text-priority-low{% endif %}" title="{{ label }} priority">
+  {%- if label == "Urgent" %}{{ ui::icon("circle-alert", "size-4") }}{% else if label == "High" %}{{ ui::icon("signal-high", "size-4") }}{% else if label == "Medium" %}{{ ui::icon("signal-medium", "size-4") }}{% else %}{{ ui::icon("signal-low", "size-4") }}{% endif -%}
+  <span class="sr-only">{{ label }} priority</span>
+</span>
+{% endmacro %}
+
+{% macro points_pill(points) %}
+<span class="rounded-full bg-hover px-2 text-xs font-semibold tabular-nums text-text-muted" aria-label="{{ points }} points">{{ points }}</span>
+{% endmacro %}

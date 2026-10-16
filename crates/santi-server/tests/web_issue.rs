@@ -1,7 +1,7 @@
 mod common;
 
 use axum::http::StatusCode;
-use common::{PASSWORD, TestApp, form, location, page, session_cookie, text};
+use common::{PASSWORD, TestApp, form, htmx, location, page, session_cookie, text};
 use serde_json::json;
 use sqlx::PgPool;
 
@@ -68,4 +68,80 @@ async fn comments_need_a_known_issue_and_a_same_origin_post(pool: PgPool) {
 
     assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
     assert_eq!(forged.status(), StatusCode::FORBIDDEN);
+}
+
+#[sqlx::test]
+async fn htmx_gets_the_dialog_body_and_a_plain_get_the_full_page(pool: PgPool) {
+    let (ana, cookie) = issue_owner(pool).await;
+    let mut restore = htmx(page("/p/SANTI/issues/1", Some(&cookie)));
+    restore
+        .headers_mut()
+        .insert("hx-history-restore-request", "true".parse().unwrap());
+
+    let dialog = text(
+        ana.send(htmx(page("/p/SANTI/issues/1", Some(&cookie))))
+            .await,
+    )
+    .await;
+    let full = text(ana.send(page("/p/SANTI/issues/1", Some(&cookie))).await).await;
+    let restored = text(ana.send(restore).await).await;
+
+    assert!(!dialog.contains("<html"));
+    assert!(dialog.contains("Fix login"));
+    assert!(dialog.contains(r#"hx-post="/p/SANTI/issues/1""#));
+    assert!(full.contains("<html"));
+    assert!(full.contains("Fix login"));
+    assert!(restored.contains("<html"));
+}
+
+#[sqlx::test]
+async fn issue_details_show_people_planning_and_subtasks(pool: PgPool) {
+    let (ana, cookie) = issue_owner(pool).await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Reset form", "issue_type": "subtask", "parent": "SANTI-1" }),
+    )
+    .await;
+
+    let html = text(ana.send(page("/p/SANTI/issues/1", Some(&cookie))).await).await;
+
+    assert!(html.contains("Reporter"));
+    assert!(html.contains("Created"));
+    assert!(html.contains(r#"name="assignee""#));
+    assert!(html.contains(r#"name="priority""#));
+    assert!(html.contains(r#"name="points""#));
+    assert!(html.contains("Subtasks"));
+    assert!(html.contains("SANTI-2"));
+    assert!(html.contains("Reset form"));
+}
+
+#[sqlx::test]
+async fn saving_from_the_dialog_rerenders_it_and_refreshes_the_board(pool: PgPool) {
+    let (ana, cookie) = issue_owner(pool).await;
+
+    let saved = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1",
+            "summary=Fix+sign+in&description=Now&priority=urgent&points=5",
+            Some(&cookie),
+        )))
+        .await;
+    let refused = ana
+        .send(htmx(form(
+            "/p/SANTI/issues/1",
+            "points=lots",
+            Some(&cookie),
+        )))
+        .await;
+
+    assert_eq!(saved.status(), StatusCode::OK);
+    assert_eq!(saved.headers()["hx-trigger"], "issue-saved");
+    let fragment = text(saved).await;
+    assert!(!fragment.contains("<html"));
+    assert!(fragment.contains("Fix sign in"));
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    assert_eq!(issue["priority"], "urgent");
+    assert_eq!(issue["points"], 5.0);
+    assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text(refused).await.contains("Points must be a number"));
 }

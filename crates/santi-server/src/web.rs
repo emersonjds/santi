@@ -1,12 +1,15 @@
+use std::str::FromStr;
+
 use askama::Template;
 use axum::Router;
 use axum::extract::{FromRequestParts, State};
-use axum::http::StatusCode;
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::request::Parts;
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::get;
-use santi_types::projects::{BoardType, Project};
+use santi_types::issues::Priority;
+use santi_types::projects::Project;
 use sqlx::PgPool;
 
 use crate::AppState;
@@ -14,6 +17,14 @@ use crate::auth::extract::CurrentUser;
 use crate::auth::service;
 use crate::error::AppError;
 use crate::extract::PathParams;
+
+/// Most pressing first, as pickers list them.
+pub const PRIORITIES: [Priority; 4] = [
+    Priority::Urgent,
+    Priority::High,
+    Priority::Medium,
+    Priority::Low,
+];
 
 /// Asset URL prefix; the version in the path lets browsers cache forever (D26).
 pub const STATIC: &str = concat!("/static/", env!("CARGO_PKG_VERSION"));
@@ -49,6 +60,23 @@ impl FromRequestParts<AppState> for PageUser {
     }
 }
 
+/// An htmx swap wants the page's fragment; a history restore after a cache miss wants the whole page.
+pub fn wants_fragment(headers: &HeaderMap) -> bool {
+    headers.contains_key("hx-request") && !headers.contains_key("hx-history-restore-request")
+}
+
+/// A form's optional number: blank is none, anything else must parse.
+pub fn optional_number<T: FromStr>(value: &str, field: &str) -> Result<Option<T>, AppError> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    value
+        .parse()
+        .map(Some)
+        .map_err(|_| AppError::invalid(field, "must be a number"))
+}
+
 pub fn render(status: StatusCode, page: &impl Template) -> Result<Response, AppError> {
     let html = page
         .render()
@@ -71,20 +99,17 @@ impl Shell {
         Self { tab, ..self }
     }
 
-    /// Top bar "+ Create": the create form of the current project, else of the first one.
+    /// Top bar "+ Create": the create form of the current project, else of the first one (IA §5).
     pub fn create_href(&self) -> String {
         let project = self
             .projects
             .iter()
             .find(|project| project.key == self.current)
             .or(self.projects.first());
-        match project {
-            None => "/projects/new".into(),
-            Some(project) if project.board_type == BoardType::Scrum => {
-                format!("/p/{}/backlog#summary", project.key)
-            }
-            Some(project) => format!("/p/{}/board#summary", project.key),
-        }
+        project.map_or_else(
+            || "/projects/new".into(),
+            |project| format!("/p/{}/issues/new", project.key),
+        )
     }
 }
 

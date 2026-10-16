@@ -1,9 +1,10 @@
 use askama::Template;
 use axum::Router;
 use axum::extract::{Form, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, Uri};
 use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
+use axum_extra::extract::Query;
 use santi_types::FieldError;
 use santi_types::boards::{BoardView, Card};
 use santi_types::issues::{CreateIssue, IssueFilter, IssueType, MoveIssue};
@@ -15,9 +16,9 @@ use super::service;
 use crate::AppState;
 use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
-use crate::extract::PathParams;
+use crate::extract::{PathParams, QueryParams};
 use crate::members::{self, Member};
-use crate::web::{PageUser, Shell, render, shell};
+use crate::web::{PageUser, Shell, render, shell, wants_fragment};
 use crate::{boards, issues};
 
 pub fn router() -> Router<AppState> {
@@ -62,6 +63,38 @@ struct ProjectPage {
     draft: IssueDraft,
     /// Why the last drag or "Move to…" was refused; the card stays where it was.
     move_error: Option<String>,
+    query: BoardQuery,
+    me: i64,
+}
+
+/// The board URL's state (D18): quick filters, and the column shown on small screens.
+#[derive(Default, Deserialize)]
+struct BoardQuery {
+    #[serde(default)]
+    assignee: Vec<i64>,
+    column: Option<i64>,
+}
+
+impl BoardQuery {
+    fn href(&self, key: &str) -> String {
+        let mut params: Vec<String> = self
+            .assignee
+            .iter()
+            .map(|id| format!("assignee={id}"))
+            .collect();
+        params.extend(self.column.map(|id| format!("column={id}")));
+        if params.is_empty() {
+            return board_path(key);
+        }
+        format!("{}?{}", board_path(key), params.join("&"))
+    }
+
+    fn filter(&self) -> IssueFilter {
+        IssueFilter {
+            assignee: self.assignee.clone(),
+            ..IssueFilter::default()
+        }
+    }
 }
 
 /// What the create-issue form shows: typed values and their errors.
@@ -90,8 +123,64 @@ impl ProjectPage {
         crate::web::issue_path(&self.project.key, key)
     }
 
-    fn initials(&self, name: &str) -> String {
-        crate::web::initials(name)
+    /// Inline create needs somewhere to land: a kanban board or a running sprint.
+    fn can_create(&self) -> bool {
+        self.project.board_type == BoardType::Kanban || self.board.sprint.is_some()
+    }
+
+    /// The column shown at 375px: the picked one, else the first.
+    fn shown_column(&self) -> i64 {
+        let picked = self
+            .board
+            .columns
+            .iter()
+            .find(|column| Some(column.id) == self.query.column)
+            .or(self.board.columns.first());
+        picked.map_or(0, |column| column.id)
+    }
+
+    fn with(&self, assignee: Vec<i64>, column: Option<i64>) -> String {
+        BoardQuery { assignee, column }.href(&self.project.key)
+    }
+
+    fn here(&self) -> String {
+        self.with(self.query.assignee.clone(), self.query.column)
+    }
+
+    fn column_href(&self, column: &i64) -> String {
+        self.with(self.query.assignee.clone(), Some(*column))
+    }
+
+    fn assignee_pressed(&self, user_id: &i64) -> bool {
+        self.query.assignee.contains(user_id)
+    }
+
+    fn assignee_href(&self, user_id: &i64) -> String {
+        let mut assignee = self.query.assignee.clone();
+        match assignee.iter().position(|id| id == user_id) {
+            Some(index) => {
+                assignee.remove(index);
+            }
+            None => assignee.push(*user_id),
+        }
+        self.with(assignee, self.query.column)
+    }
+
+    fn only_mine(&self) -> bool {
+        self.query.assignee == [self.me]
+    }
+
+    fn mine_href(&self) -> String {
+        let assignee = if self.only_mine() {
+            Vec::new()
+        } else {
+            vec![self.me]
+        };
+        self.with(assignee, self.query.column)
+    }
+
+    fn clear_href(&self) -> String {
+        self.with(Vec::new(), self.query.column)
     }
 }
 
@@ -164,8 +253,15 @@ async fn project_page(
     State(state): State<AppState>,
     PageUser(user): PageUser,
     member: Member,
+    headers: HeaderMap,
+    QueryParams(query): QueryParams<BoardQuery>,
 ) -> Result<Response, AppError> {
-    let page = load_project_page(&state, &user, &member, None, IssueDraft::default()).await?;
+    let mut page = load_project_page(&state, &user, &member, None, IssueDraft::default()).await?;
+    page.board = boards::service::board_view(&state.pool, &member, &query.filter()).await?;
+    page.query = query;
+    if wants_fragment(&headers) {
+        return render(StatusCode::OK, &page.as_board());
+    }
     render(StatusCode::OK, &page)
 }
 
@@ -245,6 +341,8 @@ async fn load_project_page(
         board: boards::service::board_view(&state.pool, member, &IssueFilter::default()).await?,
         draft,
         move_error: None,
+        query: BoardQuery::default(),
+        me: member.user_id,
     })
 }
 
@@ -289,9 +387,22 @@ async fn move_card(
     let mut page = load_project_page(&state, &user, &member, None, IssueDraft::default()).await?;
     page.move_error = move_error;
     if from_htmx {
+        page.query = board_query_of(&headers);
+        page.board =
+            boards::service::board_view(&state.pool, &member, &page.query.filter()).await?;
         return render(status, &page.as_board());
     }
     render(status, &page)
+}
+
+/// The filters of the board htmx posted from, read from its `HX-Current-URL`.
+fn board_query_of(headers: &HeaderMap) -> BoardQuery {
+    headers
+        .get("hx-current-url")
+        .and_then(|url| url.to_str().ok())
+        .and_then(|url| url.parse::<Uri>().ok())
+        .and_then(|uri| Query::<BoardQuery>::try_from_uri(&uri).ok())
+        .map_or_else(BoardQuery::default, |Query(query)| query)
 }
 
 /// The column's status (the issue's own when it already sits there, else the column's first) and the rank anchor.

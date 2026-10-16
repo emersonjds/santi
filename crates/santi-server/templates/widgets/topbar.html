@@ -7,7 +7,7 @@
     <input class="min-h-11 w-full rounded-md border border-control bg-canvas px-3 text-base placeholder:text-text-subtle" id="top-search" type="search" name="q" placeholder="Search {{ shell.current }}">
   </form>
   {%- endif %}
-  <a id="create" href="{{ shell.create_href() }}" class="ml-auto inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-3 font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed">{{ ui::icon("plus") }}<span class="sr-only sm:not-sr-only">Create</span></a>
+  <a id="create" href="{{ shell.create_href() }}"{% if !shell.projects.is_empty() %} hx-get="{{ shell.create_href() }}" hx-target="#dialog-body" hx-swap="innerHTML"{% endif %} class="ml-auto inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-md bg-primary px-3 font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed">{{ ui::icon("plus") }}<span class="sr-only sm:not-sr-only">Create</span></a>
   <details class="relative shrink-0">
     <summary class="flex min-h-11 min-w-11 items-center gap-2 rounded-md px-1.5 text-text-muted hover:bg-hover hover:text-text" aria-label="Account menu for {{ shell.display_name }}">
       {{ ui::avatar(shell.display_name) }}

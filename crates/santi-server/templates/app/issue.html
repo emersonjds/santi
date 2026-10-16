@@ -1,58 +1,10 @@
 {% extends "app/shell.html" %}
 {% import "shared/ui.html" as ui %}
+{% import "entities/issue.html" as entity %}
 {% block title %}{{ issue.key }} {{ issue.summary }}{% endblock %}
 {% block main %}
-<div class="narrow">
-  <a class="back" href="/p/{{ shell.current }}/board">{{ ui::icon("kanban") }}<span>Back to board</span></a>
-  <header class="issue-head">
-    <p class="issue-meta"><span class="key">{{ issue.key }}</span><span class="type">{{ issue.issue_type.label() }}</span><span class="badge">{{ status_name }}</span></p>
-    <h1 class="greeting">{{ issue.summary }}</h1>
-  </header>
-  {%- if !issue.description.is_empty() %}
-  <p class="description">{{ issue.description }}</p>
-  {%- endif %}
-  <form class="stack form-top" method="post" action="/p/{{ shell.current }}/issues/{{ issue.number }}">
-    {{ ui::field("summary", "Title", "text", edit.summary, "off", self.error("summary")) }}
-    <div class="field">
-      <label for="description">Description</label>
-      <textarea id="description" name="description" rows="6">{{ edit.description }}</textarea>
-    </div>
-    <div class="field">
-      <label for="status_id">Status</label>
-      <select id="status_id" name="status_id"{% if !self.error("status_id").is_empty() %} aria-invalid="true" aria-describedby="status_id-error"{% endif %}>
-        {%- for status in statuses %}
-        <option value="{{ status.id }}"{% if status.id == edit.status_id %} selected{% endif %}>{{ status.name }}</option>
-        {%- endfor %}
-      </select>
-      {%- if !self.error("status_id").is_empty() %}
-      <p class="field-error" id="status_id-error">Status: {{ self.error("status_id") }}.</p>
-      {%- endif %}
-    </div>
-    <button class="button" type="submit">Save changes</button>
-  </form>
-  <section class="comments" id="comments" aria-labelledby="comments-title">
-    <h2 id="comments-title">Comments</h2>
-    {%- if comments.is_empty() %}
-    <p class="lede">No comments yet.</p>
-    {%- endif %}
-    <ol class="comment-list">
-      {%- for comment in comments %}
-      <li class="comment">
-        <p class="comment-meta"><strong>{{ comment.author }}</strong> <time datetime="{{ comment.created_at.to_rfc3339() }}">{{ comment.created_at.format("%b %-d, %H:%M UTC") }}</time></p>
-        <p class="comment-body">{{ comment.body }}</p>
-      </li>
-      {%- endfor %}
-    </ol>
-    <form class="stack" method="post" action="/p/{{ shell.current }}/issues/{{ issue.number }}/comments">
-      <div class="field">
-        <label for="body">Add a comment</label>
-        <textarea id="body" name="body" rows="3" required{% if !self.error("body").is_empty() %} aria-invalid="true" aria-describedby="body-error"{% endif %}>{{ comment }}</textarea>
-        {%- if !self.error("body").is_empty() %}
-        <p class="field-error" id="body-error">Comment {{ self.error("body") }}.</p>
-        {%- endif %}
-      </div>
-      <button class="button" type="submit">Comment</button>
-    </form>
-  </section>
+<a class="inline-flex min-h-11 items-center gap-2 font-semibold text-link" href="/p/{{ shell.current }}/board">{{ ui::icon("kanban") }}<span>Back to board</span></a>
+<div class="mx-auto mt-2 max-w-[960px]">
+{% block detail %}{% include "features/issue_dialog.html" %}{% endblock %}
 </div>
 {% endblock %}

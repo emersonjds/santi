@@ -86,9 +86,9 @@ async fn create_button_opens_the_create_form_of_the_current_project(pool: PgPool
     let kanban = text(app.send(page("/p/FLOW/board", Some(&ana))).await).await;
 
     assert!(empty_home.contains(r#"id="create" href="/projects/new""#));
-    assert!(home.contains(r#"id="create" href="/p/FLOW/board#summary""#));
-    assert!(scrum.contains(r#"id="create" href="/p/SANTI/backlog#summary""#));
-    assert!(kanban.contains(r#"id="create" href="/p/FLOW/board#summary""#));
+    assert!(home.contains(r#"id="create" href="/p/FLOW/issues/new""#));
+    assert!(scrum.contains(r#"id="create" href="/p/SANTI/issues/new""#));
+    assert!(kanban.contains(r#"id="create" href="/p/FLOW/issues/new""#));
 }
 
 #[sqlx::test]
