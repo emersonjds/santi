@@ -18,10 +18,7 @@ import { IssueSubtasks } from './issue-subtasks'
 type IssueProps = { issue: Issue; projectKey: string }
 
 const issueLink = (projectKey: string, number: number) =>
-  new URL(
-    `${import.meta.env.BASE_URL}p/${projectKey}/issues/${number}`,
-    location.origin
-  ).href
+  new URL(`/p/${projectKey}/issues/${number}`, location.origin).href
 
 const copyLink = (projectKey: string, number: number) =>
   navigator.clipboard?.writeText(issueLink(projectKey, number)).then(

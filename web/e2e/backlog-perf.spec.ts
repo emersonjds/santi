@@ -49,7 +49,7 @@ test(`INP stays under ${INP_BUDGET} ms on a ${ISSUES}-issue backlog`, async ({
           })
     }).observe(init)
   })
-  await page.goto('/app/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill('Perf')
   await page.getByLabel('Email').fill(`e2e-${unique()}@example.com`)
   await page
@@ -84,7 +84,7 @@ test(`INP stays under ${INP_BUDGET} ms on a ${ISSUES}-issue backlog`, async ({
     },
     { key, issues: ISSUES }
   )
-  await page.goto(`/app/p/${key}/backlog`)
+  await page.goto(`/p/${key}/backlog`)
   const handle = page.getByRole('button', {
     name: `Drag ${key}-3`,
     exact: true,

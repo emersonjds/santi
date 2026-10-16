@@ -15,7 +15,7 @@ const home = (page: Page) =>
   page.getByRole('heading', { name: 'No projects yet' })
 
 test('register lands on the empty home', async ({ page }) => {
-  await page.goto('/app/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill('Ada')
   await page.getByLabel('Email').fill(uniqueEmail())
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
@@ -28,7 +28,7 @@ test('register lands on the empty home', async ({ page }) => {
 
 test('sign out, then sign back in', async ({ page }) => {
   const email = uniqueEmail()
-  await page.goto('/app/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill('Grace')
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
@@ -38,8 +38,8 @@ test('sign out, then sign back in', async ({ page }) => {
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
-  await page.goto('/app/')
-  await expect(page).toHaveURL(/\/app\/login\?redirect=/)
+  await page.goto('/')
+  await expect(page).toHaveURL(/\/login\?redirect=/)
 
   await signIn(page, email, 'not the password')
   await expect(page.getByRole('alert')).toBeVisible()

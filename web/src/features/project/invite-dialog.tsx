@@ -18,7 +18,7 @@ import { RootError } from '@/shared/ui/root-error'
 type Invite = { token: string; expires_at: string }
 
 const inviteLink = (token: string) =>
-  new URL(`${import.meta.env.BASE_URL}invites/${token}`, location.origin).href
+  new URL(`/invites/${token}`, location.origin).href
 
 const InviteLink = ({ invite }: { invite: Invite }) => {
   const [copied, setCopied] = useState(false)

@@ -5,7 +5,7 @@ const PASSWORD = 'correct horse battery'
 const unique = () => `${Date.now()}${Math.random().toString(36).slice(2, 6)}`
 
 const register = async (page: Page, name: string, email: string) => {
-  await page.goto('/app/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill(name)
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
@@ -29,7 +29,7 @@ test('create a scrum project, invite a teammate, and they join through the link'
   await page.getByLabel('Key').fill(key)
   await page.getByRole('button', { name: 'Create project' }).click()
 
-  await expect(page).toHaveURL(new RegExp(`/app/p/${key}/backlog$`))
+  await expect(page).toHaveURL(new RegExp(`/p/${key}/backlog$`))
   await expect(page.getByRole('heading', { name })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Backlog' })).toBeVisible()
 
@@ -38,7 +38,7 @@ test('create a scrum project, invite a teammate, and they join through the link'
   const link = await page
     .getByRole('textbox', { name: 'Invite link' })
     .inputValue()
-  expect(link).toMatch(/\/app\/invites\/[\w-]+$/)
+  expect(link).toMatch(/\/invites\/[\w-]+$/)
 
   const teammate = await (await browser.newContext()).newPage()
   const graceEmail = `e2e-${unique()}@example.com`
@@ -48,13 +48,13 @@ test('create a scrum project, invite a teammate, and they join through the link'
   await expect(teammate.getByRole('heading', { name: 'Sign in' })).toBeVisible()
 
   await teammate.goto(link)
-  await expect(teammate).toHaveURL(/\/app\/login\?redirect=/)
+  await expect(teammate).toHaveURL(/\/login\?redirect=/)
   await teammate.getByLabel('Email').fill(graceEmail)
   await teammate.getByLabel('Password', { exact: true }).fill(PASSWORD)
   await teammate.getByRole('button', { name: 'Sign in' }).click()
   await teammate.getByRole('button', { name: 'Join project' }).click()
 
-  await expect(teammate).toHaveURL(new RegExp(`/app/p/${key}/board$`))
+  await expect(teammate).toHaveURL(new RegExp(`/p/${key}/board$`))
   await expect(teammate.getByRole('heading', { name })).toBeVisible()
   await expect(
     teammate.getByRole('button', { name: 'Invite' })
@@ -66,7 +66,7 @@ test('create a scrum project, invite a teammate, and they join through the link'
 test('a signed-in user opening sign in goes home', async ({ page }) => {
   await register(page, 'Linus', `e2e-${unique()}@example.com`)
 
-  await page.goto('/app/login')
+  await page.goto('/login')
 
   await expect(page.getByRole('heading', { name: 'Hi, Linus' })).toBeVisible()
 })
