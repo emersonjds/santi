@@ -116,6 +116,26 @@ export const epicsQuery = (projectKey: string) =>
       ).items,
   })
 
+/** Open stories, tasks and bugs: what a new subtask can hang under. */
+export const parentsQuery = (projectKey: string) =>
+  queryOptions({
+    queryKey: ['projects', projectKey, 'parents'],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/api/projects/{key}/issues', {
+          // ponytail: the first 200 open ones; a search box when a project outgrows that.
+          params: {
+            path: { key: projectKey },
+            query: {
+              type: ['story', 'task', 'bug'],
+              status: ['todo', 'in_progress'],
+              limit: 200,
+            },
+          },
+        })
+      ).items,
+  })
+
 /** Every board cache of a project, whatever its filters: what writes patch and refresh. */
 export const boardsKey = (projectKey: string) =>
   ['projects', projectKey, 'board'] as const
