@@ -10,6 +10,22 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-16
+
+### Added
+
+- **CLI:** `santi issues plan`, `santi issues comment` and `santi issues comments` (lists every
+  comment, oldest first; `--json` for the raw list); `santi issues edit --sprint <id|none>`.
+  `santi issues show` prints status, assignee, reporter and sprint by name.
+- **MCP:** `list_comments` tool.
+- **API:** issue answers carry `status_name`, `assignee_name`, `reporter_name` and `sprint_name`;
+  comments carry `author_name`.
+
+### Changed
+
+- **API:** request bodies refuse unknown fields; a body of the wrong shape answers 422 with the
+  reason in `detail` and the field at fault (malformed JSON stays 400).
+
 ## [0.4.0] - 2026-10-16
 
 ### Added
@@ -119,7 +135,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/emersonjds/santi/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/emersonjds/santi/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/emersonjds/santi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/emersonjds/santi/compare/v0.1.0...v0.2.0
