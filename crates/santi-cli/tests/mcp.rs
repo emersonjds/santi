@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 16] = [
+const TOOLS: [&str; 17] = [
     "add_comment",
     "complete_sprint",
     "create_issue",
@@ -22,6 +22,7 @@ const TOOLS: [&str; 16] = [
     "get_backlog",
     "get_board",
     "get_issue",
+    "list_comments",
     "list_epics",
     "list_projects",
     "list_sprints",
@@ -88,6 +89,7 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         let tool = |name: &str| tools.iter().find(|tool| tool.name == name).unwrap();
         let hints = |name: &str| tool(name).annotations.clone().unwrap();
         assert_eq!(hints("get_board").read_only_hint, Some(true));
+        assert_eq!(hints("list_comments").read_only_hint, Some(true));
         assert_eq!(hints("delete_issue").destructive_hint, Some(true));
         assert_eq!(hints("create_issue").destructive_hint, Some(false));
         let schema = Value::Object((*tool("create_issue").input_schema).clone());
@@ -145,6 +147,14 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
             json!({ "issue": "MCP-2", "body": "Needs 3DS" }),
         )
         .await;
+        let comments = ok(
+            &client,
+            "list_comments",
+            json!({ "issue": "MCP-2", "limit": 1 }),
+        )
+        .await;
+        assert_eq!(comments["items"][0]["body"], "Needs 3DS");
+        assert_eq!(comments["next_cursor"], Value::Null);
 
         let sprint = ok(
             &client,
