@@ -206,3 +206,13 @@ impl TestApp {
         issue
     }
 }
+
+impl TestApp {
+    pub async fn create_sprint(&self, key: &str) -> Value {
+        let (status, sprint) = self
+            .post(&format!("/api/projects/{key}/sprints"), json!({}))
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{sprint}");
+        sprint
+    }
+}

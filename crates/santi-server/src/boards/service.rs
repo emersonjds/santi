@@ -1,13 +1,15 @@
 use santi_types::boards::{
-    BoardSettings, BoardView, CreateColumn, CreateStatus, DeleteColumnParams, ReorderColumns,
-    Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
+    Backlog, BoardSettings, BoardView, CreateColumn, CreateStatus, DeleteColumnParams,
+    ReorderColumns, Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
 };
+use santi_types::issues::IssueFilter;
 use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 
 use super::{domain, repo};
 use crate::error::AppError;
 use crate::members::Member;
 use crate::members::domain::require_admin;
+use crate::sprints;
 
 pub async fn seed_default_layout(
     conn: &mut PgConnection,
@@ -34,13 +36,36 @@ pub async fn get_settings(pool: &PgPool, member: &Member) -> Result<BoardSetting
     ))
 }
 
-pub async fn board_view(pool: &PgPool, member: &Member) -> Result<BoardView, AppError> {
+pub async fn board_view(
+    pool: &PgPool,
+    member: &Member,
+    filter: &IssueFilter,
+) -> Result<BoardView, AppError> {
     let mut conn = pool.acquire().await?;
+    let sprint = sprints::repo::find_active(&mut conn, member.board_id).await?;
     let columns = repo::list_columns(&mut conn, member.board_id).await?;
-    let cards = repo::board_cards(&mut conn, member.project_id).await?;
+    let sprint_id = sprint.as_ref().map(|sprint| sprint.id);
+    let cards = repo::board_cards(&mut conn, member.project_id, sprint_id).await?;
     Ok(BoardView {
         board_type: member.board_type,
-        columns: domain::build_board_columns(columns, cards),
+        sprint,
+        columns: domain::build_board_columns(columns, cards, filter),
+    })
+}
+
+pub async fn backlog(
+    pool: &PgPool,
+    member: &Member,
+    filter: &IssueFilter,
+) -> Result<Backlog, AppError> {
+    domain::require_backlog(member.board_type)?;
+    let mut conn = pool.acquire().await?;
+    let sprints = sprints::repo::list_open(&mut conn, member.board_id).await?;
+    let cards = repo::backlog_cards(&mut conn, member.project_id).await?;
+    let epics = repo::epic_summaries(&mut conn, member.project_id).await?;
+    Ok(Backlog {
+        sections: domain::build_backlog_sections(sprints, cards, filter),
+        epics,
     })
 }
 

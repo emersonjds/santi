@@ -11,7 +11,7 @@ use super::{domain, repo};
 use crate::boards::repo::StatusRef;
 use crate::error::AppError;
 use crate::members::Member;
-use crate::{boards, members, pagination, projects};
+use crate::{boards, members, pagination, projects, sprints};
 
 pub async fn create_issue(
     pool: &PgPool,
@@ -25,6 +25,12 @@ pub async fn create_issue(
     let number = projects::repo::take_issue_number(&mut tx, member.project_id).await?;
     let status = resolve_status(&mut tx, member, input.status_id).await?;
     let parent = resolve_parent(&mut tx, member, input.issue_type, input.parent.as_deref()).await?;
+    let parent_sprint = parent.as_ref().and_then(|parent| parent.sprint_id);
+    let sprint_id =
+        sprints::domain::sprint_for_new_issue(input.issue_type, parent_sprint, input.sprint_id)?;
+    if let Some(requested) = input.sprint_id {
+        require_open_sprint(&mut tx, member, requested).await?;
+    }
     check_assignee(&mut tx, member, input.assignee_id).await?;
     let last_rank = repo::last_rank(&mut tx, member.project_id).await?;
     let new_issue = NewIssue {
@@ -40,11 +46,14 @@ pub async fn create_issue(
         points: input.points,
         labels,
         parent_id: parent.map(|parent| parent.id),
-        sprint_id: None,
+        sprint_id,
         rank: domain::rank_between(last_rank.as_deref(), None),
         done_at: domain::done_at_on_create(status.category, Utc::now()),
     };
-    repo::insert_issue(&mut tx, &new_issue).await?;
+    let issue_id = repo::insert_issue(&mut tx, &new_issue).await?;
+    if let Some(sprint_id) = new_issue.sprint_id {
+        sprints::repo::record_join(&mut tx, sprint_id, issue_id).await?;
+    }
     tx.commit().await?;
     get_issue(pool, member, number).await
 }
@@ -96,11 +105,46 @@ pub async fn move_issue(
     projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: moves in one project are serialized
     let issue = repo::find_position_for_update(&mut tx, member.project_id, number).await?;
     let issue = issue.ok_or(AppError::NotFound)?;
+    if let Some(target) = input.sprint_id {
+        change_sprint(&mut tx, member, &issue, target).await?;
+    }
     let (status_id, done_at) = next_status(&mut tx, member, &issue, input.status_id).await?;
     let rank = next_rank(&mut tx, member, &issue, anchor).await?;
     repo::update_position(&mut tx, issue.id, status_id, &rank, done_at).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
+}
+
+/// Plans the issue (and its subtasks) into a sprint or back to the backlog, recording scope change.
+pub async fn change_sprint(
+    conn: &mut PgConnection,
+    member: &Member,
+    issue: &Position,
+    target: Option<i64>,
+) -> Result<(), AppError> {
+    sprints::domain::check_issue_can_change_sprint(issue.issue_type)?;
+    if let Some(sprint_id) = target {
+        require_open_sprint(conn, member, sprint_id).await?;
+    }
+    repo::set_sprint(conn, issue.id, target).await?;
+    if let Some(old_sprint) = issue.sprint_id {
+        sprints::repo::record_leave(conn, old_sprint, issue.id).await?;
+    }
+    if let Some(new_sprint) = target {
+        sprints::repo::record_join(conn, new_sprint, issue.id).await?;
+    }
+    Ok(())
+}
+
+async fn require_open_sprint(
+    conn: &mut PgConnection,
+    member: &Member,
+    sprint_id: i64,
+) -> Result<(), AppError> {
+    let sprint = sprints::repo::find_sprint(conn, member.board_id, sprint_id).await?;
+    let sprint =
+        sprint.ok_or_else(|| AppError::invalid("sprint_id", "no such sprint on this board"))?;
+    sprints::domain::check_sprint_open(sprint.state)
 }
 
 async fn next_status(

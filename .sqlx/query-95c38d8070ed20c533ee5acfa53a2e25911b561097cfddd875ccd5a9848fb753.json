@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sprint_issue (sprint_id, issue_id, added_after_start, points_at_start)\n         SELECT s.id, i.id, true, i.points\n         FROM sprint s JOIN issue i ON i.sprint_id = s.id\n         WHERE s.id = $1 AND s.state = 'active'\n           AND (i.id = $2 OR (i.parent_id = $2 AND i.issue_type = 'subtask'))\n         ON CONFLICT (sprint_id, issue_id) DO UPDATE SET outcome = NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "95c38d8070ed20c533ee5acfa53a2e25911b561097cfddd875ccd5a9848fb753"
+}

@@ -3,6 +3,7 @@ use utoipa::{IntoParams, ToSchema};
 
 use crate::issues::{IssueType, Priority};
 use crate::projects::BoardType;
+use crate::sprints::Sprint;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
@@ -110,6 +111,8 @@ pub struct Card {
     /// Shown as a chip on subtasks and children of epics (D6).
     pub parent_key: Option<String>,
     pub sprint_id: Option<i64>,
+    pub open_subtasks: i64,
+    pub total_subtasks: i64,
     pub rank: String,
 }
 
@@ -118,15 +121,43 @@ pub struct BoardColumnView {
     pub id: i64,
     pub name: String,
     pub wip_limit: Option<i32>,
+    /// Every card in the column, quick filters ignored (D7, KB-15).
     pub issue_count: i64,
     pub over_limit: bool,
-    /// In rank order.
+    /// The cards that pass the quick filters, in rank order.
     pub cards: Vec<Card>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
 pub struct BoardView {
     pub board_type: BoardType,
+    /// The active sprint on a scrum board (SB-11); always null on kanban.
+    pub sprint: Option<Sprint>,
     /// Left to right.
     pub columns: Vec<BoardColumnView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct BacklogSection {
+    /// Null for the no-sprint section, which is always last.
+    pub sprint: Option<Sprint>,
+    /// Quick filters ignored (D11).
+    pub issue_count: i64,
+    pub total_points: f64,
+    pub cards: Vec<Card>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct EpicSummary {
+    pub key: String,
+    pub summary: String,
+    pub child_count: i64,
+    pub done_child_count: i64,
+    pub done: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct Backlog {
+    pub sections: Vec<BacklogSection>,
+    pub epics: Vec<EpicSummary>,
 }

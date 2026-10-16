@@ -6,6 +6,7 @@ pub mod issues;
 pub mod members;
 pub mod pagination;
 pub mod projects;
+pub mod sprints;
 pub mod web;
 
 use axum::extract::State;
@@ -43,6 +44,7 @@ pub fn app(state: AppState) -> Router {
         .merge(members::handler::router())
         .merge(boards::handler::router())
         .merge(issues::handler::router())
+        .merge(sprints::handler::router())
         .split_for_parts();
     router
         .merge(SwaggerUi::new("/docs").url("/openapi.json", api))

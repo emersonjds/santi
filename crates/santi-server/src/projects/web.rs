@@ -6,7 +6,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use santi_types::FieldError;
 use santi_types::boards::{BoardColumnView, BoardView};
-use santi_types::issues::{CreateIssue, IssueType, MoveIssue};
+use santi_types::issues::{CreateIssue, IssueFilter, IssueType, MoveIssue};
 use santi_types::projects::{
     BoardType, CreateInvite, CreateProject, Invite, MemberInfo, MemberRole, Project,
 };
@@ -230,7 +230,7 @@ async fn load_project_page(
         project: service::get_project(&state.pool, member).await?,
         members: members::service::list_members(&state.pool, member).await?,
         invite,
-        board: boards::service::board_view(&state.pool, member).await?,
+        board: boards::service::board_view(&state.pool, member, &IssueFilter::default()).await?,
         draft,
         move_error: None,
     })
@@ -312,7 +312,8 @@ async fn to_move(
         Some(first.id)
     };
     let (after, before) = if card.after.is_empty() && card.before.is_empty() {
-        let board = boards::service::board_view(&state.pool, member).await?;
+        let board =
+            boards::service::board_view(&state.pool, member, &IssueFilter::default()).await?;
         let target = board.columns.iter().find(|target| target.id == column.id);
         target.map_or((None, None), |target| {
             place_anchor(target, &issue.key, &card.place)
@@ -327,6 +328,7 @@ async fn to_move(
         status_id,
         after,
         before,
+        sprint_id: None,
     })
 }
 

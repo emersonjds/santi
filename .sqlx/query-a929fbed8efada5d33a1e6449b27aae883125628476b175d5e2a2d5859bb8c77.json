@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sprint_issue (sprint_id, issue_id, added_after_start, points_at_start)\n         SELECT $1, id, false, points FROM issue WHERE sprint_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a929fbed8efada5d33a1e6449b27aae883125628476b175d5e2a2d5859bb8c77"
+}

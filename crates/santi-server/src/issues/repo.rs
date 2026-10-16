@@ -330,3 +330,19 @@ pub async fn search_issues(
     .fetch_all(&mut *conn)
     .await
 }
+
+/// D6: a subtask's sprint always equals its parent's, so both change in one statement.
+pub async fn set_sprint(
+    conn: &mut PgConnection,
+    issue_id: i64,
+    sprint_id: Option<i64>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE issue SET sprint_id = $2 WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')",
+        issue_id,
+        sprint_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}

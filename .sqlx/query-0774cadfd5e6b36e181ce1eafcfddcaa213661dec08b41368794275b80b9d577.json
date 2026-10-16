@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sprint_issue si\n         SET outcome = CASE WHEN owner_status.category = 'done' THEN 'completed' ELSE 'not_completed' END,\n             points_at_close = i.points\n         FROM issue i\n         JOIN issue owner ON owner.id = CASE WHEN i.issue_type = 'subtask' THEN i.parent_id ELSE i.id END\n         JOIN status owner_status ON owner_status.id = owner.status_id\n         WHERE si.sprint_id = $1 AND si.issue_id = i.id AND i.sprint_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0774cadfd5e6b36e181ce1eafcfddcaa213661dec08b41368794275b80b9d577"
+}

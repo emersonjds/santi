@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.key || '-' || epic.number AS \"key!\", epic.summary,\n                  count(child.id) AS \"child_count!\",\n                  count(child.id) FILTER (WHERE child_status.category = 'done') AS \"done_child_count!\",\n                  (epic_status.category = 'done') AS \"done!\"\n           FROM issue epic\n           JOIN project p ON p.id = epic.project_id\n           JOIN status epic_status ON epic_status.id = epic.status_id\n           LEFT JOIN issue child ON child.parent_id = epic.id\n           LEFT JOIN status child_status ON child_status.id = child.status_id\n           WHERE epic.project_id = $1 AND epic.issue_type = 'epic'\n           GROUP BY epic.id, p.key, epic_status.category\n           ORDER BY epic.rank",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "child_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "done_child_count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "done!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "86474c7c8b588c25a5061d9f9a68103447d4dfe3163689eb19cf0451d7c6275d"
+}

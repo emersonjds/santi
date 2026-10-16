@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM sprint WHERE board_id = $1 AND id = $2 AND state = 'future'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3f02103786695122d6e817057f46998365a969eeb76b9ab54bf7e5fa7c1ef73a"
+}

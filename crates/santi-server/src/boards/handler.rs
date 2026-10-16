@@ -3,9 +3,10 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use santi_types::Problem;
 use santi_types::boards::{
-    BoardSettings, BoardView, CreateColumn, CreateStatus, DeleteColumnParams, ReorderColumns,
-    Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
+    Backlog, BoardSettings, BoardView, CreateColumn, CreateStatus, DeleteColumnParams,
+    ReorderColumns, Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
 };
+use santi_types::issues::IssueFilter;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -18,6 +19,7 @@ use crate::members::Member;
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(board_view))
+        .routes(routes!(backlog))
         .routes(routes!(get_settings, update_settings))
         .routes(routes!(create_column))
         .routes(routes!(reorder_columns))
@@ -27,16 +29,36 @@ pub fn router() -> OpenApiRouter<AppState> {
 }
 
 #[utoipa::path(get, path = "/api/projects/{key}/board", tag = "boards",
-    params(("key" = String, Path, description = "Project key")),
+    params(("key" = String, Path, description = "Project key"), IssueFilter),
     responses(
-        (status = 200, body = BoardView, description = "Columns left to right, cards in rank order"),
+        (status = 200, body = BoardView, description = "Columns left to right, cards in rank order; scrum shows the active sprint only (SB-9); counts ignore quick filters (D7)"),
+        (status = 400, body = Problem, content_type = "application/problem+json"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json")))]
 pub async fn board_view(
     State(state): State<AppState>,
     member: Member,
+    QueryParams(filter): QueryParams<IssueFilter>,
 ) -> Result<Json<BoardView>, AppError> {
-    Ok(Json(service::board_view(&state.pool, &member).await?))
+    Ok(Json(
+        service::board_view(&state.pool, &member, &filter).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/projects/{key}/backlog", tag = "boards",
+    params(("key" = String, Path, description = "Project key"), IssueFilter),
+    responses(
+        (status = 200, body = Backlog, description = "Active sprint, future sprints, then the no-sprint section (BL-1); open parents only; totals ignore quick filters (D11)"),
+        (status = 400, body = Problem, content_type = "application/problem+json"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`kanban-has-no-backlog` (D9)")))]
+pub async fn backlog(
+    State(state): State<AppState>,
+    member: Member,
+    QueryParams(filter): QueryParams<IssueFilter>,
+) -> Result<Json<Backlog>, AppError> {
+    Ok(Json(service::backlog(&state.pool, &member, &filter).await?))
 }
 
 #[utoipa::path(get, path = "/api/projects/{key}/board/settings", tag = "boards",

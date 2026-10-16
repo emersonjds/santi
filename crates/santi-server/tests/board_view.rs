@@ -21,31 +21,152 @@ fn column_keys(board: &Value, column: usize) -> Vec<String> {
 }
 
 #[sqlx::test]
-async fn board_lists_cards_by_column_in_rank_order(pool: PgPool) {
+async fn scrum_board_without_an_active_sprint_shows_empty_columns(pool: PgPool) {
     let ana = project(pool, "scrum").await;
-    let done = ana.status_id("SANTI", "Done").await;
-    ana.create_issue(
-        "SANTI",
-        json!({ "summary": "first", "assignee_id": ana.user_id }),
-    )
-    .await;
-    ana.create_issue("SANTI", json!({ "summary": "finished", "status_id": done }))
-        .await;
-    ana.create_issue("SANTI", json!({ "summary": "second" }))
+    ana.create_issue("SANTI", json!({ "summary": "backlog item" }))
         .await;
 
     let (status, board) = ana.get("/api/projects/SANTI/board").await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(board["board_type"], "scrum");
+    assert_eq!(board["sprint"], Value::Null);
     assert_eq!(board["columns"].as_array().unwrap().len(), 3);
-    assert_eq!(column_keys(&board, 0), ["SANTI-1", "SANTI-3"]);
+    assert!(column_keys(&board, 0).is_empty());
+}
+
+#[sqlx::test]
+async fn scrum_board_shows_the_active_sprint_by_status_and_rank(pool: PgPool) {
+    let ana = project(pool, "scrum").await;
+    let (_, sprint) = ana
+        .post("/api/projects/SANTI/sprints", json!({ "goal": "Ship" }))
+        .await;
+    let done = ana.status_id("SANTI", "Done").await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "first", "sprint_id": sprint["id"], "assignee_id": ana.user_id }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "finished", "sprint_id": sprint["id"], "status_id": done }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "second", "sprint_id": sprint["id"] }),
+    )
+    .await;
+    ana.create_issue("SANTI", json!({ "summary": "not planned" }))
+        .await;
+    ana.post(
+        &format!("/api/projects/SANTI/sprints/{}/start", sprint["id"]),
+        json!({}),
+    )
+    .await;
+    ana.post(
+        "/api/projects/SANTI/issues/3/move",
+        json!({ "before": "SANTI-1" }),
+    )
+    .await;
+
+    let (_, board) = ana.get("/api/projects/SANTI/board").await;
+
+    assert_eq!(board["sprint"]["goal"], "Ship");
+    assert_eq!(column_keys(&board, 0), ["SANTI-3", "SANTI-1"]);
     assert_eq!(column_keys(&board, 2), ["SANTI-2"]);
     assert_eq!(board["columns"][0]["issue_count"], 2);
     assert_eq!(
-        board["columns"][0]["cards"][0]["assignee_name"],
+        board["columns"][0]["cards"][1]["assignee_name"],
         "ana@example.com"
     );
+}
+
+#[sqlx::test]
+async fn subtasks_are_flat_cards_and_parents_count_them(pool: PgPool) {
+    let ana = project(pool, "kanban").await;
+    let done = ana.status_id("SANTI", "Done").await;
+    ana.create_issue("SANTI", json!({ "summary": "Story" }))
+        .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Open sub", "issue_type": "subtask", "parent": "SANTI-1" }),
+    )
+    .await;
+    ana.create_issue("SANTI", json!({ "summary": "Done sub", "issue_type": "subtask", "parent": "SANTI-1", "status_id": done })).await;
+
+    let (_, board) = ana.get("/api/projects/SANTI/board").await;
+
+    let story = &board["columns"][0]["cards"][0];
+    assert_eq!(story["open_subtasks"], 1);
+    assert_eq!(story["total_subtasks"], 2);
+    assert_eq!(board["columns"][0]["cards"][1]["parent_key"], "SANTI-1");
+    assert_eq!(column_keys(&board, 2), ["SANTI-3"]);
+}
+
+#[sqlx::test]
+async fn wip_counts_ignore_quick_filters(pool: PgPool) {
+    let ana = project(pool, "kanban").await;
+    let doing_column = ana.column_id("SANTI", "In Progress").await;
+    let doing = ana.status_id("SANTI", "In Progress").await;
+    ana.put(
+        &format!("/api/projects/SANTI/board/columns/{doing_column}"),
+        json!({ "name": "In Progress", "wip_limit": 1 }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "mine", "status_id": doing, "assignee_id": ana.user_id }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "nobody's", "status_id": doing }),
+    )
+    .await;
+
+    let (_, board) = ana
+        .get(&format!(
+            "/api/projects/SANTI/board?assignee={}",
+            ana.user_id
+        ))
+        .await;
+
+    let column = &board["columns"][1];
+    assert_eq!(column["issue_count"], 2);
+    assert_eq!(column["over_limit"], true);
+    assert_eq!(column_keys(&board, 1), ["SANTI-1"]);
+}
+
+#[sqlx::test]
+async fn board_quick_filters_combine(pool: PgPool) {
+    let ana = project(pool, "kanban").await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Login bug", "issue_type": "bug", "labels": ["ui"] }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Docs task", "issue_type": "task", "labels": ["docs"] }),
+    )
+    .await;
+    ana.create_issue("SANTI", json!({ "summary": "UI story", "labels": ["ui"] }))
+        .await;
+
+    let (_, either) = ana
+        .get("/api/projects/SANTI/board?type=bug&type=task")
+        .await;
+    let (_, narrowed) = ana
+        .get("/api/projects/SANTI/board?type=bug&type=task&label=ui")
+        .await;
+    let (_, text) = ana.get("/api/projects/SANTI/board?q=login").await;
+    let (bad, _) = ana.get("/api/projects/SANTI/board?type=feature").await;
+
+    assert_eq!(column_keys(&either, 0), ["SANTI-1", "SANTI-2"]);
+    assert_eq!(column_keys(&narrowed, 0), ["SANTI-1"]);
+    assert_eq!(column_keys(&text, 0), ["SANTI-1"]);
+    assert_eq!(bad, StatusCode::BAD_REQUEST);
 }
 
 #[sqlx::test]
@@ -123,6 +244,10 @@ async fn strangers_cannot_read_the_board(pool: PgPool) {
         bob.get("/api/projects/SANTI/board").await.0,
         StatusCode::NOT_FOUND
     );
+    assert_eq!(
+        bob.get("/api/projects/SANTI/backlog").await.0,
+        StatusCode::NOT_FOUND
+    );
 }
 
 #[sqlx::test]
@@ -132,4 +257,5 @@ async fn openapi_lists_the_board_route(pool: PgPool) {
     let (_, api) = app.get("/openapi.json").await;
 
     assert!(api["paths"]["/api/projects/{key}/board"]["get"].is_object());
+    assert!(api["paths"]["/api/projects/{key}/backlog"]["get"].is_object());
 }

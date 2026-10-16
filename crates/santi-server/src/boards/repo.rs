@@ -1,4 +1,4 @@
-use santi_types::boards::{Card, Status, StatusCategory};
+use santi_types::boards::{Card, EpicSummary, Status, StatusCategory};
 use santi_types::issues::{IssueType, Priority};
 use sqlx::PgConnection;
 
@@ -292,9 +292,48 @@ pub async fn first_todo_status(
     .await
 }
 
-/// Every card the board shows, in rank order: one query (D30, D10, D33).
-// ponytail: scrum shows every issue until sprints land (Task 7/8 narrows it to the active sprint, SB-9).
+/// Every card the board shows, in rank order: one query (SB-9, D30, D10, D33).
+/// Scrum boards show the active sprint only; with none, nothing.
 pub async fn board_cards(
+    conn: &mut PgConnection,
+    project_id: i64,
+    active_sprint_id: Option<i64>,
+) -> Result<Vec<Card>, sqlx::Error> {
+    sqlx::query_as!(
+        Card,
+        r#"SELECT i.id, p.key || '-' || i.number AS "key!", i.summary,
+                  i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
+                  i.status_id, s.column_id AS "column_id!", i.assignee_id,
+                  assignee.display_name AS "assignee_name?", i.points, i.labels,
+                  p.key || '-' || parent.number AS parent_key, i.sprint_id,
+                  sub.open_count AS "open_subtasks!", sub.total_count AS "total_subtasks!", i.rank
+           FROM issue i
+           JOIN project p ON p.id = i.project_id
+           JOIN board b ON b.project_id = p.id
+           JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL
+           LEFT JOIN issue parent ON parent.id = i.parent_id
+           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id
+           CROSS JOIN LATERAL (
+               SELECT count(*) AS total_count, count(*) FILTER (WHERE child_status.category <> 'done') AS open_count
+               FROM issue child JOIN status child_status ON child_status.id = child.status_id
+               WHERE child.parent_id = i.id AND child.issue_type = 'subtask'
+           ) sub
+           WHERE i.project_id = $1
+             AND i.issue_type <> 'epic'
+             AND (b.board_type = 'kanban' OR i.sprint_id = $2)
+             AND (b.board_type = 'scrum' OR i.done_at IS NULL OR b.done_window_days IS NULL
+                  OR i.done_at > now() - make_interval(days => b.done_window_days))
+           ORDER BY i.rank"#,
+        project_id,
+        active_sprint_id
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// Open parent rows for the backlog, in rank order: one query (BL-2, D6, D10).
+/// An issue left in a closed sprint (reopened after close) shows in the no-sprint section.
+pub async fn backlog_cards(
     conn: &mut PgConnection,
     project_id: i64,
 ) -> Result<Vec<Card>, sqlx::Error> {
@@ -304,18 +343,49 @@ pub async fn board_cards(
                   i.issue_type AS "issue_type: IssueType", i.priority AS "priority: Priority",
                   i.status_id, s.column_id AS "column_id!", i.assignee_id,
                   assignee.display_name AS "assignee_name?", i.points, i.labels,
-                  p.key || '-' || parent.number AS parent_key, i.sprint_id, i.rank
+                  p.key || '-' || parent.number AS parent_key,
+                  CASE WHEN sprint.state = 'closed' THEN NULL ELSE i.sprint_id END AS sprint_id,
+                  sub.open_count AS "open_subtasks!", sub.total_count AS "total_subtasks!", i.rank
            FROM issue i
            JOIN project p ON p.id = i.project_id
-           JOIN board b ON b.project_id = p.id
            JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL
+           LEFT JOIN sprint ON sprint.id = i.sprint_id
            LEFT JOIN issue parent ON parent.id = i.parent_id
            LEFT JOIN app_user assignee ON assignee.id = i.assignee_id
+           CROSS JOIN LATERAL (
+               SELECT count(*) AS total_count, count(*) FILTER (WHERE child_status.category <> 'done') AS open_count
+               FROM issue child JOIN status child_status ON child_status.id = child.status_id
+               WHERE child.parent_id = i.id AND child.issue_type = 'subtask'
+           ) sub
            WHERE i.project_id = $1
-             AND i.issue_type <> 'epic'
-             AND (b.board_type = 'scrum' OR i.done_at IS NULL OR b.done_window_days IS NULL
-                  OR i.done_at > now() - make_interval(days => b.done_window_days))
+             AND i.issue_type NOT IN ('epic', 'subtask')
+             AND s.category <> 'done'
            ORDER BY i.rank"#,
+        project_id
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// D10: the epic panel in one aggregate query.
+pub async fn epic_summaries(
+    conn: &mut PgConnection,
+    project_id: i64,
+) -> Result<Vec<EpicSummary>, sqlx::Error> {
+    sqlx::query_as!(
+        EpicSummary,
+        r#"SELECT p.key || '-' || epic.number AS "key!", epic.summary,
+                  count(child.id) AS "child_count!",
+                  count(child.id) FILTER (WHERE child_status.category = 'done') AS "done_child_count!",
+                  (epic_status.category = 'done') AS "done!"
+           FROM issue epic
+           JOIN project p ON p.id = epic.project_id
+           JOIN status epic_status ON epic_status.id = epic.status_id
+           LEFT JOIN issue child ON child.parent_id = epic.id
+           LEFT JOIN status child_status ON child_status.id = child.status_id
+           WHERE epic.project_id = $1 AND epic.issue_type = 'epic'
+           GROUP BY epic.id, p.key, epic_status.category
+           ORDER BY epic.rank"#,
         project_id
     )
     .fetch_all(&mut *conn)

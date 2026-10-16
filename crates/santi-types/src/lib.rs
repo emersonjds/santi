@@ -2,6 +2,7 @@ pub mod auth;
 pub mod boards;
 pub mod issues;
 pub mod projects;
+pub mod sprints;
 
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
