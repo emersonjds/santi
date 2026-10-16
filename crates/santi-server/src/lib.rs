@@ -29,7 +29,7 @@ pub struct AppState {
 #[openapi(
     info(
         title = "santi",
-        description = "Agile tracker API. Authenticate with the `santi_session` cookie or `Authorization: Bearer santi_…`. Errors are RFC 9457 `application/problem+json`."
+        description = "Agile tracker API. Authenticate with the `__Host-santi_session` cookie or `Authorization: Bearer santi_…`. Errors are RFC 9457 `application/problem+json`."
     ),
     components(schemas(Problem))
 )]

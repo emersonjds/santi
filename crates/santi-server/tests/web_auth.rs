@@ -53,7 +53,7 @@ async fn register_signs_in_and_redirects_home(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::SEE_OTHER);
     assert_eq!(location(&response), "/");
     let set_cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
-    assert!(set_cookie.starts_with("santi_session="));
+    assert!(set_cookie.starts_with("__Host-santi_session="));
     assert!(set_cookie.contains("HttpOnly"));
 }
 

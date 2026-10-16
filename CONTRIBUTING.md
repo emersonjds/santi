@@ -55,6 +55,10 @@ LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
 cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
+## Deploy
+
+Behind a reverse proxy, forward the original `Host` header (nginx: `proxy_set_header Host $host;`); the cross-site write check compares it with `Origin`.
+
 ## Conduct and security
 
 This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
