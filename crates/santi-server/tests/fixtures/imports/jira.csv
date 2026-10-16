@@ -1,0 +1,7 @@
+Summary,Issue key,Issue id,Issue Type,Status,Status Category,Priority,Assignee,Reporter,Created,Updated,Description,Labels,Labels,Sprint,Sprint,Parent,Parent summary,Custom field (Story Points),Comment
+Checkout flow,ACME-1,10001,Epic,In Progress,In Progress,High,,ana@example.com,01/Oct/26 9:00 AM,05/Oct/26 2:30 PM,Epic body,,,,,,,,
+Pay with card,ACME-2,10002,Story,Done,Done,Highest,bob@example.com,ana@example.com,02/Oct/26 10:15 AM,06/Oct/26 4:45 PM,"Line one
+line two with ""quotes""",payments,web,Sprint 1,Sprint 2,10001,Checkout flow,5,"03/Oct/26 11:00 AM;5b10ac;Looks good"
+Validate card number,ACME-3,10003,Sub-task,Waiting,To Do,Low,Carol Smith,bob@example.com,03/Oct/26 8:00 AM,03/Oct/26 8:00 AM,,,,Sprint 2,,10002,Pay with card,,
+Fix rounding,ACME-4,10004,Bug,Blocked,,Medium,,,2026-10-04 12:00,,,,,,,,,abc,
+,ACME-5,10005,Task,To Do,To Do,Medium,,,,,,,,,,,,,

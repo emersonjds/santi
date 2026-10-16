@@ -146,6 +146,12 @@ impl From<PathRejection> for AppError {
     }
 }
 
+impl From<axum::extract::multipart::MultipartRejection> for AppError {
+    fn from(_: axum::extract::multipart::MultipartRejection) -> Self {
+        AppError::invalid("file", "send the file as multipart/form-data")
+    }
+}
+
 impl From<axum_extra::extract::QueryRejection> for AppError {
     fn from(rejection: axum_extra::extract::QueryRejection) -> Self {
         AppError::BadRequest(rejection.to_string())
