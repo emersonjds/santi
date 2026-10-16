@@ -1,14 +1,6 @@
-import { type ReactNode, Suspense, lazy } from 'react'
+import type { ReactNode } from 'react'
 import type { Card } from '@/shared/api/client'
-
-/** D39: lists over 200 rows are virtualized. */
-export const VIRTUAL_AFTER = 200
-// What the long list shows while the virtualizer's chunk loads.
-const FIRST_SCREEN = 40
-
-const VirtualRows = lazy(() =>
-  import('./virtual-rows').then((module) => ({ default: module.VirtualRows }))
-)
+import { LongRows } from '@/shared/lib/long-rows'
 
 const LIST = 'mx-2 grid gap-px overflow-hidden rounded-md border bg-border'
 
@@ -18,8 +10,7 @@ type RowListProps = {
   renderItem: (card: Card) => ReactNode
 }
 
-const PlainRows = ({ cards, renderItem }: Omit<RowListProps, 'empty'>) =>
-  cards.map((card) => <li key={card.key}>{renderItem(card)}</li>)
+const keyOf = (card: Card) => card.key
 
 /** A section's rows; an empty one is a dashed slot to drop issues into. */
 export const RowList = ({ cards, empty, renderItem }: RowListProps) => {
@@ -31,20 +22,7 @@ export const RowList = ({ cards, empty, renderItem }: RowListProps) => {
     )
   return (
     <ul className={LIST}>
-      {cards.length > VIRTUAL_AFTER ? (
-        <Suspense
-          fallback={
-            <PlainRows
-              cards={cards.slice(0, FIRST_SCREEN)}
-              renderItem={renderItem}
-            />
-          }
-        >
-          <VirtualRows cards={cards} renderItem={renderItem} />
-        </Suspense>
-      ) : (
-        <PlainRows cards={cards} renderItem={renderItem} />
-      )}
+      <LongRows items={cards} itemKey={keyOf} renderItem={renderItem} />
     </ul>
   )
 }
