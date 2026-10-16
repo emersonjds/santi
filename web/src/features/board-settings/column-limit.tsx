@@ -44,7 +44,7 @@ export const ColumnLimit = ({ projectKey, columnId }: ColumnLimitProps) => {
         aria-label={`WIP limit of ${column.name}`}
         autoFocus
         defaultValue={current ?? ''}
-        className='ms-auto h-11 w-24 bg-background tracking-normal normal-case md:h-8'
+        className='-my-2 h-11 w-24 bg-background tracking-normal normal-case md:h-8'
         onBlur={(event) => save(event.target.value)}
         onKeyDown={(event) => {
           // Both end in blur, which saves once; Escape puts the value back first.
