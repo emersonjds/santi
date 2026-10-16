@@ -9,7 +9,9 @@ import { playwright } from '@vitest/browser-playwright'
 const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 
 // Absolute URLs for the landing page's canonical and social tags, robots.txt and sitemap.xml.
-const siteUrl = (process.env.VITE_SITE_URL || 'http://localhost:8080').replace(
+// Railway exposes the generated domain as RAILWAY_PUBLIC_DOMAIN (no scheme) at build time.
+const railwayUrl = process.env.RAILWAY_PUBLIC_DOMAIN && `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+const siteUrl = (process.env.VITE_SITE_URL || railwayUrl || 'http://localhost:8080').replace(
   /\/+$/,
   ''
 )
