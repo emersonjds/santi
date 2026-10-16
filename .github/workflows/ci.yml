@@ -145,3 +145,10 @@ jobs:
           exit 1
       - run: pnpm e2e
         working-directory: web
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -t santi:ci .
+      - run: docker image ls santi:ci
