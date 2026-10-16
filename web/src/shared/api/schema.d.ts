@@ -3010,7 +3010,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Already a member */
+            /** @description Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45) */
             409: {
                 headers: {
                     [name: string]: unknown;

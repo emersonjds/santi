@@ -43,14 +43,14 @@ pub async fn list_members(
         (status = 201, body = MemberInfo),
         (status = 403, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "Already a member"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45)"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "No account uses this email")))]
 pub async fn add_member(
     State(state): State<AppState>,
     member: Member,
     JsonBody(input): JsonBody<AddMember>,
 ) -> Result<(StatusCode, Json<MemberInfo>), AppError> {
-    let added = service::add_member(&state.pool, &member, input).await?;
+    let added = service::add_member(&state.pool, &state.legal, &member, input).await?;
     Ok((StatusCode::CREATED, Json(added)))
 }
 
