@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for trying santi. Please leave out passwords, API tokens and private project data.
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the board of the sample project
+        2. ...
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Hosted test server
+        - Self-hosted
+        - CLI or MCP
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device (or santi version and OS)
+      placeholder: Safari on iPhone, Chrome on macOS, santi 0.1.0 on Linux

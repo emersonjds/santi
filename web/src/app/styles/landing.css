@@ -1,8 +1,9 @@
-/* The public landing page (web/landing.html): static HTML, D36 tokens, shadcn button and card classes ported. */
+/* The public landing and privacy pages (web/landing.html, web/privacy.html): static HTML, D36 tokens, shadcn button and card classes ported. */
 @import 'tailwindcss' source(none);
 @import './theme.css';
 
 @source '../../../landing.html';
+@source '../../../privacy.html';
 
 @layer base {
   * {

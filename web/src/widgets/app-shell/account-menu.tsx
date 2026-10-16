@@ -1,5 +1,5 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
-import { Keyboard, KeyRound, LogOut } from 'lucide-react'
+import { Keyboard, KeyRound, LogOut, MessageSquare } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
 import {
   DropdownMenu,
@@ -10,6 +10,9 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
 import { AccountButton } from './account-button'
+
+/** GitHub's template chooser: bug report or feature request. */
+const FEEDBACK_URL = 'https://github.com/emersonjds/santi/issues/new/choose'
 
 export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })
@@ -37,6 +40,12 @@ export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
         <DropdownMenuItem className='h-11 md:h-8' onSelect={onShortcuts}>
           <Keyboard />
           Keyboard shortcuts
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild className='h-11 md:h-8'>
+          <a href={FEEDBACK_URL} target='_blank' rel='noreferrer'>
+            <MessageSquare />
+            Send feedback
+          </a>
         </DropdownMenuItem>
         <DropdownMenuItem className='h-11 md:h-8' onSelect={signOut}>
           <LogOut />
