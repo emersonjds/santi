@@ -9,6 +9,7 @@ import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
 import type { BoardView } from '@/shared/api/client'
 import { ColumnShell } from './board-column'
 import { BoardSkeleton, NoSprint, SprintStrip } from './board-states'
+import { FilterBar } from './filter-bar'
 
 type BoardProps = { projectKey: string; search: BoardSearch }
 
@@ -65,6 +66,13 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
   return (
     <>
       {board.sprint && <SprintStrip sprint={board.sprint} />}
+      <FilterBar projectKey={projectKey} search={search} />
+      {(search.assignee || search.recently_updated) &&
+        board.columns.every((column) => column.cards.length === 0) && (
+          <p className='text-sm text-muted-foreground'>
+            No issues match these filters.
+          </p>
+        )}
       <Columns
         board={board}
         projectKey={projectKey}
