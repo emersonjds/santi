@@ -10,6 +10,16 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-16
+
+### Added
+
+- **Labels picker:** the Labels field in the issue view and the create dialog opens a searchable
+  list: the issue's labels, then the project's, then common defaults (bug, feature, frontend,
+  backend, mobile, infra, design, docs, tech-debt, security, performance, blocked). Pick or create
+  a label; chosen labels sit side by side as chips, removed with x or Backspace. Board cards and
+  backlog rows show up to two label chips and "+k".
+
 ## [0.3.0] - 2026-10-16
 
 ### Changed
@@ -109,7 +119,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/emersonjds/santi/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/emersonjds/santi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/emersonjds/santi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/emersonjds/santi/releases/tag/v0.1.0
