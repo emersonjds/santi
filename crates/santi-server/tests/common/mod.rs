@@ -20,7 +20,13 @@ pub struct TestApp {
 
 impl TestApp {
     pub fn anonymous(pool: PgPool) -> Self {
-        let router = santi_server::app(santi_server::AppState { pool }, None);
+        let router = santi_server::app(
+            santi_server::AppState {
+                pool,
+                limits: Default::default(),
+            },
+            None,
+        );
         TestApp {
             router,
             token: None,
