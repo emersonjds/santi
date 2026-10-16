@@ -14,6 +14,12 @@ UI moves to its own repository.
 
 ### Added
 
+- **For you home:** recommended project cards (star, open issues assigned to you linking to your
+  board), tabs Recommended, Assigned to me, Starred, Worked on and Viewed with rows grouped by day
+  and a status on every row; stars on projects and issues. A `/projects` page lists every project.
+  Views and visits are recorded only when you open an issue or project. The account export
+  includes stars and history, and leaving a project removes them. The privacy policy (version
+  2026-10-16.2) lists this data.
 - **Landing page:** a static page at `/` for visitors without a session (and at `/about` for
   everyone): product tour with screenshots, performance numbers, self-hosting, roadmap and FAQ,
   no JavaScript beyond a copy button. Ships `robots.txt` and `sitemap.xml` built from
