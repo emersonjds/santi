@@ -50,7 +50,7 @@ test('an admin imports a Jira export into a scrum project, and a second import s
   const key = await emptyProject(page, 'scrum')
   await page.goto(`/p/${key}/backlog`)
   await page
-    .getByRole('link', { name: 'Bring your work from Jira or Linear' })
+    .getByRole('link', { name: 'Bring your work from another tracker' })
     .click()
 
   const counts = await importFile(page, 'jira.csv')

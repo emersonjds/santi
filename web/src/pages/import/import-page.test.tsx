@@ -398,7 +398,7 @@ describe('empty project', () => {
       over_limit: false,
     })),
   }
-  const HINT = 'Bring your work from Jira or Linear'
+  const HINT = 'Bring your work from another tracker'
 
   it('offers the import from an empty backlog', async () => {
     inProjects({

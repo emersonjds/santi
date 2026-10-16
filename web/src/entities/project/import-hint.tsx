@@ -14,7 +14,7 @@ export const ImportHint = ({ projectKey }: { projectKey: string }) => {
         params={{ key: projectKey }}
         className='inline-flex min-h-11 items-center font-medium text-primary hover:underline'
       >
-        Bring your work from Jira or Linear
+        Bring your work from another tracker
       </Link>
     </p>
   )
