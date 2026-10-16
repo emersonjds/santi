@@ -302,12 +302,7 @@ const EditSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   )
 }
 
-const DeleteSprintForm = ({
-  projectKey,
-  sprint,
-  section,
-  onClose,
-}: SprintFormProps) => {
+const DeleteSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   const remove = useDeleteSprint(projectKey)
   const form = useForm()
   const submit = form.handleSubmit(() =>
@@ -319,15 +314,10 @@ const DeleteSprintForm = ({
       refusal(form, [])
     )
   )
-  const count = section.issue_count
   return (
     <Shell
       title={`Delete ${sprint.name}?`}
-      description={
-        count === 0
-          ? 'It holds no issues.'
-          : `Its ${issueCount(count)} ${count === 1 ? 'goes' : 'go'} back to the backlog, in the same order.`
-      }
+      description='Its issues go back to the backlog, in the same order.'
       onClose={onClose}
     >
       <form onSubmit={submit} className='grid gap-4'>

@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type { Backlog, BacklogSection } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { WEB_BACKLOG, card, inProjects, issue, routeOf } from '@/test/stub-api'
+import {
+  WEB_BACKLOG,
+  card,
+  inProjects,
+  issue,
+  problem,
+  routeOf,
+} from '@/test/stub-api'
 
 const [ACTIVE, PLANNED, EMPTY, NO_SPRINT] = WEB_BACKLOG.sections
 
@@ -151,6 +158,11 @@ describe('backlog page', () => {
     await expect
       .element(screen.getByRole('link', { name: 'Write the release notes' }))
       .not.toBeInTheDocument()
+
+    await toggle.click()
+    await expect
+      .element(screen.getByRole('link', { name: 'Write the release notes' }))
+      .toBeVisible()
   })
 
   it('applies the board filters from the URL and counts what they hide', async () => {
@@ -216,16 +228,37 @@ describe('backlog page', () => {
     )
     const { screen } = await renderApp('/p/WEB/backlog')
     const backlog = screen.getByRole('region', { name: 'Backlog' })
-
     await expect
       .element(backlog.getByText('Row 0', { exact: true }))
       .toBeVisible()
+
+    // Scrolls again until the virtualizer's chunk has loaded and drawn the end of the list.
+    await expect
+      .poll(() => {
+        window.scrollTo(0, document.documentElement.scrollHeight)
+        return backlog.getByText('Row 999', { exact: true }).elements()
+      })
+      .toHaveLength(1)
     const drawn = backlog.getByRole('link').elements().length
     expect(drawn).toBeGreaterThan(5)
     expect(drawn).toBeLessThan(100)
     await expect
       .element(backlog)
       .toHaveTextContent('1000 of 1000 issues visible')
+  })
+
+  it('shows the error page when the backlog fails to load', async () => {
+    inProjects({
+      'GET /api/projects/WEB/backlog': {
+        status: 500,
+        body: problem(500, 'The database is away.'),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await expect
+      .element(screen.getByText('The database is away.'))
+      .toBeVisible()
   })
 
   it('holds the layout with a skeleton while the backlog loads', async () => {
@@ -283,6 +316,10 @@ describe('backlog page', () => {
     await expect
       .element(planned.getByLabelText('New issue summary'))
       .toHaveValue('')
+    await userEvent.keyboard('{Escape}')
+    await expect
+      .element(planned.getByRole('button', { name: 'Create issue' }))
+      .toBeVisible()
     const posted = requests.find(
       (request) => routeOf(request) === 'POST /api/projects/WEB/issues'
     )

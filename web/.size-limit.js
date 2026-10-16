@@ -55,4 +55,14 @@ export default [
     limit: '170 KB',
     gzip: true,
   },
+  {
+    name: 'initial JS, /app/p/KEY/backlog (backlog)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/backlog.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
 ]

@@ -112,7 +112,9 @@ describe('sprint dialogs', () => {
     const dialog = screen.getByRole('dialog', { name: 'Delete Sprint 5?' })
     await expect
       .element(dialog)
-      .toHaveTextContent('Its 1 issue goes back to the backlog')
+      .toHaveTextContent(
+        'Its issues go back to the backlog, in the same order.'
+      )
     await dialog.getByRole('button', { name: 'Delete sprint' }).click()
 
     await expect
@@ -153,6 +155,50 @@ describe('sprint dialogs', () => {
       start_date: day(0),
       end_date: day(7),
     })
+    await expect.element(dialog).not.toBeInTheDocument()
+  })
+
+  it('proposes the planned dates and closes on Escape', async () => {
+    inProjects({
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: {
+          ...NOT_RUNNING,
+          sections: [
+            {
+              ...PLANNED,
+              sprint: {
+                ...PLANNED.sprint!,
+                start_date: '2026-11-02',
+                end_date: '2026-11-13',
+              },
+            },
+            NO_SPRINT,
+          ],
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await section(screen, 'Sprint 5')
+      .getByRole('button', { name: 'Start sprint' })
+      .click()
+    const dialog = screen.getByRole('dialog', { name: 'Start Sprint 5' })
+    await expect
+      .element(dialog.getByLabelText('Starts'))
+      .toHaveValue('2026-11-02')
+    await expect
+      .element(dialog.getByLabelText('Ends'))
+      .toHaveValue('2026-11-13')
+    await expect
+      .element(dialog.getByLabelText('Duration'))
+      .toHaveValue('custom')
+    await dialog.getByLabelText('Starts').fill('2026-11-03')
+    await expect
+      .element(dialog.getByLabelText('Ends'))
+      .toHaveValue('2026-11-13')
+
+    await userEvent.keyboard('{Escape}')
     await expect.element(dialog).not.toBeInTheDocument()
   })
 

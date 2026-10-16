@@ -17,7 +17,7 @@ import {
   boardFilters,
   boardSettingsQuery,
 } from '@/entities/issue/board-query'
-import { type Status, statusesById } from '@/entities/issue/status-pill'
+import { type Status, statusesById } from '@/entities/issue/statuses'
 import type {
   Backlog as BacklogView,
   BacklogSection,

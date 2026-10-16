@@ -1,11 +1,7 @@
 import type { ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { issueCount } from '@/entities/issue/labels'
-import {
-  CATEGORY,
-  type Category,
-  type Status,
-} from '@/entities/issue/status-pill'
+import { CATEGORY, type Category, type Status } from '@/entities/issue/statuses'
 import type { BacklogSection, Sprint } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
 
