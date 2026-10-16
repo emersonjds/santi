@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy — santi</title>
+    <meta
+      name="description"
+      content="What santi stores about you, and what it does not: no tracking, no analytics, one session cookie."
+    />
+    <link rel="canonical" href="%VITE_SITE_URL%/privacy" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/src/app/styles/landing.css" />
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Skip to content</a>
+
+    <header class="site-header">
+      <div class="container-page flex h-16 items-center justify-between gap-2">
+        <a href="/about" class="lockup" aria-label="santi home">
+          <img src="/brand/mark.svg" alt="" width="28" height="28" />
+          <span>santi</span>
+        </a>
+        <nav aria-label="Main" class="flex items-center gap-1">
+          <a href="/login" class="btn btn-ghost">Sign in</a>
+          <a href="/register" class="btn btn-primary">Try santi</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="container-page max-w-2xl py-12 sm:py-16">
+      <h1 class="text-3xl font-semibold tracking-tight">Privacy</h1>
+      <p class="mt-3 text-muted-foreground">
+        santi is an open-source tracker. This page says what this server keeps
+        about you. If you run your own copy, you hold the same data on your own
+        machines.
+      </p>
+
+      <h2 class="mt-10 text-xl font-semibold">What is stored</h2>
+      <ul class="checks mt-4">
+        <li>
+          Your account: email, display name and a password hash (argon2; the
+          password itself is never stored).
+        </li>
+        <li>
+          Your work: projects, members, boards, sprints, issues, comments and
+          labels you or your team create or import.
+        </li>
+        <li>
+          Sign-in records: a hash of each session and API token, so they can be
+          revoked. Sessions end after 30 days or when you sign out.
+        </li>
+      </ul>
+
+      <h2 class="mt-10 text-xl font-semibold">What is not</h2>
+      <ul class="checks mt-4">
+        <li>No tracking, no analytics, no ads and no third-party scripts.</li>
+        <li>
+          One cookie: the session cookie that keeps you signed in. It is
+          HttpOnly and sent only over HTTPS.
+        </li>
+        <li>Nothing is sold or shared with anyone.</li>
+      </ul>
+
+      <h2 class="mt-10 text-xl font-semibold">Your choices</h2>
+      <p class="mt-3 text-muted-foreground">
+        Revoke API tokens from your account page at any time. To delete your
+        account or export your data, open an issue on
+        <a
+          href="https://github.com/emersonjds/santi/issues/new/choose"
+          class="text-primary underline"
+          >GitHub</a
+        >
+        and the operator of this server will handle it.
+      </p>
+    </main>
+
+    <footer class="border-t">
+      <div class="container-page py-6 text-sm text-muted-foreground">
+        santi is open source under MIT or Apache-2.0.
+        <a href="/about" class="underline">Home</a>
+      </div>
+    </footer>
+  </body>
+</html>

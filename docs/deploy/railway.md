@@ -31,6 +31,8 @@ santi ships as one Docker image (API + web app) plus PostgreSQL. Railway builds 
 
 ## Before inviting real users
 
+- Run `docs/deploy/checklist.md` against the public URL.
 - Backups: turn on PostgreSQL backups for the project.
-- Sign-up is open to anyone with the URL, and login/register have no rate limit yet (SAN-53).
+- Sign-up is open to anyone with the URL; login, sign-up, tokens, invites and imports are rate limited (D44).
+  Behind Railway the server trusts one proxy hop in `X-Forwarded-For` (`SANTI_TRUSTED_PROXIES`, default 1 there).
 - There is no email yet: invites are links you share.

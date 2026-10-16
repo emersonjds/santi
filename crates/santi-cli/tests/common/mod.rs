@@ -50,7 +50,13 @@ fn start() -> Server {
         santi_server::migrate(&pool).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
-        let app = santi_server::app(santi_server::AppState { pool }, None);
+        let app = santi_server::app(
+            santi_server::AppState {
+                pool,
+                limits: Default::default(),
+            },
+            None,
+        );
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         format!("http://{address}")
     });

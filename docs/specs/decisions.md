@@ -412,6 +412,8 @@ Known ceilings: the backlog loads unpaged (D29) and is the endpoint closest to b
 
 SPA budgets (enforced by the SPA cards): initial JS < 170 KB gzip (`size-limit`, SAN-38); LCP < 1.0 s; INP < 100 ms; writes optimistic (D37); lists over 200 rows virtualized; no layout shift (CLS 0: skeletons and reserved sizes).
 
+Amended (SAN-62): `POST /api/sample-project` writes a whole sample project through the use cases (2 sprints, 15 issues, 3 comments, sprint start) once per user: budget 150 statements and 1 s in `tests/perf_budget.rs` (148 measured); a repeat call only looks the project up (3).
+
 ## D40 — Issue delete (SAN-49; lifts IA resolved #5)
 Context: UI-25 and UI-31 put Delete in the row and issue menus; duplicates and typos could only be parked in Done. Who may delete, and what happens to children, comments and sprint facts?
 Options: A) admins only B) admins and the issue's reporter C) any member
@@ -481,3 +483,25 @@ UI vote: C — legibility decides at favicon size, and only C keeps its shape at
 UX vote: C — recognizable by its letter, memorable by the engraving, and the meaning (cards moving through) matches the product; runner-up 3, the strongest metaphor but illegible small.
 IA vote: C — one shape across every slot. Lockup: mark on the left at the wordmark's line height, 8 px gap, lowercase "santi" in the UI font; a custom wordmark is out of scope.
 Winner: C, runner-up 3 (kept as a candidate illustration for README or empty states, not adopted). Assets in `web/public/brand/` (wiring is the next card): `icon-1024/512/192.png`, `apple-touch-icon.png` (180), `favicon-32/16.png` (tighter crop, rounded transparent corners) from the export, recolored to #4C35D2 and flattened to a full-bleed square for OS masks (the "s" sits inside the maskable safe zone); `mark.svg`, a hand-built flat version (two rounded hooks plus a tilted card in #4C35D2 and cream #F4ECD8), for the top bar and `favicon.svg`. Accepted: raster-only source, so `icon-1024.png` is a 2× upscale and soft (needs a vector redraw or a 1024 re-export); two renderings of one logo (engraved and flat) to keep in sync; the S-on-purple likeness to a payments brand, mitigated by the card shape and the engraving.
+
+## D44 — Rate limits and login lockout (SAN-62; amends D22)
+Context: santi goes to outside testers on a public Railway URL. Sign-up is open, login guesses cost one argon2 verify each, and token creation, invite accept and imports are the other writes worth abusing. One container, no Redis.
+Options: A) nothing until real abuse B) in-memory token buckets per client address and per account, plus a per-email lockout C) a shared store (Redis or a PostgreSQL table) for counters
+Product vote: B — testers share office NATs, so per-address numbers stay generous; a locked account says "try again in N seconds", never "wrong email".
+Architecture vote: B — `rate_limit.rs`: a `Mutex<HashMap>` of buckets keyed by (action, address or user id), pruned past 10k entries; no new infrastructure and no SQL on the hot path. C only pays off with more than one replica.
+Winner: B — accepted: counters live in one process (a restart or a second replica resets them); the lockout lets anyone who knows an email lock it for up to 15 minutes.
+Numbers (burst, then one more per interval):
+
+| Endpoint | Per address | Per account |
+|---|---|---|
+| `POST /api/auth/login` | 10, then 1 per 6 s | per email: lockout below |
+| `POST /api/auth/register` | 10, then 1 per 6 min | — |
+| `POST /api/tokens` | 10, then 1 per 6 min | same |
+| `POST /api/invites/{token}/accept` | 10, then 1 per min | same |
+| `POST /api/projects/{key}/imports[/preview]` (one shared bucket) | 20, then 1 per 30 s | same |
+
+- Lockout: every login attempt for an email counts before the password is checked (parallel guesses count too); from the 5th attempt without a success the email is locked for 30 s, doubling per further attempt up to 15 min; a success clears the count; an idle hour forgets it. Unknown emails count the same way, so a 429 never tells whether an account exists.
+- Answer: 429 RFC 9457 problem (`urn:santi:error:rate-limited`, D24) with `Retry-After` in seconds.
+- Client address: the TCP peer, or behind `SANTI_TRUSTED_PROXIES` proxies the `X-Forwarded-For` entry the internet-facing one appended (the N-th from the right); entries to its left are client-controlled and ignored. Default 1 when `RAILWAY_PROJECT_ID` is set, else 0. IPv6 clients count per /64; IPv4-mapped addresses as IPv4.
+- `SANTI_IP_LIMITS=off` turns the per-address buckets off (e2e and load runs where every user comes from one address); per-account limits and the lockout stay on.
+- D22 behind Railway: the edge keeps the public `Host` and adds `X-Forwarded-Host`/`-Proto`/`-For`; the `Origin` check keeps comparing against `Host` and never reads `X-Forwarded-Host`.

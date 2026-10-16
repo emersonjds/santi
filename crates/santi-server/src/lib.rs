@@ -7,10 +7,12 @@ pub mod issues;
 pub mod members;
 pub mod pagination;
 pub mod projects;
+pub mod rate_limit;
 pub mod seed;
 pub mod sprints;
 
 use std::path::Path;
+use std::sync::Arc;
 
 use axum::extract::{Request, State};
 use axum::http::header::{
@@ -32,10 +34,12 @@ use utoipa_axum::routes;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::error::AppError;
+use crate::rate_limit::RateLimits;
 
 #[derive(Clone)]
 pub struct AppState {
     pub pool: PgPool,
+    pub limits: Arc<RateLimits>,
 }
 
 #[derive(OpenApi)]
@@ -94,7 +98,7 @@ const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsa
 
 /// Hashed `/assets/*` are cached for good; pages are revalidated so a deploy shows at once.
 /// `/` is the landing page without a session cookie and the app with one (D37 amendment);
-/// `/about` is always the landing page.
+/// `/about` is always the landing page; `/privacy` is a static page next to it.
 fn spa(dir: &Path) -> Router<AppState> {
     let assets = ServeDir::new(dir.join("assets"));
     let index = ServeFile::new(dir.join("index.html"));
@@ -113,6 +117,10 @@ fn spa(dir: &Path) -> Router<AppState> {
     let pages = Router::new()
         .route("/", get(home))
         .route("/about", get_service(landing))
+        .route(
+            "/privacy",
+            get_service(ServeFile::new(dir.join("privacy.html"))),
+        )
         .fallback_service(ServeDir::new(dir).fallback(index))
         .layer(SetResponseHeaderLayer::overriding(
             CACHE_CONTROL,
