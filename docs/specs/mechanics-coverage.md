@@ -18,7 +18,7 @@ Question: does every mechanic in the behavior specs work end to end in the shipp
 - At SAN-34 the SPA called 31 of the API's operations and never `POST/PUT/DELETE /board/columns*`,
   `PUT /board/settings`, `POST/PUT/DELETE /statuses*`, `POST /members`,
   `PUT/DELETE /members/{user_id}`; SAN-44 wired the member edits and SAN-45 the board settings, so
-  only `POST /members` stays unused. There is no issue delete endpoint. `crates/santi-cli` is a
+  only `POST /members` stays unused. SAN-49 added `DELETE /issues/{number}` (D40). `crates/santi-cli` is a
   14-line stub (no CLI or MCP commands yet).
 
 Status:
@@ -126,7 +126,7 @@ SAN-48 (branch `feat/SAN-48-epic-panel`) added the epic panel on the backlog, "S
 | BL-6 | Empty sprint keeps rank; else drop point | UI | `sortable-backlog.test` "drags a row into an empty sprint at once, keeping its rank"; `sprints::issues_move_into_a_sprint_and_back_keeping_rank` | |
 | BL-7 | Drag re-ranks; top/bottom action | UI | `sortable-backlog.test` "reorders inside a section", "moves a row to the top or bottom of another section from its menu" | |
 | BL-8 | Selection sent to top/bottom/sprint (v1: CLI/MCP) | Deferred | CLI/MCP not built (E3); UI side is UI-22 | |
-| BL-9 | Ranking a parent carries its subtasks | Divergent | Sprint carried (`sprints::subtasks_always_share_their_parent_sprint`); rank not: a move writes only the moved issue (D21) | Subtasks keep their own rank on the board |
+| BL-9 | Ranking a parent carries its subtasks | Deferred | BL-9 dropped under D6: backlog rows are parents only, so a backlog move has no subtask rows to carry; the sprint still follows the parent (`sprints::subtasks_always_share_their_parent_sprint`) and a move writes one row (D21) | Subtasks keep their own rank on the board (flat cards, D6) |
 | BL-10, BL-11 | Rank needs rank order; instance-wide rank | Deferred | dropped (2 rules) | |
 | BL-12a | Create sprints from the backlog | UI | `sprint-dialogs.test` "creates a sprint, named by the server unless a name is given" | |
 | BL-12b | Reorder future sprints | Deferred | later (backlog cut); sprints list by id (D13) | |
@@ -136,7 +136,7 @@ SAN-48 (branch `feat/SAN-48-epic-panel`) added the epic panel on the backlog, "S
 | BL-16 | New issue placement (IA resolved #2: bottom; sprint kept) | UI | `create-issue.test` "keeps the dialog open for another, with type and sprint kept" | |
 | BL-17 | Inline create at every section foot | UI | `backlog-page.test` "creates inline at the foot of a sprint, into that sprint", "creates inline in the backlog with no sprint" | |
 | BL-18 | Split | Deferred | later | |
-| BL-19 | Row edits (summary, assignee, points, parent, priority) | Missing | `backlog-row.tsx` read-only; live row menu: "Move to…" only | Board card menu has assign and priority; backlog rows have none |
+| BL-19 | Row edits (summary, assignee, points, parent, priority) | UI | `row-edits.test` "edits a summary in place…", "sets points and the assignee in the row…", "clears points and the assignee…"; parent from the row menu "Set epic" (BL-20); `e2e/backlog.spec.ts` "edit a row summary and its points in place…" | Wide screens only (a phone opens the issue); priority is not on the row, edited in the issue; bulk edit is group 11 |
 | BL-20 | Epic panel: list, create, drop to set parent, filter | UI | `epic-panel.test` "lists all issues, issues without an epic and each epic…", "creates an epic from the panel", "drops a row onto an epic at once and takes it back…", "sets and clears the epic from the row menu", "filters the backlog by an epic or by no epic…"; `e2e/backlog.spec.ts` "create an epic in the panel, drag two issues onto it and filter by it" | Done counts follow a drop only after the refetch |
 | BL-21 | One parent; epic done = done status | UI | `issues::parent_rules_are_enforced`; Epic picker in `issue-fields.tsx` for stories, tasks and bugs (`issue-detail.test` "saves the summary, description and every detail field on change"); subtasks keep their parent | |
 | BL-22 | Estimation statistic choice | Deferred | dropped: points only | |
@@ -195,7 +195,7 @@ Adoption list.
 | UI-16 | Sections stacked | UI | as BL-1 | |
 | UI-17 | Create sprint; Start in future header | UI | `backlog-page.test` | |
 | UI-18 | Sprint header avatars, per-person summary | Missing | `section-header.tsx` has none | Per-person load cut (BL-24); avatars were not |
-| UI-19 | Row fields edited in place | Missing | as BL-19 | |
+| UI-19 | Row fields edited in place | UI | as BL-19 | |
 | UI-20 | Rows drag within and between sections | UI | as BL-7, BL-13 | |
 | UI-21 | Row menu: top, bottom | UI | `features/move-issue/row-menu.tsx` ("…" per section; no right-click) | |
 | UI-22 | Multi-select (checkbox, Cmd/Shift-click) and toolbar | Missing | live: 0 checkboxes | |
@@ -215,7 +215,7 @@ Adoption list.
 | D10 | Epic panel | UI | as BL-20 | |
 | D18 | Filters in the URL | UI | as SB-27 | |
 | UI-7, UI-14, UI-21 split, UI-24 versions, UI-34, UI-35, UI-39 | Later per adoption | Deferred | 7 rules; a Cmd/Ctrl+K palette exists for jumping to projects only | |
-| UI-25, UI-31 | Issue delete | Deferred | IA resolved #5; no endpoint | |
+| UI-25, UI-31 | Issue delete | UI | `issue_delete` (cascade, epic unlink, sprint `removed` fact, 403/404); `card-menu.test` "deletes a card and its subtasks at once…", "puts a deleted card back…"; `row-edits.test` "deletes a row from its menu…"; `issue-detail.test` "deletes the issue from its menu…"; `e2e/board.spec.ts` "delete an issue with its subtask…" | Flag (UI-25) stays out; convert and move (UI-31) later |
 
 Responsive (375px).
 
@@ -320,13 +320,15 @@ Ranked by what blocks a small team using the MVP every day.
    drop a row on an epic or on "No epic" (plus a "Set epic" menu item for phones); select to
    filter.
    Why: epics can be created, but there is no place to see them or plan by them.
-8. **Issue delete** — M.
+8. **Issue delete** — M. Done in SAN-49 (D40; `issue_delete`, `card-menu.test`, `issue-detail.test`,
+   `row-edits.test`, `e2e/board.spec.ts`).
    Rules: UI-25, UI-31 (IA resolved #5 deferred it).
    API: `DELETE /issues/{n}`. Subtasks cascade or are refused; a delete from the active sprint
    records a "removed" scope fact; comments go too. Needs adversarial review.
    UI: card menu, row menu and issue "…" with confirm.
    Why: duplicates and typos can only be parked in Done today; they pollute search and reports.
-9. **Backlog row editing** — M.
+9. **Backlog row editing** — M. Done in SAN-49 (`row-edits.test`, `e2e/backlog.spec.ts`); BL-9
+   dropped under D6.
    Rules: BL-19, UI-19, BL-9.
    API: BL-9 needs a move that also re-anchors subtasks, or record BL-9 as dropped under D6.
    UI: row menu gets Assign, Set priority, Points, Epic, like the board card menu. Inline
