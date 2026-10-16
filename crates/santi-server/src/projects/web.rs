@@ -7,9 +7,7 @@ use axum::routing::{get, post};
 use santi_types::FieldError;
 use santi_types::boards::{BoardView, Card};
 use santi_types::issues::{CreateIssue, IssueFilter, IssueType, MoveIssue};
-use santi_types::projects::{
-    BoardType, CreateInvite, CreateProject, Invite, MemberInfo, MemberRole, Project,
-};
+use santi_types::projects::{BoardType, CreateInvite, CreateProject, Invite, MemberInfo, Project};
 
 use serde::Deserialize;
 
@@ -26,7 +24,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/projects/new", get(new_project_page))
         .route("/projects", post(create_project))
-        .route("/p/{key}", get(project_page))
+        .route("/p/{key}", get(project_root))
+        .route("/p/{key}/board", get(project_page))
         .route("/p/{key}/issues", post(create_issue))
         .route("/p/{key}/issues/{number}/move", post(move_card))
         .route("/p/{key}/invites", post(create_invite))
@@ -124,7 +123,7 @@ async fn create_project(
 ) -> Result<Response, AppError> {
     let (key, name, board_type) = (input.key.clone(), input.name.clone(), input.board_type);
     let (status, errors) = match service::create_project(&state.pool, &user, input).await {
-        Ok(project) => return Ok(Redirect::to(&format!("/p/{}", project.key)).into_response()),
+        Ok(project) => return Ok(Redirect::to(&landing(&project)).into_response()),
         Err(AppError::Validation(errors)) => (StatusCode::UNPROCESSABLE_ENTITY, errors),
         Err(AppError::Conflict { .. }) => {
             let taken = FieldError {
@@ -145,6 +144,22 @@ async fn create_project(
     render(status, &page)
 }
 
+/// A new scrum project starts with planning, a kanban one with its board (IA resolved question 7).
+fn landing(project: &Project) -> String {
+    match project.board_type {
+        BoardType::Scrum => format!("/p/{}/backlog", project.key),
+        BoardType::Kanban => board_path(&project.key),
+    }
+}
+
+pub(crate) fn board_path(key: &str) -> String {
+    format!("/p/{key}/board")
+}
+
+async fn project_root(_user: PageUser, member: Member) -> Redirect {
+    Redirect::to(&board_path(&member.project_key))
+}
+
 async fn project_page(
     State(state): State<AppState>,
     PageUser(user): PageUser,
@@ -162,7 +177,7 @@ async fn create_issue(
 ) -> Result<Response, AppError> {
     let (summary, issue_type) = (input.summary.clone(), input.issue_type);
     let (status, errors) = match issues::service::create_issue(&state.pool, &member, input).await {
-        Ok(_) => return Ok(Redirect::to(&format!("/p/{}", member.project_key)).into_response()),
+        Ok(_) => return Ok(Redirect::to(&board_path(&member.project_key)).into_response()),
         Err(AppError::Validation(errors)) => (StatusCode::UNPROCESSABLE_ENTITY, errors),
         Err(AppError::Conflict { detail, .. }) => {
             let blocked = FieldError {
@@ -210,7 +225,7 @@ async fn accept_invite(
     PathParams(token): PathParams<String>,
 ) -> Result<Response, AppError> {
     let project = members::service::accept_invite(&state.pool, &user, &token).await?;
-    Ok(Redirect::to(&format!("/p/{}", project.key)).into_response())
+    Ok(Redirect::to(&board_path(&project.key)).into_response())
 }
 
 async fn load_project_page(
@@ -221,7 +236,9 @@ async fn load_project_page(
     draft: IssueDraft,
 ) -> Result<ProjectPage, AppError> {
     Ok(ProjectPage {
-        shell: shell(&state.pool, user, &member.project_key).await?,
+        shell: shell(&state.pool, user, &member.project_key)
+            .await?
+            .on("board"),
         project: service::get_project(&state.pool, member).await?,
         members: members::service::list_members(&state.pool, member).await?,
         invite,
@@ -267,7 +284,7 @@ async fn move_card(
     };
     let from_htmx = headers.contains_key("hx-request");
     if !from_htmx && move_error.is_none() {
-        return Ok(Redirect::to(&format!("/p/{}", member.project_key)).into_response());
+        return Ok(Redirect::to(&board_path(&member.project_key)).into_response());
     }
     let mut page = load_project_page(&state, &user, &member, None, IssueDraft::default()).await?;
     page.move_error = move_error;

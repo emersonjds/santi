@@ -1,17 +1,20 @@
-<nav id="sidebar" class="sidebar" aria-label="Sidebar">
-  <a class="side-link" href="/"{% if shell.current.is_empty() %} aria-current="page"{% endif %}>{{ ui::icon("house") }}<span>Home</span></a>
-  <div class="side-head">
-    <h2 id="side-projects">Projects</h2>
-    <a class="icon-button" href="/projects/new" aria-label="New project" title="New project">{{ ui::icon("plus") }}</a>
+<nav id="sidebar" aria-label="Sidebar" class="peer invisible fixed inset-y-0 left-0 z-50 w-[min(280px,85vw)] -translate-x-full overflow-y-auto border-r border-border bg-surface p-3 transition-transform target:visible target:translate-x-0 motion-reduce:transition-none lg:visible lg:sticky lg:top-14 lg:z-auto lg:h-[calc(100vh-3.5rem)] lg:translate-x-0">
+  {{ ui::nav_link("/", "house", "Home", shell.tab == "home") }}
+  <div class="mt-4 flex items-center justify-between pl-2.5">
+    <h2 id="side-projects" class="text-xs font-semibold uppercase tracking-wider text-text-muted">Projects</h2>
+    <a class="grid size-11 place-items-center rounded-md text-text-muted hover:bg-hover hover:text-text" href="/projects/new" aria-label="New project" title="New project">{{ ui::icon("plus") }}</a>
   </div>
-  <ul class="side-list" aria-labelledby="side-projects">
+  <ul aria-labelledby="side-projects">
     {%- for project in shell.projects %}
-    <li><a class="side-link" href="/p/{{ project.key }}"{% if project.key == shell.current %} aria-current="page"{% endif %}>{{ ui::icon("folder") }}<span class="side-name">{{ project.name }}</span><span class="key">{{ project.key }}</span></a>
+    <li>
+      <a class="flex min-h-11 items-center gap-2.5 rounded-md px-2.5 text-sm hover:bg-hover" href="/p/{{ project.key }}/board">{{ ui::avatar(project.name, "size-6 rounded-md") }}<span class="min-w-0 flex-1 truncate">{{ project.name }}</span><span class="text-xs tabular-nums text-text-subtle">{{ project.key }}</span></a>
       {%- if project.key == shell.current %}
-      <ul class="side-sub">
-        <li><a class="side-link" href="/p/{{ project.key }}">{{ ui::icon("kanban") }}<span>Board</span></a></li>
+      {%- let board = "/p/{}/board"|format(project.key) %}
+      {%- let backlog = "/p/{}/backlog"|format(project.key) %}
+      <ul class="pl-4">
+        <li>{{ ui::nav_link(board, "kanban", "Board", shell.tab == "board") }}</li>
         {%- if project.board_type == santi_types::projects::BoardType::Scrum %}
-        <li><a class="side-link" href="/p/{{ project.key }}/backlog">{{ ui::icon("list") }}<span>Backlog</span></a></li>
+        <li>{{ ui::nav_link(backlog, "list", "Backlog", shell.tab == "backlog") }}</li>
         {%- endif %}
       </ul>
       {%- endif %}
@@ -19,4 +22,4 @@
     {%- endfor %}
   </ul>
 </nav>
-<a class="scrim" href="#main" tabindex="-1" aria-hidden="true"></a>
+<a class="fixed inset-0 z-40 hidden bg-text/40 peer-target:block lg:peer-target:hidden" href="#main" tabindex="-1" aria-hidden="true"></a>

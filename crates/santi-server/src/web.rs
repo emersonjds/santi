@@ -6,7 +6,7 @@ use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::http::request::Parts;
 use axum::response::{Html, IntoResponse, Redirect, Response};
 use axum::routing::get;
-use santi_types::projects::Project;
+use santi_types::projects::{BoardType, Project};
 use sqlx::PgPool;
 
 use crate::AppState;
@@ -62,6 +62,30 @@ pub struct Shell {
     pub projects: Vec<Project>,
     /// Key of the project being viewed; empty outside a project.
     pub current: String,
+    /// The open view, marked current in the sidebar and the project tabs: `home`, `board`, `backlog`.
+    pub tab: &'static str,
+}
+
+impl Shell {
+    pub fn on(self, tab: &'static str) -> Self {
+        Self { tab, ..self }
+    }
+
+    /// Top bar "+ Create": the create form of the current project, else of the first one.
+    pub fn create_href(&self) -> String {
+        let project = self
+            .projects
+            .iter()
+            .find(|project| project.key == self.current)
+            .or(self.projects.first());
+        match project {
+            None => "/projects/new".into(),
+            Some(project) if project.board_type == BoardType::Scrum => {
+                format!("/p/{}/backlog#summary", project.key)
+            }
+            Some(project) => format!("/p/{}/board#summary", project.key),
+        }
+    }
 }
 
 pub async fn shell(pool: &PgPool, user: &CurrentUser, current: &str) -> Result<Shell, AppError> {
@@ -71,6 +95,7 @@ pub async fn shell(pool: &PgPool, user: &CurrentUser, current: &str) -> Result<S
         display_name: me.display_name,
         projects,
         current: current.into(),
+        tab: "",
     })
 }
 
@@ -100,7 +125,7 @@ async fn home(
     State(state): State<AppState>,
     PageUser(user): PageUser,
 ) -> Result<Response, AppError> {
-    let shell = shell(&state.pool, &user, "").await?;
+    let shell = shell(&state.pool, &user, "").await?.on("home");
     render(StatusCode::OK, &HomePage { shell })
 }
 

@@ -41,20 +41,53 @@
 </svg>
 {% endmacro %}
 
-{% macro brand(href) %}
-<a class="brand" href="{{ href }}">
-  <svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="7"/><path d="M7 8h10M7 12h6M7 16h8"/></svg>
-  <span>santi</span>
+
+{% macro brand(href, word = "") %}
+<a class="inline-flex min-h-11 items-center gap-2 rounded-md px-1 text-lg font-bold tracking-tight text-text" href="{{ href }}">
+  <span class="grid size-7 place-items-center rounded-lg bg-primary text-base leading-none text-on-primary" aria-hidden="true">s</span>
+  <span class="{{ word }}">santi</span>
 </a>
 {% endmacro %}
 
 {% macro field(name, label, kind, value, autocomplete, error) %}
-<div class="field">
-  <label for="{{ name }}">{{ label }}</label>
-  <input id="{{ name }}" name="{{ name }}" type="{{ kind }}" value="{{ value }}" autocomplete="{{ autocomplete }}" required
+<div class="grid gap-1.5">
+  <label class="text-sm font-semibold" for="{{ name }}">{{ label }}</label>
+  <input class="min-h-11 w-full rounded-md border border-control bg-canvas px-3 py-2 text-base text-text placeholder:text-text-subtle aria-[invalid=true]:border-danger" id="{{ name }}" name="{{ name }}" type="{{ kind }}" value="{{ value }}" autocomplete="{{ autocomplete }}" required
     {%- if !error.is_empty() %} aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
   {%- if !error.is_empty() %}
-  <p class="field-error" id="{{ name }}-error">{{ label }} {{ error }}.</p>
+  <p class="text-sm text-danger" id="{{ name }}-error">{{ label }} {{ error }}.</p>
   {%- endif %}
 </div>
+{% endmacro %}
+
+{% macro submit(label) %}
+<button class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed aria-busy:opacity-70" type="submit">{{ label }}</button>
+{% endmacro %}
+
+{% macro link_button(href, name, label) %}
+<a class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-4 font-semibold text-on-primary hover:bg-primary-hover active:bg-primary-pressed" href="{{ href }}">{{ icon(name) }}<span>{{ label }}</span></a>
+{% endmacro %}
+
+{% macro alert(message) %}
+<p class="mt-5 flex items-center gap-2.5 rounded-md bg-danger-bg px-3.5 py-3 text-danger" role="alert">{{ icon("circle-alert") }}<span>{{ message }}</span></p>
+{% endmacro %}
+
+{# Sidebar row; the current one gets the purple tint, purple text and a 3px bar on the left. #}
+{% macro nav_link(href, name, label, current) %}
+<a href="{{ href }}"{% if current %} aria-current="page"{% endif %} class="relative flex min-h-11 items-center gap-2.5 rounded-md px-2.5 text-sm text-text hover:bg-hover aria-[current=page]:bg-selected aria-[current=page]:font-semibold aria-[current=page]:text-link aria-[current=page]:before:absolute aria-[current=page]:before:inset-y-2 aria-[current=page]:before:left-0 aria-[current=page]:before:w-[3px] aria-[current=page]:before:rounded-full aria-[current=page]:before:bg-primary">{{ icon(name) }}<span>{{ label }}</span></a>
+{% endmacro %}
+
+{% macro tab(href, label, current) %}
+<a href="{{ href }}"{% if current %} aria-current="page"{% endif %} class="-mb-px inline-flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-semibold text-text-muted hover:text-text aria-[current=page]:border-primary aria-[current=page]:text-link">{{ label }}</a>
+{% endmacro %}
+
+{% macro avatar(name, shape = "size-8 rounded-full") %}
+<span class="grid shrink-0 place-items-center {{ shape }} bg-selected-strong text-xs font-bold text-primary" title="{{ name }}" aria-hidden="true">{{ crate::web::initials(name) }}</span>
+{% endmacro %}
+
+{% macro choice(name, value, title, help, checked) %}
+<label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border bg-canvas px-3 py-2.5 hover:bg-hover has-checked:border-primary has-checked:bg-selected">
+  <input class="size-5 accent-primary" type="radio" name="{{ name }}" value="{{ value }}"{% if checked %} checked{% endif %}>
+  <span><strong class="mr-1.5">{{ title }}</strong>{{ help }}</span>
+</label>
 {% endmacro %}

@@ -2,19 +2,22 @@
 {% import "shared/ui.html" as ui %}
 {% block title %}New project{% endblock %}
 {% block main %}
-<div class="narrow">
-  <h1 class="greeting">New project</h1>
-  <p class="lede">You will be its admin and can invite your team next.</p>
-  <form class="stack form-top" method="post" action="/projects">
+<div class="max-w-[30rem]">
+  <h1 class="text-2xl font-semibold tracking-tight">New project</h1>
+  <p class="mt-1.5 text-text-muted">You will be its admin and can invite your team next.</p>
+  <form class="mt-6 grid gap-4" method="post" action="/projects">
     {{ ui::field("name", "Name", "text", self.name, "off", self.error("name")) }}
     {{ ui::field("key", "Key", "text", self.key, "off", self.error("key")) }}
-    <p class="hint">2 to 10 letters or digits, like WEB. It starts every issue number: WEB-1.</p>
-    <fieldset class="choice">
-      <legend>Board</legend>
-      <label><input type="radio" name="board_type" value="scrum"{% if board_type == BoardType::Scrum %} checked{% endif %}><span><strong>Scrum</strong> Plan work in sprints.</span></label>
-      <label><input type="radio" name="board_type" value="kanban"{% if board_type == BoardType::Kanban %} checked{% endif %}><span><strong>Kanban</strong> Keep work flowing, no sprints.</span></label>
+    <p class="-mt-2 text-sm text-text-muted">2 to 10 letters or digits, like WEB. It starts every issue number: WEB-1.</p>
+    <fieldset class="grid gap-2">
+      <legend class="mb-1.5 text-sm font-semibold">Board</legend>
+      {{ ui::choice("board_type", "scrum", "Scrum", "Plan work in sprints.", board_type == BoardType::Scrum) }}
+      {{ ui::choice("board_type", "kanban", "Kanban", "Keep work flowing, no sprints.", board_type == BoardType::Kanban) }}
     </fieldset>
-    <button class="button" type="submit">Create project</button>
+    <div class="flex flex-wrap gap-2">
+      {{ ui::submit("Create project") }}
+      <a class="inline-flex min-h-11 items-center rounded-md px-4 font-semibold text-text-muted hover:bg-hover hover:text-text" href="/">Cancel</a>
+    </div>
   </form>
 </div>
 {% endblock %}

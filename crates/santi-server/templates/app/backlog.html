@@ -2,10 +2,7 @@
 {% import "shared/ui.html" as ui %}
 {% block title %}Backlog · {{ project.name }}{% endblock %}
 {% block main %}
-<header class="project-head">
-  <p class="key">{{ project.key }}</p>
-  <h1 class="greeting">Backlog</h1>
-</header>
+{% include "widgets/project_header.html" %}
 <section class="board-area" aria-labelledby="new-issue-title">
   <h2 id="new-issue-title" class="visually-hidden">New issue</h2>
   <form class="create-issue plan-issue" method="post" action="/p/{{ project.key }}/backlog/issues">
