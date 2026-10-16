@@ -17,7 +17,7 @@ Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`.
 3. Design panel for any card a user sees (screen, copy, CLI/MCP output): `product`, `ux` and `ia` each vote on every open question, `architect` challenges on data, performance and readability; winner, trade-off and acceptance criteria (every state in `ux.md`) go to `docs/specs/cards/SAN-<n>.md`. Cross-cutting outcomes also get a D-entry in `decisions.md`. Implementers never decide UX alone: an open question found mid-build goes back to the panel. The REA behavior specs (`docs/specs/behavior/`) are the baseline: votes may improve on a rule (speed, clarity, fewer clicks) but never drop or contradict one without the owner; a mechanic with no spec yet goes to `investigator` before the panel.
 4. Build: `backend` → `web` / `cli-mcp`, TDD, prompt names the model file to copy and the card brief.
 5. Review: `qa` when risky (auth, migration, contract, tenant, > ~200 lines); `ux` checks screenshots (1440 and 375, light and dark) against the brief. Findings fixed on the same branch by a fresh agent.
-6. Merge to `developer`, card → Done with a comment: what shipped, deviations, follow-up cards.
+6. Merge to `developer`; bump semver (minor feat, patch fix/chore) in `Cargo.toml`, `web/package.json` and `CHANGELOG.md`; PR `developer` → `main`, merged when CI is green, tag `vX.Y.Z` (Railway deploys `main`). Card → Done with a comment: what shipped, deviations, follow-up cards.
 7. Code comments: only facts the code cannot show; rationale lives in the card brief or `decisions.md`.
 
 ## Clean room (non-negotiable)
