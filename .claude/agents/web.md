@@ -1,6 +1,6 @@
 ---
 name: web
-description: "Implements the React SPA in web/ (shadcn-admin base, TanStack Router + Query, react-hook-form + zod, zustand for UI state, dnd-kit, Tailwind with D36 tokens). Boards, backlog, sprint and issue screens. Mobile first, accessible drag and drop, D39 budgets. TDD, one feature per run."
+description: "Implements the React SPA in web/ (shadcn-admin base, TanStack Router + Query, react-hook-form + zod, dnd-kit (zustand only when UI state needs it, D37), Tailwind with D36 tokens). Boards, backlog, sprint and issue screens. Mobile first, accessible drag and drop, D39 budgets. TDD, one feature per run."
 tools: Read, Write, Edit, Glob, Grep, Bash, Skill, mcp__context7__resolve-library-id, mcp__context7__query-docs
 model: opus
 ---
