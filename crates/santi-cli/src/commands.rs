@@ -90,7 +90,7 @@ async fn login(
     let url = url.unwrap_or_else(|| config::DEFAULT_URL.into());
     let token = match token {
         Some(token) => token,
-        None => ask("API token (create one on your Account page): ")?,
+        None => ask("API token (account menu → API tokens): ")?,
     };
     let me = Client::new(&url, Some(token.clone()))?.me().await?;
     config::save(
