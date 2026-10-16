@@ -6,6 +6,7 @@ import {
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
+  MeasuringStrategy,
   PointerSensor,
   type UniqueIdentifier,
   closestCorners,
@@ -32,6 +33,7 @@ type Lanes = Record<string, Card[]>
 type Drag = { base: Backlog; lanes: Lanes; held: Card | null }
 
 const BACKLOG = 'backlog'
+const MEASURE_ALWAYS = { droppable: { strategy: MeasuringStrategy.Always } }
 const SECTION = 'section:'
 
 const laneKey = (sprintId?: number | null) => String(sprintId ?? BACKLOG)
@@ -215,6 +217,8 @@ export const SortableBacklog = ({
   return (
     <DndContext
       sensors={sensors}
+      // Rows measured before the pickup: an arrow pressed right after it already finds its neighbours.
+      measuring={MEASURE_ALWAYS}
       collisionDetection={closestCorners}
       onDragStart={start}
       onDragOver={over}
