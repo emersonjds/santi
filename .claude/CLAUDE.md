@@ -22,7 +22,7 @@ Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`. Jira: 
 ## Gitflow and gate
 
 - `main` = release, `developer` = integration (always green). Work branches from `developer`: `feat|fix|chore|docs|ci|refactor/SAN-<n>-<summary>`.
-- Gate before merge: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, CI coverage ≥ 90% (lines, regions, functions on stable; branches on nightly).
+- Gate before merge: `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `scripts/sqlx-prepare.sh --check` (never prepare against the dev database), CI coverage ≥ 90% (lines, regions, functions on stable; branches on nightly).
 - Local coverage without rustup: `LLVM_COV=$(brew --prefix llvm@22)/bin/llvm-cov LLVM_PROFDATA=$(brew --prefix llvm@22)/bin/llvm-profdata cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'`.
 - Agents commit on each green step; only the orchestrating session merges, pushes or opens PRs.
 - Adversarial review (`qa`) for auth, migrations, API contract changes and diffs over ~200 lines.
