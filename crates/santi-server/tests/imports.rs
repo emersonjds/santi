@@ -382,3 +382,48 @@ async fn five_thousand_rows_import_within_budget(pool: PgPool) {
     assert!(elapsed.as_secs_f64() < 10.0, "import took {elapsed:?}");
     assert_eq!(issue(&ana, 4001).await["parent_key"], "SANTI-3001");
 }
+
+/// Rows the schema would refuse fail on their own; the rest of their batch still imports.
+#[sqlx::test]
+async fn bad_rows_fail_alone(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+    let long_key = "K".repeat(256);
+    let long_sprint = "S".repeat(150);
+    let csv = format!(
+        "Issue key,Summary,Status,Sprint\n\
+         GOOD-1,First,Done,\n\
+         {long_key},Key too long,Done,\n\
+         GOOD-2,Has a \0 inside,Done,\n\
+         GOOD-3,Long sprint,Done,{long_sprint}\n"
+    );
+    let sprint_name: String = long_sprint.chars().take(100).collect();
+    let mapping = json!({
+        "statuses": { "Done": ana.status_id("SANTI", "Done").await },
+        "sprints": { sprint_name: "future" },
+    });
+
+    let (status, result) = import(&ana, &csv, &mapping).await;
+    let (again, second) = import(&ana, &csv, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(result["created"], 2);
+    assert_eq!(result["failed"], 2);
+    let messages: Vec<&str> = result["problems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|problem| problem["message"].as_str().unwrap())
+        .collect();
+    assert!(
+        messages.contains(&"issue key is longer than 255 characters; row skipped"),
+        "{messages:?}"
+    );
+    assert!(
+        messages.contains(&"the row contains a NUL character; row skipped"),
+        "{messages:?}"
+    );
+    assert_eq!(issue(&ana, 2).await["summary"], "Long sprint");
+    assert_eq!(again, StatusCode::OK, "{second}");
+    assert_eq!(second["created"], 0);
+    assert_eq!(second["skipped"], 2);
+}

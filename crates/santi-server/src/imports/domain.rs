@@ -384,8 +384,15 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
             message,
         };
         let row = read_row(source, &columns_map, record, &mut export.problems);
+        // Checked here so no row can fail its whole insert batch in the database.
         let fatal = match &row {
+            _ if record.fields.iter().any(|field| field.contains('\0')) => {
+                Some("the row contains a NUL character; row skipped".to_string())
+            }
             row if row.key.is_empty() => Some("no issue key; row skipped".to_string()),
+            row if row.key.chars().count() > 255 => {
+                Some("issue key is longer than 255 characters; row skipped".to_string())
+            }
             row if row.summary.is_empty() => Some("no summary; row skipped".to_string()),
             row if !seen.insert(row.key.clone()) => {
                 Some(format!("issue key {} appears twice; row skipped", row.key))
@@ -441,6 +448,9 @@ fn read_row(
         .collect();
     if let (true, Some(number)) = (sprints.is_empty(), columns.first(record, "cycle_number")) {
         sprints.push(format!("Cycle {number}"));
+    }
+    for name in &mut sprints {
+        *name = name.chars().take(100).collect(); // a sprint name's limit
     }
     problems.extend(messages.into_iter().map(|message| RowProblem {
         line: record.line,
