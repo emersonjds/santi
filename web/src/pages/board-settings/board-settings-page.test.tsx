@@ -290,7 +290,18 @@ describe('board settings: statuses', () => {
       },
       'PUT /api/projects/WEB/statuses/40': {
         status: 200,
-        body: { ...blocked, column_id: 2 },
+        body: () => {
+          const mapped = { ...blocked, column_id: 2 }
+          settings = {
+            ...WEB_SETTINGS,
+            columns: WEB_SETTINGS.columns.map((column) =>
+              column.id === 2
+                ? { ...column, statuses: [...column.statuses, mapped] }
+                : column
+            ),
+          }
+          return mapped
+        },
       },
     })
     const { screen } = await renderApp('/p/WEB/settings')

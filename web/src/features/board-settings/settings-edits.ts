@@ -31,6 +31,8 @@ export type Edit =
   | { kind: 'delete-status'; status: Status }
   | { kind: 'done-window'; done_window_days: number | null }
 
+export type OnEdit = (edit: Edit) => void
+
 const FAILURE: Record<Edit['kind'], string> = {
   'add-column': "Couldn't add the column",
   'update-column': "Couldn't save the column",
