@@ -108,6 +108,24 @@ async fn deleting_needs_the_password_and_locks_after_repeated_misses(pool: PgPoo
 }
 
 #[sqlx::test]
+async fn a_locked_login_does_not_block_deleting_the_account(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    for _ in 0..6 {
+        let body = json!({ "email": "ana@example.com", "password": "wrong" });
+        ana.post("/api/auth/login", body).await;
+    }
+    let body = json!({ "email": "ana@example.com", "password": PASSWORD });
+    assert_eq!(
+        ana.post("/api/auth/login", body).await.0,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+
+    let (status, _, _) = delete_account(&ana, PASSWORD).await;
+
+    assert_eq!(status, StatusCode::NO_CONTENT);
+}
+
+#[sqlx::test]
 async fn deleting_signs_out_everywhere_and_frees_the_email(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
 

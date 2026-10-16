@@ -1574,7 +1574,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Too many wrong passwords for this account (D44); wait `Retry-After` seconds */
+            /** @description Too many password attempts for this account (D44); wait `Retry-After` seconds */
             429: {
                 headers: {
                     [name: string]: unknown;
