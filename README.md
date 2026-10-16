@@ -128,12 +128,16 @@ santi issues move WEB-12 --status "In Progress"
 santi board WEB
 santi sprints start WEB 3
 santi search WEB "login" --status in_progress --json
+santi issues edit WEB-12 --sprint none          # back to the backlog; --sprint <ID> plans it
+santi issues comments WEB-12                    # every comment, oldest first
 ```
 
-Commands: `login`, `whoami`, `projects list`, `issues list|show|create|edit|move|delete`,
-`board`, `backlog`, `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`,
-`search`, `comment`, `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `santi help <command>`
-has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
+Commands: `login`, `whoami`, `projects list`,
+`issues list|show|create|edit|move|delete|plan|comment|comments`, `board`, `backlog`,
+`sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`, `search`, `comment`,
+`import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `issues plan` and `issues comment` are
+the top-level `plan` and `comment` under `issues`. `issues show` names the status, assignee,
+reporter and sprint. `santi help <command>` has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
 `SANTI_URL`/`SANTI_TOKEN`, then the config file. Errors print the server's message; exit codes are
 2 usage, 3 auth, 4 not found, 5 rejected input or conflict, 6 server unreachable, 10 confirmation
 declined (stdout stays empty, so `--json` output is still valid JSON), 1 anything else.
