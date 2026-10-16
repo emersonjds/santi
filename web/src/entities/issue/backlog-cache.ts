@@ -50,3 +50,24 @@ export const moveRow = (backlog: Backlog, move: RowMove): Backlog => {
   })
   return { ...backlog, sections }
 }
+
+/** A new issue at the bottom of its section (D5); epics and subtasks are never rows (D10, BL-3). */
+export const insertRow = (backlog: Backlog, card: Card): Backlog => {
+  const known = backlog.sections.some((section) =>
+    section.cards.some((other) => other.key === card.key)
+  )
+  if (known || card.issue_type === 'epic' || card.issue_type === 'subtask')
+    return backlog
+  return {
+    ...backlog,
+    sections: backlog.sections.map((section) =>
+      sprintOf(section) === (card.sprint_id ?? null)
+        ? {
+            ...section,
+            cards: [...section.cards, card],
+            ...tally(section, card, 1),
+          }
+        : section
+    ),
+  }
+}

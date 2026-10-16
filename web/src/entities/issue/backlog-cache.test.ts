@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { WEB_BACKLOG } from '@/test/stub-api'
-import { moveRow, planRowMove } from './backlog-cache'
+import { WEB_BACKLOG, card } from '@/test/stub-api'
+import { insertRow, moveRow, planRowMove } from './backlog-cache'
 
 const [ACTIVE, PLANNED, EMPTY, NO_SPRINT] = WEB_BACKLOG.sections
 const [WEB_6, WEB_7] = NO_SPRINT.cards
@@ -47,5 +47,25 @@ describe('backlog cache', () => {
     expect(keys(3, moved)).toEqual(['WEB-7', 'WEB-6'])
     expect(moved.sections[3]).toMatchObject({ issue_count: 2, total_points: 2 })
     expect(moved.sections[1]).toBe(PLANNED)
+  })
+
+  it('adds a new row once, and never an epic or a subtask', () => {
+    const story = card({
+      key: 'WEB-12',
+      summary: 'New',
+      column_id: 1,
+      points: 1,
+    })
+    const added = insertRow(WEB_BACKLOG, story)
+
+    expect(keys(3, added)).toEqual(['WEB-6', 'WEB-7', 'WEB-12'])
+    expect(added.sections[3]).toMatchObject({ issue_count: 3, total_points: 3 })
+    expect(insertRow(added, story)).toBe(added)
+    expect(insertRow(WEB_BACKLOG, { ...story, issue_type: 'epic' })).toBe(
+      WEB_BACKLOG
+    )
+    expect(insertRow(WEB_BACKLOG, { ...story, issue_type: 'subtask' })).toBe(
+      WEB_BACKLOG
+    )
   })
 })

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import type { Backlog, BacklogSection } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { WEB_BACKLOG, card, inProjects, routeOf } from '@/test/stub-api'
+import { WEB_BACKLOG, card, inProjects, issue, routeOf } from '@/test/stub-api'
 
 const [ACTIVE, PLANNED, EMPTY, NO_SPRINT] = WEB_BACKLOG.sections
 
@@ -28,7 +28,9 @@ describe('backlog page', () => {
 
     const active = screen.getByRole('region', { name: 'Sprint 4' })
     await expect.element(active.getByText('Active')).toBeVisible()
-    await expect.element(active.getByText('3 issues', { exact: true })).toBeVisible()
+    await expect
+      .element(active.getByText('3 issues', { exact: true }))
+      .toBeVisible()
     await expect.element(active.getByLabelText('2 to do')).toBeVisible()
     await expect.element(active.getByLabelText('1 in progress')).toBeVisible()
     await expect.element(active.getByLabelText('Total 3 points')).toBeVisible()
@@ -239,5 +241,93 @@ describe('backlog page', () => {
     await expect
       .element(screen.getByRole('status', { name: 'Loading backlog' }))
       .toBeVisible()
+  })
+
+  it('creates inline at the foot of a sprint, into that sprint', async () => {
+    const created = issue({
+      key: 'WEB-12',
+      summary: 'Store the card token',
+      sprint_id: 5,
+    })
+    // The refetch after the create brings the new row from the server too.
+    let reads = 0
+    const after = backlogOf(
+      ACTIVE,
+      {
+        ...PLANNED,
+        issue_count: 2,
+        cards: [...PLANNED.cards, card({ ...created, column_id: 1 })],
+      },
+      EMPTY,
+      NO_SPRINT
+    )
+    const requests = inProjects({
+      'POST /api/projects/WEB/issues': { status: 201, body: created },
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: () => (reads++ === 0 ? WEB_BACKLOG : after),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const planned = screen.getByRole('region', { name: 'Sprint 5' })
+
+    await planned.getByRole('button', { name: 'Create issue' }).click()
+    await planned.getByLabelText('New issue type').selectOptions('Bug')
+    await planned
+      .getByLabelText('New issue summary')
+      .fill('Store the card token')
+    await userEvent.keyboard('{Enter}')
+
+    await expect.element(planned).toHaveTextContent('Store the card token')
+    await expect.element(planned).toHaveTextContent('2 of 2 issues visible')
+    await expect
+      .element(planned.getByLabelText('New issue summary'))
+      .toHaveValue('')
+    const posted = requests.find(
+      (request) => routeOf(request) === 'POST /api/projects/WEB/issues'
+    )
+    expect(await posted?.clone().json()).toEqual({
+      summary: 'Store the card token',
+      issue_type: 'bug',
+      sprint_id: 5,
+      status_id: 10,
+    })
+  })
+
+  it('creates inline in the backlog with no sprint', async () => {
+    const created = issue({
+      key: 'WEB-12',
+      summary: 'Plan the launch',
+      sprint_id: null,
+    })
+    let reads = 0
+    const after = backlogOf(ACTIVE, PLANNED, EMPTY, {
+      ...NO_SPRINT,
+      issue_count: 3,
+      cards: [...NO_SPRINT.cards, card({ ...created, column_id: 1 })],
+    })
+    const requests = inProjects({
+      'POST /api/projects/WEB/issues': { status: 201, body: created },
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: () => (reads++ === 0 ? WEB_BACKLOG : after),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const backlog = screen.getByRole('region', { name: 'Backlog' })
+
+    await backlog.getByRole('button', { name: 'Create issue' }).click()
+    await backlog.getByLabelText('New issue summary').fill('Plan the launch')
+    await userEvent.keyboard('{Enter}')
+
+    await expect.element(backlog).toHaveTextContent('Plan the launch')
+    const posted = requests.find(
+      (request) => routeOf(request) === 'POST /api/projects/WEB/issues'
+    )
+    expect(await posted?.clone().json()).toEqual({
+      summary: 'Plan the launch',
+      issue_type: 'story',
+      status_id: 10,
+    })
   })
 })

@@ -16,7 +16,7 @@ import {
   dataOrThrow,
 } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
-import { type RowMove, moveRow } from './backlog-cache'
+import { type RowMove, insertRow, moveRow } from './backlog-cache'
 import { backlogKey } from './backlog-query'
 import {
   type Move,
@@ -298,15 +298,18 @@ export const useCreateIssue = (projectKey: string) => {
       const settings = queryClient.getQueryData(
         boardSettingsQuery(projectKey).queryKey
       )
-      const queryKey = boardsKey(projectKey)
-      queryClient.setQueriesData<BoardView>({ queryKey }, (board) => {
-        const columnId =
-          columnOf(settings, created.status_id) ?? board?.columns[0]?.id
-        return board && columnId !== undefined
-          ? insertCard(board, cardOf(created, columnId))
-          : board
-      })
-      void queryClient.invalidateQueries({ queryKey })
+      const columnId = (board?: BoardView) =>
+        columnOf(settings, created.status_id) ?? board?.columns[0]?.id ?? 0
+      queryClient.setQueriesData<BoardView>(
+        { queryKey: boardsKey(projectKey) },
+        (board) => board && insertCard(board, cardOf(created, columnId(board)))
+      )
+      queryClient.setQueriesData<Backlog>(
+        { queryKey: backlogKey(projectKey) },
+        (backlog) => backlog && insertRow(backlog, cardOf(created, columnId()))
+      )
+      void queryClient.invalidateQueries({ queryKey: boardsKey(projectKey) })
+      void queryClient.invalidateQueries({ queryKey: backlogKey(projectKey) })
     },
   })
 }

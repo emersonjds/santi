@@ -7,6 +7,7 @@ import {
   useState,
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { CreateSlot } from '@/widgets/board/create-slot'
 import { FilterBar } from '@/widgets/board/filter-bar'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { backlogQuery } from '@/entities/issue/backlog-query'
@@ -79,6 +80,8 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
   const narrow = useIsMobile()
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [dialog, setDialog] = useState<SprintAction | null>(null)
+  // Held here, above the drag layer swap, so an open form survives it.
+  const [creating, setCreating] = useState<string | null>(null)
   const epics = useMemo(
     () => new Map(backlog.epics.map((epic) => [epic.key, epic])),
     [backlog.epics]
@@ -198,6 +201,12 @@ const Sections = ({ backlog, projectKey, statuses }: SectionsProps) => {
         />
         <div id={`${id}-body`} hidden={!expanded} className='grid gap-2 pb-2'>
           {expanded && list}
+          <CreateSlot
+            projectKey={projectKey}
+            sprintId={section.sprint?.id}
+            open={creating === lane}
+            setOpen={(open) => setCreating(open ? lane : null)}
+          />
           <p className='px-4 text-xs text-subtle-foreground tabular-nums'>
             {section.cards.length} of {section.issue_count} issues visible ·
             Estimate: {visiblePoints} of {section.total_points}
