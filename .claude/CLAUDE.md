@@ -10,6 +10,16 @@ Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`.
 - Card flow: To Do → In Progress when a branch starts → Done after the merge to `developer`. Branches keep `SAN-<n>`.
 - Gaps found while using it become cards in `SAN` (label `dogfood`).
 
+## Card flow (one card at a time)
+
+1. Card → In Progress; worktree `../santi-<n>` on `feat|fix|chore/SAN-<n>-<summary>` from `developer`.
+2. Behavior unknown → `investigator` first (REA, `docs/specs/behavior/`).
+3. Design panel for any card a user sees (screen, copy, CLI/MCP output): `product` and `ux` vote on each open question, `architect` challenges on data, performance and readability; winner, trade-off and acceptance criteria (every state in `ux.md`) go to `docs/specs/cards/SAN-<n>.md`. Cross-cutting outcomes also get a D-entry in `decisions.md`. Implementers never decide UX alone: an open question found mid-build goes back to the panel.
+4. Build: `backend` → `web` / `cli-mcp`, TDD, prompt names the model file to copy and the card brief.
+5. Review: `qa` when risky (auth, migration, contract, tenant, > ~200 lines); `ux` checks screenshots (1440 and 375, light and dark) against the brief. Findings fixed on the same branch by a fresh agent.
+6. Merge to `developer`, card → Done with a comment: what shipped, deviations, follow-up cards.
+7. Code comments: only facts the code cannot show; rationale lives in the card brief or `decisions.md`.
+
 ## Clean room (non-negotiable)
 
 - Only the `investigator` agent has REA (inline `mcpServers` in its definition). Nothing else registers it.
