@@ -23,7 +23,12 @@ export const FilterSheet = ({
   children,
 }: FilterSheetProps) => (
   <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side='bottom' className='max-h-[85dvh] overflow-y-auto'>
+    <SheetContent
+      side='bottom'
+      className='max-h-[85dvh] overflow-y-auto'
+      // Focusing the text box would pop the phone keyboard over the sheet.
+      onOpenAutoFocus={(event) => event.preventDefault()}
+    >
       <SheetHeader className='pb-0'>
         <SheetTitle>Filters</SheetTitle>
         <SheetDescription className='sr-only'>
