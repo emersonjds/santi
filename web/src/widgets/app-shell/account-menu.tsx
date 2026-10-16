@@ -1,8 +1,6 @@
 import { useRouteContext } from '@tanstack/react-router'
 import { LogOut } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
-import { UserAvatar } from '@/entities/user/user-avatar'
-import { Button } from '@/shared/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
+import { AccountButton } from './account-button'
 
 export const AccountMenu = () => {
   const { user } = useRouteContext({ from: '/_authenticated' })
@@ -19,13 +18,7 @@ export const AccountMenu = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant='ghost'
-          aria-label='Account'
-          className='size-11 shrink-0 rounded-full p-0 md:size-9'
-        >
-          <UserAvatar name={user.display_name} />
-        </Button>
+        <AccountButton />
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-60'>
         <DropdownMenuLabel className='grid font-normal'>
