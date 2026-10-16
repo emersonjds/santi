@@ -5,7 +5,9 @@ import type {
   BoardView,
   Card,
   Comment,
+  HomeIssue,
   Issue,
+  MyProject,
   Sprint,
 } from '@/shared/api/client'
 
@@ -46,6 +48,11 @@ export const anonymous = (replies: Record<string, Reply> = {}) =>
     'GET /api/me': { status: 401, body: problem(401, 'Sign in.') },
     'GET /api/me/legal': { status: 200, body: LEGAL_ACCEPTED },
     'GET /api/projects': { status: 200, body: [] },
+    'GET /api/me/projects': { status: 200, body: [] },
+    'GET /api/me/issues': {
+      status: 200,
+      body: { items: [], next_cursor: null },
+    },
     ...replies,
   })
 
@@ -55,6 +62,11 @@ export const signedIn = (replies: Record<string, Reply> = {}) =>
     'GET /api/me': { status: 200, body: ALICE },
     'GET /api/me/legal': { status: 200, body: LEGAL_ACCEPTED },
     'GET /api/projects': { status: 200, body: [] },
+    'GET /api/me/projects': { status: 200, body: [] },
+    'GET /api/me/issues': {
+      status: 200,
+      body: { items: [], next_cursor: null },
+    },
     ...replies,
   })
 
@@ -62,6 +74,7 @@ export const signedIn = (replies: Record<string, Reply> = {}) =>
 export const inProjects = (replies: Record<string, Reply> = {}) =>
   signedIn({
     'GET /api/projects': { status: 200, body: [WEB, OPS] },
+    'GET /api/me/projects': { status: 200, body: [MY_WEB, MY_OPS] },
     'GET /api/projects/WEB': { status: 200, body: WEB },
     'GET /api/projects/WEB/members': { status: 200, body: MEMBERS },
     'GET /api/projects/OPS': { status: 200, body: OPS },
@@ -116,6 +129,41 @@ export const OPS = {
   board_type: 'kanban',
   role: 'member',
 } as const
+
+/** WEB and OPS as the home lists them: WEB starred, two open issues assigned to Alice in OPS. */
+export const MY_WEB: MyProject = {
+  key: 'WEB',
+  name: 'Website',
+  board_type: 'scrum',
+  role: 'admin',
+  lead_name: 'Alice',
+  starred: true,
+  open_assigned: 1,
+}
+
+export const MY_OPS: MyProject = {
+  key: 'OPS',
+  name: 'Operations',
+  board_type: 'kanban',
+  role: 'member',
+  lead_name: 'Bob Stone',
+  starred: false,
+  open_assigned: 2,
+}
+
+/** A home row with quiet defaults: an unstarred, unassigned WEB story touched just now. */
+export const homeIssue = (
+  fields: Partial<HomeIssue> & Pick<HomeIssue, 'key' | 'summary'>
+): HomeIssue => ({
+  issue_type: 'story',
+  status_category: 'todo',
+  project_key: 'WEB',
+  project_name: 'Website',
+  assignee_name: null,
+  starred: false,
+  at: new Date().toISOString(),
+  ...fields,
+})
 
 export const MEMBERS = [
   {

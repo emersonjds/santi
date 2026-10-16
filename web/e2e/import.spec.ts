@@ -18,7 +18,7 @@ const emptyProject = async (page: Page, board_type: 'scrum' | 'kanban') => {
   await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
-  await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
   const key = `I${unique().slice(-6).toUpperCase()}`
   await page.evaluate(
     (body) =>

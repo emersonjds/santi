@@ -1,33 +1,95 @@
 import { describe, expect, it } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { WEB, inProjects, problem, routeOf, signedIn } from '@/test/stub-api'
+import {
+  MY_OPS,
+  MY_WEB,
+  homeIssue,
+  inProjects,
+  problem,
+  routeOf,
+  signedIn,
+} from '@/test/stub-api'
+
+const page = (items: unknown[], next_cursor: number | null = null) => ({
+  status: 200,
+  body: { items, next_cursor },
+})
+
+const yesterday = () => {
+  const day = new Date()
+  day.setDate(day.getDate() - 1)
+  day.setHours(12, 0, 0, 0)
+  return day.toISOString()
+}
+
+const viewOf = (request: Request) =>
+  new URL(request.url).searchParams.get('view')
+
+/** Answers `/api/me/issues` per view; views not listed get an empty page. */
+const byView = (lists: Partial<Record<string, unknown[]>>) => ({
+  status: 200,
+  body: (request: Request) => ({
+    items: lists[viewOf(request) ?? 'recommended'] ?? [],
+    next_cursor: null,
+  }),
+})
+
+const LOGIN = homeIssue({
+  key: 'WEB-1',
+  summary: 'Fix the login page',
+  issue_type: 'bug',
+  assignee_name: 'Bob Stone',
+})
+const DEPLOY = homeIssue({
+  key: 'OPS-4',
+  summary: 'Rotate the deploy keys',
+  project_key: 'OPS',
+  project_name: 'Operations',
+  starred: true,
+  at: yesterday(),
+})
+const ARCHIVE = homeIssue({
+  key: 'WEB-9',
+  summary: 'Archive old builds',
+  issue_type: 'task',
+  at: '2020-01-02T12:00:00Z',
+})
 
 describe('home', () => {
-  it('greets the user and lists their projects with type and role', async () => {
+  it('shows recommended projects as cards and links to every project', async () => {
     inProjects()
     const { screen } = await renderApp('/')
 
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you', level: 1 }))
       .toBeVisible()
-    const web = screen.getByRole('main').getByRole('link', { name: /Website/ })
-    await expect.element(web).toHaveTextContent('WEB')
-    await expect.element(web).toHaveTextContent('Scrum')
-    await expect.element(web).toHaveTextContent('Admin')
+    const cards = screen.getByRole('region', { name: 'Recommended projects' })
+    const web = cards.getByRole('link', { name: 'Website' })
+    await expect.element(web).toBeVisible()
     await expect
-      .element(
-        screen.getByRole('main').getByRole('link', { name: /Operations/ })
-      )
+      .element(cards.getByRole('listitem').first())
+      .toHaveTextContent(/Software project.*Scrum/)
+    await expect
+      .element(cards.getByRole('listitem').nth(1))
       .toHaveTextContent('Kanban')
+    await expect
+      .element(cards.getByRole('listitem').nth(1))
+      .toHaveTextContent('2 open issues assigned to you')
+
+    await screen.getByRole('link', { name: 'View all projects' }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Projects', level: 1 }))
+      .toBeVisible()
   })
 
-  it('fetches a project when its row is hovered, before the click', async () => {
+  it('fetches a project when its card is hovered, before the click', async () => {
     const requests = inProjects()
     const { screen } = await renderApp('/')
 
     await screen
-      .getByRole('main')
-      .getByRole('link', { name: /Website/ })
+      .getByRole('region', { name: 'Recommended projects' })
+      .getByRole('link', { name: 'Website' })
       .hover()
 
     await expect
@@ -35,22 +97,192 @@ describe('home', () => {
       .toContain('GET /api/projects/WEB/members')
   })
 
-  it('shows skeleton rows while the projects load', async () => {
+  it('lists recommended issues by day with type, key, project, assignee and time', async () => {
+    inProjects({
+      'GET /api/me/issues': byView({ recommended: [LOGIN, DEPLOY, ARCHIVE] }),
+    })
+    const { screen } = await renderApp('/')
+
+    const panel = screen.getByRole('tabpanel', { name: 'Recommended' })
+    await expect
+      .element(panel.getByRole('heading', { name: 'Today' }))
+      .toBeVisible()
+    await expect
+      .element(panel.getByRole('heading', { name: 'Yesterday' }))
+      .toBeVisible()
+    await expect
+      .element(panel.getByRole('heading', { name: 'Older' }))
+      .toBeVisible()
+    const login = panel.getByRole('listitem').filter({ hasText: 'WEB-1' })
+    await expect.element(login).toHaveTextContent('Bug • WEB-1 • Website')
+    await expect
+      .element(login.getByTitle('Assigned to Bob Stone'))
+      .toBeVisible()
+    await expect.element(login).toHaveTextContent('now')
+    await panel.getByRole('link', { name: 'Fix the login page' }).click()
+    await expect
+      .element(screen.getByLabelText('Summary'))
+      .toHaveValue('Write the release notes')
+  })
+
+  it('switches tabs through the URL and counts what is assigned', async () => {
+    const requests = inProjects({
+      'GET /api/me/issues': byView({ assigned: [DEPLOY] }),
+    })
+    const { screen, router } = await renderApp('/')
+
+    const assigned = screen.getByRole('tab', { name: 'Assigned to me 3' })
+    await expect
+      .element(screen.getByRole('tab', { name: 'Recommended' }))
+      .toHaveAttribute('aria-selected', 'true')
+    await assigned.click()
+
+    await expect.element(assigned).toHaveAttribute('aria-selected', 'true')
+    expect(router.state.location.search).toEqual({ tab: 'assigned' })
+    await expect
+      .element(screen.getByRole('link', { name: 'Rotate the deploy keys' }))
+      .toBeVisible()
+    expect(
+      requests
+        .filter((request) => routeOf(request) === 'GET /api/me/issues')
+        .map(viewOf)
+    ).toContain('assigned')
+  })
+
+  it('moves between tabs with the arrow, Home and End keys', async () => {
+    inProjects()
+    const { screen } = await renderApp('/')
+    const tab = (name: string) => screen.getByRole('tab', { name })
+
+    await tab('Recommended').click()
+    await userEvent.keyboard('{ArrowRight}')
+    await expect.element(tab('Assigned to me 3')).toHaveFocus()
+    await userEvent.keyboard('{End}')
+    await expect.element(tab('Viewed')).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    await expect.element(tab('Recommended')).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}')
+    await expect.element(tab('Viewed')).toHaveFocus()
+    await userEvent.keyboard('{Home}')
+    await expect.element(tab('Recommended')).toHaveFocus()
+    await userEvent.keyboard('x')
+    await expect.element(tab('Recommended')).toHaveFocus()
+  })
+
+  it.each([
+    [
+      'recommended',
+      'Recommended',
+      'Issues you open, change, star or get assigned show up here.',
+    ],
+    ['assigned', 'Assigned to me 3', 'Nothing open is assigned to you.'],
+    ['starred', 'Starred', 'Star an issue to keep it here.'],
+    [
+      'worked',
+      'Worked on',
+      'Issues you create, edit, move or comment on show up here.',
+    ],
+    ['viewed', 'Viewed', 'Issues you open show up here.'],
+  ])('explains an empty %s tab', async (tab, name, empty) => {
+    inProjects()
+    const { screen } = await renderApp(`/?tab=${tab}`)
+
+    await expect
+      .element(screen.getByRole('tab', { name }))
+      .toHaveAttribute('aria-selected', 'true')
+    await expect.element(screen.getByText(empty)).toBeVisible()
+  })
+
+  it('stars and unstars a row at once, and rolls back when the write fails', async () => {
+    const requests = inProjects({
+      'GET /api/me/issues': byView({ recommended: [LOGIN, DEPLOY] }),
+      // Still pending: the optimistic star is all there is to see.
+      'POST /api/me/stars': { status: 204, until: new Promise(() => {}) },
+      'DELETE /api/me/stars/OPS-4': {
+        status: 500,
+        body: problem(500, 'Boom.'),
+      },
+    })
+    const { screen } = await renderApp('/')
+
+    const star = screen.getByRole('button', { name: 'Star WEB-1' })
+    await expect.element(star).toHaveAttribute('aria-pressed', 'false')
+    await star.click()
+    await expect.element(star).toHaveAttribute('aria-pressed', 'true')
+    const post = requests.find(
+      (request) => routeOf(request) === 'POST /api/me/stars'
+    )
+    expect(await post?.clone().json()).toEqual({ key: 'WEB-1' })
+
+    const starred = screen.getByRole('button', { name: 'Star OPS-4' })
+    await expect.element(starred).toHaveAttribute('aria-pressed', 'true')
+    await starred.click()
+    await expect
+      .element(screen.getByText('OPS-4 was not unstarred'))
+      .toBeVisible()
+    await expect.element(starred).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('stars a project from its card', async () => {
+    const requests = inProjects({
+      'POST /api/me/stars': { status: 204, until: new Promise(() => {}) },
+    })
+    const { screen } = await renderApp('/')
+
+    const ops = screen.getByRole('button', { name: 'Star Operations' })
+    await expect.element(ops).toHaveAttribute('aria-pressed', 'false')
+    await ops.click()
+
+    await expect.element(ops).toHaveAttribute('aria-pressed', 'true')
+    await expect
+      .poll(() => requests.map(routeOf))
+      .toContain('POST /api/me/stars')
+  })
+
+  it('loads more rows on demand', async () => {
+    inProjects({
+      'GET /api/me/issues': {
+        status: 200,
+        body: (request: Request) =>
+          new URL(request.url).searchParams.get('cursor')
+            ? { items: [ARCHIVE], next_cursor: null }
+            : { items: [LOGIN], next_cursor: 50 },
+      },
+    })
+    const { screen } = await renderApp('/')
+
+    await screen.getByRole('button', { name: 'Show more' }).click()
+
+    await expect
+      .element(screen.getByRole('link', { name: 'Archive old builds' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Show more' }))
+      .not.toBeInTheDocument()
+  })
+
+  it('holds the layout with skeletons while the lists load', async () => {
     let answer = () => {}
     const until = new Promise<void>((resolve) => (answer = resolve))
-    signedIn({ 'GET /api/projects': { status: 200, body: [WEB], until } })
+    inProjects({
+      'GET /api/me/projects': { status: 200, body: [MY_WEB, MY_OPS], until },
+      'GET /api/me/issues': { ...page([LOGIN]), until },
+    })
     const { screen } = await renderApp('/')
 
     await expect
       .element(screen.getByRole('status', { name: 'Loading projects' }))
       .toBeVisible()
+    await expect
+      .element(screen.getByRole('status', { name: 'Loading issues' }))
+      .toBeVisible()
     answer()
     await expect
-      .element(screen.getByRole('main').getByRole('link', { name: /Website/ }))
+      .element(screen.getByRole('link', { name: 'Fix the login page' }))
       .toBeVisible()
   })
 
-  it('offers a new project when there are none', async () => {
+  it('offers a new project or the sample when there are none', async () => {
     signedIn()
     const { screen } = await renderApp('/')
 
@@ -59,6 +291,11 @@ describe('home', () => {
         screen.getByText(
           'A project groups a board, its backlog and its sprints.'
         )
+      )
+      .toBeVisible()
+    await expect
+      .element(
+        screen.getByRole('button', { name: 'Start with a sample project' })
       )
       .toBeVisible()
     await screen
@@ -72,7 +309,7 @@ describe('home', () => {
 
   it('says so when the projects fail to load, and retries', async () => {
     signedIn({
-      'GET /api/projects': { status: 500, body: problem(500, 'Boom.') },
+      'GET /api/me/projects': { status: 500, body: problem(500, 'Boom.') },
     })
     const { screen } = await renderApp('/')
 
@@ -83,6 +320,22 @@ describe('home', () => {
     await screen.getByRole('button', { name: 'Try again' }).click()
     await expect
       .element(screen.getByRole('heading', { name: 'No projects yet' }))
+      .toBeVisible()
+  })
+
+  it('says so when a list fails to load, and retries', async () => {
+    inProjects({
+      'GET /api/me/issues': { status: 500, body: problem(500, 'Boom.') },
+    })
+    const { screen } = await renderApp('/')
+
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent('These issues did not load.')
+    inProjects({ 'GET /api/me/issues': page([LOGIN]) })
+    await screen.getByRole('button', { name: 'Try again' }).click()
+    await expect
+      .element(screen.getByRole('link', { name: 'Fix the login page' }))
       .toBeVisible()
   })
 })

@@ -91,7 +91,7 @@ describe('app shell', () => {
     inProjects()
     const { screen, router } = await renderApp('/')
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
 
     await userEvent.keyboard('{Meta>}k{/Meta}')
@@ -110,7 +110,7 @@ describe('app shell', () => {
     inProjects()
     const { screen, router } = await renderApp('/')
     await expect
-      .element(screen.getByRole('heading', { name: 'Hi, Alice' }))
+      .element(screen.getByRole('heading', { name: 'For you' }))
       .toBeVisible()
 
     await userEvent.keyboard('k')

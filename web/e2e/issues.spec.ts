@@ -32,7 +32,7 @@ const register = async (page: Page, name: string) => {
 const kanbanWithIssues = async (page: Page) => {
   await page.goto('/register')
   await register(page, 'Ada')
-  await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'For you' })).toBeVisible()
   const key = `I${unique().slice(-6).toUpperCase()}`
   await api(page, 'POST', '/api/projects', {
     key,
