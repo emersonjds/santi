@@ -9,6 +9,8 @@ const register = async (page: Page, name: string, email: string) => {
   await page.getByLabel('Name').fill(name)
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
+  await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: `Hi, ${name}` })).toBeVisible()
 }
@@ -60,6 +62,7 @@ test('an admin adds a Review column with a WIP limit and maps a new status into 
     .getByText('In review')
   const zone = page.getByRole('list', { name: 'Statuses in Review' })
   await expect(chip).toBeVisible()
+  await expect(zone).toBeVisible()
   const from = await chip.boundingBox()
   const to = await zone.boundingBox()
   if (!from || !to) throw new Error('nothing to drag')

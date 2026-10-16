@@ -3,10 +3,16 @@ import { Link, useParams } from '@tanstack/react-router'
 import { House, Plus } from 'lucide-react'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { projectsQuery } from '@/entities/project/project-queries'
+import {
+  legalDocumentsQuery,
+  useLegalRequired,
+} from '@/entities/session/legal-queries'
 import type { Project } from '@/shared/api/client'
+import { FEEDBACK_URL } from '@/shared/lib/links'
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupAction,
   SidebarGroupLabel,
@@ -106,9 +112,19 @@ const ProjectItems = ({ onNavigate }: { onNavigate: () => void }) => {
   ))
 }
 
+const LEGAL = [
+  ['Privacy', '/privacy'],
+  ['Terms', '/terms'],
+] as const
+
 export const AppSidebar = () => {
   const { setOpenMobile } = useSidebar()
   const closeDrawer = () => setOpenMobile(false)
+  const { data: legal } = useQuery(legalDocumentsQuery)
+  const about = [
+    ...(useLegalRequired(legal?.required) ? LEGAL : []),
+    ['Feedback', FEEDBACK_URL] as const,
+  ]
 
   return (
     <Sidebar>
@@ -148,6 +164,26 @@ export const AppSidebar = () => {
           </SidebarGroup>
         </nav>
       </SidebarContent>
+      <SidebarFooter>
+        <nav
+          aria-label='About santi'
+          className='flex flex-wrap gap-x-3 px-2 text-xs text-muted-foreground'
+        >
+          {about.map(([label, href]) => (
+            <a
+              key={label}
+              href={href}
+              className='inline-flex min-h-11 items-center hover:text-foreground hover:underline md:min-h-8'
+              {...(href === FEEDBACK_URL && {
+                target: '_blank',
+                rel: 'noreferrer',
+              })}
+            >
+              {label}
+            </a>
+          ))}
+        </nav>
+      </SidebarFooter>
     </Sidebar>
   )
 }

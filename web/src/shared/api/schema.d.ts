@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["legal_documents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -94,6 +110,38 @@ export interface paths {
         get: operations["me"];
         put?: never;
         post?: never;
+        delete: operations["delete_account"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["export_account"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/legal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["legal_status"];
+        put?: never;
+        post: operations["accept_legal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -552,6 +600,25 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AcceptLegal: {
+            accept_terms?: boolean;
+            confirm_age?: boolean;
+        };
+        /**
+         * @description Everything santi holds about the caller (D45): the account, its API tokens (names only) and
+         *     every project the caller administers, in full.
+         */
+        AccountExport: {
+            api_tokens: components["schemas"]["ApiToken"][];
+            /** Format: date-time */
+            exported_at: string;
+            /** @description Every acceptance of the Terms of Use, the Privacy Policy and the age declaration. */
+            legal_acceptances: components["schemas"]["LegalAcceptance"][];
+            /** @description Projects the caller is a plain member of: named here, owned by their admins. */
+            other_projects: components["schemas"]["Project"][];
+            projects: components["schemas"]["ProjectExport"][];
+            user: components["schemas"]["User"];
+        };
         AddMember: {
             email: string;
             role: components["schemas"]["MemberRole"];
@@ -727,6 +794,10 @@ export interface components {
             name: string;
             token: string;
         };
+        /** @description Deleting the account asks for the password again. */
+        DeleteAccount: {
+            password: string;
+        };
         EpicSummary: {
             /** Format: int64 */
             child_count: number;
@@ -735,6 +806,14 @@ export interface components {
             done_child_count: number;
             key: string;
             summary: string;
+        };
+        ExportedComment: {
+            /** Format: int64 */
+            author_id: number;
+            body: string;
+            /** Format: date-time */
+            created_at: string;
+            issue_key: string;
         };
         FieldError: {
             field: string;
@@ -856,6 +935,28 @@ export interface components {
         };
         /** @enum {string} */
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
+        /** @description One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`. */
+        LegalAcceptance: {
+            /** Format: date-time */
+            accepted_at: string;
+            document: string;
+            /** @description SHA-256 of the page the person was shown, when the server had it. */
+            text_hash?: string | null;
+            version: string;
+        };
+        /** @description The instance's legal documents (D45). `required: false` when the operator turned them off. */
+        LegalDocuments: {
+            privacy_version: string;
+            required: boolean;
+            terms_version: string;
+        };
+        /** @description Whether the caller accepted the current versions; the app asks again when they change. */
+        LegalStatus: {
+            accepted: boolean;
+            privacy_version: string;
+            required: boolean;
+            terms_version: string;
+        };
         Login: {
             email: string;
             password: string;
@@ -988,7 +1089,22 @@ export interface components {
             name: string;
             role: components["schemas"]["MemberRole"];
         };
+        ProjectExport: {
+            board: components["schemas"]["BoardSettings"];
+            comments: components["schemas"]["ExportedComment"][];
+            issues: components["schemas"]["Issue"][];
+            members: components["schemas"]["MemberInfo"][];
+            project: components["schemas"]["Project"];
+            sprints: components["schemas"]["Sprint"][];
+        };
         Register: {
+            /**
+             * @description Must be true when the instance requires its legal documents (D45): the person agrees to
+             *     the Terms of Use and the Privacy Policy.
+             */
+            accept_terms?: boolean;
+            /** @description Must be true alongside `accept_terms`: the person declares being 18 or older. */
+            confirm_age?: boolean;
             display_name: string;
             email: string;
             password: string;
@@ -1345,6 +1461,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `terms-not-accepted` (D45) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description `invite-used` or `invite-expired` */
             410: {
                 headers: {
@@ -1361,6 +1486,26 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    legal_documents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current versions of the Terms of Use and Privacy Policy, and whether sign-up must accept them (D45) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalDocuments"];
                 };
             };
         };
@@ -1383,6 +1528,160 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccount"];
+            };
+        };
+        responses: {
+            /** @description Account deleted and signed out everywhere. Projects only the caller used are deleted; where the caller was the last admin, the member with the oldest account becomes admin; issues and comments in shared projects stay under "Deleted user" (D45) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Wrong password (`password`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many password attempts for this account (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    export_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account, its token names and every project the caller administers, in full (D45) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    legal_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `accepted` is false until the caller accepts the current versions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    accept_legal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptLegal"];
+            };
+        };
+        responses: {
+            /** @description Accepted; recorded in the append-only acceptance log unless the current versions were already accepted or are not required */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalStatus"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `accept_terms` or `confirm_age` not true */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1459,6 +1758,15 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2702,7 +3010,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Already a member */
+            /** @description Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3352,8 +3660,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Another project took the sample's key */
+            /** @description Other projects took the sample's key and three random ones */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited per account, shared with project creation (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3413,6 +3730,15 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `terms-not-accepted`: accept the current Terms of Use and Privacy Policy first (`POST /api/me/legal`). Tokens created before keep working (D45) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

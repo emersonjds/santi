@@ -1,28 +1,28 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id FROM app_user WHERE email = $1",
+  "query": "SELECT password_hash FROM app_user WHERE id = $1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "id",
-        "type_info": "Int8",
+        "name": "password_hash",
+        "type_info": "Text",
         "origin": {
           "Table": {
             "table": "app_user",
-            "name": "id"
+            "name": "password_hash"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Int8"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "018019f808e0f42ae1b5883f4c97fb87a105ebaa70e1c56cff1b793225f914a2"
+  "hash": "7d2b05cf9df8f43fa1e4a267e103005a2c89852163d15eec7192f1763b1ba503"
 }

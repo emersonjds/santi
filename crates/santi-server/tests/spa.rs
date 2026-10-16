@@ -11,18 +11,15 @@ use tower::ServiceExt;
 const INDEX: &str = "<!doctype html><title>santi spa</title>";
 const LANDING: &str = "<!doctype html><title>santi landing</title>";
 const PRIVACY: &str = "<!doctype html><title>santi privacy</title>";
+const TERMS: &str = "<!doctype html><title>santi terms</title>";
+const PRIVACY_PT: &str = "<!doctype html><title>santi privacidade</title>";
+const TERMS_PT: &str = "<!doctype html><title>santi termos</title>";
 const SESSION: &str = "theme=light; __Host-santi_session=abc";
 const IMMUTABLE: &str = "public, max-age=31536000, immutable";
 
 fn app(web_dir: Option<&Path>) -> Router {
     let pool = PgPool::connect_lazy("postgres://localhost/unused").unwrap();
-    santi_server::app(
-        santi_server::AppState {
-            pool,
-            limits: Default::default(),
-        },
-        web_dir,
-    )
+    santi_server::app(santi_server::AppState::new(pool), web_dir)
 }
 
 fn built_spa(name: &str) -> PathBuf {
@@ -31,6 +28,9 @@ fn built_spa(name: &str) -> PathBuf {
     std::fs::write(dir.join("index.html"), INDEX).unwrap();
     std::fs::write(dir.join("landing.html"), LANDING).unwrap();
     std::fs::write(dir.join("privacy.html"), PRIVACY).unwrap();
+    std::fs::write(dir.join("terms.html"), TERMS).unwrap();
+    std::fs::write(dir.join("privacy.pt-BR.html"), PRIVACY_PT).unwrap();
+    std::fs::write(dir.join("terms.pt-BR.html"), TERMS_PT).unwrap();
     std::fs::write(dir.join("assets/main-abc123.js"), "console.log('santi')").unwrap();
     dir
 }
@@ -105,16 +105,24 @@ async fn home_with_a_session_cookie_is_the_app() {
 }
 
 #[tokio::test]
-async fn privacy_is_its_own_page_signed_in_or_not() {
+async fn privacy_and_terms_are_their_own_pages_signed_in_or_not() {
     let app = app(Some(&built_spa("privacy")));
 
-    for response in [
-        send(&app, Method::GET, "/privacy").await,
-        get_with_cookie(&app, "/privacy", SESSION).await,
+    for (uri, page) in [
+        ("/privacy", PRIVACY),
+        ("/terms", TERMS),
+        ("/privacy?lang=pt-BR", PRIVACY_PT),
+        ("/terms?lang=pt-BR", TERMS_PT),
+        ("/terms?lang=en", TERMS),
     ] {
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(cache_control(&response), Some("no-cache"));
-        assert_eq!(body(response).await, PRIVACY);
+        for response in [
+            send(&app, Method::GET, uri).await,
+            get_with_cookie(&app, uri, SESSION).await,
+        ] {
+            assert_eq!(response.status(), StatusCode::OK, "{uri}");
+            assert_eq!(cache_control(&response), Some("no-cache"));
+            assert_eq!(body(response).await, page);
+        }
     }
 }
 
@@ -225,6 +233,7 @@ async fn pages_and_assets_carry_the_security_headers() {
         "/",
         "/about",
         "/privacy",
+        "/terms",
         "/p/SAN/board",
         "/assets/main-abc123.js",
     ] {
@@ -257,4 +266,44 @@ async fn api_answers_are_never_sniffed_or_leak_the_referrer() {
             Some("strict-origin-when-cross-origin")
         );
     }
+}
+
+#[tokio::test]
+async fn a_self_hoster_can_turn_the_legal_pages_off() {
+    let pool = PgPool::connect_lazy("postgres://localhost/unused").unwrap();
+    let legal = std::sync::Arc::new(santi_server::Legal {
+        required: false,
+        terms_hash: None,
+        privacy_hash: None,
+    });
+    let state = santi_server::AppState {
+        legal,
+        ..santi_server::AppState::new(pool)
+    };
+    let app = santi_server::app(state, Some(&built_spa("legal-off")));
+
+    for uri in [
+        "/privacy",
+        "/terms",
+        "/privacy.html",
+        "/terms.pt-BR.html",
+        "//privacy.html",
+        "/%70rivacy.html",
+        "/./terms.html",
+        "/%2e/terms.html",
+        "/terms%2Ehtml",
+        "/PRIVACY.html",
+        "/Terms.PT-BR.html",
+        "/privacy.html/",
+        "/assets/../privacy.html",
+    ] {
+        let response = send(&app, Method::GET, uri).await;
+        assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
+        let page = body(response).await;
+        for text in [PRIVACY, TERMS, PRIVACY_PT, TERMS_PT] {
+            assert!(!page.contains(text), "{uri} served {text}");
+        }
+    }
+    let home = send(&app, Method::GET, "/projects/TERMS/board").await;
+    assert_eq!(home.status(), StatusCode::OK);
 }

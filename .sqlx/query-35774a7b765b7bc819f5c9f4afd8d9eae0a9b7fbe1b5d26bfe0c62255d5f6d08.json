@@ -1,0 +1,12 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM invite\n         WHERE used_at < now() - interval '7 days' OR expires_at < now() - interval '7 days'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": []
+  },
+  "hash": "35774a7b765b7bc819f5c9f4afd8d9eae0a9b7fbe1b5d26bfe0c62255d5f6d08"
+}

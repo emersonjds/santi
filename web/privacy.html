@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Privacy — santi</title>
+    <title>Privacy Policy — santi</title>
     <meta
       name="description"
-      content="What santi stores about you, and what it does not: no tracking, no analytics, one session cookie."
+      content="How santi handles your data: never sold, no ads, no tracking, essential cookies only, and your LGPD and GDPR rights."
     />
     <link rel="canonical" href="%VITE_SITE_URL%/privacy" />
     <meta name="theme-color" content="#ffffff" />
@@ -24,63 +24,375 @@
           <span>santi</span>
         </a>
         <nav aria-label="Main" class="flex items-center gap-1">
-          <a href="/login" class="btn btn-ghost">Sign in</a>
-          <a href="/register" class="btn btn-primary">Try santi</a>
+          <a
+            href="/privacy?lang=pt-BR"
+            class="btn btn-ghost"
+            lang="pt-BR"
+            hreflang="pt-BR"
+            >Português</a
+          >
+          <a href="/login" class="btn btn-ghost max-sm:hidden">Sign in</a>
         </nav>
       </div>
     </header>
 
-    <main id="main" class="container-page max-w-2xl py-12 sm:py-16">
-      <h1 class="text-3xl font-semibold tracking-tight">Privacy</h1>
-      <p class="mt-3 text-muted-foreground">
-        santi is an open-source tracker. This page says what this server keeps
-        about you. If you run your own copy, you hold the same data on your own
-        machines.
+    <main id="main" class="container-page legal py-12 sm:py-16">
+      <h1>Privacy Policy</h1>
+      <p class="legal-meta">
+        Version 2026-10-16 · Last updated: 16 October 2026
+      </p>
+      <p class="legal-lead">
+        Your data is yours. santi exists to track your team's work, not to learn
+        about you. This page says, in plain words, what this server keeps, why,
+        for how long, who else touches it, and how to use your rights.
+      </p>
+      <p class="legal-note">
+        This text is written in plain language and is not legal advice; review
+        by counsel is recommended.
       </p>
 
-      <h2 class="mt-10 text-xl font-semibold">What is stored</h2>
-      <ul class="checks mt-4">
+      <h2>The short version</h2>
+      <ul>
         <li>
-          Your account: email, display name and a password hash (argon2; the
-          password itself is never stored).
+          We never sell or rent your personal data, and we share it only with
+          the providers that run the service (listed below).
         </li>
         <li>
-          Your work: projects, members, boards, sprints, issues, comments and
-          labels you or your team create or import.
+          No ads, no tracking, no analytics and no third-party scripts. Pages
+          load only files from this server.
         </li>
         <li>
-          Sign-in records: a hash of each session and API token, so they can be
-          revoked. Sessions end after 30 days or when you sign out.
+          Cookies and browser storage are only the ones the app needs to work
+          (listed below).
+        </li>
+        <li>
+          You can download your data or delete your account at any time, from
+          the account page.
         </li>
       </ul>
 
-      <h2 class="mt-10 text-xl font-semibold">What is not</h2>
-      <ul class="checks mt-4">
-        <li>No tracking, no analytics, no ads and no third-party scripts.</li>
+      <h2>Who is responsible</h2>
+      <p>
+        This instance of santi is run by <strong>%VITE_OPERATOR_NAME%</strong>,
+        the controller of the personal data it holds (the
+        <em>controlador</em> under Brazil's LGPD). The person in charge of data
+        protection (the <em>encarregado</em>) answers at
+        <a href="mailto:%VITE_PRIVACY_EMAIL%">%VITE_PRIVACY_EMAIL%</a>.
+      </p>
+
+      <h2>What we store, why, on what legal basis, and for how long</h2>
+      <div class="legal-table">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Data</th>
+              <th scope="col">Why</th>
+              <th scope="col">Legal basis</th>
+              <th scope="col">Kept for</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Account: name, email, password hash (Argon2id; the password
+                itself is never stored)
+              </td>
+              <td>Sign you in; show teammates who did what</td>
+              <td>Contract (LGPD art. 7, V; GDPR art. 6(1)(b))</td>
+              <td>Until you delete the account</td>
+            </tr>
+            <tr>
+              <td>
+                Your work: projects, boards, sprints, issues, comments, labels
+                and imported issues (the uploaded file is read and discarded)
+              </td>
+              <td>The service itself</td>
+              <td>Contract</td>
+              <td>
+                Until you or a project admin delete it; see account deletion
+                below
+              </td>
+            </tr>
+            <tr>
+              <td>Sessions and API tokens, stored only as SHA-256 hashes</td>
+              <td>Keep you signed in; let you revoke access</td>
+              <td>
+                Contract; security (legitimate interest, LGPD art. 7, IX; GDPR
+                art. 6(1)(f))
+              </td>
+              <td>
+                Sessions: 30 days, then purged within an hour. Tokens: until
+                revoked or the account is deleted
+              </td>
+            </tr>
+            <tr>
+              <td>Invites to a project</td>
+              <td>Let teammates join</td>
+              <td>Contract</td>
+              <td>Until used or expired, plus 7 days</td>
+            </tr>
+            <tr>
+              <td>
+                Acceptance record: which version of these terms and this policy
+                you accepted, a fingerprint (hash) of the text, the date, and
+                your 18+ declaration
+              </td>
+              <td>Prove what you agreed to and when</td>
+              <td>
+                Legal obligation and defence of rights (LGPD art. 7, II and VI;
+                GDPR art. 6(1)(c) and (f))
+              </td>
+              <td>
+                Kept after account deletion, tied only to the de-identified
+                account, for 5 years (the limitation period of the Brazilian
+                Consumer Defense Code, art. 27)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Access records: network address, date and time of requests, kept
+                by the hosting platform
+              </td>
+              <td>
+                Required of application providers by the Marco Civil da Internet
+                (art. 15); security
+              </td>
+              <td>Legal obligation (LGPD art. 7, II)</td>
+              <td>6 months</td>
+            </tr>
+            <tr>
+              <td>
+                Abuse counters: recent attempts per network address and per
+                email, in memory only
+              </td>
+              <td>Stop password guessing and spam</td>
+              <td>Legitimate interest (security)</td>
+              <td>
+                Never written to disk; forgotten within an hour or at the next
+                restart
+              </td>
+            </tr>
+            <tr>
+              <td>Database backups, when the operator turns them on</td>
+              <td>Recover from failures</td>
+              <td>Legitimate interest</td>
+              <td>Rolled over within 30 days</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        We do not collect anything else: no device fingerprints, no location, no
+        browsing history, no marketing profile.
+      </p>
+
+      <h2>Cookies and browser storage</h2>
+      <div class="legal-table">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Kind</th>
+              <th scope="col">What it does</th>
+              <th scope="col">Lasts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>__Host-santi_session</code></td>
+              <td>Cookie, essential</td>
+              <td>
+                Keeps you signed in. <code>HttpOnly</code> (scripts cannot read
+                it), <code>Secure</code> (HTTPS only), <code>SameSite=Lax</code>
+              </td>
+              <td>30 days, or until you sign out</td>
+            </tr>
+            <tr>
+              <td><code>sidebar_state</code></td>
+              <td>Cookie, preference</td>
+              <td>Remembers whether the sidebar is open</td>
+              <td>7 days</td>
+            </tr>
+            <tr>
+              <td><code>santi:last-project</code></td>
+              <td>Local storage, preference</td>
+              <td>Remembers the last project you opened</td>
+              <td>Until you clear site data</td>
+            </tr>
+            <tr>
+              <td><code>santi.shortcuts.off</code></td>
+              <td>Local storage, preference</td>
+              <td>Remembers that you turned keyboard shortcuts off</td>
+              <td>Until you clear site data</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        None of them track you or are read by anyone else, so there is no cookie
+        banner to click through.
+      </p>
+
+      <h2>Who else handles your data</h2>
+      <ul>
         <li>
-          One cookie: the session cookie that keeps you signed in. It is
-          HttpOnly and sent only over HTTPS.
+          <strong>Railway</strong> (Railway Corp., United States) hosts the
+          server, the database and its backups, as our processor
+          (sub-processor), in the region <strong>%VITE_HOSTING_REGION%</strong>.
         </li>
-        <li>Nothing is sold or shared with anyone.</li>
+        <li>
+          No email, sign-in (OAuth), analytics or advertising provider is used
+          today. Before adding one, we will list it here and say what it
+          receives.
+        </li>
+        <li>
+          Public authorities, only when a law or a court order requires it.
+        </li>
       </ul>
 
-      <h2 class="mt-10 text-xl font-semibold">Your choices</h2>
-      <p class="mt-3 text-muted-foreground">
-        Revoke API tokens from your account page at any time. To delete your
-        account or export your data, open an issue on
-        <a
-          href="https://github.com/emersonjds/santi/issues/new/choose"
-          class="text-primary underline"
-          >GitHub</a
-        >
-        and the operator of this server will handle it.
+      <h2>International transfer</h2>
+      <p>
+        The server runs in <strong>%VITE_HOSTING_REGION%</strong>, outside
+        Brazil, with a provider based in the United States. The transfer relies
+        on the safeguards that LGPD art. 33 and GDPR Chapter V allow, such as
+        the provider's standard contractual clauses and its security
+        commitments.
+      </p>
+
+      <h2>AI assistants (MCP and API tokens)</h2>
+      <p>
+        santi never sends your data to an AI provider by itself. If you connect
+        an AI assistant to santi, through
+        <code>santi mcp</code> or an API token, whatever the assistant reads is
+        sent to the AI provider you chose, under that provider's terms and
+        privacy policy. Revoke the token to stop it.
+      </p>
+
+      <h2>Your rights and how to use them</h2>
+      <p>
+        Under Brazil's LGPD (Lei 13.709/2018, art. 18) and, where it applies,
+        the EU GDPR (arts. 15 to 22), you can:
+      </p>
+      <ul>
+        <li>
+          <strong>Confirm and access</strong> what we hold: Account → Your data
+          → <em>Export my data</em> downloads it as JSON.
+        </li>
+        <li>
+          <strong>Correct</strong> it: edit what you wrote in santi, or write to
+          us about your account details.
+        </li>
+        <li>
+          <strong>Delete</strong> it: Account → Your data →
+          <em>Delete my account</em>, or write to us.
+        </li>
+        <li>
+          <strong>Take it elsewhere</strong> (portability): the export is a
+          plain JSON file any tool can read.
+        </li>
+        <li>
+          <strong>Know who receives it</strong>: the section above lists
+          everyone.
+        </li>
+        <li>
+          <strong>Anonymisation, blocking or deletion</strong> of data that is
+          unnecessary or handled against the law.
+        </li>
+        <li>
+          <strong>Object</strong> to processing based on legitimate interest,
+          and <strong>withdraw consent</strong> where we rely on it.
+        </li>
+        <li>
+          <strong>Complain</strong> to the Brazilian data protection authority
+          (ANPD, <a href="https://www.gov.br/anpd">gov.br/anpd</a>) or, in the
+          EU, to your local supervisory authority.
+        </li>
+      </ul>
+      <p>
+        Write to
+        <a href="mailto:%VITE_PRIVACY_EMAIL%">%VITE_PRIVACY_EMAIL%</a> from the
+        email on your account. It is free, and we answer within 15 days (LGPD
+        art. 19). If we cannot confirm the request is yours, we will ask for
+        something only the account holder knows.
+      </p>
+
+      <h2>What happens when you delete your account</h2>
+      <ul>
+        <li>
+          Your name, email and password hash are erased at once; you are signed
+          out everywhere and your API tokens stop working.
+        </li>
+        <li>
+          Projects only you belong to are deleted, with their issues and
+          comments.
+        </li>
+        <li>
+          Where you are the last admin of a shared project, the member with the
+          oldest account becomes admin.
+        </li>
+        <li>
+          Issues and comments you wrote in shared projects stay for your
+          teammates, shown as "Deleted user".
+        </li>
+        <li>The acceptance record stays, as described in the table above.</li>
+      </ul>
+
+      <h2>How we protect it</h2>
+      <ul>
+        <li>
+          HTTPS everywhere; the session cookie is never sent over plain HTTP.
+        </li>
+        <li>
+          Passwords hashed with Argon2id; sessions and API tokens stored only as
+          SHA-256 hashes.
+        </li>
+        <li>
+          A strict Content Security Policy, protection against cross-site
+          requests, and rate limits on sign-in, sign-up and other sensitive
+          actions.
+        </li>
+        <li>
+          The database is not reachable from the internet, and the code is open
+          source, so anyone can check these claims.
+        </li>
+      </ul>
+
+      <h2>Age</h2>
+      <p>
+        santi is for people 18 or older, and sign-up asks you to confirm it. If
+        you believe a minor created an account, write to us and we will delete
+        it.
+      </p>
+
+      <h2>Hosting santi yourself</h2>
+      <p>
+        santi is free software you can run on your own server. Then your data
+        stays on your machines, you are its controller, and this policy covers
+        only this hosted instance.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        When this policy changes in a way that matters, the app shows the new
+        version and asks you to accept it before you continue; the version and
+        date at the top always identify the current text.
       </p>
     </main>
 
     <footer class="border-t">
-      <div class="container-page py-6 text-sm text-muted-foreground">
-        santi is open source under MIT or Apache-2.0.
-        <a href="/about" class="underline">Home</a>
+      <div class="container-page grid gap-2 py-6 text-sm text-muted-foreground">
+        <p>
+          Operated by <strong>%VITE_OPERATOR_NAME%</strong> · Privacy contact:
+          <a href="mailto:%VITE_PRIVACY_EMAIL%" class="underline"
+            >%VITE_PRIVACY_EMAIL%</a
+          >
+        </p>
+        <p class="flex flex-wrap gap-x-6 gap-y-2">
+          <a href="/about" class="underline">Home</a>
+          <a href="/privacy" class="underline">Privacy Policy</a>
+          <a href="/terms" class="underline">Terms of Use</a>
+          <span>Written in plain language; not legal advice.</span>
+        </p>
       </div>
     </footer>
   </body>

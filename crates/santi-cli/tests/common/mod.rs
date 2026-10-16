@@ -50,13 +50,7 @@ fn start() -> Server {
         santi_server::migrate(&pool).await.unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let address = listener.local_addr().unwrap();
-        let app = santi_server::app(
-            santi_server::AppState {
-                pool,
-                limits: Default::default(),
-            },
-            None,
-        );
+        let app = santi_server::app(santi_server::AppState::new(pool), None);
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         format!("http://{address}")
     });
@@ -74,7 +68,7 @@ impl Server {
         let email = format!("user{}@example.com", COUNT.fetch_add(1, Ordering::Relaxed));
         self.block_on(async {
             let http = reqwest::Client::new();
-            let register = json!({ "email": email, "password": "correct horse battery", "display_name": email });
+            let register = json!({ "email": email, "password": "correct horse battery", "display_name": email, "accept_terms": true, "confirm_age": true });
             let response = http
                 .post(format!("{}/api/auth/register", self.url))
                 .json(&register)

@@ -17,7 +17,13 @@ use tower::ServiceExt;
 
 fn router(pool: PgPool, trusted_proxies: usize) -> Router {
     let limits = Arc::new(RateLimits::new(trusted_proxies, true));
-    santi_server::app(AppState { pool, limits }, None)
+    santi_server::app(
+        AppState {
+            limits,
+            ..AppState::new(pool)
+        },
+        None,
+    )
 }
 
 fn from_peer(mut request: Request<Body>, peer: [u8; 4]) -> Request<Body> {
@@ -28,7 +34,7 @@ fn from_peer(mut request: Request<Body>, peer: [u8; 4]) -> Request<Body> {
 }
 
 fn register_request(email: &str) -> Request<Body> {
-    let body = json!({ "email": email, "password": PASSWORD, "display_name": "Ana" });
+    let body = json!({ "email": email, "password": PASSWORD, "display_name": "Ana", "accept_terms": true, "confirm_age": true });
     json_request(Method::POST, "/api/auth/register", None, Some(body))
 }
 
@@ -158,6 +164,36 @@ async fn repeated_failures_lock_an_email_whether_or_not_it_has_an_account(pool: 
 }
 
 #[sqlx::test]
+async fn failures_from_elsewhere_never_lock_the_owner_out(pool: PgPool) {
+    let router = router(pool, 0);
+    send(&router, register_request("ana@example.com")).await;
+    for _ in 0..8 {
+        let guess = from_peer(login_request("ana@example.com", "wrong"), [203, 0, 113, 7]);
+        send(&router, guess).await;
+    }
+    let attacker = send(
+        &router,
+        from_peer(
+            login_request("ana@example.com", PASSWORD),
+            [203, 0, 113, 99],
+        ),
+    )
+    .await;
+
+    let owner = send(
+        &router,
+        from_peer(
+            login_request("ana@example.com", PASSWORD),
+            [198, 51, 100, 1],
+        ),
+    )
+    .await;
+
+    assert_eq!(attacker.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(owner.status(), StatusCode::OK);
+}
+
+#[sqlx::test]
 async fn a_correct_password_before_the_lock_clears_the_failures(pool: PgPool) {
     let router = router(pool, 0);
     send(&router, register_request("ana@example.com")).await;
@@ -218,6 +254,21 @@ async fn invite_accepts_and_imports_are_limited_per_account(pool: PgPool) {
     assert_eq!(accept, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(preview, StatusCode::TOO_MANY_REQUESTS);
     assert_eq!(import, StatusCode::TOO_MANY_REQUESTS);
+}
+
+#[sqlx::test]
+async fn project_creation_is_limited_per_account(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    for number in 0..20 {
+        ana.create_project(&format!("P{number}"), "kanban").await;
+    }
+    let body = json!({ "key": "LAST", "name": "Last", "board_type": "kanban" });
+
+    let (status, _) = ana.post("/api/projects", body).await;
+    let (sample, _) = ana.post("/api/sample-project", json!(null)).await;
+
+    assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+    assert_eq!(sample, StatusCode::TOO_MANY_REQUESTS);
 }
 
 #[sqlx::test]
