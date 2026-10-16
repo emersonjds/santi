@@ -1,8 +1,4 @@
-import {
-  type QueryKey,
-  useMutation,
-  useQueryClient,
-} from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   type Backlog,
   type BoardSettings,
@@ -15,6 +11,7 @@ import {
   api,
   dataOrThrow,
 } from '@/shared/api/client'
+import { useOptimisticWrite } from '@/shared/lib/optimistic-write'
 import { toast } from '@/shared/lib/toast'
 import { type RowMove, insertRow, moveRow } from './backlog-cache'
 import { backlogKey } from './backlog-query'
@@ -29,53 +26,6 @@ import {
 import { boardSettingsQuery, boardsKey, issueNumber } from './board-query'
 import { commentsQuery, issueQuery, subtasksQuery } from './issue-queries'
 
-type OptimisticWrite<View, Variables> = {
-  /** The caches patched at once and rolled back on failure. */
-  queryKey: QueryKey
-  /** Other views the write changes, refetched once it settles. */
-  refresh?: QueryKey
-  write: (variables: Variables) => Promise<unknown>
-  change: (view: View, variables: Variables) => View
-  failure: (variables: Variables) => string
-}
-
-/**
- * D37 optimistic write: patch every cache under `queryKey`, roll back and
- * toast the problem on failure, refetch once settled.
- */
-const useOptimisticWrite = <View, Variables>({
-  queryKey,
-  refresh,
-  write,
-  change,
-  failure,
-}: OptimisticWrite<View, Variables>) => {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: write,
-    onMutate: async (variables) => {
-      await queryClient.cancelQueries({ queryKey })
-      const snapshot = queryClient.getQueriesData<View>({ queryKey })
-      queryClient.setQueriesData<View>(
-        { queryKey },
-        (view) => view && change(view, variables)
-      )
-      return snapshot
-    },
-    onError: (error, variables, snapshot) => {
-      // A fresh object: the drag layer drops its pending order once the view it was made for changes.
-      for (const [key, view] of snapshot ?? [])
-        queryClient.setQueryData(key, view && { ...view })
-      toast.error(failure(variables), { description: error.message })
-    },
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey }),
-        refresh && queryClient.invalidateQueries({ queryKey: refresh }),
-      ]),
-  })
-}
-
 const useBoardWrite = <Variables>(
   projectKey: string,
   write: (variables: Variables) => Promise<unknown>,
@@ -84,7 +34,7 @@ const useBoardWrite = <Variables>(
 ) =>
   useOptimisticWrite({
     queryKey: boardsKey(projectKey),
-    refresh: backlogKey(projectKey),
+    refresh: [backlogKey(projectKey)],
     write,
     change,
     failure,
@@ -94,7 +44,7 @@ const useBoardWrite = <Variables>(
 export const useMoveRow = (projectKey: string) =>
   useOptimisticWrite<Backlog, RowMove>({
     queryKey: backlogKey(projectKey),
-    refresh: boardsKey(projectKey),
+    refresh: [boardsKey(projectKey)],
     write: async ({ card, toSprintId, after, before }) =>
       dataOrThrow(
         await api.POST('/api/projects/{key}/issues/{number}/move', {

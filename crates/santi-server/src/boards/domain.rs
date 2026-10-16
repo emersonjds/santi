@@ -58,6 +58,20 @@ pub fn check_done_mapping(layout: &[LayoutColumn]) -> Result<(), AppError> {
     Ok(())
 }
 
+/// KB-4, KB-5: the rightmost column keeps a done status, and at least one column sits before it.
+pub fn check_board_shape(layout: &[LayoutColumn]) -> Result<(), AppError> {
+    let done_kept = layout
+        .last()
+        .is_some_and(|column| !column.categories.is_empty());
+    if layout.len() < 2 || !done_kept {
+        return Err(AppError::conflict(
+            "keep-done-column",
+            "The board keeps at least two columns, and the rightmost one keeps a done status.",
+        ));
+    }
+    Ok(())
+}
+
 /// D16: returns the column that receives the statuses, or None when the column holds none.
 pub fn check_column_deletion(
     layout: &[LayoutColumn],
@@ -316,6 +330,17 @@ mod tests {
     #[test]
     fn non_done_status_in_the_rightmost_column_is_refused() {
         assert!(check_done_mapping(&layout(&[(1, &[Todo]), (2, &[Done, InProgress])])).is_err());
+    }
+
+    #[test]
+    fn the_rightmost_column_keeps_a_done_status_after_another_column() {
+        assert!(check_board_shape(&layout(&[(1, &[Todo]), (2, &[Done])])).is_ok());
+        let emptied = check_board_shape(&layout(&[(1, &[Todo]), (2, &[])])).unwrap_err();
+        assert_eq!(
+            emptied.to_problem().problem_type,
+            "urn:santi:error:keep-done-column"
+        );
+        assert!(check_board_shape(&layout(&[(1, &[Done])])).is_err());
     }
 
     #[test]

@@ -1504,7 +1504,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `done-column` */
+            /** @description `done-column` or `keep-done-column` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1626,7 +1626,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `rightmost-column` or `done-column` */
+            /** @description `rightmost-column`, `done-column` or `keep-done-column` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2795,7 +2795,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `done-column` */
+            /** @description `done-column` or `keep-done-column` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2851,7 +2851,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `in-use`: an issue holds it */
+            /** @description `in-use`: an issue holds it; `keep-done-column`: the last done status */
             409: {
                 headers: {
                     [name: string]: unknown;

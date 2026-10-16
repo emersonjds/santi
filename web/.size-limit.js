@@ -75,4 +75,14 @@ export default [
     limit: '170 KB',
     gzip: true,
   },
+  {
+    name: 'initial JS, /p/KEY/settings (board settings)',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/settings/index.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
 ]

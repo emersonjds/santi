@@ -111,6 +111,43 @@ describe('members page', () => {
       .toHaveTextContent('A project needs at least one admin.')
   })
 
+  it('sends an admin who removes themselves home with a word', async () => {
+    inProjects({
+      'GET /api/projects/WEB/members': { status: 200, body: ADMINS },
+      'DELETE /api/projects/WEB/members/1': { status: 204 },
+    })
+    const { screen, router } = await renderApp('/p/WEB/settings/members')
+
+    await screen.getByRole('button', { name: 'Remove Alice' }).click()
+    await screen
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Remove member' })
+      .click()
+
+    await expect.element(screen.getByText('You left Website.')).toBeVisible()
+    expect(router.state.location.pathname).toBe('/')
+  })
+
+  it('sends an admin who steps down to the board with a word', async () => {
+    inProjects({
+      'GET /api/projects/WEB/members': { status: 200, body: ADMINS },
+      'PUT /api/projects/WEB/members/1': {
+        status: 200,
+        body: { ...MEMBERS[0], role: 'member' },
+      },
+    })
+    const { screen, router } = await renderApp('/p/WEB/settings/members')
+
+    await screen
+      .getByRole('combobox', { name: 'Role of Alice' })
+      .selectOptions('member')
+
+    await expect
+      .element(screen.getByText('You are a member of Website now.'))
+      .toBeVisible()
+    expect(router.state.location.pathname).toBe('/p/WEB/board')
+  })
+
   it('answers 403 to a member, who gets no link to it', async () => {
     inProjects()
     const { screen } = await renderApp('/p/OPS/settings/members')

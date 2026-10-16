@@ -23,6 +23,9 @@ export const CATEGORY = {
   },
 } satisfies Record<Category, unknown>
 
+export const isCategory = (value: string): value is Category =>
+  Object.keys(CATEGORY).includes(value)
+
 /** Every mapped status of the board by id. */
 export const statusesById = (settings: BoardSettings | undefined) =>
   new Map(

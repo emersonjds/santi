@@ -67,6 +67,19 @@ const ProjectItem = ({
               </SidebarMenuSubButton>
             </SidebarMenuSubItem>
           )}
+          {project.role === 'admin' && (
+            <SidebarMenuSubItem>
+              <SidebarMenuSubButton asChild className={`h-9 ${CURRENT}`}>
+                <Link
+                  to='/p/$key/settings'
+                  params={params}
+                  onClick={onNavigate}
+                >
+                  Settings
+                </Link>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+          )}
         </SidebarMenuSub>
       )}
     </SidebarMenuItem>

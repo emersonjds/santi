@@ -782,7 +782,7 @@
             }
           },
           "409": {
-            "description": "`done-column`",
+            "description": "`done-column` or `keep-done-column`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -955,7 +955,7 @@
             }
           },
           "409": {
-            "description": "`rightmost-column` or `done-column`",
+            "description": "`rightmost-column`, `done-column` or `keep-done-column`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2615,7 +2615,7 @@
             }
           },
           "409": {
-            "description": "`done-column`",
+            "description": "`done-column` or `keep-done-column`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2684,7 +2684,7 @@
             }
           },
           "409": {
-            "description": "`in-use`: an issue holds it",
+            "description": "`in-use`: an issue holds it; `keep-done-column`: the last done status",
             "content": {
               "application/problem+json": {
                 "schema": {
