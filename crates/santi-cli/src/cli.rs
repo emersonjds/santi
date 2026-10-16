@@ -255,8 +255,8 @@ fn nullable_text(text: &str) -> Result<Option<String>, String> {
 
 fn destination(text: &str) -> Result<OpenIssuesDestination, String> {
     match text {
-        "backlog" => Ok(OpenIssuesDestination::Backlog),
-        "new" => Ok(OpenIssuesDestination::NewSprint),
+        "backlog" => Ok(OpenIssuesDestination::Backlog {}),
+        "new" => Ok(OpenIssuesDestination::NewSprint {}),
         id => id
             .parse()
             .map(|sprint_id| OpenIssuesDestination::Sprint { sprint_id })
@@ -411,8 +411,8 @@ mod tests {
             };
             to
         };
-        assert_eq!(to("backlog"), OpenIssuesDestination::Backlog);
-        assert_eq!(to("new"), OpenIssuesDestination::NewSprint);
+        assert_eq!(to("backlog"), OpenIssuesDestination::Backlog {});
+        assert_eq!(to("new"), OpenIssuesDestination::NewSprint {});
         assert_eq!(to("7"), OpenIssuesDestination::Sprint { sprint_id: 7 });
     }
 
