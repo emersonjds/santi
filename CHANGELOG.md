@@ -10,6 +10,15 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-16
+
+### Changed
+
+- **People's names:** shown by first and last name on one line ("Emerson Silva"), with the full
+  name on hover and for screen readers; a name typed all in capitals is shown in title case;
+  avatar initials use the first and last name. The members page and the account menu keep the
+  full name. CLI board and backlog lines use the short form.
+
 ## [0.2.0] - 2026-10-16
 
 ### Added
@@ -100,6 +109,7 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/emersonjds/santi/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/emersonjds/santi/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/emersonjds/santi/releases/tag/v0.1.0
