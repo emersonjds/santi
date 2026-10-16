@@ -1,6 +1,7 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
 import { Keyboard, KeyRound, LogOut, MessageSquare } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
+import { FEEDBACK_URL } from '@/shared/lib/links'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,9 +11,6 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
 import { AccountButton } from './account-button'
-
-/** GitHub's template chooser: bug report or feature request. */
-const FEEDBACK_URL = 'https://github.com/emersonjds/santi/issues/new/choose'
 
 export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })

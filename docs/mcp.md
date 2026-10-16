@@ -13,6 +13,14 @@ agent sees exactly what that user sees.
   session then answers only to that same token (any other gets 404, `GET` and `DELETE`
   included), and at most 100 sessions are open at once (503 beyond that).
 
+## Your data and the AI provider
+
+santi never sends data to an AI provider on its own. Whatever an agent reads through `santi mcp`
+(projects, issues, comments, member names and emails) goes to the AI provider behind the client
+you connect, under that provider's terms and privacy policy. Give the agent a token of an account
+that should see that data, and revoke the token to cut it off. The hosted instance's privacy
+policy (`/privacy`, D45) says the same to its users.
+
 ## Setup
 
 1. Install the binary: `cargo install --path crates/santi-cli` (puts `santi` in `~/.cargo/bin`).

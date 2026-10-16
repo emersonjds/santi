@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Política de Privacidade — santi</title>
+    <meta
+      name="description"
+      content="Como o santi trata seus dados: nunca vendidos, sem anúncios, sem rastreamento, só cookies essenciais, e seus direitos pela LGPD e pelo GDPR."
+    />
+    <link rel="canonical" href="%VITE_SITE_URL%/privacy?lang=pt-BR" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/src/app/styles/landing.css" />
+  </head>
+  <body>
+    <a href="#main" class="skip-link">Pular para o conteúdo</a>
+
+    <header class="site-header">
+      <div class="container-page flex h-16 items-center justify-between gap-2">
+        <a href="/about" class="lockup" aria-label="santi home">
+          <img src="/brand/mark.svg" alt="" width="28" height="28" />
+          <span>santi</span>
+        </a>
+        <nav aria-label="Principal" class="flex items-center gap-1">
+          <a href="/privacy" class="btn btn-ghost" lang="en" hreflang="en"
+            >English</a
+          >
+          <a href="/login" class="btn btn-ghost max-sm:hidden">Entrar</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main" class="container-page legal py-12 sm:py-16">
+      <h1>Política de Privacidade</h1>
+      <p class="legal-meta">
+        Versão 2026-10-16 · Atualizada em 16 de outubro de 2026
+      </p>
+      <p class="legal-lead">
+        Seus dados são seus. O santi existe para acompanhar o trabalho do seu
+        time, não para aprender sobre você. Esta página diz, em palavras
+        simples, o que este servidor guarda, por quê, por quanto tempo, quem
+        mais tem acesso e como exercer seus direitos.
+      </p>
+      <p class="legal-note">
+        Este texto está em linguagem simples e não é aconselhamento jurídico;
+        recomenda-se revisão por um advogado.
+      </p>
+
+      <h2>Em resumo</h2>
+      <ul>
+        <li>
+          Nunca vendemos nem alugamos seus dados pessoais, e só os
+          compartilhamos com os fornecedores que operam o serviço (listados
+          abaixo).
+        </li>
+        <li>
+          Sem anúncios, sem rastreamento, sem analytics e sem scripts de
+          terceiros. As páginas carregam apenas arquivos deste servidor.
+        </li>
+        <li>
+          Cookies e armazenamento do navegador são só os que o app precisa para
+          funcionar (listados abaixo).
+        </li>
+        <li>
+          Você pode baixar seus dados ou excluir sua conta a qualquer momento,
+          na página da conta.
+        </li>
+      </ul>
+
+      <h2>Quem é o responsável</h2>
+      <p>
+        Esta instância do santi é operada por
+        <strong>%VITE_OPERATOR_NAME%</strong>, controlador dos dados pessoais
+        que ela guarda, nos termos da LGPD. O encarregado pelo tratamento de
+        dados responde em
+        <a href="mailto:%VITE_PRIVACY_EMAIL%">%VITE_PRIVACY_EMAIL%</a>.
+      </p>
+
+      <h2>O que guardamos, por quê, com que base legal e por quanto tempo</h2>
+      <div class="legal-table">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Dado</th>
+              <th scope="col">Para quê</th>
+              <th scope="col">Base legal</th>
+              <th scope="col">Por quanto tempo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Conta: nome, e-mail e hash da senha (Argon2id; a senha em si
+                nunca é guardada)
+              </td>
+              <td>Fazer seu login; mostrar ao time quem fez o quê</td>
+              <td>Execução de contrato (LGPD art. 7º, V; GDPR art. 6(1)(b))</td>
+              <td>Até você excluir a conta</td>
+            </tr>
+            <tr>
+              <td>
+                Seu trabalho: projetos, quadros, sprints, issues, comentários,
+                rótulos e issues importadas (o arquivo enviado é lido e
+                descartado)
+              </td>
+              <td>O próprio serviço</td>
+              <td>Execução de contrato</td>
+              <td>
+                Até você ou um admin do projeto excluírem; veja a exclusão de
+                conta abaixo
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Sessões e tokens de API, guardados apenas como hashes SHA-256
+              </td>
+              <td>Manter você conectado; permitir revogar acessos</td>
+              <td>
+                Contrato; segurança (legítimo interesse, LGPD art. 7º, IX; GDPR
+                art. 6(1)(f))
+              </td>
+              <td>
+                Sessões: 30 dias, depois apagadas em até uma hora. Tokens: até
+                serem revogados ou a conta ser excluída
+              </td>
+            </tr>
+            <tr>
+              <td>Convites para um projeto</td>
+              <td>Permitir que colegas entrem</td>
+              <td>Execução de contrato</td>
+              <td>Até serem usados ou expirarem, mais 7 dias</td>
+            </tr>
+            <tr>
+              <td>
+                Registro de aceite: qual versão destes termos e desta política
+                você aceitou, uma impressão digital (hash) do texto, a data e
+                sua declaração de maioridade
+              </td>
+              <td>Comprovar o que você aceitou e quando</td>
+              <td>
+                Cumprimento de obrigação legal e exercício regular de direitos
+                (LGPD art. 7º, II e VI; GDPR art. 6(1)(c) e (f))
+              </td>
+              <td>
+                Mantido após a exclusão da conta, ligado apenas à conta
+                anonimizada, por 5 anos (prazo prescricional do Código de Defesa
+                do Consumidor, art. 27)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                Registros de acesso: endereço de rede, data e hora das
+                requisições, mantidos pela plataforma de hospedagem
+              </td>
+              <td>
+                Exigidos de provedores de aplicação pelo Marco Civil da Internet
+                (art. 15); segurança
+              </td>
+              <td>Cumprimento de obrigação legal (LGPD art. 7º, II)</td>
+              <td>6 meses</td>
+            </tr>
+            <tr>
+              <td>
+                Contadores contra abuso: tentativas recentes por endereço de
+                rede e por e-mail, só em memória
+              </td>
+              <td>Impedir adivinhação de senhas e spam</td>
+              <td>Legítimo interesse (segurança)</td>
+              <td>
+                Nunca gravados em disco; esquecidos em até uma hora ou no
+                próximo reinício
+              </td>
+            </tr>
+            <tr>
+              <td>Backups do banco de dados, quando o operador os ativa</td>
+              <td>Recuperar de falhas</td>
+              <td>Legítimo interesse</td>
+              <td>Substituídos em até 30 dias</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Não coletamos mais nada: nenhuma impressão digital do aparelho,
+        localização, histórico de navegação ou perfil de marketing.
+      </p>
+
+      <h2>Cookies e armazenamento do navegador</h2>
+      <div class="legal-table">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Nome</th>
+              <th scope="col">Tipo</th>
+              <th scope="col">O que faz</th>
+              <th scope="col">Duração</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>__Host-santi_session</code></td>
+              <td>Cookie, essencial</td>
+              <td>
+                Mantém você conectado. <code>HttpOnly</code> (scripts não leem),
+                <code>Secure</code> (só HTTPS), <code>SameSite=Lax</code>
+              </td>
+              <td>30 dias, ou até você sair</td>
+            </tr>
+            <tr>
+              <td><code>sidebar_state</code></td>
+              <td>Cookie, preferência</td>
+              <td>Lembra se a barra lateral está aberta</td>
+              <td>7 dias</td>
+            </tr>
+            <tr>
+              <td><code>santi:last-project</code></td>
+              <td>Armazenamento local, preferência</td>
+              <td>Lembra o último projeto que você abriu</td>
+              <td>Até você limpar os dados do site</td>
+            </tr>
+            <tr>
+              <td><code>santi.shortcuts.off</code></td>
+              <td>Armazenamento local, preferência</td>
+              <td>Lembra que você desligou os atalhos de teclado</td>
+              <td>Até você limpar os dados do site</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Nenhum deles rastreia você nem é lido por terceiros, por isso não há
+        banner de cookies.
+      </p>
+
+      <h2>Quem mais trata seus dados</h2>
+      <ul>
+        <li>
+          <strong>Railway</strong> (Railway Corp., Estados Unidos) hospeda o
+          servidor, o banco de dados e seus backups, como operador
+          (suboperador), na região <strong>%VITE_HOSTING_REGION%</strong>.
+        </li>
+        <li>
+          Hoje não usamos nenhum provedor de e-mail, login (OAuth), analytics ou
+          anúncios. Antes de adicionar um, ele será listado aqui com o que
+          recebe.
+        </li>
+        <li>
+          Autoridades públicas, somente quando uma lei ou ordem judicial exigir.
+        </li>
+      </ul>
+
+      <h2>Transferência internacional</h2>
+      <p>
+        O servidor roda em <strong>%VITE_HOSTING_REGION%</strong>, fora do
+        Brasil, com um fornecedor sediado nos Estados Unidos. A transferência se
+        apoia nas salvaguardas que o art. 33 da LGPD e o Capítulo V do GDPR
+        permitem, como as cláusulas contratuais padrão do fornecedor e seus
+        compromissos de segurança.
+      </p>
+
+      <h2>Assistentes de IA (MCP e tokens de API)</h2>
+      <p>
+        O santi nunca envia seus dados a um provedor de IA por conta própria. Se
+        você conectar um assistente de IA ao santi, pelo
+        <code>santi mcp</code> ou por um token de API, o que o assistente ler é
+        enviado ao provedor de IA que você escolheu, sob os termos e a política
+        de privacidade desse provedor. Revogue o token para interromper.
+      </p>
+
+      <h2>Seus direitos e como exercê-los</h2>
+      <p>
+        Pela LGPD (Lei 13.709/2018, art. 18) e, quando aplicável, pelo GDPR da
+        União Europeia (arts. 15 a 22), você pode:
+      </p>
+      <ul>
+        <li>
+          <strong>Confirmar e acessar</strong> o que guardamos: Conta → Seus
+          dados → <em>Export my data</em> baixa tudo em JSON.
+        </li>
+        <li>
+          <strong>Corrigir</strong>: edite o que escreveu no santi, ou escreva
+          para nós sobre os dados da conta.
+        </li>
+        <li>
+          <strong>Excluir</strong>: Conta → Seus dados →
+          <em>Delete my account</em>, ou escreva para nós.
+        </li>
+        <li>
+          <strong>Portabilidade</strong>: o arquivo exportado é JSON simples,
+          legível por qualquer ferramenta.
+        </li>
+        <li>
+          <strong>Saber com quem compartilhamos</strong>: a seção acima lista
+          todos.
+        </li>
+        <li>
+          <strong>Anonimização, bloqueio ou eliminação</strong> de dados
+          desnecessários ou tratados em desconformidade com a lei.
+        </li>
+        <li>
+          <strong>Opor-se</strong> ao tratamento baseado em legítimo interesse e
+          <strong>revogar o consentimento</strong> quando ele for a base.
+        </li>
+        <li>
+          <strong>Reclamar</strong> à Autoridade Nacional de Proteção de Dados
+          (ANPD, <a href="https://www.gov.br/anpd">gov.br/anpd</a>) ou, na União
+          Europeia, à autoridade de controle local.
+        </li>
+      </ul>
+      <p>
+        Escreva para
+        <a href="mailto:%VITE_PRIVACY_EMAIL%">%VITE_PRIVACY_EMAIL%</a> usando o
+        e-mail da sua conta. É gratuito, e respondemos em até 15 dias (LGPD art.
+        19). Se não pudermos confirmar que o pedido é seu, pediremos algo que só
+        o titular da conta saiba.
+      </p>
+
+      <h2>O que acontece quando você exclui sua conta</h2>
+      <ul>
+        <li>
+          Seu nome, e-mail e hash da senha são apagados na hora; você sai de
+          todos os dispositivos e seus tokens de API deixam de funcionar.
+        </li>
+        <li>
+          Projetos dos quais só você participa são excluídos, com suas issues e
+          comentários.
+        </li>
+        <li>
+          Onde você for o último admin de um projeto compartilhado, o membro com
+          a conta mais antiga vira admin.
+        </li>
+        <li>
+          Issues e comentários que você escreveu em projetos compartilhados
+          ficam para o time, exibidos como "Deleted user".
+        </li>
+        <li>O registro de aceite permanece, como descrito na tabela acima.</li>
+      </ul>
+
+      <h2>Como protegemos</h2>
+      <ul>
+        <li>
+          HTTPS em tudo; o cookie de sessão nunca trafega em HTTP simples.
+        </li>
+        <li>
+          Senhas com hash Argon2id; sessões e tokens de API guardados apenas
+          como hashes SHA-256.
+        </li>
+        <li>
+          Content Security Policy restritiva, proteção contra requisições de
+          outros sites e limites de tentativas no login, no cadastro e em outras
+          ações sensíveis.
+        </li>
+        <li>
+          O banco de dados não é acessível pela internet, e o código é aberto:
+          qualquer pessoa pode verificar estas afirmações.
+        </li>
+      </ul>
+
+      <h2>Idade</h2>
+      <p>
+        O santi é para maiores de 18 anos, e o cadastro pede essa confirmação.
+        Se você souber de uma conta criada por menor de idade, escreva para nós
+        e a excluiremos.
+      </p>
+
+      <h2>Hospedando o santi você mesmo</h2>
+      <p>
+        O santi é software livre que você pode rodar no seu próprio servidor.
+        Assim seus dados ficam nas suas máquinas, você é o controlador deles, e
+        esta política cobre apenas esta instância hospedada.
+      </p>
+
+      <h2>Mudanças</h2>
+      <p>
+        Quando esta política mudar de forma relevante, o app mostra a nova
+        versão e pede seu aceite antes de continuar; a versão e a data no topo
+        sempre identificam o texto atual. Em caso de divergência entre as
+        versões em inglês e em português, prevalece a mais favorável a você.
+      </p>
+    </main>
+
+    <footer class="border-t">
+      <div class="container-page grid gap-2 py-6 text-sm text-muted-foreground">
+        <p>
+          Operado por <strong>%VITE_OPERATOR_NAME%</strong> · Contato de
+          privacidade:
+          <a href="mailto:%VITE_PRIVACY_EMAIL%" class="underline"
+            >%VITE_PRIVACY_EMAIL%</a
+          >
+        </p>
+        <p class="flex flex-wrap gap-x-6 gap-y-2">
+          <a href="/about" class="underline">Início</a>
+          <a href="/privacy?lang=pt-BR" class="underline"
+            >Política de Privacidade</a
+          >
+          <a href="/terms?lang=pt-BR" class="underline">Termos de Uso</a>
+          <span
+            >Escrito em linguagem simples; não é aconselhamento jurídico.</span
+          >
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

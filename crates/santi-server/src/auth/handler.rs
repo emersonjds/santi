@@ -4,7 +4,10 @@ use axum::http::StatusCode;
 use axum::http::header::SET_COOKIE;
 use axum::response::IntoResponse;
 use santi_types::Problem;
-use santi_types::auth::{ApiToken, CreateToken, CreatedToken, Login, Register, User};
+use santi_types::auth::{
+    AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
+    LegalStatus, Login, Register, User,
+};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -20,7 +23,10 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(register))
         .routes(routes!(login))
         .routes(routes!(logout))
-        .routes(routes!(me))
+        .routes(routes!(me, delete_account))
+        .routes(routes!(export_account))
+        .routes(routes!(legal_documents))
+        .routes(routes!(legal_status, accept_legal))
         .routes(routes!(create_token, list_tokens))
         .routes(routes!(delete_token))
 }
@@ -37,7 +43,7 @@ pub async fn register(
     JsonBody(input): JsonBody<Register>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::Register, address, None)?;
-    let (user, session) = service::register(&state.pool, input).await?;
+    let (user, session) = service::register(&state.pool, &state.legal, input).await?;
     Ok((
         StatusCode::CREATED,
         [(SET_COOKIE, domain::session_cookie(&session))],
@@ -56,10 +62,9 @@ pub async fn login(
     JsonBody(input): JsonBody<Login>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::Login, address, None)?;
-    let email = input.email.trim().to_lowercase();
-    state.limits.login_attempt(&email)?;
+    let key = state.limits.login_attempt(&input.email, address)?;
     let (user, session) = service::login(&state.pool, input).await?;
-    state.limits.login_succeeded(&email);
+    state.limits.login_succeeded(&key);
     Ok(([(SET_COOKIE, domain::session_cookie(&session))], Json(user)))
 }
 
@@ -86,9 +91,80 @@ pub async fn me(State(state): State<AppState>, user: CurrentUser) -> Result<Json
     Ok(Json(service::me(&state.pool, &user).await?))
 }
 
+#[utoipa::path(get, path = "/api/legal", tag = "auth",
+    responses((status = 200, body = LegalDocuments, description = "Current versions of the Terms of Use and Privacy Policy, and whether sign-up must accept them (D45)")))]
+pub async fn legal_documents(State(state): State<AppState>) -> Json<LegalDocuments> {
+    Json(service::legal_documents(&state.legal))
+}
+
+#[utoipa::path(get, path = "/api/me/legal", tag = "auth",
+    responses(
+        (status = 200, body = LegalStatus, description = "`accepted` is false until the caller accepts the current versions"),
+        (status = 401, body = Problem, content_type = "application/problem+json")))]
+pub async fn legal_status(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<Json<LegalStatus>, AppError> {
+    Ok(Json(
+        service::legal_status(&state.pool, &state.legal, &user).await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/api/me/legal", tag = "auth", request_body = AcceptLegal,
+    responses(
+        (status = 200, body = LegalStatus, description = "Accepted; recorded in the append-only acceptance log unless the current versions were already accepted or are not required"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "`accept_terms` or `confirm_age` not true"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited per account (D44); wait `Retry-After` seconds")))]
+pub async fn accept_legal(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    JsonBody(input): JsonBody<AcceptLegal>,
+) -> Result<Json<LegalStatus>, AppError> {
+    state
+        .limits
+        .check(Action::AcceptLegal, None, Some(user.id))?;
+    Ok(Json(
+        service::accept_legal(&state.pool, &state.legal, &user, input).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/me/export", tag = "auth",
+    responses(
+        (status = 200, body = AccountExport, description = "The account, its token names and every project the caller administers, in full (D45)"),
+        (status = 401, body = Problem, content_type = "application/problem+json")))]
+pub async fn export_account(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<Json<AccountExport>, AppError> {
+    Ok(Json(service::export_account(&state.pool, &user).await?))
+}
+
+#[utoipa::path(delete, path = "/api/me", tag = "auth", request_body = DeleteAccount,
+    responses(
+        (status = 204, description = "Account deleted and signed out everywhere. Projects only the caller used are deleted; where the caller was the last admin, the member with the oldest account becomes admin; issues and comments in shared projects stay under \"Deleted user\" (D45)"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Wrong password (`password`)"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Too many password attempts for this account (D44); wait `Retry-After` seconds")))]
+pub async fn delete_account(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    JsonBody(input): JsonBody<DeleteAccount>,
+) -> Result<impl IntoResponse, AppError> {
+    state
+        .limits
+        .check(Action::Reauthenticate, None, Some(user.id))?;
+    service::delete_account(&state.pool, &user, input).await?;
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(SET_COOKIE, domain::expired_session_cookie())],
+    ))
+}
+
 #[utoipa::path(post, path = "/api/tokens", tag = "auth", request_body = CreateToken,
     responses(
         (status = 201, body = CreatedToken, description = "The token is shown only in this response"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`terms-not-accepted`: accept the current Terms of Use and Privacy Policy first (`POST /api/me/legal`). Tokens created before keep working (D45)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 422, body = Problem, content_type = "application/problem+json"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
@@ -99,6 +175,7 @@ pub async fn create_token(
     JsonBody(input): JsonBody<CreateToken>,
 ) -> Result<(StatusCode, Json<CreatedToken>), AppError> {
     state.limits.check(Action::Token, address, Some(user.id))?;
+    service::require_current_acceptance(&state.pool, &state.legal, &user).await?;
     let created = service::create_token(&state.pool, &user, input).await?;
     Ok((StatusCode::CREATED, Json(created)))
 }

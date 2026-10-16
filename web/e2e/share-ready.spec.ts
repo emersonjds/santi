@@ -10,6 +10,8 @@ const register = async (page: Page, email: string) => {
   await page.getByLabel('Name').fill('Sam')
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
+  await page.getByRole('checkbox', { name: 'I am 18 or older' }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'Hi, Sam' })).toBeVisible()
 }
@@ -57,19 +59,56 @@ test('repeated wrong passwords lock the email with a wait, account or not', asyn
   await expect(page.getByRole('alert')).toContainText('Try again in')
 })
 
-test('the privacy note is linked from sign-up and the landing footer', async ({
+test('the privacy policy and terms are linked from sign-up and the landing', async ({
   page,
 }) => {
   await page.goto('/register')
-  await page.getByRole('link', { name: 'privacy note' }).click()
+  await page.getByRole('link', { name: 'Read our privacy policy' }).click()
 
-  await expect(page.getByRole('heading', { name: 'Privacy' })).toBeVisible()
-  await expect(page.getByText('No tracking, no analytics')).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Privacy Policy', level: 1 })
+  ).toBeVisible()
+  await expect(
+    page.getByText('No ads, no tracking, no analytics')
+  ).toBeVisible()
 
   await page.goto('/about')
   await page
     .getByRole('contentinfo')
-    .getByRole('link', { name: 'Privacy' })
+    .getByRole('link', { name: 'Terms of Use' })
     .click()
-  await expect(page).toHaveURL(/\/privacy$/)
+  await expect(
+    page.getByRole('heading', { name: 'Terms of Use', level: 1 })
+  ).toBeVisible()
+  await expect(page.getByText('not legal advice').first()).toBeVisible()
+
+  await page.getByRole('link', { name: 'Português' }).click()
+  await expect(page).toHaveURL(/\/terms\?lang=pt-BR$/)
+  await expect(
+    page.getByRole('heading', { name: 'Termos de Uso', level: 1 })
+  ).toBeVisible()
+})
+
+test('a new user exports their data and deletes their account', async ({
+  page,
+}) => {
+  const email = uniqueEmail()
+  await register(page, email)
+  await page.goto('/account')
+
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Export my data' }).click()
+  const file = await download
+  expect(file.suggestedFilename()).toMatch(/^santi-export-.*\.json$/)
+
+  await page.getByRole('button', { name: 'Delete my account' }).click()
+  const confirm = page.getByRole('alertdialog')
+  await confirm.getByLabel('Password').fill(PASSWORD)
+  await confirm.getByRole('button', { name: 'Delete account' }).click()
+  await expect(page).toHaveURL(/\/login/)
+
+  await page.getByLabel('Email').fill(email)
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('button', { name: 'Sign in' }).click()
+  await expect(page.getByRole('alert')).toBeVisible()
 })

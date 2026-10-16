@@ -11,6 +11,11 @@ santi ships as one Docker image (API + web app) plus PostgreSQL. Railway builds 
    - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (reference to the database service; private network)
    - `PORT` = `8080` (the port the image listens on)
    - optional `SANTI_DB_POOL` = `10` (connection pool size; Railway's smaller plans allow few connections)
+   - the privacy policy and terms (`/privacy`, `/terms`, D45) need these build variables; a Railway build fails without the first two:
+     `VITE_OPERATOR_NAME` (who runs the instance), `VITE_PRIVACY_EMAIL` (privacy and contact address),
+     `VITE_HOSTING_REGION` (the Railway region; defaults to `EU West (Railway europe-west4)`), `VITE_LEGAL_VENUE` (city and state for the venue clause).
+     They are read at build time: redeploy after changing them.
+   - self-hosting without the hosted instance's legal pages: `SANTI_LEGAL_PAGES` = `off` (no `/privacy`, `/terms`, sign-up checkboxes, acceptance gate or app links) and the build variable `VITE_LEGAL_PAGES` = `off` (the landing page drops its links to them and the build skips them).
 4. **Public address**: the landing page's canonical/social links, `robots.txt` and `sitemap.xml` use the
    Railway domain automatically (`RAILWAY_PUBLIC_DOMAIN`). For a custom domain, set the variable
    `VITE_SITE_URL` = `https://your.domain` and redeploy.
