@@ -210,30 +210,32 @@ pub fn build_board_columns(
     cards: Vec<Card>,
     filter: &IssueFilter,
 ) -> Vec<BoardColumnView> {
-    columns
+    let mut views: Vec<BoardColumnView> = columns
         .into_iter()
-        .map(|column| {
-            let in_column: Vec<&Card> = cards
-                .iter()
-                .filter(|card| card.column_id == column.id)
-                .collect();
-            let issue_count = in_column.len() as i64;
-            BoardColumnView {
-                over_limit: column
-                    .wip_limit
-                    .is_some_and(|limit| issue_count > i64::from(limit)),
-                cards: in_column
-                    .into_iter()
-                    .filter(|card| matches_filter(card, filter))
-                    .cloned()
-                    .collect(),
-                id: column.id,
-                name: column.name,
-                wip_limit: column.wip_limit,
-                issue_count,
-            }
+        .map(|column| BoardColumnView {
+            id: column.id,
+            name: column.name,
+            wip_limit: column.wip_limit,
+            issue_count: 0,
+            over_limit: false,
+            cards: Vec::new(),
         })
-        .collect()
+        .collect();
+    for card in cards {
+        let Some(view) = views.iter_mut().find(|view| view.id == card.column_id) else {
+            continue;
+        };
+        view.issue_count += 1;
+        if matches_filter(&card, filter) {
+            view.cards.push(card);
+        }
+    }
+    for view in &mut views {
+        view.over_limit = view
+            .wip_limit
+            .is_some_and(|limit| view.issue_count > i64::from(limit));
+    }
+    views
 }
 
 /// BL-1: the given sprints in order, then the no-sprint section.
@@ -244,31 +246,29 @@ pub fn build_backlog_sections(
 ) -> Vec<BacklogSection> {
     let mut sections: Vec<BacklogSection> = sprints
         .into_iter()
-        .map(|sprint| backlog_section(Some(sprint), &cards, filter))
+        .map(Some)
+        .chain([None])
+        .map(|sprint| BacklogSection {
+            sprint,
+            issue_count: 0,
+            total_points: 0.0,
+            cards: Vec::new(),
+        })
         .collect();
-    sections.push(backlog_section(None, &cards, filter));
-    sections
-}
-
-fn backlog_section(sprint: Option<Sprint>, cards: &[Card], filter: &IssueFilter) -> BacklogSection {
-    let sprint_id = sprint.as_ref().map(|sprint| sprint.id);
-    let in_section: Vec<&Card> = cards
-        .iter()
-        .filter(|card| card.sprint_id == sprint_id)
-        .collect();
-    BacklogSection {
-        issue_count: in_section.len() as i64,
-        total_points: in_section
-            .iter()
-            .filter_map(|card| card.points)
-            .fold(0.0, |total, points| total + points),
-        cards: in_section
-            .into_iter()
-            .filter(|card| matches_filter(card, filter))
-            .cloned()
-            .collect(),
-        sprint,
+    for card in cards {
+        let section = sections
+            .iter_mut()
+            .find(|section| section.sprint.as_ref().map(|sprint| sprint.id) == card.sprint_id);
+        let Some(section) = section else {
+            continue;
+        };
+        section.issue_count += 1;
+        section.total_points += card.points.unwrap_or(0.0);
+        if matches_filter(&card, filter) {
+            section.cards.push(card);
+        }
     }
+    sections
 }
 
 #[cfg(test)]
