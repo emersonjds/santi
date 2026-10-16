@@ -1,6 +1,6 @@
 mod common;
 
-use axum::http::StatusCode;
+use axum::http::{Method, StatusCode};
 use common::TestApp;
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -342,4 +342,72 @@ async fn openapi_lists_issue_routes(pool: PgPool) {
 
     assert!(api["paths"]["/api/projects/{key}/issues"]["post"].is_object());
     assert!(api["paths"]["/api/projects/{key}/issues/{number}"]["patch"].is_object());
+}
+
+/// PostgreSQL text cannot hold U+0000; every text field refuses it as invalid input.
+#[sqlx::test]
+async fn nul_characters_are_invalid_input(pool: PgPool) {
+    let ana = project(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "Fix login" }))
+        .await;
+    let field = |problem: &Value| problem["errors"][0]["field"].clone();
+
+    let (summary, summary_problem) = ana
+        .post(
+            "/api/projects/SANTI/issues",
+            json!({ "summary": "a\u{0}b" }),
+        )
+        .await;
+    let (description, description_problem) = ana
+        .post(
+            "/api/projects/SANTI/issues",
+            json!({ "summary": "ok", "description": "a\u{0}b" }),
+        )
+        .await;
+    let (edit, _) = ana
+        .patch(
+            "/api/projects/SANTI/issues/1",
+            json!({ "description": "a\u{0}b" }),
+        )
+        .await;
+    let (comment, comment_problem) = ana
+        .post(
+            "/api/projects/SANTI/issues/1/comments",
+            json!({ "body": "a\u{0}b" }),
+        )
+        .await;
+    let (project, project_problem) = ana
+        .post(
+            "/api/projects",
+            json!({ "key": "NUL", "name": "a\u{0}b", "board_type": "scrum" }),
+        )
+        .await;
+    let (search, search_problem) = ana.get("/api/projects/SANTI/issues?q=a%00b").await;
+    let (label, _) = ana.get("/api/projects/SANTI/issues?label=a%00b").await;
+    let register = json!({ "email": "nul@example.com", "password": common::PASSWORD, "display_name": "a\u{0}b" });
+    let response = ana
+        .send(common::json_request(
+            Method::POST,
+            "/api/auth/register",
+            None,
+            Some(register),
+        ))
+        .await;
+    let register = response.status();
+    let register_problem = common::body_json(response).await;
+
+    assert_eq!(summary, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(field(&summary_problem), "summary");
+    assert_eq!(description, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(field(&description_problem), "description");
+    assert_eq!(edit, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(comment, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(field(&comment_problem), "body");
+    assert_eq!(project, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(field(&project_problem), "name");
+    assert_eq!(search, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(field(&search_problem), "q");
+    assert_eq!(label, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(register, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(field(&register_problem), "display_name");
 }

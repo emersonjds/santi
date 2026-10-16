@@ -19,6 +19,7 @@ pub async fn create_issue(
     input: CreateIssue,
 ) -> Result<Issue, AppError> {
     let summary = domain::check_summary(&input.summary)?;
+    let description = domain::check_description(&input.description)?;
     let labels = domain::normalize_labels(input.labels)?;
     domain::check_points(input.issue_type, input.points)?;
     let mut tx = pool.begin().await?;
@@ -38,7 +39,7 @@ pub async fn create_issue(
         number,
         issue_type: input.issue_type,
         summary,
-        description: input.description,
+        description,
         priority: input.priority,
         status_id: status.id,
         assignee_id: input.assignee_id,

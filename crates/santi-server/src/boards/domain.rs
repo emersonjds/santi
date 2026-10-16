@@ -6,7 +6,7 @@ use santi_types::issues::{IssueFilter, NO_PARENT};
 use santi_types::projects::BoardType;
 use santi_types::sprints::Sprint;
 
-use crate::error::AppError;
+use crate::error::{AppError, reject_nul};
 use crate::issues;
 
 /// SB-1: every new board starts with these columns, each holding the status of the same name.
@@ -32,6 +32,7 @@ pub struct LayoutColumn {
 }
 
 pub fn check_name(field: &str, name: &str) -> Result<String, AppError> {
+    reject_nul(field, name)?;
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 60 {
         return Err(AppError::invalid(field, "must have 1 to 60 characters"));

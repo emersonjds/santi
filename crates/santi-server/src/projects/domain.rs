@@ -1,6 +1,6 @@
 use santi_types::projects::BoardType;
 
-use crate::error::AppError;
+use crate::error::{AppError, reject_nul};
 
 pub fn check_project_key(key: &str) -> Result<String, AppError> {
     let key = key.trim().to_uppercase();
@@ -21,6 +21,7 @@ pub fn check_project_key(key: &str) -> Result<String, AppError> {
 }
 
 pub fn check_project_name(name: &str) -> Result<String, AppError> {
+    reject_nul("name", name)?;
     let name = name.trim();
     if name.is_empty() || name.chars().count() > 100 {
         return Err(AppError::invalid("name", "must have 1 to 100 characters"));

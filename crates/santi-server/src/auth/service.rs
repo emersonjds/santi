@@ -4,7 +4,7 @@ use sqlx::{PgConnection, PgPool};
 
 use super::extract::CurrentUser;
 use super::{domain, repo};
-use crate::error::AppError;
+use crate::error::{AppError, reject_nul};
 
 /// Creates the user and signs them in; returns the user and the session token.
 pub async fn register(pool: &PgPool, input: Register) -> Result<(User, String), AppError> {
@@ -60,6 +60,7 @@ pub async fn create_token(
     user: &CurrentUser,
     input: CreateToken,
 ) -> Result<CreatedToken, AppError> {
+    reject_nul("name", &input.name)?;
     let name = input.name.trim().to_string();
     if name.is_empty() || name.chars().count() > 100 {
         return Err(AppError::invalid("name", "must have 1 to 100 characters"));
