@@ -116,3 +116,34 @@ async fn stylesheet_carries_the_brand_tokens(pool: PgPool) {
     assert!(css.contains("#4c35d2"));
     assert!(css.contains("--color-primary"));
 }
+
+#[sqlx::test]
+async fn pages_link_a_favicon_that_is_served(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
+    let ana = sign_up(&app, "ana@example.com", "Ana").await;
+    let path = concat!("/static/", env!("CARGO_PKG_VERSION"), "/favicon.svg");
+
+    let home = text(app.send(page("/", Some(&ana))).await).await;
+    let icon = app.send(page(path, None)).await;
+
+    assert!(home.contains(&format!(
+        r#"<link rel="icon" href="{path}" type="image/svg+xml">"#
+    )));
+    assert_eq!(icon.status(), StatusCode::OK);
+    assert_eq!(icon.headers()["content-type"], "image/svg+xml");
+    assert!(text(icon).await.starts_with("<svg"));
+}
+
+#[sqlx::test]
+async fn home_rows_show_each_project_board_type(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
+    let ana = sign_up(&app, "ana@example.com", "Ana").await;
+    create_project(&app, &ana, "SANTI", "scrum").await;
+    create_project(&app, &ana, "FLOW", "kanban").await;
+
+    let home = text(app.send(page("/", Some(&ana))).await).await;
+
+    assert!(home.contains(r#"<div class="max-w-5xl">"#));
+    assert!(home.contains(r#"title="Board type">Scrum</span>"#));
+    assert!(home.contains(r#"title="Board type">Kanban</span>"#));
+}

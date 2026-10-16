@@ -88,8 +88,10 @@ dialog?.addEventListener("close", () => {
     history.back();
   }
 });
-dialog?.addEventListener("click", (event) => {
-  if (event.target === dialog || event.target.closest("[data-close]")) dialog.close();
+// A click on the backdrop lands on the dialog itself; its content sits in an inner wrapper.
+document.addEventListener("click", (event) => {
+  if (event.target instanceof HTMLDialogElement) event.target.close();
+  else event.target.closest("[data-close]")?.closest("dialog")?.close();
 });
 window.addEventListener("popstate", () => {
   if (!dialog?.open) return;
@@ -118,4 +120,13 @@ document.addEventListener("click", (event) => {
   if (!button) return;
   navigator.clipboard?.writeText(button.dataset.copy);
   button.querySelector("span").textContent = "Copied";
+});
+
+// Backlog section headers fold their rows away.
+document.addEventListener("click", (event) => {
+  const toggle = event.target.closest("[data-collapse]");
+  if (!toggle) return;
+  const open = toggle.getAttribute("aria-expanded") === "true";
+  toggle.setAttribute("aria-expanded", String(!open));
+  document.getElementById(toggle.getAttribute("aria-controls")).hidden = open;
 });

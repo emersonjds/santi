@@ -98,6 +98,22 @@ struct SearchPage {
     shell: Shell,
     q: String,
     issues: Vec<Issue>,
+    statuses: Vec<Status>,
+    people: Vec<MemberInfo>,
+}
+
+impl SearchPage {
+    fn status_of(&self, status_id: &i64) -> Option<&Status> {
+        self.statuses.iter().find(|status| status.id == *status_id)
+    }
+
+    fn assignee(&self, user_id: &Option<i64>) -> Option<&str> {
+        let user_id = (*user_id)?;
+        self.people
+            .iter()
+            .find(|person| person.user_id == user_id)
+            .map(|person| person.display_name.as_str())
+    }
 }
 
 impl IssuePage {
@@ -324,10 +340,17 @@ async fn search_page(
 ) -> Result<Response, AppError> {
     let q = filter.q.clone().unwrap_or_default();
     let found = service::search_issues(&state.pool, &member, filter, PageParams::default()).await?;
+    let settings = boards::service::get_settings(&state.pool, &member).await?;
+    let mapped = settings
+        .columns
+        .into_iter()
+        .flat_map(|column| column.statuses);
     let page = SearchPage {
         shell: shell(&state.pool, &user, &member.project_key).await?,
         q,
         issues: found.items,
+        statuses: mapped.chain(settings.unmapped).collect(),
+        people: members::service::list_members(&state.pool, &member).await?,
     };
     render(StatusCode::OK, &page)
 }
