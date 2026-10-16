@@ -23,7 +23,7 @@ Migrations ran on start: the Railway deploy log shows no `migrate` error, and in
 
 ```sh
 curl -sI "http://$HOST/" | head -3                  # must not serve the app over plain http: a redirect to https
-for page in / /about /privacy /login /p/X/board; do
+for page in / /about /privacy /terms /login /p/X/board; do
   echo "== $page"
   curl -sI "$URL$page" | grep -iE '^(HTTP|content-security-policy|x-content-type-options|referrer-policy|cache-control)'
 done
@@ -39,7 +39,7 @@ API answers carry `nosniff` and the referrer policy too. A hashed file under `/a
 
 ```sh
 curl -s -D - -o /dev/null -H 'content-type: application/json' \
-  -d "{\"email\":\"$EMAIL\",\"password\":\"correct horse battery\",\"display_name\":\"Check\"}" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"correct horse battery\",\"display_name\":\"Check\",\"accept_terms\":true}" \
   "$URL/api/auth/register" | grep -iE '^(HTTP|set-cookie)'
 ```
 
@@ -105,8 +105,8 @@ Both lines: `401 401 401 401 401 429`. The real account is locked for 30 s.
 Do it once in Chrome or Firefox on a laptop and once in **Safari on an iPhone** (and Safari on macOS if at hand).
 Safari never keeps a `Secure` cookie on plain `http://`, not even on `localhost`: test it on the HTTPS URL only.
 
-1. Open `$URL` signed out: the landing page shows; the footer links to *Privacy* and *Send feedback*; *Privacy* opens `/privacy`.
-2. *Try santi* → create an account (the sign-up page links the privacy note) → the empty home shows *New project* and *Start with a sample project*.
+1. Open `$URL` signed out: the landing page shows the *Your data is yours* section; the footer links to *Privacy Policy*, *Terms of Use* and *Send feedback*. On `/privacy` and `/terms` the operator name, contact, region and venue are the real ones, not `[operator name]` placeholders.
+2. *Try santi* → sign-up refuses to continue until *I agree to the Terms of Use and Privacy Policy* is ticked → the empty home shows *New project* and *Start with a sample project*.
 3. *Start with a sample project* → the board of *Sample: Mobile app* with Sprint 1 running and cards in every column. Click it again from *New project*: the same board opens, no second project.
 4. Drag a card to another column (on the phone, use the card menu → *Move to…*), reload: it stays there.
 5. Open an issue: subtasks, a comment and the details panel show; add a comment.
@@ -115,6 +115,7 @@ Safari never keeps a `Secure` cookie on plain `http://`, not even on `localhost`
 8. Sign out, sign in again (Safari keeps the session across a reload and a tab close).
 9. Web inspector console: no CSP violations on the landing page, the board or the issue dialog.
 10. Wrong password six times in a row: the sixth answer says "Too many attempts. Try again in N seconds."
+11. With a throwaway account: Account → *Export my data* downloads `santi-export-<date>.json`; *Delete my account* asks for the password, then lands on the sign-in page and the same email can sign up again. On iPhone Safari the export opens or saves the JSON file.
 
 ## 7. Before inviting testers
 

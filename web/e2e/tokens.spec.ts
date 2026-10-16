@@ -11,6 +11,7 @@ test('an API token signs in a client until it is revoked', async ({
   await page.getByLabel('Name').fill('Ada')
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: 'Hi, Ada' })).toBeVisible()
 

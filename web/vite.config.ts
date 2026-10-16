@@ -10,12 +10,25 @@ const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 
 // Absolute URLs for the landing page's canonical and social tags, robots.txt and sitemap.xml.
 // Railway exposes the generated domain as RAILWAY_PUBLIC_DOMAIN (no scheme) at build time.
-const railwayUrl = process.env.RAILWAY_PUBLIC_DOMAIN && `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
-const siteUrl = (process.env.VITE_SITE_URL || railwayUrl || 'http://localhost:8080').replace(
-  /\/+$/,
-  ''
-)
+const railwayUrl =
+  process.env.RAILWAY_PUBLIC_DOMAIN &&
+  `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+const siteUrl = (
+  process.env.VITE_SITE_URL ||
+  railwayUrl ||
+  'http://localhost:8080'
+).replace(/\/+$/, '')
 process.env.VITE_SITE_URL = siteUrl
+
+// Filled into privacy.html and terms.html; the operator sets the real values on Railway (docs/deploy/railway.md).
+const legalPlaceholders = {
+  VITE_OPERATOR_NAME: '[operator name]',
+  VITE_PRIVACY_EMAIL: 'privacy@your-domain.example',
+  VITE_HOSTING_REGION: '[hosting region]',
+  VITE_LEGAL_VENUE: '[city and state], Brazil',
+}
+for (const [name, placeholder] of Object.entries(legalPlaceholders))
+  process.env[name] ||= placeholder
 
 const seoFiles: Plugin = {
   name: 'santi-seo-files',
@@ -42,6 +55,7 @@ export default defineConfig({
         main: path.resolve(import.meta.dirname, 'index.html'),
         landing: path.resolve(import.meta.dirname, 'landing.html'),
         privacy: path.resolve(import.meta.dirname, 'privacy.html'),
+        terms: path.resolve(import.meta.dirname, 'terms.html'),
       },
       output: {
         // Every page loads React, the router and the query cache: one file compresses better than ten (D39).

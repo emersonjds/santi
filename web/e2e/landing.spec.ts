@@ -12,6 +12,7 @@ const register = async (page: Page, name: string) => {
       `e2e-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`
     )
   await page.getByLabel('Password', { exact: true }).fill(PASSWORD)
+  await page.getByRole('checkbox', { name: /I agree to the Terms/ }).check()
   await page.getByRole('button', { name: 'Create account' }).click()
   await expect(page.getByRole('heading', { name: `Hi, ${name}` })).toBeVisible()
 }
