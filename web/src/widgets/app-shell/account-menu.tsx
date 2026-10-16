@@ -1,5 +1,5 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
-import { KeyRound, LogOut } from 'lucide-react'
+import { Keyboard, KeyRound, LogOut } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
 import {
   DropdownMenu,
@@ -11,7 +11,7 @@ import {
 } from '@/shared/ui/dropdown-menu'
 import { AccountButton } from './account-button'
 
-export const AccountMenu = () => {
+export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })
   const signOut = useSignOut()
 
@@ -33,6 +33,10 @@ export const AccountMenu = () => {
             <KeyRound />
             API tokens
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem className='h-11 md:h-8' onSelect={onShortcuts}>
+          <Keyboard />
+          Keyboard shortcuts
         </DropdownMenuItem>
         <DropdownMenuItem className='h-11 md:h-8' onSelect={signOut}>
           <LogOut />

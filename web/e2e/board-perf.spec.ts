@@ -155,8 +155,16 @@ test(`INP stays under ${INP_BUDGET} ms on a ${CARDS}-card column`, async ({
   ).toContainText('High priority')
   const field = await worstInteraction(page, 'issue dialog: edit priority')
 
+  // UI-26: the focus came back to card 3; j j k reach card 4, n and p land on the first card of To Do.
+  for (const key of ['j', 'j', 'k', 'n', 'p']) await page.keyboard.press(key)
+  await expect(
+    page.getByRole('link', { name: 'Card number 2', exact: true })
+  ).toBeFocused()
+  const step = await worstInteraction(page, 'j/k between cards')
+
   expect(drop).toBeLessThan(INP_BUDGET)
   expect(menu).toBeLessThan(INP_BUDGET)
   expect(open).toBeLessThan(INP_BUDGET)
   expect(field).toBeLessThan(INP_BUDGET)
+  expect(step).toBeLessThan(INP_BUDGET)
 })

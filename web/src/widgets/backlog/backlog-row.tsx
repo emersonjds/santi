@@ -88,7 +88,8 @@ export const BacklogRow = memo(
           params: { key: projectKey, number: String(issueNumber(card.key)) },
         }}
         draggable={false}
-        className='line-clamp-2 min-w-0 outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring md:line-clamp-1 md:flex-1'
+        data-issue-key={card.key}
+        className='line-clamp-2 min-w-0 outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-ring md:line-clamp-1 md:flex-1'
       >
         {card.summary}
       </Link>

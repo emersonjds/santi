@@ -116,6 +116,7 @@ const AssigneeField = ({ issue, projectKey }: IssueFieldsProps) => {
           <>
             <select
               id={id}
+              aria-keyshortcuts='a'
               className={SELECT}
               value={issue.assignee_id ?? UNASSIGNED}
               onChange={(event) =>
@@ -137,6 +138,7 @@ const AssigneeField = ({ issue, projectKey }: IssueFieldsProps) => {
               <Button
                 variant='link'
                 className='h-11 justify-self-start px-0 md:h-7'
+                aria-keyshortcuts='i'
                 onClick={() => assign(me.id)}
               >
                 Assign to me

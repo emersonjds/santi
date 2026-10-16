@@ -67,6 +67,7 @@ export const ColumnShell = ({
 }: ColumnShellProps) => (
   <section
     aria-label={column.name}
+    data-issue-group={column.name}
     className={cn(
       'flex w-full shrink-0 flex-col rounded-lg bg-muted md:w-72',
       narrowHidden && 'max-md:hidden'

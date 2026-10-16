@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Ellipsis } from 'lucide-react'
+import { useAssignKey } from '@/features/issue-quick-actions/assign-key'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { recount } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
@@ -19,6 +20,7 @@ import {
   boardSettingsQuery,
 } from '@/entities/issue/board-query'
 import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
+import { useUpdateIssue } from '@/entities/issue/issue-mutations'
 import { projectQuery } from '@/entities/project/project-queries'
 import type {
   BoardColumn,
@@ -166,6 +168,10 @@ const Columns = ({
   const [creating, setCreating] = useState<number | null>(null)
   const [deleting, setDeleting] = useState<Card | null>(null)
   const last = board.columns[board.columns.length - 1]
+  useAssignKey(
+    () => board.columns.flatMap((column) => column.cards),
+    useUpdateIssue(projectKey)
+  )
   const renderCard = useCallback(
     (card: Card) => (
       <BoardCard card={card} projectKey={projectKey} onDelete={setDeleting} />

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
@@ -16,11 +16,6 @@ const CreateIssueDialog = lazy(() =>
   }))
 )
 
-const isTyping = (target: EventTarget | null) =>
-  target instanceof HTMLElement &&
-  (target.isContentEditable ||
-    ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
-
 /** IA §5: the current project, else the last one opened, else the first. */
 const preselect = (keys: string[], current?: string) => {
   const last = lastProject()
@@ -32,20 +27,6 @@ export const CreateButton = () => {
   const { key } = useParams({ strict: false })
   const [open, setOpen] = useState(false)
   const ready = projects !== undefined && projects.length > 0
-
-  useEffect(() => {
-    if (!ready) return
-    // UI-32: `c` opens it from anywhere but a field being typed in.
-    const create = (event: KeyboardEvent) => {
-      if (event.key !== 'c' || event.metaKey || event.ctrlKey || event.altKey)
-        return
-      if (isTyping(event.target)) return
-      event.preventDefault()
-      setOpen(true)
-    }
-    document.addEventListener('keydown', create)
-    return () => document.removeEventListener('keydown', create)
-  }, [ready])
 
   if (projects?.length === 0)
     return (
@@ -61,6 +42,7 @@ export const CreateButton = () => {
       <Button
         className={SIZE}
         disabled={!ready}
+        // UI-32: `c` presses it (shortcut layer).
         aria-keyshortcuts='c'
         onClick={() => setOpen(true)}
       >

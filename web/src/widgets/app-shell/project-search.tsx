@@ -31,6 +31,7 @@ export const ProjectSearch = ({ projectKey }: { projectKey: string }) => {
         type='search'
         name='q'
         aria-label={label}
+        aria-keyshortcuts='/'
         placeholder={label}
         className='h-11 ps-8 text-base md:h-9 md:text-sm'
       />
