@@ -368,3 +368,33 @@ test('delete an issue with its subtask from the card menu; a reload shows neithe
   await expect(todo).not.toContainText('Alpha task')
   await expect(todo).not.toContainText('Delta step')
 })
+
+test('walk the board with j and k, open with Enter, step with j, close with Esc', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  await expect(
+    page.getByRole('button', { name: `Drag ${key}-1`, exact: true })
+  ).toBeVisible()
+  const card = (summary: string) =>
+    page.getByRole('link', { name: summary, exact: true })
+
+  await page.keyboard.press('j')
+  await page.keyboard.press('j')
+  await expect(card('Beta task')).toBeFocused()
+  await page.keyboard.press('k')
+  await expect(card('Alpha task')).toBeFocused()
+
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog', { name: `${key}-1` })).toBeVisible()
+  await expect(page).toHaveURL(`/p/${key}/issues/1`)
+  await page.keyboard.press('j')
+  const next = page.getByRole('dialog', { name: `${key}-2` })
+  await expect(next.getByLabel('Summary')).toHaveValue('Beta task')
+  await expect(page).toHaveURL(`/p/${key}/issues/2`)
+
+  await page.keyboard.press('Escape')
+  await expect(next).toBeHidden()
+  await expect(page).toHaveURL(`/p/${key}/board`)
+  await expect(card('Beta task')).toBeFocused()
+})
