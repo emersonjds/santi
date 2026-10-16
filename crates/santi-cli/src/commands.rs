@@ -17,9 +17,9 @@ use crate::error::Error;
 
 pub async fn run(cli: Cli) -> Result<(), Error> {
     let path = config::path();
-    let file = match &path {
-        Some(path) => config::load(path)?,
-        None => Config::default(),
+    let file = match (&path, cli.url.is_some() && cli.token.is_some()) {
+        (Some(path), false) => config::load(path)?,
+        _ => Config::default(),
     };
     if let Command::Login = cli.command {
         return login(cli.url.or(file.url), cli.token, path).await;

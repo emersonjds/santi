@@ -4,6 +4,7 @@ use std::os::unix::fs::PermissionsExt;
 
 use assert_cmd::Command;
 use common::server;
+use predicates::prelude::*;
 use predicates::str::contains;
 use serde_json::Value;
 use tempfile::TempDir;
@@ -111,6 +112,26 @@ fn environment_wins_over_the_config_file() {
         .env("SANTI_TOKEN", "santi_wrong")
         .assert()
         .code(3);
+}
+
+#[test]
+fn a_broken_config_file_is_skipped_when_flags_give_url_and_token() {
+    let santi = Santi::new();
+    let file = santi.config.path().join("santi/config.toml");
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, "token = santi_secret").unwrap();
+    santi
+        .with(&server().user())
+        .arg("whoami")
+        .assert()
+        .success();
+    santi
+        .bare()
+        .arg("whoami")
+        .assert()
+        .code(1)
+        .stderr(contains("config.toml: not valid TOML at line 1"))
+        .stderr(contains("santi_secret").not());
 }
 
 #[test]
