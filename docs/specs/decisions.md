@@ -371,3 +371,25 @@ Packaging: one image, one service, one origin. A multi-stage `Dockerfile` builds
 Split procedure: `git subtree split --prefix=web -b web-split`, push `web-split` to the new `santi-web` repository as `main`, move the `web` CI job there, delete `web/` here, keep the snapshot test writing `openapi.json` at this repository's root, and have the image build download the `santi-web` release `dist` by pinned version. The web repository updates its snapshot from server releases.
 
 Split trigger: never before the cutover (htmx removed) and v1.0.0 (API under semver). After that, split at the first of: a UI change needs a release without a server release; regular contributors work only in `web/`; the SPA build gets a second consumer (CDN-hosted or desktop shell).
+
+## D39 — Performance budgets (SAN-43)
+Context: the owner asked for extreme performance: the copy must beat the tracker it replaces on every screen. Budgets need numbers, a dataset to measure them on, and a guard that fails CI before a regression ships.
+Options: A) no budgets, profile when someone complains B) budgets measured by hand once C) written budgets, a repeatable seed + load script, and a CI guard on statement counts and a latency ceiling
+Product vote: C — speed is a feature only while it lasts; the boards and the backlog are opened hundreds of times a day.
+Architecture vote: C — wall-clock numbers flake in CI, statement counts do not: the guard counts SQL statements per request (no N+1 can hide) and keeps a generous latency ceiling for pathological regressions; the tight latency budget is checked with the load script on a laptop.
+Winner: C — accepted: the load numbers are laptop numbers, rerun by hand (`docs/perf.md`) when a hot query changes.
+
+API budgets, at 5k issues / 50 users / 20 sprints (`seed`), release build, 10 concurrent connections on a laptop (`scripts/perf.sh`):
+- p95 < 30 ms and p99 < 60 ms for board (scrum and kanban), backlog, issue detail, search and move.
+- One SQL round trip per read model where possible, never one per row; statement budgets per request are pinned in `tests/perf_budget.rs` (board and backlog 4, issue and search 2, move 9).
+- Every hot query backed by an index, checked with `EXPLAIN ANALYZE` on generic plans (sqlx prepares statements). At 5k issues the planner seq-scans `issue` for board and backlog because one project fills most of a small table; the `issue_project_*` indexes take over as the table grows.
+- Response compression on (gzip and br through `tower-http`, br at quality 4).
+- Connection pool sized: twice the cores, clamped 10–50, `SANTI_DB_POOL` overrides; sqlx's default of 10 capped throughput at 50 concurrent clients.
+
+Fixes that came out of the first measurement:
+- Rank keys (amends D21): an open-ended `rank_between` halved the gap to the edge, so every append (new issue, move after the last) added a character every ~6 issues; 5k issues carried 667-char keys into every card and the backlog weighed 906 KB. Open-ended keys now step one unit with escape levels (`level` leading 'z' or '0' digits, then a `level + 1` digit counter), staying ≤ 5 chars for 10k appends or moves to the top. Keys already stored keep working; data seeded before the change keeps its long keys (no re-spread migration while v1 is unreleased).
+- Token and membership resolve in one query (`members::repo::find_member_by_token`), one round trip less on every project-scoped request.
+
+Known ceilings: the backlog loads unpaged (D29) and is the endpoint closest to budget (~1.2k cards, 375 KB raw / 26 KB br); upgrade: lazy no-sprint section. Moves in one project are serialized by the D21 project lock, so concurrent moves in one project queue.
+
+SPA budgets (enforced by the SPA cards): initial JS < 170 KB gzip (`size-limit`, SAN-38); LCP < 1.0 s; INP < 100 ms; writes optimistic (D37); lists over 200 rows virtualized; no layout shift (CLS 0: skeletons and reserved sizes).
