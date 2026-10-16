@@ -165,3 +165,44 @@ pub async fn text(response: Response) -> String {
 pub fn location(response: &Response) -> &str {
     response.headers()[header::LOCATION].to_str().unwrap()
 }
+
+impl TestApp {
+    pub async fn settings(&self, key: &str) -> Value {
+        let (status, settings) = self
+            .get(&format!("/api/projects/{key}/board/settings"))
+            .await;
+        assert_eq!(status, StatusCode::OK, "{settings}");
+        settings
+    }
+
+    pub async fn column_id(&self, key: &str, name: &str) -> i64 {
+        let settings = self.settings(key).await;
+        let column = settings["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|column| column["name"] == name);
+        column.unwrap()["id"].as_i64().unwrap()
+    }
+
+    pub async fn status_id(&self, key: &str, name: &str) -> i64 {
+        let settings = self.settings(key).await;
+        let mapped = settings["columns"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .flat_map(|column| column["statuses"].as_array().unwrap());
+        let mut all = mapped.chain(settings["unmapped"].as_array().unwrap());
+        all.find(|status| status["name"] == name).unwrap()["id"]
+            .as_i64()
+            .unwrap()
+    }
+
+    pub async fn create_issue(&self, key: &str, body: Value) -> Value {
+        let (status, issue) = self
+            .post(&format!("/api/projects/{key}/issues"), body)
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{issue}");
+        issue
+    }
+}

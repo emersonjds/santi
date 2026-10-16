@@ -1,0 +1,232 @@
+mod common;
+
+use axum::http::StatusCode;
+use common::{PASSWORD, TestApp, form, location, page, session_cookie, text};
+use serde_json::json;
+use sqlx::PgPool;
+
+/// Ana with project SANTI: an API client for setup and a browser cookie for the pages.
+async fn board_owner(pool: PgPool) -> (TestApp, String) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let body = format!("email=ana%40example.com&password={PASSWORD}");
+    let response = ana.send(form("/login", &body, None)).await;
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    let cookie = session_cookie(&response);
+    (ana, cookie)
+}
+
+#[sqlx::test]
+async fn board_shows_columns_cards_and_the_create_form(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Fix login", "assignee_id": ana.user_id }),
+    )
+    .await;
+
+    let response = ana.send(page("/p/SANTI", Some(&cookie))).await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = text(response).await;
+    for column in ["To Do", "In Progress", "Done"] {
+        assert!(html.contains(column), "{column}");
+    }
+    assert!(html.contains("SANTI-1"));
+    assert!(html.contains("Fix login"));
+    assert!(html.contains("Story"));
+    assert!(html.contains(r#"href="/p/SANTI/issues/1""#));
+    assert!(html.contains(r#"title="Assigned to ana@example.com">A</abbr>"#));
+    assert!(html.contains(r#"action="/p/SANTI/issues""#));
+    assert!(html.contains(r#"name="summary""#));
+    assert!(html.contains(r#"name="issue_type""#));
+    assert!(html.contains("<span>Board</span>"));
+}
+
+#[sqlx::test]
+async fn creating_an_issue_from_the_form_lands_in_the_first_column(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    let todo = ana.status_id("SANTI", "To Do").await;
+
+    let response = ana
+        .send(form(
+            "/p/SANTI/issues",
+            "summary=Fix+login&issue_type=bug",
+            Some(&cookie),
+        ))
+        .await;
+
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(location(&response), "/p/SANTI");
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    assert_eq!(issue["status_id"], todo);
+    assert_eq!(issue["issue_type"], "bug");
+    let html = text(ana.send(page("/p/SANTI", Some(&cookie))).await).await;
+    assert!(html.contains("Fix login"));
+    assert!(html.contains("Bug"));
+}
+
+#[sqlx::test]
+async fn blank_title_rerenders_the_board_with_the_error(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+
+    let response = ana
+        .send(form(
+            "/p/SANTI/issues",
+            "summary=+&issue_type=task",
+            Some(&cookie),
+        ))
+        .await;
+
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let html = text(response).await;
+    assert!(html.contains("Title must have 1 to 255 characters"));
+    assert!(html.contains(r#"value="task" selected"#));
+}
+
+#[sqlx::test]
+async fn issue_page_shows_the_issue_and_its_edit_form(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Fix login", "description": "Steps to reproduce" }),
+    )
+    .await;
+
+    let response = ana.send(page("/p/SANTI/issues/1", Some(&cookie))).await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let html = text(response).await;
+    assert!(html.contains("SANTI-1"));
+    assert!(html.contains("Fix login"));
+    assert!(html.contains("Steps to reproduce"));
+    assert!(html.contains("Story"));
+    assert!(html.contains(r#"action="/p/SANTI/issues/1""#));
+    assert!(html.contains(r#"name="description""#));
+    assert!(html.contains(r#"name="status_id""#));
+}
+
+#[sqlx::test]
+async fn editing_changes_fields_and_moves_the_issue(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    let done = ana.status_id("SANTI", "Done").await;
+    ana.create_issue("SANTI", json!({ "summary": "Fix login" }))
+        .await;
+    let body = format!("summary=Fixed&description=Shipped+today&status_id={done}");
+
+    let response = ana
+        .send(form("/p/SANTI/issues/1", &body, Some(&cookie)))
+        .await;
+
+    assert_eq!(response.status(), StatusCode::SEE_OTHER);
+    assert_eq!(location(&response), "/p/SANTI/issues/1");
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    assert_eq!(issue["summary"], "Fixed");
+    assert_eq!(issue["description"], "Shipped today");
+    assert_eq!(issue["status_id"], done);
+    assert!(issue["done_at"].is_string());
+    let html = text(ana.send(page("/p/SANTI/issues/1", Some(&cookie))).await).await;
+    assert!(html.contains(&format!(r#"value="{done}" selected"#)));
+}
+
+#[sqlx::test]
+async fn bad_edit_rerenders_the_issue_with_errors(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    let todo = ana.status_id("SANTI", "To Do").await;
+    ana.create_issue("SANTI", json!({ "summary": "Fix login" }))
+        .await;
+    let blank = format!("summary=+&description=&status_id={todo}");
+    let foreign = "summary=Fix&description=&status_id=999999";
+
+    let blank = ana
+        .send(form("/p/SANTI/issues/1", &blank, Some(&cookie)))
+        .await;
+    let foreign = ana
+        .send(form("/p/SANTI/issues/1", foreign, Some(&cookie)))
+        .await;
+
+    assert_eq!(blank.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(
+        text(blank)
+            .await
+            .contains("Title must have 1 to 255 characters")
+    );
+    assert_eq!(foreign.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(text(foreign).await.contains("no such status"));
+}
+
+#[sqlx::test]
+async fn moving_to_an_unmapped_status_is_refused(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "Fix login" }))
+        .await;
+    let (_, parked) = ana
+        .post(
+            "/api/projects/SANTI/statuses",
+            json!({ "name": "Parked", "category": "todo" }),
+        )
+        .await;
+    let body = format!("summary=Fix&description=&status_id={}", parked["id"]);
+
+    let response = ana
+        .send(form("/p/SANTI/issues/1", &body, Some(&cookie)))
+        .await;
+
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    assert!(text(response).await.contains("Map this status"));
+}
+
+#[sqlx::test]
+async fn unknown_issues_and_strangers_get_not_found(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "Fix login" }))
+        .await;
+    let body = format!("email=bob%40example.com&display_name=Bob&password={PASSWORD}");
+    let bob = session_cookie(&ana.send(form("/register", &body, None)).await);
+
+    let unknown = ana.send(page("/p/SANTI/issues/99", Some(&cookie))).await;
+    let stranger_page = ana.send(page("/p/SANTI/issues/1", Some(&bob))).await;
+    let stranger_create = ana
+        .send(form(
+            "/p/SANTI/issues",
+            "summary=x&issue_type=task",
+            Some(&bob),
+        ))
+        .await;
+    let anonymous = ana.send(page("/p/SANTI/issues/1", None)).await;
+    let unknown_edit = ana
+        .send(form(
+            "/p/SANTI/issues/99",
+            "summary=x&description=&status_id=1",
+            Some(&cookie),
+        ))
+        .await;
+
+    assert_eq!(unknown.status(), StatusCode::NOT_FOUND);
+    assert_eq!(stranger_page.status(), StatusCode::NOT_FOUND);
+    assert_eq!(stranger_create.status(), StatusCode::NOT_FOUND);
+    assert_eq!(location(&anonymous), "/login");
+    assert_eq!(unknown_edit.status(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
+async fn board_without_a_todo_status_explains_why_it_cannot_create(pool: PgPool) {
+    let (ana, cookie) = board_owner(pool).await;
+    let todo = ana.status_id("SANTI", "To Do").await;
+    ana.put(
+        &format!("/api/projects/SANTI/statuses/{todo}"),
+        json!({ "name": "To Do" }),
+    )
+    .await;
+
+    let response = ana
+        .send(form(
+            "/p/SANTI/issues",
+            "summary=x&issue_type=task",
+            Some(&cookie),
+        ))
+        .await;
+
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+    assert!(text(response).await.contains("Map a to-do status"));
+}

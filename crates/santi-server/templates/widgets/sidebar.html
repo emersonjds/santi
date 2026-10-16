@@ -6,7 +6,13 @@
   </div>
   <ul class="side-list" aria-labelledby="side-projects">
     {%- for project in shell.projects %}
-    <li><a class="side-link" href="/p/{{ project.key }}"{% if project.key == shell.current %} aria-current="page"{% endif %}>{{ ui::icon("folder") }}<span class="side-name">{{ project.name }}</span><span class="key">{{ project.key }}</span></a></li>
+    <li><a class="side-link" href="/p/{{ project.key }}"{% if project.key == shell.current %} aria-current="page"{% endif %}>{{ ui::icon("folder") }}<span class="side-name">{{ project.name }}</span><span class="key">{{ project.key }}</span></a>
+      {%- if project.key == shell.current %}
+      <ul class="side-sub">
+        <li><a class="side-link" href="/p/{{ project.key }}">{{ ui::icon("kanban") }}<span>Board</span></a></li>
+      </ul>
+      {%- endif %}
+    </li>
     {%- endfor %}
   </ul>
 </nav>

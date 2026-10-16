@@ -117,7 +117,7 @@ async fn project_page_shows_members_and_the_invite_form_to_admins(pool: PgPool) 
     assert_eq!(response.status(), StatusCode::OK);
     let html = text(response).await;
     assert!(html.contains("Santi Tracker"));
-    assert!(html.contains("Board coming next"));
+    assert!(html.contains("To Do"));
     assert!(html.contains("Ana Lima"));
     assert!(html.contains("Admin"));
     assert!(html.contains(r#"action="/p/SANTI/invites""#));

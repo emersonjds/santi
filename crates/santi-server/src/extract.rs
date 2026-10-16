@@ -11,3 +11,8 @@ pub struct JsonBody<T>(pub T);
 #[derive(FromRequestParts)]
 #[from_request(via(axum::extract::Path), rejection(AppError))]
 pub struct PathParams<T>(pub T);
+
+/// Query string with repeated keys collected into `Vec`s (`?type=bug&type=task`); errors as problem+json.
+#[derive(FromRequestParts)]
+#[from_request(via(axum_extra::extract::Query), rejection(AppError))]
+pub struct QueryParams<T>(pub T);

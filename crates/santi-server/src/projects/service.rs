@@ -3,6 +3,7 @@ use sqlx::PgPool;
 
 use super::{domain, repo};
 use crate::auth::extract::CurrentUser;
+use crate::boards;
 use crate::error::AppError;
 use crate::members::{self, Member};
 
@@ -16,7 +17,8 @@ pub async fn create_project(
     let mut tx = pool.begin().await?;
     let project_id = repo::insert_project(&mut tx, &key, &name).await?;
     let done_window = domain::default_done_window(input.board_type);
-    repo::insert_board(&mut tx, project_id, input.board_type, done_window).await?;
+    let board_id = repo::insert_board(&mut tx, project_id, input.board_type, done_window).await?;
+    boards::service::seed_default_layout(&mut tx, project_id, board_id).await?;
     members::repo::insert_member(&mut tx, project_id, user.id, MemberRole::Admin).await?;
     let project = repo::find_project(&mut tx, project_id, user.id).await?;
     tx.commit().await?;
