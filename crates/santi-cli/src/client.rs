@@ -41,9 +41,9 @@ impl Client {
     }
 
     /// The same server, acting as another user (Streamable HTTP passes each caller's token).
-    pub fn with_token(&self, token: String) -> Client {
+    pub fn with_token(&self, token: Option<String>) -> Client {
         Client {
-            token: Some(token),
+            token,
             ..self.clone()
         }
     }
