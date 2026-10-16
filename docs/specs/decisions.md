@@ -314,6 +314,17 @@ Tokens (contrast is against the surface the token sits on; ≥ 4.5 text, ≥ 3 i
 
 Rules: status, type and priority always show glyph and text; color is the second cue. Warning (WIP over limit, overdue sprint) shares amber with the epic glyph; they never appear in the same slot.
 
+Amendment (SAN-35, 2026-10-16, visual pass, `visual-review.md`): tokens added, contrast against the token's own background.
+
+| Token | Light | Dark | Use |
+|---|---|---|---|
+| `primary-pressed` | #34258F | #D7D0F7 | pressed primary button (the "pressed" step of the table above, now a token) |
+| `hover` | #EEF0F3 | #33302D | hover of rows, menu items, ghost and outline buttons, skeletons (the "hover row" neutral, now a token); the purple tint stays for selection only |
+| `avatar-1…6` / `-foreground` | #ECE8FB/#3F2CB0 (7.96), #ECFCCB/#3F6212 (6.52), #FEF3C7/#92400E (6.37), #FFE4E6/#9F1239 (6.68), #EEF0F3/#3D4354 (8.64), #FCE7F3/#9D174D (6.71) | #2C2075/#C4B8F5 (7.34), #1A2E05/#BEF264 (11.19), #3A2A0A/#FBBF24 (8.30), #4C0519/#FDA4AF (8.27), #33302D/#D6D3D1 (8.80), #500724/#F9A8D4 (8.29) | initials avatars, tone picked from the name (`avatarTone`); no teal (done) and no blue |
+| `select-chevron` | chevron in #5E6475 | chevron in #A8A29E | the one arrow every native select draws |
+
+Motion: menus, popovers and selects 150 ms, dialogs and sheets 200 ms, ease-out; `prefers-reduced-motion: reduce` collapses every animation and transition. Board columns flex between 18rem and 26rem.
+
 ## D37 — Web UI: React SPA on shadcn-admin (supersedes D1, D26, D35 for the web UI)
 Context: the owner decided (binding) to replace the askama + htmx UI with a React SPA built on satnaing/shadcn-admin (MIT, v2.2.1, checked 2026-10-15 at `e16c87f`). The owner maintains React and shadcn daily, and the next screens need rich client behavior that htmx makes awkward: dnd-kit drag and drop with keyboard sensors, optimistic moves, a command palette, stacked dialogs and sheets. The JSON API (D34) already covers every page, so the server keeps one front door after the cutover.
 Options: A) keep htmx (D1) B) React SPA on shadcn-admin C) React SPA from scratch on the shadcn CLI
