@@ -204,7 +204,9 @@ describe('backlog page', () => {
       .toHaveValue('help')
     expect(
       requests
-        .filter((request) => routeOf(request) === 'GET /api/projects/WEB/backlog')
+        .filter(
+          (request) => routeOf(request) === 'GET /api/projects/WEB/backlog'
+        )
         .map((request) => new URL(request.url).search)
     ).toEqual(['?type=task&label=docs&parent=WEB-9&q=help'])
   })

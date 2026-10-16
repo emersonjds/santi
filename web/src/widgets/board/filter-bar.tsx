@@ -1,6 +1,5 @@
 import { type ReactNode, Suspense, lazy, useState } from 'react'
 import { type BoardSearch, countFilters } from '@/entities/issue/board-query'
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 import {
   AssigneeToggles,
   ClearFilters,
@@ -12,6 +11,10 @@ import {
   TextFilter,
   TypeFilter,
 } from './filter-controls'
+
+const MoreFilters = lazy(() =>
+  import('./more-filters').then((module) => ({ default: module.MoreFilters }))
+)
 
 const FilterSheet = lazy(() =>
   import('./filter-sheet').then((module) => ({ default: module.FilterSheet }))
@@ -62,17 +65,13 @@ export const FilterBar = ({
         <OnlyMineToggle search={search} />
         <TypeFilter search={search} />
         <div className='hidden xl:contents'>{secondary}</div>
-        <Popover>
-          <PopoverTrigger className={`${TOGGLE} xl:hidden`}>
-            More filters
-          </PopoverTrigger>
-          <PopoverContent
-            align='start'
-            className='flex w-auto flex-col items-start gap-2 p-2'
-          >
+        <Suspense
+          fallback={<span className={`${TOGGLE} xl:hidden`}>More filters</span>}
+        >
+          <MoreFilters className={`${TOGGLE} xl:hidden`}>
             {secondary}
-          </PopoverContent>
-        </Popover>
+          </MoreFilters>
+        </Suspense>
         {clear}
       </div>
       <button

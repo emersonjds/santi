@@ -105,7 +105,10 @@ export const epicsQuery = (projectKey: string) =>
       dataOrThrow(
         await api.GET('/api/projects/{key}/issues', {
           // ponytail: the first 100 epics; page through them if a project outgrows that.
-          params: { path: { key: projectKey }, query: { type: ['epic'], limit: 100 } },
+          params: {
+            path: { key: projectKey },
+            query: { type: ['epic'], limit: 100 },
+          },
         })
       ).items,
   })

@@ -102,18 +102,22 @@ describe('board filter bar', () => {
 
     await screen.getByRole('button', { name: 'Type' }).click()
     await screen.getByRole('menuitemcheckbox', { name: 'Bug' }).click()
-    await screen.getByRole('menuitemcheckbox', { name: 'Task', exact: true }).click()
+    await screen
+      .getByRole('menuitemcheckbox', { name: 'Task', exact: true })
+      .click()
     await userEvent.keyboard('{Escape}')
     await screen.getByRole('button', { name: 'Label' }).click()
     await screen.getByRole('menuitemcheckbox', { name: 'ui' }).click()
     await userEvent.keyboard('{Escape}')
     await screen.getByLabelText('Epic').selectOptions('WEB-9 Checkout revamp')
 
-    await expect.poll(() => router.state.location.search).toEqual({
-      type: ['bug', 'task'],
-      label: ['ui'],
-      epic: 'WEB-9',
-    })
+    await expect
+      .poll(() => router.state.location.search)
+      .toEqual({
+        type: ['bug', 'task'],
+        label: ['ui'],
+        epic: 'WEB-9',
+      })
     await expect
       .poll(() => boardQueries(requests))
       .toContain('?type=bug&type=task&label=ui&parent=WEB-9')
@@ -134,7 +138,9 @@ describe('board filter bar', () => {
 
     await screen.getByRole('searchbox', { name: 'Filter issues' }).fill('login')
 
-    await expect.poll(() => router.state.location.search).toEqual({ q: 'login' })
+    await expect
+      .poll(() => router.state.location.search)
+      .toEqual({ q: 'login' })
     await expect.poll(() => boardQueries(requests)).toContain('?q=login')
     expect(boardQueries(requests)).not.toContain('?q=l')
   })
@@ -181,7 +187,9 @@ describe('board filter bar', () => {
   it('gives a phone one Filters button that opens the controls in a sheet', async () => {
     await page.viewport(375, 800)
     const requests = inProjects()
-    const { screen, router } = await renderApp('/p/WEB/board?recently_updated=true')
+    const { screen, router } = await renderApp(
+      '/p/WEB/board?recently_updated=true'
+    )
 
     expect(
       screen.getByRole('button', { name: 'Only my issues' }).elements()

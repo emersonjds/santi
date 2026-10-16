@@ -115,7 +115,9 @@ describe('search page', () => {
     await expect.poll(() => lastSearch(requests).get('status')).toBe('done')
     expect(router.state.location.search).toEqual({ q: 'login', status: 'done' })
     await expect
-      .element(screen.getByRole('link', { name: 'Fix the login redirect loop' }))
+      .element(
+        screen.getByRole('link', { name: 'Fix the login redirect loop' })
+      )
       .toBeVisible()
   })
 

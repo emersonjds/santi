@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
@@ -10,12 +10,6 @@ import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { UserAvatar } from '@/entities/user/user-avatar'
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/shared/ui/dropdown-menu'
 import { Input } from '@/shared/ui/input'
 import { NativeSelect } from '@/shared/ui/native-select'
 
@@ -136,46 +130,35 @@ export const TextFilter = ({ q }: { q?: string }) => {
   )
 }
 
-type MultiSelectProps<Value extends string> = {
+const MultiSelect = lazy(() =>
+  import('./multi-select').then((module) => ({ default: module.MultiSelect }))
+)
+
+type LazyMultiSelectProps = {
   label: string
-  options: { value: Value; label: string }[]
-  selected: Value[]
-  onChange: (selected: Value[] | undefined) => void
+  options: { value: string; label: string }[]
+  selected: string[]
+  onChange: (selected: string[] | undefined) => void
 }
 
-/** A menu of checkboxes that stays open while the user picks several (OR within a kind, D3). */
-const MultiSelect = <Value extends string>({
-  label,
-  options,
-  selected,
-  onChange,
-}: MultiSelectProps<Value>) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger className={TOGGLE}>
+/** The menu chunk loads after first paint (D39); until then the same box, so nothing moves. */
+const LazyMultiSelect = ({ label, ...props }: LazyMultiSelectProps) => {
+  const trigger = (
+    <>
       {label}
-      {selected.length > 0 && (
+      {props.selected.length > 0 && (
         <span className='ms-1.5 rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums'>
-          {selected.length}
+          {props.selected.length}
         </span>
       )}
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align='start'>
-      {options.map((option) => (
-        <DropdownMenuCheckboxItem
-          key={option.value}
-          checked={selected.includes(option.value)}
-          onSelect={(event) => event.preventDefault()}
-          onCheckedChange={() =>
-            onChange(orNothing(toggled(selected, option.value)))
-          }
-          className='min-h-11 md:min-h-8'
-        >
-          {option.label}
-        </DropdownMenuCheckboxItem>
-      ))}
-    </DropdownMenuContent>
-  </DropdownMenu>
-)
+    </>
+  )
+  return (
+    <Suspense fallback={<span className={TOGGLE}>{trigger}</span>}>
+      <MultiSelect trigger={trigger} className={TOGGLE} {...props} />
+    </Suspense>
+  )
+}
 
 const TYPES = Object.entries(TYPE_LABEL).flatMap(([value, label]) =>
   isIssueType(value) ? [{ value, label }] : []
@@ -184,12 +167,15 @@ const TYPES = Object.entries(TYPE_LABEL).flatMap(([value, label]) =>
 export const TypeFilter = ({ search }: { search: BoardSearch }) => {
   const navigate = useNavigate()
   return (
-    <MultiSelect
+    <LazyMultiSelect
       label='Type'
       options={TYPES}
       selected={search.type ?? []}
-      onChange={(type) =>
-        void navigate({ ...HERE, search: (prev) => ({ ...prev, type }) })
+      onChange={(values) =>
+        void navigate({
+          ...HERE,
+          search: (prev) => ({ ...prev, type: values?.filter(isIssueType) }),
+        })
       }
     />
   )
@@ -203,7 +189,7 @@ export const LabelFilter = ({ projectKey, search }: FilterProps) => {
   const options = [...new Set([...labels, ...selected])]
   if (options.length === 0) return null
   return (
-    <MultiSelect
+    <LazyMultiSelect
       label='Label'
       options={options.map((label) => ({ value: label, label }))}
       selected={selected}
