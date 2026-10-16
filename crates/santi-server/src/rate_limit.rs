@@ -162,8 +162,8 @@ impl RateLimits {
         address: Option<IpAddr>,
         now: Instant,
     ) -> Result<LoginKey, AppError> {
-        let email =
-            crate::auth::domain::normalize_email(email).map_err(|_| AppError::Unauthorized)?;
+        let email = crate::auth::domain::normalize_email(email)
+            .map_err(|_| AppError::InvalidCredentials)?;
         let network = address.map(|address| match network(address) {
             IpAddr::V4(v4) => IpAddr::V4((u32::from(v4) & 0xffff_ff00).into()),
             v6 => v6,
@@ -572,12 +572,12 @@ mod tests {
             let huge = format!("{}{attempt}@example.com", "a".repeat(64 * 1024));
             assert_eq!(
                 limits.login_attempt_at(&huge, None, now),
-                Err(AppError::Unauthorized)
+                Err(AppError::InvalidCredentials)
             );
         }
         assert_eq!(
             limits.login_attempt_at("not an email", None, now),
-            Err(AppError::Unauthorized)
+            Err(AppError::InvalidCredentials)
         );
 
         assert_eq!(limits.login_count(), 0);
