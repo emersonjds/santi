@@ -4,7 +4,7 @@ import type { Member } from '@/shared/api/client'
 const SHOWN = 5
 
 export const STACK =
-  'flex h-11 items-center -space-x-2 rounded-full px-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
+  'flex h-11 min-w-11 items-center -space-x-2 rounded-full px-1 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50'
 
 /** Five avatars and "+n": the members button, drawn before its popover code loads. */
 export const MemberStack = ({ members }: { members: Member[] }) => {

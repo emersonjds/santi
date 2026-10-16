@@ -54,7 +54,7 @@ export const FilterBar = ({
             role='button'
             aria-pressed={assignee.includes(member.user_id)}
             aria-label={`Issues of ${member.display_name}`}
-            className='shrink-0 rounded-full p-0.5 ring-2 ring-transparent outline-none hover:z-10 focus-visible:ring-ring aria-pressed:z-10 aria-pressed:ring-primary'
+            className='shrink-0 rounded-full p-1 ring-2 ring-transparent outline-none hover:z-10 focus-visible:ring-ring aria-pressed:z-10 aria-pressed:ring-primary md:p-0.5'
           >
             <UserAvatar
               name={member.display_name}

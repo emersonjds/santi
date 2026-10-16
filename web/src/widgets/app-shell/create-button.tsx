@@ -6,7 +6,7 @@ import { lastProject } from '@/entities/project/last-project'
 import { projectsQuery } from '@/entities/project/project-queries'
 import { Button } from '@/shared/ui/button'
 
-const SIZE = 'h-11 md:h-9'
+const SIZE = 'h-11 min-w-11 md:h-9'
 const LABEL = <span className='max-sm:sr-only'>Create</span>
 
 // Lazy: the form, zod and the dialog load on the first open (D39).

@@ -97,7 +97,7 @@ const RunningSprint = ({
 const MenuPlaceholder = () => (
   <span
     aria-hidden='true'
-    className='grid size-10 place-items-center text-muted-foreground'
+    className='grid size-11 place-items-center text-muted-foreground md:size-10'
   >
     <Ellipsis className='size-4' />
   </span>

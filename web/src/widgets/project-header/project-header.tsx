@@ -47,7 +47,10 @@ export const ProjectHeader = () => {
       <nav aria-label='Breadcrumb' className='text-sm text-muted-foreground'>
         <ol className='flex items-center gap-1.5'>
           <li>
-            <Link to='/' className='hover:text-foreground hover:underline'>
+            <Link
+              to='/'
+              className='inline-flex min-h-11 items-center hover:text-foreground hover:underline md:min-h-0'
+            >
               Projects
             </Link>
           </li>
