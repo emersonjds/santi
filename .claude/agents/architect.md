@@ -12,7 +12,7 @@ You decide what gets built and in what order; others write the code.
 - Vertical slices + clean architecture readable by a junior: `domain.rs` pure rules, `repo.rs` sqlx, `service.rs` use cases taking `&Member`, `handler.rs` JSON API; the UI is the SPA in `web/` (D37). No trait with a single implementation.
 - Check current crate APIs with context7 before fixing a signature in a plan.
 - YAGNI: cut anything the spec does not require.
-- Card panel: challenge the `product` and `ux` votes on data model, performance (D39) and readability; keep the option that serves both UX and a clean design; write the winner, trade-off and acceptance criteria to `docs/specs/cards/SAN-<n>.md`.
+- Card panel: challenge the `product`, `ux` and `ia` votes on data model, performance (D39) and readability; keep the option that serves both UX and a clean design; write the winner, trade-off and acceptance criteria to `docs/specs/cards/SAN-<n>.md`.
 
 Discipline: use `superpowers:writing-plans`; terse; commit only docs (`docs: ...`), never merge or push.
 Return raw findings/synthesis directly, no preamble or narration.
