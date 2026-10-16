@@ -14,6 +14,7 @@ use crate::AppState;
 use crate::error::AppError;
 use crate::members::Member;
 use crate::members::domain::require_admin;
+use crate::rate_limit::{Action, ClientIp};
 
 /// Room for the multipart framing and the mapping next to a 10 MB file; past it the body is cut.
 const MAX_BODY_BYTES: usize = MAX_FILE_BYTES + 1024 * 1024;
@@ -62,13 +63,18 @@ async fn read_parts(upload: Upload) -> Result<Parts, AppError> {
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "Not a known CSV export, or over 10 MB")))]
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Not a known CSV export, or over 10 MB"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn preview_import(
     State(state): State<AppState>,
+    ClientIp(address): ClientIp,
     member: Member,
     upload: Upload,
 ) -> Result<Json<ImportPreview>, AppError> {
     require_admin(&member)?; // before the up to 10 MB body is read
+    state
+        .limits
+        .check(Action::Import, address, Some(member.user_id))?;
     let parts = read_parts(upload).await?;
     Ok(Json(
         service::preview(&state.pool, &member, parts.file).await?,
@@ -83,13 +89,18 @@ pub async fn preview_import(
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "Not a known CSV export, over 10 MB, or a mapping to ids outside the project (`mapping.<kind>.<name>`)")))]
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Not a known CSV export, over 10 MB, or a mapping to ids outside the project (`mapping.<kind>.<name>`)"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn import(
     State(state): State<AppState>,
+    ClientIp(address): ClientIp,
     member: Member,
     upload: Upload,
 ) -> Result<Json<ImportResult>, AppError> {
     require_admin(&member)?;
+    state
+        .limits
+        .check(Action::Import, address, Some(member.user_id))?;
     let parts = read_parts(upload).await?;
     let mapping = parts
         .mapping

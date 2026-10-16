@@ -1,6 +1,7 @@
 use axum::Json;
 use axum::extract::rejection::{JsonRejection, PathRejection};
-use axum::http::{StatusCode, header::CONTENT_TYPE};
+use axum::http::StatusCode;
+use axum::http::header::{CONTENT_TYPE, RETRY_AFTER};
 use axum::response::{IntoResponse, Response};
 use santi_types::{FieldError, Problem};
 
@@ -11,8 +12,18 @@ pub enum AppError {
     Unauthorized,
     Forbidden,
     NotFound,
-    Conflict { slug: &'static str, detail: String },
-    Gone { slug: &'static str, detail: String },
+    Conflict {
+        slug: &'static str,
+        detail: String,
+    },
+    Gone {
+        slug: &'static str,
+        detail: String,
+    },
+    /// D44: answered with `Retry-After` in seconds.
+    TooManyRequests {
+        retry_after: u64,
+    },
     Internal(String),
 }
 
@@ -69,6 +80,12 @@ impl AppError {
             ),
             AppError::Conflict { slug, detail } => (409, *slug, "Conflict", detail.clone()),
             AppError::Gone { slug, detail } => (410, *slug, "Gone", detail.clone()),
+            AppError::TooManyRequests { retry_after } => (
+                429,
+                "rate-limited",
+                "Too many requests",
+                format!("Too many attempts. Try again in {retry_after} seconds."),
+            ),
             AppError::Internal(_) => (
                 500,
                 "internal",
@@ -118,12 +135,18 @@ impl IntoResponse for AppError {
         let problem = self.to_problem();
         let status =
             StatusCode::from_u16(problem.status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-        (
+        let mut response = (
             status,
             [(CONTENT_TYPE, "application/problem+json")],
             Json(problem),
         )
-            .into_response()
+            .into_response();
+        if let AppError::TooManyRequests { retry_after } = self {
+            response
+                .headers_mut()
+                .insert(RETRY_AFTER, retry_after.into());
+        }
+        response
     }
 }
 
