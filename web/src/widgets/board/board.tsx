@@ -127,9 +127,8 @@ type ColumnsProps = {
 /** Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads. */
 const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
   const narrow = useIsMobile()
-  // Held here, above the drag layer swap, so an open form survives it.
-  const [creating, setCreating] = useState(false)
-  const [first] = board.columns
+  // Held here, above the drag layer swap, so an open form survives it; one column's form at a time.
+  const [creating, setCreating] = useState<number | null>(null)
   const last = board.columns[board.columns.length - 1]
   const renderCard = useCallback(
     (card: Card) => <BoardCard card={card} projectKey={projectKey} />,
@@ -142,15 +141,14 @@ const Columns = ({ board, projectKey, shown, doneWindow }: ColumnsProps) => {
       narrowHidden={column.id !== shown}
       footer={
         <>
-          {column === first && (
-            <CreateSlot
-              sprintId={board.sprint?.id}
-              projectKey={projectKey}
-              open={creating}
-              setOpen={setCreating}
-            />
-          )}
-          {doneWindow != null && column === last && (
+          <CreateSlot
+            sprintId={board.sprint?.id}
+            columnId={column.id}
+            projectKey={projectKey}
+            open={creating === column.id}
+            setOpen={(open) => setCreating(open ? column.id : null)}
+          />
+          {doneWindow != null && column.id === last.id && (
             <DoneNote days={doneWindow} />
           )}
         </>

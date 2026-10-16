@@ -213,7 +213,7 @@ const Lane = ({
     >
       {/* Room for every zone, kept off drag so the column never jumps. */}
       <div
-        className='relative flex flex-1 flex-col'
+        className='relative'
         style={
           several ? { minHeight: `${statuses.length * 4.5}rem` } : undefined
         }

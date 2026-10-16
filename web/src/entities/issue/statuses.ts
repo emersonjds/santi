@@ -37,6 +37,6 @@ export const statusesById = (settings: BoardSettings | undefined) =>
 /** The statuses a board column holds, in board order. */
 export const statusesOf = (
   settings: BoardSettings | undefined,
-  columnId: number
+  columnId: number | undefined
 ): Status[] =>
   settings?.columns.find((column) => column.id === columnId)?.statuses ?? []

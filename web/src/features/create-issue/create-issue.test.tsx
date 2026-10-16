@@ -300,11 +300,33 @@ describe('create issue', () => {
         status_id: 10,
       },
     ])
-    expect(
-      screen
-        .getByRole('region', { name: 'In progress' })
-        .getByRole('button', { name: 'Create issue' })
-        .elements()
-    ).toHaveLength(0)
+  })
+
+  it('creates inline at the foot of any column, with its first status (SB-23, D5)', async () => {
+    const requests = inProjects({
+      [CREATE_WEB]: {
+        status: 201,
+        body: issue({ key: 'WEB-9', summary: 'Ship it', status_id: 30 }),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+    const done = screen.getByRole('region', { name: 'Done' })
+    const doing = screen.getByRole('region', { name: 'In progress' })
+
+    await done.getByRole('button', { name: 'Create issue' }).click()
+    await done.getByLabelText('New issue summary').fill('Ship it')
+    await userEvent.keyboard('{Enter}')
+    await expect.element(done.getByLabelText('New issue summary')).toHaveValue('')
+    await doing.getByRole('button', { name: 'Create issue' }).click()
+    expect(done.getByLabelText('New issue summary').elements()).toHaveLength(0)
+    await doing.getByLabelText('New issue summary').fill('Review it')
+    await userEvent.keyboard('{Enter}')
+
+    await expect
+      .poll(() => bodiesOf(requests, CREATE_WEB))
+      .toEqual([
+        { summary: 'Ship it', issue_type: 'story', sprint_id: 4, status_id: 30 },
+        { summary: 'Review it', issue_type: 'story', sprint_id: 4, status_id: 20 },
+      ])
   })
 })
