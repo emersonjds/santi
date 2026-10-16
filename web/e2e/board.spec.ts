@@ -178,3 +178,101 @@ test('complete the running sprint from the board header, open work back to the b
     page.getByRole('region', { name: 'Backlog', exact: true })
   ).toContainText('Beta task')
 })
+
+type Settings = {
+  columns: { id: number; name: string; statuses: { id: number }[] }[]
+}
+
+/** Maps a new "In review" status into the In Progress column, beside In Progress. */
+const addReviewStatus = async (page: Page, key: string) => {
+  const settings = await api<Settings>(
+    page,
+    'GET',
+    `/api/projects/${key}/board/settings`
+  )
+  const doing = settings.columns.find((each) => each.name === 'In Progress')?.id
+  const review = await api<{ id: number }>(
+    page,
+    'POST',
+    `/api/projects/${key}/statuses`,
+    { name: 'In review', category: 'in_progress' }
+  )
+  await api(page, 'PUT', `/api/projects/${key}/statuses/${review.id}`, {
+    name: 'In review',
+    column_id: doing,
+  })
+  return review.id
+}
+
+test('drop a card on the "In review" zone of a column holding two statuses; a reload keeps that status', async ({
+  page,
+}) => {
+  const key = await kanbanWithIssues(page)
+  const review = await addReviewStatus(page, key)
+  await page.reload()
+  const card = page.getByRole('button', { name: `Drag ${key}-1`, exact: true })
+  const start = await card.boundingBox()
+  const target = await column(page, 'In Progress').boundingBox()
+  if (!start || !target) throw new Error('nothing to drag')
+
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(target.x + target.width / 2, target.y + 80, {
+    steps: 12,
+  })
+  const zone = column(page, 'In Progress').getByRole('group', {
+    name: 'In review',
+  })
+  await expect(zone).toBeVisible()
+  const box = await zone.boundingBox()
+  if (!box) throw new Error('no zone')
+  const moved = page.waitForResponse((response) =>
+    response.url().endsWith(`/issues/1/move`)
+  )
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, {
+    steps: 6,
+  })
+  await page.mouse.up()
+  const response = await moved
+  expect(response.status()).toBe(200)
+  expect(response.request().postDataJSON()).toEqual({ status_id: review })
+
+  await page.reload()
+  await expect(column(page, 'In Progress')).toContainText('Alpha task')
+  await page.getByRole('link', { name: 'Alpha task', exact: true }).click()
+  await expect(
+    page.getByRole('dialog', { name: `${key}-1` }).getByLabel('Status')
+  ).toHaveValue(String(review))
+})
+
+test('create an issue inline in the Done column; a reload keeps it there', async ({
+  page,
+}) => {
+  await kanbanWithIssues(page)
+  const done = column(page, 'Done')
+
+  await done.getByRole('button', { name: 'Create issue' }).click()
+  await done.getByLabel('New issue summary').fill('Already shipped')
+  await page.keyboard.press('Enter')
+  await expect(done).toContainText('Already shipped')
+
+  await page.reload()
+  await expect(done).toContainText('Already shipped')
+  await expect(column(page, 'To Do')).not.toContainText('Already shipped')
+})
+
+test('an admin sets a column limit from its header; a reload keeps it', async ({
+  page,
+}) => {
+  await kanbanWithIssues(page)
+  const todo = column(page, 'To Do')
+
+  await todo.getByRole('button', { name: 'Actions for column To Do' }).click()
+  await page.getByRole('menuitem', { name: 'Set WIP limit' }).click()
+  await todo.getByLabel('WIP limit of To Do').fill('2')
+  await page.keyboard.press('Enter')
+  await expect(todo.getByTitle('Over the limit of 2')).toHaveText('Max 2')
+
+  await page.reload()
+  await expect(todo.getByTitle('Over the limit of 2')).toHaveText('Max 2')
+})
