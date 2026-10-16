@@ -108,11 +108,13 @@ UI-32, UI-33 minus chips beyond title/description/type/assignee/estimate/sprint,
   `list-filter`, epics `layers`, start sprint `play`, complete sprint `circle-check`, assign
   `user-plus`, comment `message-square`, flag `flag`, subtask `list-tree`, parent `corner-left-up`,
   drag `grip-vertical`, expand `maximize-2`, close `x`, delete `trash-2`, shortcuts `keyboard`.
-- Palette (D36): light theme first — white canvas, neutral greys for surfaces (#FAFAFB sidebar,
-  #F4F5F7 columns and sections, #E4E5E9 borders), dark slate text (#172033 / #5E6475 / #8A8F9C);
-  brand purple #4C35D2 (hover #3F2CB0, pressed #34258F, tint #F3F1FD / #ECE8FB) for primary
-  actions, focus and the active nav item; no blue; status category told by text and shape first,
-  color second; dark mode follows with the same purple.
+- Palette (D36, full token table there): light theme first — white canvas, neutral greys for
+  surfaces (#FAFAFB sidebar, #F4F5F7 columns and sections, #E4E5E9 borders, #8A8F9C control
+  borders), dark slate text (#172033 / #5E6475 / #6B7080); brand purple #4C35D2 (hover #3F2CB0,
+  pressed #34258F, tint #F3F1FD / #ECE8FB) for primary actions, focus and the active nav item;
+  teal (#0F766E, chips #115E59 on #CCFBF1) only for done and success; no blue; status, type and
+  priority told by glyph and text first, color second; dark mode uses warm stone surfaces
+  (#0F0F0E / #1A1918 / #262422) with the purple shifted to #8B78E9 / #B8ABF1.
 - Type: system UI font stack; scale 12 / 14 / 16 / 20 / 24 px; 16px base on inputs; tabular
   numerals for keys, counts and estimates.
 - Copy: plain, short, sentence case, verb-first buttons; santi's own nouns (issue, project,

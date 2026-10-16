@@ -263,9 +263,50 @@ Product vote: B — utility classes in the askama templates make layout changes 
 Architecture vote: B — the standalone binary needs no Node; `static/app.css` is generated (minified) and committed, so `cargo build` still needs nothing extra; CI downloads the binary, regenerates and fails when the committed file is stale. JS stays vendored as in D26, same 50 KB gzip budget.
 Winner: B — fast styling with no Node toolchain; accepted: contributors who change styles install one binary (`brew install tailwindcss`).
 
-## D36 — Visual identity: light theme, brand purple
-Context: first screens shipped dark with a teal accent; the owner wants the familiar light tracker look with santi's own brand.
-Options: A) dark + teal B) light + brand purple
-Product vote: B — a white canvas with dense rows is what tracker users expect; purple #4C35D2 (shared with the owner's other product) gives santi its own identity where the reference uses blue.
-Architecture vote: B — one set of color tokens in the Tailwind `@theme`; dark mode reuses the same purple later.
-Winner: B — light theme first, purple #4C35D2 for primary actions, focus and active navigation; accepted: dark mode is a later pass.
+## D36 — Visual identity: light theme, brand purple, teal for done (amended 2026-10-15)
+Context: first screens shipped dark with a teal accent. The owner reviewed two mockups: A (dark warm-stone surfaces #0F0F0E / #1A1918 / #262422, teal #2DD4BF accent, deep-teal status button in a light issue modal) and B (light canvas, #FAFAFB sidebar, #F4F5F7 columns, brand purple #4C35D2 from the owner's other product), liked both, and settled on the purple.
+Options: A) dark + teal accent B) light + purple, teal dropped C) hybrid — light + purple as the only brand color, teal kept as the semantic color for done/success, and a dark theme built from A's stone surfaces with the purple shifted lighter
+Market: the reference tracker is light with a blue brand and grey/blue/green status lozenges; Linear brands with a violet accent and ships light and dark from one token set; GitHub marks finished work purple and open work green. Purple is free in the category; blue is taken.
+Product vote: C — light + dense rows is what tracker users expect on day one (B); purple is santi's identity and is never blue; teal survives where the owner liked it, as the "done" signal (status chip, status button, success toast), so done reads as a reward color and not as a second brand.
+UX vote: C — contrast decides the roles. Purple #4C35D2 is 7.64:1 on white both ways (text on white, white on purple; hover #3F2CB0 9.55, pressed #34258F 11.62), AAA for text and buttons. Teal #2DD4BF is 1.86:1 on white, so it can never be text or a button fill on light; teal-700 #0F766E (5.47 on white, white on it 5.47) is the light-theme teal. On dark, #4C35D2 drops to 2.30 on #1A1918 (fails), so dark uses brand-300 #B8ABF1 for text (8.47) and brand-400 #8B78E9 for fills and focus (4.98; dark label #1B1348 on it 4.83). The old subtle grey #8A8F9C is 3.24 on white and fails body text: replaced by #6B7080 (4.94 on white, 4.52 on #F4F5F7). Colour-blind simulation (Machado 2009, full severity): the status trio grey/purple/teal keeps its closest pair at ΔE 15 (protan) and 16 (deutan), to-do vs done, and 27 under tritan; in progress vs done stays above 70 under red-green deficiency. An amber/green trio scores no better (16 under protan), so the trio is safe enough with the glyphs doing the main work. Issue types and priorities are told by glyph first: bug red vs epic amber is only ΔE 9.8 under deutan, so color never carries meaning alone; of the priorities only urgent is colored.
+UI vote: C — one solid purple per view (the primary action), purple tint for selection and the active nav item, teal only for done/success, red only for danger. Board headers uppercase 12px with letter spacing, counts and keys in tabular numerals. Dark theme = A's warm stone surfaces with the purple scale shifted up two steps, so the dark story is the mockup the owner liked, minus the teal accent.
+Architecture vote: C — the Tailwind `@theme` declares the brand scale plus semantic tokens (`--color-canvas`, `--color-primary`, `--color-status-done`, …); templates use semantic tokens only, never raw hex or scale steps. Dark redefines the same semantic tokens under `@media (prefers-color-scheme: dark)` and `[data-theme=dark]`, so no template carries a `dark:` variant and turning dark on later is a CSS-only change.
+Winner: C — light + purple ships with SAN-32; teal is the done/success color; dark tokens are defined now and switched on in a later pass. Accepted: two accent hues to keep apart (purple = act/select, teal = done), done chips need the darker teal-800 text on light (#115E59), and dark-mode QA of every screen is deferred.
+
+Tokens (contrast is against the surface the token sits on; ≥ 4.5 text, ≥ 3 icons and control borders):
+
+| Group | Token | Light | Dark |
+|---|---|---|---|
+| Brand scale | `brand-50…950` | #F3F1FD #ECE8FB #D7D0F7 #B8ABF1 #8B78E9 #5A42E0 #4C35D2 #3F2CB0 #34258F #2C2075 #1B1348 | same scale |
+| Neutral | canvas (page) | #FFFFFF | #0F0F0E |
+| | surface (sidebar) | #FAFAFB | #1A1918 |
+| | sunken (columns, backlog sections) | #F4F5F7 | #1A1918 |
+| | raised (cards, modal, menus) | #FFFFFF | #262422 |
+| | hover row | #EEF0F3 | #33302D |
+| | border (dividers, card edge) | #E4E5E9 | #3A3734 |
+| | control border (inputs, checkboxes) | #8A8F9C (3.24) | #78716C (3.22) |
+| | text | #172033 (16.3) | #EDEBE8 (13.0 on raised) |
+| | text muted | #5E6475 (5.91) | #A8A29E (6.13) |
+| | text subtle (meta, placeholder) | #6B7080 (4.52 on sunken) | #948F8A (4.83) |
+| Primary | fill / label | #4C35D2 / #FFFFFF (7.64) | #8B78E9 / #1B1348 (4.83) |
+| | hover, pressed | #3F2CB0, #34258F | #B8ABF1, #D7D0F7 |
+| | link, active nav text | #4C35D2 | #B8ABF1 (8.47) |
+| | selected / active nav bg | #F3F1FD, strong #ECE8FB | #2C2075 (#B8ABF1 on it 6.45) |
+| | focus ring (2px, 2px offset) | #4C35D2 | #8B78E9 (5.44) |
+| Status | to do — `circle` | #3D4354 on #EEF0F3 (8.64) | #D6D3D1 on #33302D (8.80) |
+| | in progress — `circle-dot` | #3F2CB0 on #ECE8FB (7.96) | #C4B8F5 on #2C2075 (7.34) |
+| | done — `circle-check` | #115E59 on #CCFBF1 (6.73) | #5EEAD4 on #134E4A (6.41) |
+| Issue type | story — `book-open` | #0F766E | #2DD4BF |
+| | task — `clipboard-check` | #475569 | #94A3B8 |
+| | bug — `bug` | #B42318 | #F97066 |
+| | epic — `layers` | #B45309 | #FBBF24 |
+| | subtask — `list-tree` | #5E6475 | #A8A29E |
+| Priority | urgent — `circle-alert` | #B42318 | #F97066 |
+| | high — `signal-high` | #172033 | #EDEBE8 |
+| | medium — `signal-medium` | #5E6475 | #A8A29E |
+| | low — `signal-low` | #6B7080 | #948F8A |
+| Feedback | danger text / fill / tint | #B42318 / #B42318 + white (6.57) / #FEF3F2 | #F97066 / #F97066 + #0F0F0E (6.88) / #3B1512 |
+| | warning text / icon / tint | #92400E on #FEF3C7 (6.37) / #B45309 | #FBBF24 / #FBBF24 / #3A2A0A (8.30) |
+| | success text / tint | #0F766E (5.47) / #CCFBF1 | #2DD4BF (9.43) / #134E4A |
+
+Rules: status, type and priority always show glyph and text; color is the second cue. Warning (WIP over limit, overdue sprint) shares amber with the epic glyph; they never appear in the same slot.
