@@ -259,11 +259,16 @@ pub fn check_mapping(
         })
     };
     for (name, id) in &mapping.statuses {
-        if !statuses.iter().any(|status| status.id == *id) {
-            error(
+        match statuses.iter().find(|status| status.id == *id) {
+            None => error(
                 format!("mapping.statuses.{name}"),
                 "no such status in this project",
-            );
+            ),
+            Some(status) if status.column_id.is_none() => error(
+                format!("mapping.statuses.{name}"),
+                "map this status to a board column first",
+            ),
+            Some(_) => {}
         }
     }
     for (name, id) in &mapping.people {
@@ -1271,6 +1276,22 @@ mod tests {
             plan.sprints[0].end,
             NaiveDate::from_ymd_opt(2026, 10, 6).unwrap()
         );
+    }
+
+    #[test]
+    fn a_mapped_status_needs_a_board_column() {
+        let mut statuses = statuses();
+        statuses[0].column_id = None;
+        let mapping = jira_mapping();
+
+        let error = check_mapping(&mapping, &statuses, &members(), BoardType::Scrum).unwrap_err();
+
+        let AppError::Validation(errors) = error else {
+            panic!("expected a validation error");
+        };
+        assert_eq!(errors[0].field, "mapping.statuses.Waiting");
+        assert_eq!(errors[0].message, "map this status to a board column first");
+        assert!(check_mapping(&mapping, &self::statuses(), &members(), BoardType::Scrum).is_ok());
     }
 
     #[test]
