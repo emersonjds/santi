@@ -38,11 +38,11 @@ test('sign out, then sign back in', async ({ page }) => {
   await page.getByRole('button', { name: 'Account' }).click()
   await page.getByRole('menuitem', { name: 'Sign out' }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
-  await page.goto('/')
+  await page.goto('/account')
   await expect(page).toHaveURL(/\/login\?redirect=/)
 
   await signIn(page, email, 'not the password')
   await expect(page.getByRole('alert')).toBeVisible()
   await signIn(page, email, PASSWORD)
-  await expect(home(page)).toBeVisible()
+  await expect(page).toHaveURL(/\/account$/)
 })
