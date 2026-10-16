@@ -8,12 +8,14 @@ repository.workspace = true
 
 [features]
 sqlx = ["dep:sqlx"]
+schemars = ["dep:schemars"]
 
 [dependencies]
 serde.workspace = true
 chrono.workspace = true
 utoipa.workspace = true
 sqlx = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true

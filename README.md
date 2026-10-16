@@ -34,9 +34,9 @@ whole thing ships as one container image. No per-seat pricing, no telemetry.
   board settings for columns and statuses.
 - **Phones:** the UI works down to 375 px wide; the board shows one column at a time.
 - **API tokens** for scripts, and an **importer** for CSV exports from other trackers.
+- **CLI and MCP:** the `santi` command line and `santi mcp`, an MCP server for AI agents.
 
-Planned, not in 0.1.0: the `santi` command-line client and its MCP server for agents,
-multi-select on the backlog, email notifications.
+Planned: multi-select on the backlog, email notifications.
 
 ## Quick start
 
@@ -107,6 +107,34 @@ Everything the UI does goes through the JSON API, so scripts can do it too.
 ```bash
 curl -H "Authorization: Bearer santi_…" http://localhost:8080/api/projects
 ```
+
+## CLI and MCP
+
+The `santi` binary is a client of the same API, authenticated with an API token.
+
+```bash
+cargo install --path crates/santi-cli
+santi login --url http://localhost:8080       # asks for the token, saves ~/.config/santi/config.toml (0600)
+santi projects list
+santi issues create WEB --summary "Fix login" --type bug
+santi issues move WEB-12 --status "In Progress"
+santi board WEB
+santi sprints start WEB 3
+santi search WEB "login" --status in_progress --json
+```
+
+Commands: `login`, `whoami`, `projects list`, `issues list|show|create|edit|move|delete`,
+`board`, `backlog`, `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`,
+`search`, `comment`, `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `santi help <command>`
+has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
+`SANTI_URL`/`SANTI_TOKEN`, then the config file. Errors print the server's message; exit codes are
+2 usage, 3 auth, 4 not found, 5 rejected input or conflict, 6 server unreachable, 10 confirmation
+declined (stdout stays empty, so `--json` output is still valid JSON), 1 anything else.
+
+`santi mcp` serves the same actions as MCP tools for agents, over stdio or Streamable HTTP
+(`santi mcp --http 127.0.0.1:8765`). Setup for Claude Code, VS Code, Zed, Cursor, Windsurf,
+JetBrains, Claude Desktop, Codex, Gemini CLI, Cline, Continue and remote connectors:
+[docs/mcp.md](docs/mcp.md).
 
 ## Performance
 
