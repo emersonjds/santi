@@ -167,3 +167,45 @@ async fn admins_and_the_reporter_may_delete_other_members_may_not(pool: PgPool) 
     assert_eq!(unknown, StatusCode::NOT_FOUND);
     assert_eq!(outsider, StatusCode::NOT_FOUND);
 }
+
+/// A comment or subtask written while its issue is being deleted waits for the delete, then finds
+/// nothing to attach to.
+#[sqlx::test]
+async fn writes_under_an_issue_deleted_meanwhile_are_not_found(pool: PgPool) {
+    let ana = scrum(pool.clone()).await;
+    ana.create_issue("SANTI", json!({ "summary": "Doomed" }))
+        .await;
+    let mut deleting = pool.begin().await.unwrap();
+    sqlx::query("DELETE FROM issue WHERE number = 1")
+        .execute(&mut *deleting)
+        .await
+        .unwrap();
+
+    let comment = tokio::spawn({
+        let ana = ana.clone();
+        async move {
+            ana.post(
+                "/api/projects/SANTI/issues/1/comments",
+                json!({ "body": "too late" }),
+            )
+            .await
+        }
+    });
+    let subtask = tokio::spawn({
+        let ana = ana.clone();
+        async move {
+            ana.post(
+                "/api/projects/SANTI/issues",
+                json!({ "summary": "sub", "issue_type": "subtask", "parent": "SANTI-1" }),
+            )
+            .await
+        }
+    });
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    deleting.commit().await.unwrap();
+    let (comment, comment_problem) = comment.await.unwrap();
+    let (subtask, subtask_problem) = subtask.await.unwrap();
+
+    assert_eq!(comment, StatusCode::NOT_FOUND, "{comment_problem}");
+    assert_eq!(subtask, StatusCode::NOT_FOUND, "{subtask_problem}");
+}

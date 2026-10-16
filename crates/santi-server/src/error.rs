@@ -98,6 +98,18 @@ pub fn reject_nul(field: &str, text: &str) -> Result<(), AppError> {
     Ok(())
 }
 
+/// For an insert under a row read earlier: a foreign key failure means that row was deleted
+/// meanwhile, so there is nothing left to write under.
+pub fn not_found_if_parent_gone(error: sqlx::Error) -> AppError {
+    let parent_gone = error
+        .as_database_error()
+        .is_some_and(|error| error.is_foreign_key_violation());
+    if parent_gone {
+        return AppError::NotFound;
+    }
+    error.into()
+}
+
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         if let AppError::Internal(message) = &self {
