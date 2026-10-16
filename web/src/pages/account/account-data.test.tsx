@@ -30,6 +30,26 @@ describe('your data', () => {
     expect(requests.map(routeOf)).toContain('GET /api/me/export')
   })
 
+  it('frees the file URL only after the download had time to start', async () => {
+    signedIn({
+      'GET /api/tokens': { status: 200, body: [] },
+      'GET /api/me/export': { status: 200, body: EXPORT },
+    })
+    const objectUrl = vi.spyOn(URL, 'createObjectURL')
+    const revoke = vi.spyOn(URL, 'revokeObjectURL')
+    const before = objectUrl.mock.results.length
+    const { screen } = await renderApp('/account')
+
+    await screen.getByRole('button', { name: 'Export my data' }).click()
+
+    await expect.poll(() => objectUrl.mock.results.length).toBe(before + 1)
+    const url: unknown = objectUrl.mock.results[before].value
+    expect(revoke).not.toHaveBeenCalledWith(url)
+    await expect
+      .poll(() => revoke.mock.calls.flat(), { timeout: 3000 })
+      .toContain(url)
+  })
+
   it('says why the export failed', async () => {
     signedIn({
       'GET /api/tokens': { status: 200, body: [] },
