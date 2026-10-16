@@ -10,6 +10,7 @@ use tower::ServiceExt;
 
 const INDEX: &str = "<!doctype html><title>santi spa</title>";
 const LANDING: &str = "<!doctype html><title>santi landing</title>";
+const PRIVACY: &str = "<!doctype html><title>santi privacy</title>";
 const SESSION: &str = "theme=light; __Host-santi_session=abc";
 const IMMUTABLE: &str = "public, max-age=31536000, immutable";
 
@@ -29,6 +30,7 @@ fn built_spa(name: &str) -> PathBuf {
     std::fs::create_dir_all(dir.join("assets")).unwrap();
     std::fs::write(dir.join("index.html"), INDEX).unwrap();
     std::fs::write(dir.join("landing.html"), LANDING).unwrap();
+    std::fs::write(dir.join("privacy.html"), PRIVACY).unwrap();
     std::fs::write(dir.join("assets/main-abc123.js"), "console.log('santi')").unwrap();
     dir
 }
@@ -100,6 +102,20 @@ async fn home_with_a_session_cookie_is_the_app() {
     assert_eq!(cache_control(&response), Some("no-cache"));
     assert_eq!(response.headers()[header::VARY], "cookie");
     assert_eq!(body(response).await, INDEX);
+}
+
+#[tokio::test]
+async fn privacy_is_its_own_page_signed_in_or_not() {
+    let app = app(Some(&built_spa("privacy")));
+
+    for response in [
+        send(&app, Method::GET, "/privacy").await,
+        get_with_cookie(&app, "/privacy", SESSION).await,
+    ] {
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(cache_control(&response), Some("no-cache"));
+        assert_eq!(body(response).await, PRIVACY);
+    }
 }
 
 #[tokio::test]
@@ -205,7 +221,13 @@ fn header<'a>(response: &'a Response, name: &str) -> Option<&'a str> {
 async fn pages_and_assets_carry_the_security_headers() {
     let app = app(Some(&built_spa("headers")));
 
-    for uri in ["/", "/about", "/p/SAN/board", "/assets/main-abc123.js"] {
+    for uri in [
+        "/",
+        "/about",
+        "/privacy",
+        "/p/SAN/board",
+        "/assets/main-abc123.js",
+    ] {
         let response = send(&app, Method::GET, uri).await;
         assert_eq!(
             header(&response, "content-security-policy"),
