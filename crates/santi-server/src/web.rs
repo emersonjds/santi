@@ -32,6 +32,7 @@ pub const STATIC: &str = concat!("/static/", env!("CARGO_PKG_VERSION"));
 const APP_CSS: &str = include_str!("../static/app.css");
 const APP_JS: &str = include_str!("../static/app.js");
 const HTMX_JS: &str = include_str!("../static/htmx.min.js");
+const FAVICON: &str = include_str!("../static/favicon.svg");
 
 pub fn router() -> Router<AppState> {
     Router::new()
@@ -159,6 +160,7 @@ async fn asset(PathParams((version, file)): PathParams<(String, String)>) -> Res
         "app.css" => ("text/css; charset=utf-8", APP_CSS),
         "app.js" => ("text/javascript; charset=utf-8", APP_JS),
         "htmx.min.js" => ("text/javascript; charset=utf-8", HTMX_JS),
+        "favicon.svg" => ("image/svg+xml", FAVICON),
         _ => return AppError::NotFound.into_response(),
     };
     if version != env!("CARGO_PKG_VERSION") {

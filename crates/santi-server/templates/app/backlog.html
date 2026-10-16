@@ -1,166 +1,267 @@
 {% extends "app/shell.html" %}
 {% import "shared/ui.html" as ui %}
+{% import "entities/issue.html" as issue %}
 {% block title %}Backlog · {{ project.name }}{% endblock %}
 {% block main %}
 {% include "widgets/project_header.html" %}
-<section class="board-area" aria-labelledby="new-issue-title">
-  <h2 id="new-issue-title" class="visually-hidden">New issue</h2>
-  <form class="create-issue plan-issue" method="post" action="/p/{{ project.key }}/backlog/issues">
-    {%- if !self.error("form").is_empty() %}
-    <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>{{ self.error("form") }}</span></p>
-    {%- endif %}
-    {{ ui::field("summary", "Title", "text", draft.summary, "off", self.error("summary")) }}
-    <div class="field">
-      <label for="issue_type">Type</label>
-      <select id="issue_type" name="issue_type">
-        {%- for option in self.issue_types() %}
-        <option value="{{ option.label()|lower }}"{% if option.label() == draft.issue_type.label() %} selected{% endif %}>{{ option.label() }}</option>
-        {%- endfor %}
-      </select>
-    </div>
-    <div class="field">
-      <label for="sprint">Plan into</label>
-      <select id="sprint" name="sprint">
-        <option value="">Backlog</option>
-        {%- for sprint in self.open_sprints() %}
-        <option value="{{ sprint.id }}">{{ sprint.name }}</option>
-        {%- endfor %}
-      </select>
-      {%- if !self.error("sprint_id").is_empty() %}
-      <p class="field-error">Sprint {{ self.error("sprint_id") }}.</p>
-      {%- endif %}
-    </div>
-    <button class="button" type="submit">{{ ui::icon("plus") }}<span>Create issue</span></button>
-  </form>
-  <form class="sprint-create" method="post" action="/p/{{ project.key }}/sprints">
-    <input type="hidden" name="name" value="">
-    <input type="hidden" name="goal" value="">
-    <button class="button secondary" type="submit">{{ ui::icon("plus") }}<span>Create sprint</span></button>
-  </form>
+<section class="mt-4" aria-labelledby="backlog-title">
+  <h2 id="backlog-title" class="sr-only">Backlog</h2>
   {% block backlog %}
-  <div id="backlog">
+  {%- let control = "min-h-11 w-full rounded-md border border-control bg-canvas px-3 text-base aria-[invalid=true]:border-danger" %}
+  {%- let label = "text-sm font-semibold" %}
+  {%- let secondary = "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-canvas px-3 text-sm font-semibold hover:bg-hover disabled:cursor-not-allowed disabled:opacity-60" %}
+  {%- let sheet = "m-0 h-full max-h-none w-full max-w-none bg-raised p-0 text-text backdrop:bg-text/40 sm:m-auto sm:h-fit sm:max-h-[calc(100dvh-4rem)] sm:w-[min(560px,calc(100vw-2rem))] sm:rounded-lg sm:shadow-lg" %}
+  {%- let close = "absolute top-2 right-2 grid size-11 place-items-center rounded-md text-text-muted hover:bg-hover hover:text-text" %}
+  {%- let title = "pr-12 text-xl font-semibold tracking-tight" %}
+  {%- let menu_select = "min-h-11 min-w-0 flex-1 rounded-md border border-control bg-canvas px-2 text-base" %}
+  <div id="backlog" hx-get="/p/{{ project.key }}/backlog" hx-trigger="issue-saved from:body" hx-swap="outerHTML">
     {%- if !self.page_error().is_empty() %}
-    <p class="alert" role="alert">{{ ui::icon("circle-alert") }}<span>{{ self.page_error() }}</span></p>
+    {{ ui::alert(self.page_error()) }}
     {%- endif %}
     {%- for section in backlog.sections %}
-    <section class="backlog-section" data-sprint="{% if let Some(sprint) = section.sprint %}{{ sprint.id }}{% endif %}" aria-labelledby="section-{% if let Some(sprint) = section.sprint %}{{ sprint.id }}{% else %}backlog{% endif %}">
-      <header class="sprint-head">
+    {%- let slot = self.slot(section) %}
+    {%- let tally = self.tally(section) %}
+    <section class="mt-4 rounded-lg bg-sunken" data-sprint="{% if let Some(sprint) = section.sprint %}{{ sprint.id }}{% endif %}" aria-labelledby="section-{{ slot }}">
+      <header class="flex flex-wrap items-center gap-x-3 gap-y-1 p-2">
+        <h2 class="min-w-0" id="section-{{ slot }}">
+          <button class="group flex min-h-11 max-w-full items-center gap-1.5 rounded-md px-2 font-semibold hover:bg-hover" type="button" aria-expanded="true" aria-controls="body-{{ slot }}" data-collapse>{{ ui::icon("chevron-down", "size-4 shrink-0 text-text-muted transition-transform group-aria-[expanded=false]:-rotate-90 motion-reduce:transition-none") }}<span class="truncate">{% if let Some(sprint) = section.sprint %}{{ sprint.name }}{% else %}Backlog{% endif %}</span></button>
+        </h2>
         {%- if let Some(sprint) = section.sprint %}
-        <h2 id="section-{{ sprint.id }}">{{ sprint.name }}
-          {%- if sprint.state == SprintState::Active %} <span class="badge">Active</span>{% endif %}
-          {%- if sprint.overdue %} <span class="badge overdue">Overdue</span>{% endif %}</h2>
-        <p class="sprint-meta">
-          <span class="count">{{ self.count(section.issue_count) }} · {{ section.total_points }} points</span>
-          {%- if let Some(start) = sprint.start_date %}{% if let Some(end) = sprint.end_date %}
-          <span>{{ start.format("%b %-d") }} – {{ end.format("%b %-d") }}</span>
-          {%- endif %}{% endif %}
-        </p>
-        {%- if !sprint.goal.is_empty() %}
-        <p class="sprint-goal">{{ sprint.goal }}</p>
+        {%- if sprint.state == SprintState::Active %}
+        <span class="rounded-full bg-selected-strong px-2 py-0.5 text-xs font-semibold text-link">Active</span>
         {%- endif %}
-        {%- if !self.sprint_error(sprint.id).is_empty() %}
-        <p class="alert" role="alert" id="sprint-{{ sprint.id }}-error">{{ ui::icon("circle-alert") }}<span>{{ self.sprint_error(sprint.id) }}</span></p>
+        {%- if sprint.overdue %}
+        <span class="rounded-full bg-warning-bg px-2 py-0.5 text-xs font-semibold text-warning">Overdue</span>
         {%- endif %}
-        <div class="sprint-actions">
+        {%- if let Some(start) = sprint.start_date %}{% if let Some(end) = sprint.end_date %}
+        <span class="text-sm text-text-muted">{{ start.format("%b %-d") }} – {{ end.format("%b %-d") }}</span>
+        {%- endif %}{% else %}
+        <button class="min-h-11 rounded-md px-1 text-sm text-link hover:underline" type="button" commandfor="edit-{{ sprint.id }}" command="show-modal">Add dates</button>
+        {%- endif %}
+        {%- endif %}
+        <span class="text-sm text-text-muted">{{ self.count(section.issue_count) }}</span>
+        <span class="ml-auto flex flex-wrap items-center gap-1.5">
+          <span class="inline-flex items-center gap-1 rounded-full bg-status-todo-bg px-2 py-0.5 text-xs font-semibold tabular-nums text-status-todo" title="{{ tally[0] }} to do">{{ ui::icon("circle", "size-3.5") }}{{ tally[0] }}<span class="sr-only"> to do</span></span>
+          <span class="inline-flex items-center gap-1 rounded-full bg-status-progress-bg px-2 py-0.5 text-xs font-semibold tabular-nums text-status-progress" title="{{ tally[1] }} in progress">{{ ui::icon("circle-dot", "size-3.5") }}{{ tally[1] }}<span class="sr-only"> in progress</span></span>
+          {{ issue::points_pill(section.total_points) }}
+        </span>
+        {%- if let Some(sprint) = section.sprint %}
+        <span class="flex items-center gap-1">
           {%- if sprint.state == SprintState::Future %}
-          <details class="move-to sheet">
-            <summary>{{ ui::icon("play") }}<span>Start sprint</span></summary>
-            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/start">
-              <label for="start-{{ sprint.id }}-name">Name</label>
-              <input id="start-{{ sprint.id }}-name" name="name" value="{{ sprint.name }}" required>
-              <label for="start-{{ sprint.id }}-start">Starts</label>
-              <input id="start-{{ sprint.id }}-start" name="start_date" type="date" value="{% if let Some(date) = sprint.start_date %}{{ date }}{% else %}{{ today }}{% endif %}">
-              <label for="start-{{ sprint.id }}-end">Ends</label>
-              <input id="start-{{ sprint.id }}-end" name="end_date" type="date" value="{% if let Some(date) = sprint.end_date %}{{ date }}{% else %}{{ self.default_end() }}{% endif %}">
-              <label for="start-{{ sprint.id }}-goal">Goal</label>
-              <textarea id="start-{{ sprint.id }}-goal" name="goal" rows="2">{{ sprint.goal }}</textarea>
-              <button class="button" type="submit">Start {{ sprint.name }}</button>
-            </form>
-          </details>
+          <button class="{{ secondary }}" type="button" commandfor="start-{{ sprint.id }}" command="show-modal"{% if section.issue_count == 0 %} disabled aria-describedby="start-{{ sprint.id }}-hint"{% endif %}>Start sprint</button>
           {%- else %}
-          <details class="move-to sheet">
-            <summary>{{ ui::icon("circle-check") }}<span>Complete sprint</span></summary>
-            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/complete">
-              <fieldset>
-                <legend>Unfinished issues go to</legend>
-                <label><input type="radio" name="open_issues" value="backlog" checked> Backlog</label>
-                {%- for target in self.future_sprints() %}
-                <label><input type="radio" name="open_issues" value="{{ target.id }}"> {{ target.name }}</label>
-                {%- endfor %}
-                <label><input type="radio" name="open_issues" value="new_sprint"> A new sprint</label>
-              </fieldset>
-              <button class="button" type="submit">Complete {{ sprint.name }}</button>
-            </form>
-          </details>
+          <button class="{{ secondary }}" type="button" commandfor="complete-{{ sprint.id }}" command="show-modal">Complete sprint</button>
           {%- endif %}
-          <details class="move-to sheet">
-            <summary>{{ ui::icon("pencil") }}<span>Edit</span></summary>
-            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}">
-              <label for="edit-{{ sprint.id }}-name">Name</label>
-              <input id="edit-{{ sprint.id }}-name" name="name" value="{{ sprint.name }}" required>
-              <label for="edit-{{ sprint.id }}-start">Starts</label>
-              <input id="edit-{{ sprint.id }}-start" name="start_date" type="date" value="{% if let Some(date) = sprint.start_date %}{{ date }}{% endif %}">
-              <label for="edit-{{ sprint.id }}-end">Ends</label>
-              <input id="edit-{{ sprint.id }}-end" name="end_date" type="date" value="{% if let Some(date) = sprint.end_date %}{{ date }}{% endif %}">
-              <label for="edit-{{ sprint.id }}-goal">Goal</label>
-              <textarea id="edit-{{ sprint.id }}-goal" name="goal" rows="2">{{ sprint.goal }}</textarea>
-              <button class="button" type="submit">Save {{ sprint.name }}</button>
-            </form>
+          <details class="relative [&[open]]:z-20">
+            <summary class="grid size-11 place-items-center rounded-md text-text-muted hover:bg-hover hover:text-text" aria-label="More for {{ sprint.name }}">{{ ui::icon("ellipsis") }}</summary>
+            <div class="absolute right-0 grid w-44 gap-1 rounded-lg border border-border bg-raised p-1.5 text-sm shadow-lg">
+              <button class="flex min-h-11 items-center gap-2 rounded-md px-2 hover:bg-hover" type="button" commandfor="edit-{{ sprint.id }}" command="show-modal">{{ ui::icon("pencil", "size-4") }}<span>Edit sprint</span></button>
+              {%- if sprint.state == SprintState::Future %}
+              <button class="flex min-h-11 items-center gap-2 rounded-md px-2 text-danger hover:bg-danger-bg" type="button" commandfor="delete-{{ sprint.id }}" command="show-modal">{{ ui::icon("trash", "size-4") }}<span>Delete sprint</span></button>
+              {%- endif %}
+            </div>
           </details>
-          {%- if sprint.state == SprintState::Future %}
-          <details class="move-to sheet">
-            <summary>{{ ui::icon("trash") }}<span>Delete</span></summary>
-            <form method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/delete">
-              <p>Its issues go back to the backlog, in the same order.</p>
-              <button class="button danger" type="submit">Delete {{ sprint.name }}</button>
-            </form>
-          </details>
-          {%- endif %}
-        </div>
+        </span>
+        {%- if sprint.state == SprintState::Future && section.issue_count == 0 %}
+        <p class="basis-full px-2 text-right text-xs text-text-subtle" id="start-{{ sprint.id }}-hint">Add an issue before starting.</p>
+        {%- endif %}
+        {%- if !sprint.goal.is_empty() %}
+        <p class="basis-full px-2 text-sm text-text-muted line-clamp-2">{{ sprint.goal }}</p>
+        {%- endif %}
         {%- else %}
-        <h2 id="section-backlog">Backlog</h2>
-        <p class="sprint-meta"><span class="count">{{ self.count(section.issue_count) }} · {{ section.total_points }} points</span></p>
+        <form method="post" action="/p/{{ project.key }}/sprints">
+          <input type="hidden" name="name" value="">
+          <input type="hidden" name="goal" value="">
+          <button class="{{ secondary }}" type="submit">{{ ui::icon("plus", "size-4") }}<span>Create sprint</span></button>
+        </form>
         {%- endif %}
       </header>
-      <ul class="backlog-rows">
-        {%- for card in section.cards %}
-        <li class="card-slot backlog-row" draggable="true" data-key="{{ card.key }}" data-move="{{ self.issue_path(card.key) }}/plan">
-          <a class="issue-card" href="{{ self.issue_path(card.key) }}">
-            <span class="issue-title">{{ card.summary }}</span>
-            <span class="issue-meta">
-              <span class="key">{{ card.key }}</span>
-              <span class="type">{{ card.issue_type.label() }}</span>
-              {%- if let Some(points) = card.points %}
-              <span class="badge">{{ points }}</span>
-              {%- endif %}
-              {%- if let Some(name) = card.assignee_name %}
-              <abbr class="initials" title="Assigned to {{ name }}">{{ self.initials(name) }}</abbr>
-              {%- endif %}
-            </span>
-          </a>
-          <details class="move-to">
-            <summary>{{ ui::icon("move") }}<span>Move to…</span></summary>
-            <form method="post" action="{{ self.issue_path(card.key) }}/plan" hx-post="{{ self.issue_path(card.key) }}/plan" hx-target="#backlog" hx-swap="outerHTML">
-              <label for="plan-{{ card.id }}-sprint">Section</label>
-              <select id="plan-{{ card.id }}-sprint" name="sprint">
-                <option value=""{% if card.sprint_id.is_none() %} selected{% endif %}>Backlog</option>
-                {%- for target in self.open_sprints() %}
-                <option value="{{ target.id }}"{% if card.sprint_id.as_ref() == Some(target.id) %} selected{% endif %}>{{ target.name }}</option>
+      {%- if let Some(sprint) = section.sprint %}
+      {%- if !self.sprint_error(sprint.id).is_empty() %}
+      <p class="mx-2 mb-2 flex items-center gap-2.5 rounded-md bg-danger-bg px-3.5 py-3 text-danger" role="alert" id="sprint-{{ sprint.id }}-error">{{ ui::icon("circle-alert") }}<span>{{ self.sprint_error(sprint.id) }}</span></p>
+      {%- endif %}
+      {%- endif %}
+      <div id="body-{{ slot }}">
+        <ul class="mx-2 grid gap-px rounded-md{% if !section.cards.is_empty() %} border border-border bg-border{% endif %}">
+          {%- for card in section.cards %}
+          {%- let path = self.issue_path(card.key) %}
+          <li class="relative flex items-center bg-raised first:rounded-t-md last:rounded-b-md hover:bg-hover cursor-grab [&.dragging]:opacity-60" draggable="true" data-key="{{ card.key }}" data-move="{{ path }}/plan">
+            <span class="hidden pl-1.5 text-text-subtle sm:block" aria-hidden="true">{{ ui::icon("grip-vertical", "size-4") }}</span>
+            <a class="grid min-w-0 flex-1 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 py-2 pl-3 text-sm sm:flex sm:pl-1.5" href="{{ path }}" hx-get="{{ path }}" hx-target="#dialog-body" hx-swap="innerHTML" data-push>
+              {{ issue::type_glyph(card.issue_type) }}
+              <span class="text-xs tabular-nums tracking-wide text-text-subtle">{{ card.key }}</span>
+              <span class="min-w-0 line-clamp-2 sm:flex-1 sm:line-clamp-1">{{ card.summary }}</span>
+              <span class="col-span-3 flex flex-wrap items-center gap-2 sm:contents">
+                {%- if let Some(epic) = self.epic_of(card) %}
+                <span class="inline-flex max-w-40 items-center gap-1 rounded-sm bg-hover px-1.5 text-xs text-text-muted" title="Epic {{ epic.summary }}"><span class="text-type-epic">{{ ui::icon("layers", "size-3.5") }}</span><span class="truncate">{{ epic.summary }}</span></span>
+                {%- endif %}
+                {%- if let Some(status) = self.status_of(card.status_id) %}
+                {{ issue::status_pill(status) }}
+                {%- endif %}
+                {%- if let Some(points) = card.points %}
+                {{ issue::points_pill(points) }}
+                {%- endif %}
+                {%- if let Some(name) = card.assignee_name %}
+                {{ issue::assignee(name) }}
+                {%- endif %}
+              </span>
+            </a>
+            <details class="relative self-start [&[open]]:z-20">
+              <summary class="grid size-11 place-items-center rounded-md text-text-muted hover:bg-hover hover:text-text" aria-label="Move {{ card.key }}">{{ ui::icon("ellipsis", "size-4") }}</summary>
+              <form class="absolute right-0 grid w-64 gap-1.5 rounded-lg border border-border bg-raised p-3 text-sm shadow-lg" method="post" action="{{ path }}/plan" hx-post="{{ path }}/plan" hx-target="#backlog" hx-swap="outerHTML">
+                <label class="font-semibold" for="plan-{{ card.id }}-sprint">Move to…</label>
+                <div class="flex gap-1.5">
+                  <select class="{{ menu_select }}" id="plan-{{ card.id }}-sprint" name="sprint">
+                    <option value=""{% if card.sprint_id.is_none() %} selected{% endif %}>Backlog</option>
+                    {%- for target in self.open_sprints() %}
+                    <option value="{{ target.id }}"{% if card.sprint_id.as_ref() == Some(target.id) %} selected{% endif %}>{{ target.name }}</option>
+                    {%- endfor %}
+                  </select>
+                  <select class="{{ menu_select }}" aria-label="Place" name="place">
+                    <option value="top">Top</option>
+                    <option value="bottom" selected>Bottom</option>
+                  </select>
+                </div>
+                <button class="min-h-11 rounded-md bg-primary px-3 font-semibold text-on-primary hover:bg-primary-hover" type="submit">Move {{ card.key }}</button>
+              </form>
+            </details>
+          </li>
+          {%- else %}
+          <li class="rounded-md border border-dashed border-control px-3 py-4 text-center text-sm text-text-subtle">{% if section.sprint.is_some() %}Drag issues here to plan this sprint.{% else %}Create issues here, then drag them into a sprint.{% endif %}</li>
+          {%- endfor %}
+        </ul>
+        {%- let drafting = self.drafts_into(section) %}
+        <details id="create-{{ slot }}" class="mx-2"{% if drafting %} open{% endif %}>
+          <summary class="flex min-h-11 w-fit items-center gap-2 rounded-md px-2 text-sm font-semibold text-text-muted hover:bg-hover hover:text-text">{{ ui::icon("plus", "size-4") }}<span>Create issue</span></summary>
+          <form class="grid gap-2 pb-2 sm:grid-cols-[minmax(0,1fr)_10rem_auto] sm:items-end" method="post" action="/p/{{ project.key }}/backlog/issues">
+            {%- if drafting && !self.error("form").is_empty() %}
+            <p class="flex items-center gap-2.5 rounded-md bg-danger-bg px-3.5 py-3 text-danger sm:col-span-3" role="alert">{{ ui::icon("circle-alert") }}<span>{{ self.error("form") }}</span></p>
+            {%- endif %}
+            {%- if drafting && !self.error("sprint_id").is_empty() %}
+            <p class="text-sm text-danger sm:col-span-3" role="alert">Sprint {{ self.error("sprint_id") }}.</p>
+            {%- endif %}
+            <input type="hidden" name="sprint" value="{% if let Some(sprint) = section.sprint %}{{ sprint.id }}{% endif %}">
+            <div class="grid gap-1.5">
+              <label class="{{ label }}" for="summary-{{ slot }}">Title</label>
+              <input class="{{ control }} py-2" id="summary-{{ slot }}" name="summary" value="{% if drafting %}{{ draft.summary }}{% endif %}" autocomplete="off" required
+                {%- if drafting && !self.error("summary").is_empty() %} aria-invalid="true" aria-describedby="summary-{{ slot }}-error"{% endif %}>
+            </div>
+            <div class="grid gap-1.5">
+              <label class="{{ label }}" for="type-{{ slot }}">Type</label>
+              <select class="{{ control }}" id="type-{{ slot }}" name="issue_type">
+                {%- for option in self.issue_types() %}
+                <option value="{{ option.label()|lower }}"{% if drafting && option == draft.issue_type %} selected{% endif %}>{{ option.label() }}</option>
                 {%- endfor %}
               </select>
-              <label for="plan-{{ card.id }}-place">Place</label>
-              <select id="plan-{{ card.id }}-place" name="place">
-                <option value="top">Top</option>
-                <option value="bottom" selected>Bottom</option>
-              </select>
-              <button class="button" type="submit">Move {{ card.key }}</button>
-            </form>
-          </details>
-        </li>
-        {%- else %}
-        <li class="drop-hint">No issues here. Drag one in or use Move to.</li>
-        {%- endfor %}
-      </ul>
+            </div>
+            {{ ui::submit("Create") }}
+            {%- if drafting && !self.error("summary").is_empty() %}
+            <p class="text-sm text-danger sm:col-span-3" id="summary-{{ slot }}-error">Title {{ self.error("summary") }}.</p>
+            {%- endif %}
+          </form>
+        </details>
+        <p class="px-4 pb-3 text-xs tabular-nums text-text-subtle">{{ section.cards.len() }} of {{ section.issue_count }} issues visible · Estimate: {{ self.visible_points(section) }} of {{ section.total_points }}</p>
+      </div>
+      {%- if let Some(sprint) = section.sprint %}
+      {%- if sprint.state == SprintState::Future %}
+      <dialog id="start-{{ sprint.id }}" class="{{ sheet }}" aria-labelledby="start-{{ sprint.id }}-title">
+        <div class="relative p-4 sm:p-6">
+          <button class="{{ close }}" type="button" aria-label="Close" commandfor="start-{{ sprint.id }}" command="close">{{ ui::icon("x") }}</button>
+          <form class="grid gap-4" method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/start">
+            <h2 class="{{ title }}" id="start-{{ sprint.id }}-title">Start {{ sprint.name }}</h2>
+            <p class="text-sm text-text-muted">{{ self.count(section.issue_count) }} will be on the board.</p>
+            <div class="grid gap-1.5">
+              <label class="{{ label }}" for="start-{{ sprint.id }}-name">Name</label>
+              <input class="{{ control }} py-2" id="start-{{ sprint.id }}-name" name="name" value="{{ sprint.name }}" required>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="grid gap-1.5">
+                <label class="{{ label }}" for="start-{{ sprint.id }}-start">Starts</label>
+                <input class="{{ control }} py-2" id="start-{{ sprint.id }}-start" name="start_date" type="date" value="{% if let Some(date) = sprint.start_date %}{{ date }}{% else %}{{ today }}{% endif %}">
+              </div>
+              <div class="grid gap-1.5">
+                <label class="{{ label }}" for="start-{{ sprint.id }}-end">Ends</label>
+                <input class="{{ control }} py-2" id="start-{{ sprint.id }}-end" name="end_date" type="date" value="{% if let Some(date) = sprint.end_date %}{{ date }}{% else %}{{ self.default_end() }}{% endif %}">
+              </div>
+            </div>
+            <div class="grid gap-1.5">
+              <label class="{{ label }}" for="start-{{ sprint.id }}-goal">Goal</label>
+              <textarea class="{{ control }} py-2" id="start-{{ sprint.id }}-goal" name="goal" rows="2">{{ sprint.goal }}</textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button class="{{ secondary }}" type="button" commandfor="start-{{ sprint.id }}" command="close">Cancel</button>
+              {{ ui::submit("Start sprint") }}
+            </div>
+          </form>
+        </div>
+      </dialog>
+      <dialog id="delete-{{ sprint.id }}" class="{{ sheet }}" aria-labelledby="delete-{{ sprint.id }}-title">
+        <div class="relative p-4 sm:p-6">
+          <button class="{{ close }}" type="button" aria-label="Close" commandfor="delete-{{ sprint.id }}" command="close">{{ ui::icon("x") }}</button>
+          <form class="grid gap-4" method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/delete">
+            <h2 class="{{ title }}" id="delete-{{ sprint.id }}-title">Delete {{ sprint.name }}?</h2>
+            <p class="text-text-muted">Its issues go back to the backlog, in the same order.</p>
+            <div class="flex justify-end gap-2">
+              <button class="{{ secondary }}" type="button" commandfor="delete-{{ sprint.id }}" command="close">Cancel</button>
+              <button class="inline-flex min-h-11 items-center justify-center rounded-md bg-danger px-4 font-semibold text-on-danger aria-busy:opacity-70" type="submit">Delete sprint</button>
+            </div>
+          </form>
+        </div>
+      </dialog>
+      {%- else %}
+      <dialog id="complete-{{ sprint.id }}" class="{{ sheet }}" aria-labelledby="complete-{{ sprint.id }}-title">
+        <div class="relative p-4 sm:p-6">
+          <button class="{{ close }}" type="button" aria-label="Close" commandfor="complete-{{ sprint.id }}" command="close">{{ ui::icon("x") }}</button>
+          <form class="grid gap-4" method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}/complete">
+            <h2 class="{{ title }}" id="complete-{{ sprint.id }}-title">Complete {{ sprint.name }}</h2>
+            <p class="text-sm text-text-muted">{{ self.count(section.issue_count) }} still open.</p>
+            <fieldset class="grid gap-2">
+              <legend class="mb-1.5 {{ label }}">Unfinished issues go to</legend>
+              {{ ui::choice("open_issues", "backlog", "Backlog", "", true) }}
+              {%- for target in self.future_sprints() %}
+              {{ ui::choice("open_issues", target.id, target.name, "", false) }}
+              {%- endfor %}
+              {{ ui::choice("open_issues", "new_sprint", "A new sprint", "", false) }}
+            </fieldset>
+            <div class="flex justify-end gap-2">
+              <button class="{{ secondary }}" type="button" commandfor="complete-{{ sprint.id }}" command="close">Cancel</button>
+              {{ ui::submit("Complete sprint") }}
+            </div>
+          </form>
+        </div>
+      </dialog>
+      {%- endif %}
+      <dialog id="edit-{{ sprint.id }}" class="{{ sheet }}" aria-labelledby="edit-{{ sprint.id }}-title">
+        <div class="relative p-4 sm:p-6">
+          <button class="{{ close }}" type="button" aria-label="Close" commandfor="edit-{{ sprint.id }}" command="close">{{ ui::icon("x") }}</button>
+          <form class="grid gap-4" method="post" action="/p/{{ project.key }}/sprints/{{ sprint.id }}">
+            <h2 class="{{ title }}" id="edit-{{ sprint.id }}-title">Edit {{ sprint.name }}</h2>
+            <div class="grid gap-1.5">
+              <label class="{{ label }}" for="edit-{{ sprint.id }}-name">Name</label>
+              <input class="{{ control }} py-2" id="edit-{{ sprint.id }}-name" name="name" value="{{ sprint.name }}" required>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="grid gap-1.5">
+                <label class="{{ label }}" for="edit-{{ sprint.id }}-start">Starts</label>
+                <input class="{{ control }} py-2" id="edit-{{ sprint.id }}-start" name="start_date" type="date" value="{% if let Some(date) = sprint.start_date %}{{ date }}{% endif %}">
+              </div>
+              <div class="grid gap-1.5">
+                <label class="{{ label }}" for="edit-{{ sprint.id }}-end">Ends</label>
+                <input class="{{ control }} py-2" id="edit-{{ sprint.id }}-end" name="end_date" type="date" value="{% if let Some(date) = sprint.end_date %}{{ date }}{% endif %}">
+              </div>
+            </div>
+            <div class="grid gap-1.5">
+              <label class="{{ label }}" for="edit-{{ sprint.id }}-goal">Goal</label>
+              <textarea class="{{ control }} py-2" id="edit-{{ sprint.id }}-goal" name="goal" rows="2">{{ sprint.goal }}</textarea>
+            </div>
+            <div class="flex justify-end gap-2">
+              <button class="{{ secondary }}" type="button" commandfor="edit-{{ sprint.id }}" command="close">Cancel</button>
+              {{ ui::submit("Save sprint") }}
+            </div>
+          </form>
+        </div>
+      </dialog>
+      {%- endif %}
     </section>
     {%- endfor %}
   </div>

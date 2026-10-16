@@ -220,8 +220,11 @@ async fn session_cookie_of(ana: &TestApp) -> String {
 #[sqlx::test]
 async fn search_lists_matching_issues_with_links(pool: PgPool) {
     let (ana, cookie) = board_owner(pool).await;
-    ana.create_issue("SANTI", json!({ "summary": "Fix login" }))
-        .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Fix login", "assignee_id": ana.user_id }),
+    )
+    .await;
     ana.create_issue("SANTI", json!({ "summary": "Write docs" }))
         .await;
 
@@ -238,7 +241,15 @@ async fn search_lists_matching_issues_with_links(pool: PgPool) {
     assert!(html.contains("Fix login"));
     assert!(!html.contains("Write docs"));
     assert!(html.contains(r#"value="LOGIN""#));
-    assert!(text(nothing).await.contains("No issues match"));
+    assert!(html.contains(r##"hx-get="/p/SANTI/issues/1" hx-target="#dialog-body""##));
+    assert!(html.contains("data-push"));
+    assert!(html.contains("To Do</span>"));
+    assert!(html.contains(r#"title="Assigned to ana@example.com""#));
+    assert!(
+        text(nothing)
+            .await
+            .contains("No issues match “zebra”. Try fewer words or clear filters.")
+    );
 }
 
 #[sqlx::test]

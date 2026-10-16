@@ -6,7 +6,7 @@ use axum::response::{IntoResponse, Redirect, Response};
 use axum::routing::{get, post};
 use chrono::{Days, NaiveDate, Utc};
 use santi_types::FieldError;
-use santi_types::boards::Backlog;
+use santi_types::boards::{Backlog, BacklogSection, Card, EpicSummary, Status, StatusCategory};
 use santi_types::issues::{CreateIssue, IssueFilter, IssueType, MoveIssue};
 use santi_types::projects::{BoardType, MemberInfo, Project};
 use santi_types::sprints::{
@@ -22,7 +22,7 @@ use crate::error::AppError;
 use crate::extract::PathParams;
 use crate::members::Member;
 use crate::projects::web::{board_path, place_anchor};
-use crate::web::{PageUser, Shell, render, shell};
+use crate::web::{PageUser, Shell, render, shell, wants_fragment};
 use crate::{boards, issues, projects};
 
 pub fn router() -> Router<AppState> {
@@ -44,6 +44,7 @@ struct BacklogPage {
     project: Project,
     members: Vec<MemberInfo>,
     backlog: Backlog,
+    statuses: Vec<Status>,
     today: NaiveDate,
     draft: IssueDraft,
     refusal: Option<Refusal>,
@@ -53,6 +54,8 @@ struct BacklogPage {
 struct IssueDraft {
     summary: String,
     issue_type: IssueType,
+    /// The section the inline create posted from: a sprint id, or empty for the backlog.
+    sprint: String,
     errors: Vec<FieldError>,
 }
 
@@ -111,6 +114,57 @@ impl BacklogPage {
         self.today + Days::new(domain::DEFAULT_SPRINT_DAYS)
     }
 
+    /// The section whose inline create holds a refused draft; an unknown sprint falls back to the backlog.
+    fn drafts_into(&self, section: &BacklogSection) -> bool {
+        if self.draft.errors.is_empty() {
+            return false;
+        }
+        let target = self
+            .open_sprints()
+            .into_iter()
+            .find(|sprint| sprint.id.to_string() == self.draft.sprint)
+            .map(|sprint| sprint.id);
+        section.sprint.as_ref().map(|sprint| sprint.id) == target
+    }
+
+    /// Element id suffix of a section: the sprint id, or `backlog`.
+    fn slot(&self, section: &BacklogSection) -> String {
+        section
+            .sprint
+            .as_ref()
+            .map_or_else(|| "backlog".into(), |sprint| sprint.id.to_string())
+    }
+
+    fn status_of(&self, status_id: &i64) -> Option<&Status> {
+        self.statuses.iter().find(|status| status.id == *status_id)
+    }
+
+    /// Visible issues per status category: to do, in progress, done.
+    // ponytail: the backlog read model drops done issues, so the done slot stays 0 and is not shown.
+    fn tally(&self, section: &BacklogSection) -> [usize; 3] {
+        let mut tally = [0; 3];
+        for card in &section.cards {
+            let category = self
+                .status_of(&card.status_id)
+                .map_or(StatusCategory::Todo, |status| status.category);
+            tally[category as usize] += 1;
+        }
+        tally
+    }
+
+    fn visible_points(&self, section: &BacklogSection) -> f64 {
+        section
+            .cards
+            .iter()
+            .filter_map(|card| card.points)
+            .fold(0.0, |total, points| total + points)
+    }
+
+    fn epic_of(&self, card: &Card) -> Option<&EpicSummary> {
+        let parent = card.parent_key.as_deref()?;
+        self.backlog.epics.iter().find(|epic| epic.key == parent)
+    }
+
     fn count(&self, count: &i64) -> String {
         if *count == 1 {
             return "1 issue".into();
@@ -120,10 +174,6 @@ impl BacklogPage {
 
     fn issue_path(&self, key: &str) -> String {
         crate::web::issue_path(&self.project.key, key)
-    }
-
-    fn initials(&self, name: &str) -> String {
-        crate::web::initials(name)
     }
 }
 
@@ -135,6 +185,11 @@ async fn load_page(
     refusal: Option<Refusal>,
 ) -> Result<BacklogPage, AppError> {
     let filter = IssueFilter::default();
+    let settings = boards::service::get_settings(&state.pool, member).await?;
+    let mapped = settings
+        .columns
+        .into_iter()
+        .flat_map(|column| column.statuses);
     Ok(BacklogPage {
         shell: shell(&state.pool, user, &member.project_key)
             .await?
@@ -142,6 +197,7 @@ async fn load_page(
         project: projects::service::get_project(&state.pool, member).await?,
         members: crate::members::service::list_members(&state.pool, member).await?,
         backlog: boards::service::backlog(&state.pool, member, &filter).await?,
+        statuses: mapped.collect(),
         today: Utc::now().date_naive(),
         draft,
         refusal,
@@ -207,11 +263,15 @@ async fn backlog_page(
     State(state): State<AppState>,
     PageUser(user): PageUser,
     member: Member,
+    headers: HeaderMap,
 ) -> Result<Response, AppError> {
     if member.board_type == BoardType::Kanban {
         return Ok(Redirect::to(&board_path(&member.project_key)).into_response());
     }
     let page = load_page(&state, &user, &member, IssueDraft::default(), None).await?;
+    if wants_fragment(&headers) {
+        return render(StatusCode::OK, &page.as_backlog());
+    }
     render(StatusCode::OK, &page)
 }
 
@@ -277,6 +337,7 @@ async fn create_issue(
     let draft = IssueDraft {
         summary: input.summary,
         issue_type: input.issue_type,
+        sprint: input.sprint,
         errors,
     };
     let page = load_page(&state, &user, &member, draft, None).await?;

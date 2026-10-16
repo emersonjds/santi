@@ -2,6 +2,7 @@
 {% import "shared/ui.html" as ui %}
 {% block title %}Home{% endblock %}
 {% block main %}
+<div class="max-w-5xl">
 <h1 class="text-2xl font-semibold tracking-tight">Hi, {{ shell.display_name }}</h1>
 {%- if shell.projects.is_empty() %}
 <section class="mt-6 grid justify-items-center gap-2 rounded-lg border border-dashed border-border bg-sunken px-5 py-10 text-center" aria-labelledby="empty-title">
@@ -15,10 +16,11 @@
   <h2 class="text-lg font-semibold" id="projects-title">Your projects</h2>
   {{ ui::link_button("/projects/new", "plus", "New project") }}
 </div>
-<ul class="mt-4 grid gap-2 sm:grid-cols-2" aria-labelledby="projects-title">
+<ul class="mt-4 grid gap-2" aria-labelledby="projects-title">
   {%- for project in shell.projects %}
-  <li><a class="flex min-h-14 items-center gap-3 rounded-lg border border-border bg-raised px-4 hover:border-primary" href="/p/{{ project.key }}/board">{{ ui::avatar(project.name, "size-8 rounded-md") }}<span class="min-w-0 flex-1 truncate font-medium">{{ project.name }}</span><span class="text-xs tabular-nums text-text-subtle">{{ project.key }}</span></a></li>
+  <li><a class="flex min-h-14 items-center gap-3 rounded-lg border border-border bg-raised px-4 hover:border-primary" href="/p/{{ project.key }}/board">{{ ui::avatar(project.name, "size-8 rounded-md") }}<span class="min-w-0 flex-1 truncate font-medium">{{ project.name }}</span><span class="rounded-full border border-border px-2 py-0.5 text-xs font-semibold text-text-muted" title="Board type">{% if project.board_type == santi_types::projects::BoardType::Scrum %}Scrum{% else %}Kanban{% endif %}</span><span class="text-xs tabular-nums text-text-subtle">{{ project.key }}</span></a></li>
   {%- endfor %}
 </ul>
 {%- endif %}
+</div>
 {% endblock %}

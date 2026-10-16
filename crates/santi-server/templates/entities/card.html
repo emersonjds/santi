@@ -17,7 +17,7 @@
       {%- endif %}
       {{ issue::priority_glyph(card.priority) }}
       {%- if let Some(name) = card.assignee_name %}
-      <span class="grid size-6 place-items-center rounded-full bg-selected-strong text-[0.6875rem] font-bold text-primary" title="Assigned to {{ name }}">{{ crate::web::initials(name) }}</span>
+      {{ issue::assignee(name) }}
       {%- endif %}
     </span>
   </span>

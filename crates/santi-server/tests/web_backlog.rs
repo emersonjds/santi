@@ -71,8 +71,10 @@ async fn backlog_lists_sprint_sections_then_the_backlog_with_counts(pool: PgPool
     assert_eq!(section_keys(&html, &id), ["SANTI-1"]);
     assert_eq!(section_keys(&html, ""), ["SANTI-2", "SANTI-3"]);
     assert!(html.contains("Sprint 1"));
-    assert!(html.contains("1 issue · 3 points"));
-    assert!(html.contains("2 issues · 0 points"));
+    assert!(html.contains("1 issue<"));
+    assert!(html.contains(r#"aria-label="3 points""#));
+    assert!(html.contains("2 issues<"));
+    assert!(html.contains(r#"aria-label="0 points""#));
     assert!(html.contains(r#"id="backlog""#));
     assert!(html.contains(r#"draggable="true""#));
     assert!(html.contains(r#"data-move="/p/SANTI/issues/1/plan""#));
@@ -413,4 +415,87 @@ async fn strangers_and_anonymous_visitors_are_kept_out(pool: PgPool) {
     assert_eq!(post_for_bob.status(), StatusCode::NOT_FOUND);
     assert_eq!(anonymous.status(), StatusCode::SEE_OTHER);
     assert_eq!(location(&anonymous), "/login");
+}
+
+#[sqlx::test]
+async fn sections_carry_status_chips_estimates_and_drop_zones(pool: PgPool) {
+    let (ana, cookie) = backlog_owner(pool).await;
+    let running = ana.create_sprint("SANTI").await;
+    let empty = ana.create_sprint("SANTI").await;
+    let progress = ana.status_id("SANTI", "In Progress").await;
+    let epic = ana
+        .create_issue(
+            "SANTI",
+            json!({ "summary": "Sign in", "issue_type": "epic" }),
+        )
+        .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Form", "points": 2, "sprint_id": running["id"], "parent": epic["key"] }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Api", "points": 3, "sprint_id": running["id"], "status_id": progress }),
+    )
+    .await;
+    ana.post(
+        &format!("/api/projects/SANTI/sprints/{}/start", running["id"]),
+        json!({}),
+    )
+    .await;
+
+    let html = text(ana.send(page("/p/SANTI/backlog", Some(&cookie))).await).await;
+    let fragment = text(
+        ana.send(htmx(page("/p/SANTI/backlog", Some(&cookie))))
+            .await,
+    )
+    .await;
+
+    let (running, empty) = (running["id"].to_string(), empty["id"].to_string());
+    assert!(html.contains(r#"title="1 to do""#));
+    assert!(html.contains(r#"title="1 in progress""#));
+    assert!(!html.contains(" done\""));
+    assert!(html.contains("2 issues<"));
+    assert!(html.contains(r#"aria-label="5 points""#));
+    assert!(html.contains("2 of 2 issues visible · Estimate: 5 of 5"));
+    assert!(html.contains("In Progress</span>"));
+    assert!(html.contains(r#"title="Epic Sign in""#));
+    assert!(html.contains("Drag issues here to plan this sprint"));
+    assert!(html.contains("Add an issue before starting."));
+    assert!(html.contains(&format!(r#"<dialog id="complete-{running}""#)));
+    assert!(html.contains(&format!(
+        r#"commandfor="complete-{running}" command="show-modal""#
+    )));
+    assert!(html.contains(&format!(r#"<dialog id="start-{empty}""#)));
+    assert!(html.contains(&format!(r#"<dialog id="edit-{empty}""#)));
+    assert!(html.contains(&format!(r#"<dialog id="delete-{empty}""#)));
+    assert!(html.contains(&format!(r#"name="sprint" value="{running}""#)));
+    assert!(html.contains(
+        r##"href="/p/SANTI/issues/2" hx-get="/p/SANTI/issues/2" hx-target="#dialog-body" hx-swap="innerHTML" data-push"##
+    ));
+    assert!(fragment.trim_start().starts_with(r#"<div id="backlog""#));
+    assert!(fragment.contains(r#"hx-trigger="issue-saved from:body""#));
+    assert!(!fragment.contains("<html"));
+}
+
+#[sqlx::test]
+async fn inline_create_reopens_its_section_with_the_errors(pool: PgPool) {
+    let (ana, cookie) = backlog_owner(pool).await;
+    let planned = ana.create_sprint("SANTI").await;
+    let id = planned["id"].to_string();
+
+    let blank = ana
+        .send(form(
+            "/p/SANTI/backlog/issues",
+            &format!("summary=+&issue_type=bug&sprint={id}"),
+            Some(&cookie),
+        ))
+        .await;
+
+    assert_eq!(blank.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let html = text(blank).await;
+    assert!(html.contains(&format!(r#"id="create-{id}" class="mx-2" open"#)));
+    assert!(html.contains(&format!(r#"id="summary-{id}-error""#)));
+    assert!(html.contains(r#"value="bug" selected"#));
 }

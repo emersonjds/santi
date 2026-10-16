@@ -20,3 +20,13 @@
 {% macro points_pill(points) %}
 <span class="rounded-full bg-hover px-2 text-xs font-semibold tabular-nums text-text-muted" aria-label="{{ points }} points">{{ points }}</span>
 {% endmacro %}
+
+{% macro status_pill(status) %}
+<span class="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold {% if status.category == santi_types::boards::StatusCategory::Done %}bg-status-done-bg text-status-done{% else if status.category == santi_types::boards::StatusCategory::InProgress %}bg-status-progress-bg text-status-progress{% else %}bg-status-todo-bg text-status-todo{% endif %}">
+  {%- if status.category == santi_types::boards::StatusCategory::Done %}{{ ui::icon("circle-check", "size-3.5") }}{% else if status.category == santi_types::boards::StatusCategory::InProgress %}{{ ui::icon("circle-dot", "size-3.5") }}{% else %}{{ ui::icon("circle", "size-3.5") }}{% endif -%}
+  <span>{{ status.name }}</span></span>
+{% endmacro %}
+
+{% macro assignee(name) %}
+<span class="grid size-6 shrink-0 place-items-center rounded-full bg-selected-strong text-[0.6875rem] font-bold text-primary" title="Assigned to {{ name }}">{{ crate::web::initials(name) }}</span>
+{% endmacro %}
