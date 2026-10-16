@@ -18,7 +18,7 @@ const register = async (page: Page, name: string, email: string) => {
   ).toBeVisible()
 }
 
-test('an admin adds a Review column with a WIP limit and maps a new status into it; a member gets 403', async ({
+test('an admin adds a Review column with a WIP limit and maps a new status into it; a member gets only the danger zone', async ({
   page,
   browser,
 }) => {
@@ -94,12 +94,12 @@ test('an admin adds a Review column with a WIP limit and maps a new status into 
   await expect(review).toContainText('Max 2')
 
   await teammate.goto(`/p/${key}/settings`)
+  const danger = teammate.getByRole('region', { name: 'Danger zone' })
   await expect(
-    teammate.getByText('Only project admins can change settings.')
+    danger.getByRole('button', { name: 'Leave project' })
   ).toBeVisible()
+  await expect(danger.getByRole('button', { name: 'Archive' })).toHaveCount(0)
   await expect(
-    teammate
-      .getByRole('navigation', { name: 'Project views' })
-      .getByRole('link', { name: 'Settings' })
+    teammate.getByRole('heading', { name: 'Board settings' })
   ).toHaveCount(0)
 })

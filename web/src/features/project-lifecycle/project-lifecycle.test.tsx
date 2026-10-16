@@ -56,7 +56,9 @@ describe('project lifecycle: danger zone', () => {
       .element(zone.getByRole('button', { name: 'Archive' }))
       .toBeEnabled()
     await expect
-      .element(zone.getByText('Moves to trash for 60 days; you can restore it.'))
+      .element(
+        zone.getByText('Moves to trash for 60 days; you can restore it.')
+      )
       .toBeVisible()
     await expect
       .element(zone.getByRole('button', { name: 'Delete project' }))
@@ -85,7 +87,9 @@ describe('project lifecycle: danger zone', () => {
 
     await expect.element(screen.getByText('You left Operations.')).toBeVisible()
     expect(router.state.location.pathname).toBe('/')
-    expect(requests.map(routeOf)).toContain('DELETE /api/projects/OPS/members/1')
+    expect(requests.map(routeOf)).toContain(
+      'DELETE /api/projects/OPS/members/1'
+    )
   })
 
   it('archives: lands on /projects, out of the lists, and Undo brings it back', async () => {
