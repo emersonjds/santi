@@ -13,6 +13,7 @@ use super::{domain, service};
 use crate::AppState;
 use crate::error::AppError;
 use crate::extract::{JsonBody, PathParams};
+use crate::rate_limit::{Action, ClientIp};
 
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
@@ -28,11 +29,14 @@ pub fn router() -> OpenApiRouter<AppState> {
     responses(
         (status = 201, body = User, description = "Signed up and signed in; sets the session cookie"),
         (status = 409, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json")))]
+        (status = 422, body = Problem, content_type = "application/problem+json"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn register(
     State(state): State<AppState>,
+    ClientIp(address): ClientIp,
     JsonBody(input): JsonBody<Register>,
 ) -> Result<impl IntoResponse, AppError> {
+    state.limits.check(Action::Register, address, None)?;
     let (user, session) = service::register(&state.pool, input).await?;
     Ok((
         StatusCode::CREATED,
@@ -44,12 +48,18 @@ pub async fn register(
 #[utoipa::path(post, path = "/api/auth/login", tag = "auth", request_body = Login,
     responses(
         (status = 200, body = User, description = "Signed in; sets the session cookie"),
-        (status = 401, body = Problem, content_type = "application/problem+json")))]
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn login(
     State(state): State<AppState>,
+    ClientIp(address): ClientIp,
     JsonBody(input): JsonBody<Login>,
 ) -> Result<impl IntoResponse, AppError> {
+    state.limits.check(Action::Login, address, None)?;
+    let email = input.email.trim().to_lowercase();
+    state.limits.login_attempt(&email)?;
     let (user, session) = service::login(&state.pool, input).await?;
+    state.limits.login_succeeded(&email);
     Ok(([(SET_COOKIE, domain::session_cookie(&session))], Json(user)))
 }
 
@@ -80,12 +90,15 @@ pub async fn me(State(state): State<AppState>, user: CurrentUser) -> Result<Json
     responses(
         (status = 201, body = CreatedToken, description = "The token is shown only in this response"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json")))]
+        (status = 422, body = Problem, content_type = "application/problem+json"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn create_token(
     State(state): State<AppState>,
+    ClientIp(address): ClientIp,
     user: CurrentUser,
     JsonBody(input): JsonBody<CreateToken>,
 ) -> Result<(StatusCode, Json<CreatedToken>), AppError> {
+    state.limits.check(Action::Token, address, Some(user.id))?;
     let created = service::create_token(&state.pool, &user, input).await?;
     Ok((StatusCode::CREATED, Json(created)))
 }
