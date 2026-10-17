@@ -4,13 +4,8 @@ import { issueCount } from '@/entities/issue/labels'
 import { CATEGORY, type Category, type Status } from '@/entities/issue/statuses'
 import type { BacklogSection, Sprint } from '@/shared/api/client'
 import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
+import { day } from '@/shared/lib/sprint-dates'
 import { cn } from '@/shared/lib/utils'
-
-const day = (date: string) =>
-  new Date(`${date}T00:00`).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  })
 
 const BADGE = 'rounded-full px-2 py-0.5 text-xs font-semibold'
 

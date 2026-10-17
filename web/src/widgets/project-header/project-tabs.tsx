@@ -12,9 +12,14 @@ export const ProjectTabs = ({ project }: { project: Project }) => {
         Board
       </Link>
       {project.board_type === 'scrum' && (
-        <Link to='/p/$key/backlog' params={params} className={TAB}>
-          Backlog
-        </Link>
+        <>
+          <Link to='/p/$key/backlog' params={params} className={TAB}>
+            Backlog
+          </Link>
+          <Link to='/p/$key/reports' params={params} className={TAB}>
+            Reports
+          </Link>
+        </>
       )}
       <Link to='/p/$key/settings' params={params} className={TAB}>
         Settings

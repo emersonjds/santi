@@ -440,6 +440,57 @@ fn sprint_planning_from_create_to_complete() {
 }
 
 #[test]
+fn sprints_report_prints_text_and_json() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "REP", "scrum");
+    let sprint = json(santi.with(&token).args(["sprints", "create", "REP"]));
+    let id = sprint["id"].as_i64().unwrap().to_string();
+    santi
+        .with(&token)
+        .args([
+            "issues",
+            "create",
+            "REP",
+            "--summary",
+            "Report me",
+            "--points",
+            "3",
+            "--sprint",
+            &id,
+        ])
+        .assert()
+        .success();
+    santi
+        .with(&token)
+        .args(["sprints", "start", "REP", &id])
+        .assert()
+        .success();
+    santi
+        .with(&token)
+        .args(["sprints", "complete", "REP", &id])
+        .assert()
+        .success();
+
+    santi
+        .with(&token)
+        .args(["sprints", "report", "REP", &id])
+        .assert()
+        .success()
+        .stdout(contains("Committed 3 · Completed —"))
+        .stdout(contains("Not completed — 1 issue, 3 → 3 points"))
+        .stdout(contains("REP-1 Report me (Story, To Do) 3 → 3"));
+    let report = json(santi.with(&token).args(["sprints", "report", "REP", &id]));
+    let api = server().get(&token, &format!("/api/projects/REP/sprints/{id}/report"));
+    assert_eq!(report, api);
+    santi
+        .with(&token)
+        .args(["sprints", "report", "REP", "999999"])
+        .assert()
+        .failure();
+}
+
+#[test]
 fn import_previews_then_asks_before_writing() {
     let santi = Santi::new();
     let token = server().user();
