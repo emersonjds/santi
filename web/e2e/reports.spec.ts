@@ -130,6 +130,41 @@ test('the reports tab lists the running sprint first, then the completed one, wi
   const table = page.getByRole('table', { name: 'Velocity by sprint' })
   await expect(table.getByRole('row').nth(1)).toHaveText('Sprint 183')
   await expect(table.getByRole('row').last()).toHaveText('Average3')
+
+  await rows.nth(1).getByRole('link', { name: 'Sprint 1' }).click()
+  await expect(page).toHaveURL(new RegExp(`/p/${key}/reports/${first}$`))
+  const title = page.getByRole('heading', { name: 'Sprint 1', level: 1 })
+  await expect(title).toBeVisible()
+  const completed = page.getByRole('region', { name: 'Completed', exact: true })
+  await expect(completed.getByRole('listitem')).toContainText('Alpha task')
+  await expect(completed).toContainText('3 → 3 points')
+  await expect(
+    page.getByRole('region', { name: 'Not completed' }).getByRole('listitem')
+  ).toContainText('Beta task')
+  await expect(
+    page.getByRole('region', { name: 'Removed from sprint' })
+  ).toContainText('No issues')
+  await shoot(page, 'report-closed')
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  const next = page.getByRole('button', { name: 'Next sprint' })
+  await next.click()
+  await expect(
+    page.getByRole('heading', { name: 'Sprint 2', level: 1 })
+  ).toBeVisible()
+  await expect(page.getByText('Updates as the sprint moves.')).toBeVisible()
+  await expect(next).toHaveAttribute('aria-disabled', 'true')
+  await expect(next).toBeFocused()
+  await expect(
+    page.getByRole('status').filter({ hasText: 'Now showing Sprint 2' })
+  ).toBeAttached()
+  await shoot(page, 'report-active')
+
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.getByRole('button', { name: 'Previous sprint' }).click()
+  await expect(title).toBeVisible()
+  await completed.getByRole('link', { name: `${key}-1` }).click()
+  await expect(page.getByRole('dialog', { name: `${key}-1` })).toBeVisible()
 })
 
 test('a project with no started sprint points to the backlog', async ({
