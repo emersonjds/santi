@@ -3938,6 +3938,15 @@ export interface operations {
                     "application/json": components["schemas"]["Page_SprintTotals"];
                 };
             };
+            /** @description Unparsable query value */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4361,6 +4370,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SprintReport"];
+                };
+            };
+            /** @description Unparsable sprint id */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: {

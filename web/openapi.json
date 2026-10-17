@@ -3083,6 +3083,16 @@
               }
             }
           },
+          "400": {
+            "description": "Unparsable query value",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "401": {
             "content": {
               "application/problem+json": {
@@ -3634,6 +3644,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SprintReport"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unparsable sprint id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
