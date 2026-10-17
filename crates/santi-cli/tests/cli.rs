@@ -478,7 +478,7 @@ fn sprints_report_prints_text_and_json() {
         .assert()
         .success()
         .stdout(contains("Committed 3 · Completed —"))
-        .stdout(contains("Not completed — 1 issues, 3 → 3 points"))
+        .stdout(contains("Not completed — 1 issue, 3 → 3 points"))
         .stdout(contains("REP-1 Report me (Story, To Do) 3 → 3"));
     let report = json(santi.with(&token).args(["sprints", "report", "REP", &id]));
     let api = server().get(&token, &format!("/api/projects/REP/sprints/{id}/report"));
