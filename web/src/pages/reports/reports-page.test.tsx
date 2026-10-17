@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { type Locator, page } from 'vitest/browser'
 import type { Sprint, SprintTotals } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { WEB, inProjects, problem, routeOf } from '@/test/stub-api'
+import {
+  WEB,
+  inProjects,
+  problem,
+  routeOf,
+  sprintReport,
+} from '@/test/stub-api'
 
 const HISTORY = 'GET /api/projects/WEB/reports/sprints'
 const VELOCITY = 'GET /api/projects/WEB/reports/velocity'
@@ -76,6 +82,29 @@ describe('reports page', () => {
     const goal = rows.first().getByTitle(GOAL)
     await expect.element(goal).toHaveTextContent(GOAL)
     await expect.element(goal).toHaveClass('truncate')
+  })
+
+  it('opens a sprint report from anywhere on its row', async () => {
+    inProjects({
+      [HISTORY]: page1([ACTIVE, ...CLOSED]),
+      [VELOCITY]: VELOCITY_OK,
+      'GET /api/projects/WEB/sprints/3/report': {
+        status: 200,
+        body: sprintReport(3),
+      },
+    })
+    const { screen, router } = await renderApp('/p/WEB/reports')
+
+    const row = sprints(screen).getByRole('listitem').nth(1)
+    const link = row.getByRole('link', { name: 'Sprint 3' })
+    await expect.element(link).toHaveAttribute('href', '/p/WEB/reports/3')
+    const box = row.element().getBoundingClientRect()
+    await row.click({ position: { x: box.width - 8, y: box.height / 2 } })
+
+    await expect
+      .element(screen.getByRole('heading', { name: 'Sprint 3', level: 1 }))
+      .toBeVisible()
+    expect(router.state.location.pathname).toBe('/p/WEB/reports/3')
   })
 
   it('points to the backlog when no sprint has started', async () => {
