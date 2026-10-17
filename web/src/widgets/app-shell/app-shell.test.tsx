@@ -29,6 +29,36 @@ describe('app shell', () => {
       .not.toHaveAttribute('aria-current')
   })
 
+  it('keeps the top bar above backlog rows that scroll under it', async () => {
+    await page.viewport(1280, 150)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const header = screen.getByRole('banner')
+    await expect.element(header).toBeVisible()
+    const row = screen
+      .getByRole('region', { name: 'Backlog' })
+      .getByRole('listitem')
+      .first()
+    await expect.element(row).toBeVisible()
+
+    const bar = header.element().getBoundingClientRect()
+    window.scrollBy(0, row.element().getBoundingClientRect().top - bar.top - 4)
+    expect(row.element().getBoundingClientRect().top).toBeLessThan(bar.bottom)
+    const controls = [...row.element().querySelectorAll('button')]
+    const control = controls.at(-1)
+    if (!control) throw new Error('row has no buttons')
+    const box = control.getBoundingClientRect()
+    window.scrollBy(0, box.top - bar.top - 8)
+    const moved = control.getBoundingClientRect()
+    expect(moved.top).toBeLessThan(bar.bottom)
+    const hit = document.elementFromPoint(
+      moved.left + moved.width / 2,
+      moved.top + moved.height / 2
+    )
+
+    expect(header.element().contains(hit)).toBe(true)
+  })
+
   it('shows only the board for a kanban project', async () => {
     inProjects()
     const { screen } = await renderApp('/p/OPS/board')
