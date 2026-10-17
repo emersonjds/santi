@@ -8,9 +8,10 @@ const Probe = () => <p>{useProjectWritable('WEB') ? 'open' : 'locked'}</p>
 
 describe('useProjectWritable', () => {
   it('stays locked until the project says it is not archived', async () => {
-    const reply = Promise.withResolvers<void>()
+    let answer = () => {}
+    const until = new Promise<void>((resolve) => (answer = resolve))
     stubApi({
-      'GET /api/projects/WEB': { status: 200, body: WEB, until: reply.promise },
+      'GET /api/projects/WEB': { status: 200, body: WEB, until },
     })
     const screen = await render(
       <QueryClientProvider client={new QueryClient()}>
@@ -19,7 +20,7 @@ describe('useProjectWritable', () => {
     )
 
     await expect.element(screen.getByText('locked')).toBeVisible()
-    reply.resolve()
+    answer()
     await expect.element(screen.getByText('open')).toBeVisible()
   })
 })

@@ -197,7 +197,8 @@ const Columns = ({
       column={withSettingsLimit(column)}
       narrowHidden={column.id !== shown}
       menu={
-        limits && (
+        limits &&
+        writable && (
           <Suspense fallback={<span className='block size-11 md:size-8' />}>
             <ColumnLimit projectKey={projectKey} columnId={column.id} />
           </Suspense>
@@ -309,11 +310,7 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
             projectKey={projectKey}
             shown={shown}
             settings={settings}
-            limits={
-              board.board_type === 'kanban' &&
-              project?.role === 'admin' &&
-              project.state !== 'archived'
-            }
+            limits={board.board_type === 'kanban' && project?.role === 'admin'}
           />
         </WriteLock>
       </BoardContext>

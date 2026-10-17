@@ -3,8 +3,8 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { DoneWindow } from '@/features/board-settings/done-window'
 import { projectQuery } from '@/entities/project/project-queries'
-import { useProjectWritable } from '@/entities/project/writable'
 import { WriteLock } from '@/entities/project/write-lock'
+import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { DangerZone } from './danger-zone'
 
@@ -16,7 +16,7 @@ const LayoutEditor = lazy(() =>
 )
 
 const LINK =
-  'inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline'
+  'inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline aria-disabled:cursor-not-allowed aria-disabled:no-underline aria-disabled:opacity-50'
 
 /** IA §3, §9: columns, statuses and the done window for admins; the danger zone for everyone. */
 export const BoardSettingsPage = () => {
@@ -43,7 +43,7 @@ const BoardSettings = ({
   projectKey: string
   kanban: boolean
 }) => {
-  const writable = useProjectWritable(key)
+  const locked = lockedButton(useReadOnly())
   return (
     <>
       <div className='flex flex-wrap items-center justify-between gap-3'>
@@ -52,15 +52,14 @@ const BoardSettings = ({
           <Link to='/p/$key/settings/members' params={{ key }} className={LINK}>
             Members
           </Link>
-          {writable && (
-            <Link
-              to='/p/$key/settings/import'
-              params={{ key }}
-              className={LINK}
-            >
-              Import issues
-            </Link>
-          )}
+          <Link
+            to='/p/$key/settings/import'
+            params={{ key }}
+            className={LINK}
+            {...locked}
+          >
+            Import issues
+          </Link>
         </span>
       </div>
       <Suspense fallback={<Skeleton className='h-96' />}>

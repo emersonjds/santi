@@ -30,6 +30,9 @@ const writesOf = (requests: Request[]) =>
     .map(routeOf)
     .filter((route) => !/\/(visit|view)$/.test(route))
 
+/** Lets a lazy dialog whose chunk is already loaded mount, had the click opened it. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 100))
+
 const expectLocked = async (control: Locator) => {
   await expect.element(control).toHaveAttribute('aria-disabled', 'true')
   await expect.element(control).toHaveAttribute('aria-describedby', NOTE)
@@ -76,9 +79,10 @@ describe('an archived project (SAN-70 Q3)', () => {
 
     expect(board.getByRole('button', { name: /^Drag / }).elements()).toEqual([])
     expect(board.getByText('Drop issues here').elements()).toEqual([])
-    expect(
-      board.getByRole('button', { name: 'Create issue' }).elements()
-    ).toEqual([])
+    const create = board.getByRole('button', { name: 'Create issue' }).first()
+    await expectLocked(create)
+    await create.click(FORCE)
+    await expectLocked(create)
     expect(writesOf(requests)).toEqual([])
   })
 
@@ -116,6 +120,7 @@ describe('an archived project (SAN-70 Q3)', () => {
 
   it('keeps the backlog readable with rows, sprints and epics locked', async () => {
     const requests = archived()
+    await import('@/features/sprint/sprint-dialog')
     const { screen } = await renderApp('/p/WEB/backlog?panel=epics')
     const backlog = screen.getByRole('region', { name: 'Backlog' })
 
@@ -132,8 +137,11 @@ describe('an archived project (SAN-70 Q3)', () => {
     const complete = screen.getByRole('button', { name: 'Complete sprint' })
     await expectLocked(complete)
     await complete.click(FORCE)
+    await settle()
+    expect(screen.getByRole('dialog').elements()).toEqual([])
     await expectLocked(screen.getByRole('button', { name: 'Create sprint' }))
     await screen.getByRole('button', { name: 'Create sprint' }).click(FORCE)
+    await settle()
     expect(screen.getByRole('dialog').elements()).toEqual([])
     await expectLocked(
       screen.getByRole('button', { name: 'Add dates' }).first()
@@ -197,22 +205,22 @@ describe('an archived project (SAN-70 Q3)', () => {
       .element(screen.getByRole('textbox', { name: 'Add a comment' }))
       .toHaveAttribute('readonly')
     await expectLocked(screen.getByRole('button', { name: 'Comment' }))
-    await screen.getByRole('button', { name: 'Comment' }).click(FORCE)
     await expect
       .element(screen.getByText('Draft is in the shared doc.'))
       .toBeVisible()
     await expect
       .element(screen.getByRole('button', { name: 'Copy link' }))
       .not.toHaveAttribute('aria-disabled')
-    expect(
-      screen.getByRole('button', { name: /^More actions/ }).elements()
-    ).toEqual([])
+    const more = screen.getByRole('button', { name: 'More actions' })
+    await expectLocked(more)
+    await more.click(FORCE)
+    expect(screen.getByRole('menu').elements()).toEqual([])
     expect(writesOf(requests)).toEqual([])
   })
 
   it('locks the board settings editors but keeps the danger zone', async () => {
     const requests = archived()
-    const { screen } = await renderApp('/p/WEB/settings')
+    const { screen, router } = await renderApp('/p/WEB/settings')
 
     const name = screen.getByRole('textbox', { name: 'Name of column To do' })
     await expect.element(name).toHaveAttribute('readonly')
@@ -231,9 +239,16 @@ describe('an archived project (SAN-70 Q3)', () => {
     await expectLocked(
       screen.getByRole('button', { name: 'Delete status In review' })
     )
-    expect(
-      screen.getByRole('link', { name: 'Import issues' }).elements()
-    ).toEqual([])
+    const chip = screen
+      .getByRole('list', { name: 'Statuses in In progress' })
+      .getByRole('listitem')
+      .first()
+    await expect.element(chip).toBeVisible()
+    expect(getComputedStyle(chip.element()).cursor).not.toBe('grab')
+    const importLink = screen.getByRole('link', { name: 'Import issues' })
+    await expectLocked(importLink)
+    await importLink.click(FORCE)
+    expect(router.state.location.pathname).toBe('/p/WEB/settings')
     await expect
       .element(screen.getByRole('button', { name: 'Delete project' }))
       .not.toHaveAttribute('aria-disabled')
@@ -265,6 +280,7 @@ describe('an archived project (SAN-70 Q3)', () => {
       .element(screen.getByText('Unarchive the project to import issues.'))
       .toBeVisible()
     expect(screen.getByText('Choose a CSV file').elements()).toEqual([])
+    expect(screen.getByText(/^Step \d of 3$/).elements()).toEqual([])
     expect(writesOf(requests)).toEqual([])
   })
 })

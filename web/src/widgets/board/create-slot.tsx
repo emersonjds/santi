@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react'
 import { Plus } from 'lucide-react'
-import { useProjectWritable } from '@/entities/project/writable'
+import { ARCHIVED_NOTE, useProjectWritable } from '@/entities/project/writable'
+import { lockedButton } from '@/shared/lib/read-only'
 
 const InlineCreate = lazy(() =>
   import('@/features/create-issue/inline-create').then((module) => ({
@@ -29,13 +30,13 @@ export const CreateSlot = ({
   setOpen,
 }: CreateSlotProps) => {
   const writable = useProjectWritable(projectKey)
-  if (!writable) return null
-  if (!open)
+  if (!open || !writable)
     return (
       <button
         type='button'
-        className={`${CREATE_ROW} outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring`}
+        className={`${CREATE_ROW} outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground`}
         onClick={() => setOpen(true)}
+        {...lockedButton(writable ? undefined : ARCHIVED_NOTE)}
       >
         <Plus className='size-4' />
         Create issue
