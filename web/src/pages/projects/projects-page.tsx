@@ -10,7 +10,9 @@ import { timeAgo } from '@/entities/issue/time-ago'
 import { BOARD_TYPE_LABEL } from '@/entities/project/labels'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { projectsInStateQuery } from '@/entities/project/project-queries'
+import { UserAvatar } from '@/entities/user/user-avatar'
 import type { MyProject, Project } from '@/shared/api/client'
+import { fullName, shortName } from '@/shared/lib/initials'
 import { moveTabFocus } from '@/shared/lib/move-tab-focus'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
@@ -56,7 +58,16 @@ const ProjectRow = ({ project }: { project: MyProject }) => (
     <td className={`${WIDE} px-3`}>
       Software · {BOARD_TYPE_LABEL[project.board_type]}
     </td>
-    <td className={`${WIDE} truncate px-3`}>{project.lead_name}</td>
+    <td className={`${WIDE} px-3`}>
+      {project.lead_name && (
+        <span className='flex min-w-0 items-center gap-2'>
+          <UserAvatar name={project.lead_name} />
+          <span className='truncate' title={fullName(project.lead_name)}>
+            {shortName(project.lead_name)}
+          </span>
+        </span>
+      )}
+    </td>
   </tr>
 )
 
@@ -97,8 +108,12 @@ const Projects = () => {
   )
 }
 
-const whenBy = (at?: string | null, by?: string | null) =>
-  at ? `${timeAgo(at)}${by ? ` by ${by}` : ''}` : ''
+const WhenBy = ({ at, by }: { at?: string | null; by?: string | null }) =>
+  at && (
+    <span title={by ? fullName(by) : undefined}>
+      {`${timeAgo(at)}${by ? ` by ${shortName(by)}` : ''}`}
+    </span>
+  )
 
 const daysLeft = (purgeAt?: string | null) => {
   if (!purgeAt) return ''
@@ -137,9 +152,11 @@ const LifecycleRow = ({ project }: { project: Project }) => {
       <NameCell project={project} />
       <td className={`${WIDE} px-3 tabular-nums`}>{project.key}</td>
       <td className={`${WIDE} px-3`}>
-        {trashed
-          ? whenBy(project.trashed_at, project.trashed_by)
-          : whenBy(project.archived_at, project.archived_by)}
+        {trashed ? (
+          <WhenBy at={project.trashed_at} by={project.trashed_by} />
+        ) : (
+          <WhenBy at={project.archived_at} by={project.archived_by} />
+        )}
       </td>
       {trashed && (
         <td className='px-3 tabular-nums'>{daysLeft(project.purge_at)}</td>
@@ -193,7 +210,7 @@ const LifecycleProjects = ({ tab }: { tab: 'archived' | 'trash' }) => {
           <tr>
             <th className={HEAD}>Name</th>
             <th className={`${HEAD} ${WIDE} w-24`}>Key</th>
-            <th className={`${HEAD} ${WIDE} w-48`}>
+            <th className={`${HEAD} ${WIDE} w-60`}>
               {trash ? 'Trashed' : 'Archived'}
             </th>
             {trash && <th className={`${HEAD} w-24`}>Days left</th>}
