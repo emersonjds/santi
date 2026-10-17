@@ -10,6 +10,15 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-16
+
+> Create sprint stands out: the backlog's Create sprint is now its primary action.
+
+### Changed
+
+- **Backlog:** Create sprint is a filled purple button with a + icon, the primary action of the
+  backlog section (each sprint section keeps its own Start or Complete as primary).
+
 ## [0.7.0] - 2026-10-16
 
 > Sidebar project menu: expand any project and reach Copy link, Settings, Archive, Delete or Leave from its row.
@@ -192,7 +201,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/emersonjds/santi/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/emersonjds/santi/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/emersonjds/santi/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/emersonjds/santi/compare/v0.5.0...v0.5.1
