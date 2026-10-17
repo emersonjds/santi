@@ -39,7 +39,12 @@ import {
   epicsQuery,
   issueNumber,
 } from './board-query'
-import { commentsQuery, issueQuery, subtasksQuery } from './issue-queries'
+import {
+  commentsQuery,
+  issueQuery,
+  issuesKey,
+  subtasksQuery,
+} from './issue-queries'
 import { statusesOf } from './statuses'
 
 const useBoardWrite = <Variables>(
@@ -50,7 +55,7 @@ const useBoardWrite = <Variables>(
 ) =>
   useOptimisticWrite({
     queryKey: boardsKey(projectKey),
-    refresh: [backlogKey(projectKey)],
+    refresh: [backlogKey(projectKey), issuesKey(projectKey)],
     write,
     change,
     failure,
@@ -154,7 +159,7 @@ export const useUpdateIssue = (projectKey: string) =>
 export const useUpdateRow = (projectKey: string) =>
   useOptimisticWrite<Backlog, CardUpdate>({
     queryKey: backlogKey(projectKey),
-    refresh: [boardsKey(projectKey)],
+    refresh: [boardsKey(projectKey), issuesKey(projectKey)],
     write: async ({ card, change }) =>
       dataOrThrow(
         await api.PATCH('/api/projects/{key}/issues/{number}', {
@@ -215,7 +220,7 @@ export const useDeleteIssue = (projectKey: string) => {
           boards,
           backlog,
           epicsQuery(projectKey).queryKey,
-          ['projects', projectKey, 'issues'],
+          issuesKey(projectKey),
         ].map((queryKey) => queryClient.invalidateQueries({ queryKey }))
       ),
   })

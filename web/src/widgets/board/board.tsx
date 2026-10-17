@@ -139,6 +139,7 @@ type BoardCardProps = {
 
 const BoardCard = memo(
   ({ card, projectKey, writable, onDelete }: BoardCardProps) => {
+    // ponytail: two mutation observers per card (points, priority); hoist one into Columns and pass `mutate` down if a large board's render cost shows it.
     const fields = { card, projectKey, useUpdate: useUpdateIssue }
     return (
       <IssueCard

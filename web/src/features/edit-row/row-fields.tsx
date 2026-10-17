@@ -1,4 +1,4 @@
-import type { KeyboardEvent, ReactNode } from 'react'
+import type { KeyboardEvent, PointerEvent, ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
 import { PointsPill } from '@/entities/issue/issue-card'
@@ -25,6 +25,9 @@ const HIT =
 
 const INPUT =
   'relative z-10 h-8 rounded-md border border-input bg-background px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
+/** A press on a field stays off the card's drag handle. */
+const holdPress = (event: PointerEvent) => event.stopPropagation()
 
 const commitKeys =
   (old: string) => (event: KeyboardEvent<HTMLInputElement>) => {
@@ -98,6 +101,7 @@ export const RowPoints = ({
             : `${card.points} points`
         }
         onClick={() => editor.start(pointsText(card.points))}
+        onPointerDown={holdPress}
         className={`${HIT} rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       >
         <PointsPill points={card.points} />
@@ -112,8 +116,10 @@ export const RowPoints = ({
       step='any'
       inputMode='decimal'
       className={`${INPUT} w-20`}
+      onPointerDown={holdPress}
       onKeyDown={commitKeys(pointsText(card.points))}
       onBlur={(event) => {
+        if (event.currentTarget.validity.badInput) return editor.stop()
         const text = event.currentTarget.value
         const points = text === '' ? null : Number(text)
         if (text !== pointsText(card.points) && (points ?? 0) >= 0)
@@ -181,6 +187,7 @@ export const RowPriority = ({
       <select
         aria-label={`Priority of ${card.key}`}
         value={card.priority}
+        onPointerDown={holdPress}
         onChange={(event) => {
           const priority = event.target.value
           if (isPriority(priority))
