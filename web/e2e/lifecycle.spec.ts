@@ -78,3 +78,37 @@ test('archive is read-only until unarchived; trash leaves the sidebar until rest
   await expect(page.getByText('Nothing in the trash')).toBeVisible()
   await expect(inSidebar).toBeVisible()
 })
+
+test('expands another project from its sidebar row and copies its link', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const keys = [0, 1].map(
+    (index) => `S${index}${unique().slice(-5).toUpperCase()}`
+  )
+  await register(page)
+  for (const key of keys) {
+    await page.goto('/projects/new')
+    await page.getByLabel('Name').fill(`Sidebar ${key}`)
+    await page.getByLabel('Key').fill(key)
+    await page.getByRole('radio', { name: /Kanban/ }).check()
+    await page.getByRole('button', { name: 'Create project' }).click()
+    await expect(page).toHaveURL(new RegExp(`/p/${key}/board$`))
+  }
+  const sidebar = page.getByRole('navigation', { name: 'Projects and pages' })
+  const other = `Sidebar ${keys[0]}`
+
+  const chevron = sidebar.getByRole('button', { name: `Toggle ${other}` })
+  await expect(chevron).toHaveAttribute('aria-expanded', 'false')
+  await chevron.click()
+  await expect(chevron).toHaveAttribute('aria-expanded', 'true')
+  await expect(sidebar.locator(`a[href="/p/${keys[0]}/board"]`)).toBeVisible()
+
+  await sidebar.getByRole('button', { name: `Actions for ${other}` }).click()
+  await page.getByRole('menuitem', { name: 'Copy link' }).click()
+  await expect(page.getByText(`Copied the link to ${keys[0]}`)).toBeVisible()
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    new URL(`/p/${keys[0]}`, page.url()).href
+  )
+})
