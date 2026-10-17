@@ -27,6 +27,7 @@ import {
   AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog'
 import { Button } from '@/shared/ui/button'
+import { NativeSelect } from '@/shared/ui/native-select'
 import { RootError } from '@/shared/ui/root-error'
 
 type ControlProps = { projectKey: string; member: Member; locked: boolean }
@@ -88,21 +89,20 @@ export const RoleSelect = ({ projectKey, member, locked }: ControlProps) => {
   )
   return (
     <>
-      <select
+      <NativeSelect
         aria-label={`Role of ${member.display_name}`}
         value={member.role}
         disabled={locked || change.isPending}
         onChange={(event) =>
           change.mutate(event.target.value === 'admin' ? 'admin' : 'member')
         }
-        className='h-11 rounded-md border border-input bg-background px-2 text-base disabled:opacity-60 md:h-9 md:text-sm'
       >
         {(['admin', 'member'] as const).map((role) => (
           <option key={role} value={role}>
             {ROLE_LABEL[role]}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       {change.error && (
         <span className='basis-full'>
           <RootError message={change.error.message} />

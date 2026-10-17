@@ -8,6 +8,7 @@ import {
   type Status,
   isCategory,
 } from '@/entities/issue/statuses'
+import { useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
@@ -20,9 +21,10 @@ export const ICON = 'size-11 md:size-9'
 
 /** Not focusable, so pointer drag only: the keyboard (and a phone) maps a status with its column select. */
 const StatusChip = ({ status }: { status: Status }) => {
+  const locked = useReadOnly() !== undefined
   const { listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `${STATUS}${status.id}`,
-    disabled: isPending(status),
+    disabled: locked || isPending(status),
   })
   return (
     <li
@@ -34,7 +36,8 @@ const StatusChip = ({ status }: { status: Status }) => {
           : undefined,
       }}
       className={cn(
-        'cursor-grab rounded-full',
+        'rounded-full',
+        !locked && 'cursor-grab',
         isDragging && 'relative z-10 cursor-grabbing shadow-lg'
       )}
     >
