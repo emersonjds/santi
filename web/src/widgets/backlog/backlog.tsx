@@ -12,6 +12,7 @@ import { Layers } from 'lucide-react'
 import { CreateSlot } from '@/widgets/board/create-slot'
 import { FilterBar } from '@/widgets/board/filter-bar'
 import { TOGGLE } from '@/widgets/board/filter-controls'
+import { RowEditorsProvider } from '@/features/edit-row/row-fields'
 import { useAssignKey } from '@/features/issue-quick-actions/assign-key'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { backlogQuery } from '@/entities/issue/backlog-query'
@@ -281,20 +282,22 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   // Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads.
   return (
     <BacklogContext value={backlog}>
-      {narrow ? (
-        frame(plain)
-      ) : (
-        <Suspense fallback={frame(plain)}>
-          <SortableBacklog
-            backlog={backlog}
-            projectKey={projectKey}
-            frame={frame}
-            renderSection={renderSection}
-            renderList={renderList}
-            renderRow={renderRow}
-          />
-        </Suspense>
-      )}
+      <RowEditorsProvider>
+        {narrow ? (
+          frame(plain)
+        ) : (
+          <Suspense fallback={frame(plain)}>
+            <SortableBacklog
+              backlog={backlog}
+              projectKey={projectKey}
+              frame={frame}
+              renderSection={renderSection}
+              renderList={renderList}
+              renderRow={renderRow}
+            />
+          </Suspense>
+        )}
+      </RowEditorsProvider>
       {dialog && (
         <Suspense fallback={null}>
           <SprintDialog
