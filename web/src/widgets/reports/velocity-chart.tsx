@@ -89,7 +89,7 @@ export const VelocityChart = ({ velocity }: { velocity: Velocity }) => {
     <div className={`${FRAME} grid content-start gap-2`}>
       <p className='flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground'>
         <span className='inline-flex items-center gap-1.5'>
-          <Swatch className='bg-muted-foreground/40' />
+          <Swatch className='bg-input' />
           Committed
         </span>
         <span className='inline-flex items-center gap-1.5'>
@@ -115,7 +115,7 @@ export const VelocityChart = ({ velocity }: { velocity: Velocity }) => {
           {sprints.map(({ sprint, committed, completed }, index) => (
             <g key={sprint.id}>
               <rect
-                className='fill-muted-foreground/40'
+                className='fill-input'
                 x={index * SLOT + 8}
                 y={top(committed ?? 0)}
                 width={11}
