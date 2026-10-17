@@ -274,11 +274,13 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
       </Fact>
       <Field label='Priority' {...field}>
         {(save, id) => (
-          <span className='flex min-w-0 items-center gap-2'>
-            <PriorityGlyph priority={issue.priority} />
+          <span className='relative min-w-0'>
+            <span className='pointer-events-none absolute start-2 top-1/2 z-10 flex -translate-y-1/2 md:-start-5'>
+              <PriorityGlyph priority={issue.priority} />
+            </span>
             <NativeSelect
               id={id}
-              className={cn(SELECT, 'min-w-0')}
+              className={cn(SELECT, 'min-w-0 ps-8 md:ps-2')}
               value={issue.priority}
               onChange={(event) => {
                 const priority = event.target.value

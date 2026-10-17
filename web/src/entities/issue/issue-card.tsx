@@ -8,7 +8,7 @@ import { PriorityGlyph, TypeGlyph } from './issue-glyphs'
 import { timeAgo } from './time-ago'
 
 /** The list a column draws its cards in; the drag layer reuses it so nothing shifts when it loads. */
-export const CARD_LIST = 'grid min-h-16 content-start gap-2 px-2 pb-2'
+export const CARD_LIST = 'grid min-h-16 grid-cols-1 content-start gap-2 px-2 pb-2'
 
 export const EmptySlot = () => (
   <li className='rounded-md border border-dashed border-input px-3 py-4 text-center text-sm text-subtle-foreground'>
