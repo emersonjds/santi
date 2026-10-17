@@ -283,6 +283,7 @@ async fn sprints(client: &Client, command: SprintsCommand, json: bool) -> Result
             let dates = StartSprint {
                 starts_at: start.map(|day| day.and_time(NaiveTime::MIN).and_utc()),
                 ends_at: end.map(|day| day.and_hms_opt(23, 59, 0).expect("23:59 exists").and_utc()),
+                length: None,
             };
             client.start_sprint(&project, sprint, &dates).await?
         }

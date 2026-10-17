@@ -483,3 +483,64 @@ async fn migration_0020_uses_utc_without_a_database_zone(pool: PgPool) {
         )
     );
 }
+
+async fn remembered_length(app: &TestApp) -> Value {
+    app.get("/api/projects/SANTI/backlog").await.1["sprint_length"].clone()
+}
+
+#[sqlx::test]
+async fn start_remembers_the_length_for_the_board(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let window = |length: &str| {
+        json!({
+            "starts_at": "2026-10-16T09:00:00Z",
+            "ends_at": "2026-10-17T09:00:00Z",
+            "length": length,
+        })
+    };
+    assert_eq!(remembered_length(&ana).await, Value::Null);
+
+    let first = sprint_with_issues(&ana, &["a"]).await;
+    let (status, started) = start(&ana, &first, window("1d")).await;
+    assert_eq!(status, StatusCode::OK, "{started}");
+    assert_eq!(remembered_length(&ana).await, "1d");
+
+    complete(&ana, &first, json!({ "to": "backlog" })).await;
+    let second = sprint_with_issues(&ana, &["b"]).await;
+    assert_eq!(start(&ana, &second, json!({})).await.0, StatusCode::OK);
+    assert_eq!(remembered_length(&ana).await, "1d");
+
+    complete(&ana, &second, json!({ "to": "backlog" })).await;
+    let third = sprint_with_issues(&ana, &["c"]).await;
+    assert_eq!(start(&ana, &third, window("90")).await.0, StatusCode::OK);
+    assert_eq!(remembered_length(&ana).await, "90");
+}
+
+#[sqlx::test]
+async fn length_without_an_end_is_refused(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = sprint_with_issues(&ana, &["x"]).await;
+
+    let (status, problem) = start(&ana, &sprint, json!({ "length": "1d" })).await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+    assert_eq!(problem["errors"][0]["field"], "length");
+    let (_, sprints) = ana.get("/api/projects/SANTI/sprints").await;
+    assert_eq!(sprints[0]["state"], "future");
+    assert_eq!(remembered_length(&ana).await, Value::Null);
+}
+
+#[sqlx::test]
+async fn unknown_length_is_refused(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = sprint_with_issues(&ana, &["x"]).await;
+
+    let (status, _) = start(
+        &ana,
+        &sprint,
+        json!({ "ends_at": "2026-12-01T00:00:00Z", "length": "3w" }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}

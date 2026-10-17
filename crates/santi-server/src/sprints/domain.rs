@@ -1,7 +1,7 @@
 use chrono::{DateTime, TimeDelta, Utc};
 use santi_types::issues::IssueType;
 use santi_types::projects::BoardType;
-use santi_types::sprints::{Sprint, SprintState};
+use santi_types::sprints::{Sprint, SprintLength, SprintState};
 
 use crate::error::{AppError, reject_nul};
 
@@ -55,6 +55,16 @@ pub fn check_window(
         && end <= start
     {
         return Err(AppError::invalid("ends_at", "must be after the start"));
+    }
+    Ok(())
+}
+
+pub fn check_length(
+    length: Option<SprintLength>,
+    ends_at: Option<DateTime<Utc>>,
+) -> Result<(), AppError> {
+    if length.is_some() && ends_at.is_none() {
+        return Err(AppError::invalid("length", "needs ends_at"));
     }
     Ok(())
 }
@@ -362,6 +372,18 @@ mod tests {
             start_window(now, None, Some(now)),
             Err(AppError::invalid("ends_at", "must be after the start"))
         );
+    }
+
+    #[test]
+    fn length_needs_an_end() {
+        let end = Some(at("2026-10-17T00:00:00Z"));
+        assert_eq!(
+            check_length(Some(SprintLength::OneDay), None),
+            Err(AppError::invalid("length", "needs ends_at"))
+        );
+        assert!(check_length(Some(SprintLength::OneDay), end).is_ok());
+        assert!(check_length(None, end).is_ok());
+        assert!(check_length(None, None).is_ok());
     }
 
     #[test]

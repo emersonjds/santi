@@ -63,6 +63,11 @@ pub struct StartSprint {
     /// Defaults to two weeks after the start (D12).
     #[serde(default)]
     pub ends_at: Option<DateTime<Utc>>,
+    /// Remembered as the board's next default (D48): `4h`, `1d`, `1w`, `2w`, `1m`, or minutes. Needs `ends_at`.
+    #[serde(default)]
+    #[schema(value_type = Option<String>, example = "2w")]
+    #[cfg_attr(feature = "schemars", schemars(with = "Option<String>"))]
+    pub length: Option<SprintLength>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
