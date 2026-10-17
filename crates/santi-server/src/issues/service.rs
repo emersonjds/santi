@@ -23,7 +23,8 @@ pub async fn create_issue(
     let labels = domain::normalize_labels(input.labels)?;
     domain::check_points(input.issue_type, input.points)?;
     let mut tx = pool.begin().await?;
-    let number = projects::repo::take_issue_number(&mut tx, member.project_id).await?;
+    let (number, state) = projects::repo::take_issue_number(&mut tx, member.project_id).await?;
+    projects::domain::check_active(state)?;
     let status = resolve_status(&mut tx, member, input.status_id).await?;
     let parent = resolve_parent(&mut tx, member, input.issue_type, input.parent.as_deref()).await?;
     let parent_sprint = parent.as_ref().and_then(|parent| parent.sprint_id);
@@ -127,7 +128,8 @@ pub async fn move_issue(
         input.before.as_deref(),
     )?;
     let mut tx = pool.begin().await?;
-    projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: moves in one project are serialized
+    let state = projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: moves in one project are serialized
+    projects::domain::check_active(state)?;
     let issue = repo::find_position_for_update(&mut tx, member.project_id, number).await?;
     let issue = issue.ok_or(AppError::NotFound)?;
     if let Some(target) = input.sprint_id {

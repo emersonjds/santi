@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue_star (user_id, issue_id)\n         SELECT $1, i.id FROM issue i\n         JOIN project p ON p.id = i.project_id\n         JOIN member m ON m.project_id = p.id AND m.user_id = $1\n         WHERE p.key = $2 AND i.number = $3 AND p.trashed_at IS NULL\n         ON CONFLICT (user_id, issue_id) DO UPDATE SET created_at = issue_star.created_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5f9d0cd0f7f76a2676bf46dd100973e8c5ad1604efaaeb2c20ed28ab72b502d8"
+}

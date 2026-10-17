@@ -107,6 +107,20 @@ pub async fn purge_expired(pool: &PgPool) -> Result<(u64, u64), sqlx::Error> {
     Ok((sessions.rows_affected(), invites.rows_affected()))
 }
 
+/// OR-58: deletes up to 20 projects trashed 60 days ago or earlier, one per statement, so one
+/// that fails is logged and the rest still go; returns how many were deleted.
+pub async fn purge_trash(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let mut conn = pool.acquire().await?;
+    let mut purged = 0;
+    for project in projects::repo::list_expired_trash(&mut conn, 20).await? {
+        match projects::repo::purge(&mut conn, project.id).await {
+            Ok(deleted) => purged += u64::from(deleted),
+            Err(error) => eprintln!("trash purge of {} failed: {error}", project.key),
+        }
+    }
+    Ok(purged)
+}
+
 #[derive(OpenApi)]
 #[openapi(
     info(

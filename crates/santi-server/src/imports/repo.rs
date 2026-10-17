@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use santi_types::imports::ImportSource;
 use santi_types::issues::{IssueType, Priority};
+use santi_types::projects::ProjectState;
 use sqlx::PgConnection;
 
 /// Keys from `keys` already imported from `source` into the project.
@@ -26,20 +27,26 @@ pub async fn existing_keys(
         .collect())
 }
 
-/// D20 for many issues at once: the first of `count` numbers that are never reused.
+/// D20 for many issues at once: the first of `count` numbers that are never reused, and the
+/// project's state as of the row lock the UPDATE takes.
 pub async fn take_issue_numbers(
     conn: &mut PgConnection,
     project_id: i64,
     count: i64,
-) -> Result<i64, sqlx::Error> {
-    sqlx::query_scalar!(
+) -> Result<(i64, ProjectState), sqlx::Error> {
+    let row = sqlx::query!(
         r#"UPDATE project SET next_issue_number = next_issue_number + $2
-           WHERE id = $1 RETURNING next_issue_number - $2 AS "first!""#,
+           WHERE id = $1
+           RETURNING next_issue_number - $2 AS "first!",
+                     CASE WHEN trashed_at IS NOT NULL THEN 'trashed'
+                          WHEN archived_at IS NOT NULL THEN 'archived'
+                          ELSE 'active' END AS "state!: ProjectState""#,
         project_id,
         count
     )
     .fetch_one(&mut *conn)
-    .await
+    .await?;
+    Ok((row.first, row.state))
 }
 
 pub async fn insert_closed_sprint(

@@ -15,4 +15,6 @@ pub struct Member {
     pub board_id: i64,
     pub board_type: BoardType,
     pub role: MemberRole,
+    /// SAN-70: the project is archived, so read-only.
+    pub archived: bool,
 }

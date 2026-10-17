@@ -13,8 +13,9 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 17] = [
+const TOOLS: [&str; 22] = [
     "add_comment",
+    "archive_project",
     "complete_sprint",
     "create_issue",
     "create_sprint",
@@ -28,8 +29,12 @@ const TOOLS: [&str; 17] = [
     "list_sprints",
     "move_issue",
     "plan_issue",
+    "purge_project",
+    "restore_project",
     "search_issues",
     "start_sprint",
+    "trash_project",
+    "unarchive_project",
     "update_issue",
 ];
 
@@ -91,6 +96,9 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         assert_eq!(hints("get_board").read_only_hint, Some(true));
         assert_eq!(hints("list_comments").read_only_hint, Some(true));
         assert_eq!(hints("delete_issue").destructive_hint, Some(true));
+        assert_eq!(hints("purge_project").destructive_hint, Some(true));
+        assert_eq!(hints("trash_project").destructive_hint, Some(true));
+        assert_eq!(hints("archive_project").destructive_hint, Some(false));
         assert_eq!(hints("create_issue").destructive_hint, Some(false));
         let schema = Value::Object((*tool("create_issue").input_schema).clone());
         assert_eq!(schema["required"], json!(["project", "summary"]));
@@ -573,5 +581,47 @@ fn streamable_http_checks_the_host_and_caps_sessions() {
         assert_eq!(full.status(), 503);
 
         interrupt(child).await;
+    });
+}
+
+#[test]
+fn stdio_archives_trashes_restores_and_purges_a_project() {
+    let token = server().user();
+    server().project(&token, "GONE", "kanban");
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let mut command = santi(&config);
+        command.env("SANTI_TOKEN", &token);
+        let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        let project = json!({ "project": "GONE" });
+        let keys = |projects: Value| -> Vec<String> {
+            projects
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|project| project["key"].as_str().unwrap().to_string())
+                .collect()
+        };
+
+        ok(&client, "archive_project", project.clone()).await;
+        assert!(keys(ok(&client, "list_projects", json!({})).await).is_empty());
+        let archived = ok(&client, "list_projects", json!({ "state": "archived" })).await;
+        assert_eq!(keys(archived), ["GONE"]);
+        let read_only = rejected(
+            &client,
+            "create_issue",
+            json!({ "project": "GONE", "summary": "x" }),
+        )
+        .await;
+        assert!(read_only.contains("archived"), "{read_only}");
+        ok(&client, "unarchive_project", project.clone()).await;
+        ok(&client, "trash_project", project.clone()).await;
+        let trashed = ok(&client, "list_projects", json!({ "state": "trashed" })).await;
+        assert_eq!(trashed[0]["state"], "trashed");
+        ok(&client, "restore_project", project.clone()).await;
+        ok(&client, "trash_project", project.clone()).await;
+        ok(&client, "purge_project", project.clone()).await;
+        assert!(keys(ok(&client, "list_projects", json!({ "state": "trashed" })).await).is_empty());
+        client.cancel().await.unwrap();
     });
 }

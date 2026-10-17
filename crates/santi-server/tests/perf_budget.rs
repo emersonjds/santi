@@ -68,7 +68,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [Budget; 18] = [
+    let budgets: [Budget; 20] = [
         (
             "board",
             Method::GET,
@@ -206,6 +206,22 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             2,
             StatusCode::NO_CONTENT,
         ),
+        (
+            "archived tab",
+            Method::GET,
+            "/api/projects?state=archived",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "trash tab",
+            Method::GET,
+            "/api/projects?state=trashed",
+            None,
+            2,
+            StatusCode::OK,
+        ),
     ];
     for (name, method, uri, body, budget, expected) in budgets {
         let mut fastest = Duration::MAX;
@@ -285,6 +301,68 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
         let elapsed = started.elapsed();
         let statements = STATEMENTS.load(Ordering::SeqCst);
         assert!(response.status().is_success(), "{name}");
+        assert!(
+            (1..=budget).contains(&statements),
+            "{name}: {statements} statements, budget {budget}"
+        );
+        assert!(elapsed < ceiling, "{name}: {elapsed:?}");
+    }
+
+    // SAN-70: each lifecycle step runs once, ending with the purge of the seeded kanban project.
+    for (name, method, uri, budget, ceiling) in [
+        (
+            "archive",
+            Method::POST,
+            "/api/projects/FLOW/archive",
+            2,
+            CEILING,
+        ),
+        (
+            "unarchive",
+            Method::POST,
+            "/api/projects/FLOW/unarchive",
+            2,
+            CEILING,
+        ),
+        (
+            "trash",
+            Method::POST,
+            "/api/projects/FLOW/trash",
+            2,
+            CEILING,
+        ),
+        (
+            "restore",
+            Method::POST,
+            "/api/projects/FLOW/restore",
+            3,
+            CEILING,
+        ),
+        (
+            "trash again",
+            Method::POST,
+            "/api/projects/FLOW/trash",
+            2,
+            CEILING,
+        ),
+        (
+            "purge",
+            Method::DELETE,
+            "/api/projects/FLOW",
+            3,
+            CEILING * 4,
+        ),
+    ] {
+        let mut request = json_request(method, uri, None, None);
+        request
+            .headers_mut()
+            .insert(header::COOKIE, cookie.parse().unwrap());
+        STATEMENTS.store(0, Ordering::SeqCst);
+        let started = Instant::now();
+        let response = app.send(request).await;
+        let elapsed = started.elapsed();
+        let statements = STATEMENTS.load(Ordering::SeqCst);
+        assert_eq!(response.status(), StatusCode::NO_CONTENT, "{name}");
         assert!(
             (1..=budget).contains(&statements),
             "{name}: {statements} statements, budget {budget}"
