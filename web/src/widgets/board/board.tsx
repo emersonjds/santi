@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Ellipsis } from 'lucide-react'
+import { RowPoints, RowPriority } from '@/features/edit-row/row-fields'
 import { useAssignKey } from '@/features/issue-quick-actions/assign-key'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { recount } from '@/entities/issue/board-cache'
@@ -132,20 +133,29 @@ const MenuPlaceholder = () => (
 type BoardCardProps = {
   card: Card
   projectKey: string
+  writable: boolean
   onDelete: (card: Card) => void
 }
 
-const BoardCard = memo(({ card, projectKey, onDelete }: BoardCardProps) => (
-  <IssueCard
-    card={card}
-    projectKey={projectKey}
-    menu={
-      <Suspense fallback={<MenuPlaceholder />}>
-        <CardMenu card={card} projectKey={projectKey} onDelete={onDelete} />
-      </Suspense>
-    }
-  />
-))
+const BoardCard = memo(
+  ({ card, projectKey, writable, onDelete }: BoardCardProps) => {
+    // ponytail: two mutation observers per card (points, priority); hoist one into Columns and pass `mutate` down if a large board's render cost shows it.
+    const fields = { card, projectKey, useUpdate: useUpdateIssue }
+    return (
+      <IssueCard
+        card={card}
+        projectKey={projectKey}
+        points={writable ? <RowPoints {...fields} /> : undefined}
+        priority={writable ? <RowPriority {...fields} /> : undefined}
+        menu={
+          <Suspense fallback={<MenuPlaceholder />}>
+            <CardMenu card={card} projectKey={projectKey} onDelete={onDelete} />
+          </Suspense>
+        }
+      />
+    )
+  }
+)
 
 type ColumnsProps = {
   board: BoardView
@@ -179,9 +189,14 @@ const Columns = ({
   )
   const renderCard = useCallback(
     (card: Card) => (
-      <BoardCard card={card} projectKey={projectKey} onDelete={setDeleting} />
+      <BoardCard
+        card={card}
+        projectKey={projectKey}
+        writable={writable}
+        onDelete={setDeleting}
+      />
     ),
-    [projectKey]
+    [projectKey, writable]
   )
   const withSettingsLimit = (column: BoardColumn) => {
     const limit = settings?.columns.find(

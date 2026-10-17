@@ -5,7 +5,7 @@ import { api, dataOrThrow, hasStatus } from '@/shared/api/client'
 // ponytail: one page of 200 (the API maximum); add "Show older" paging when a thread or a parent outgrows it.
 const PAGE = 200
 
-const issuesKey = (projectKey: string) =>
+export const issuesKey = (projectKey: string) =>
   ['projects', projectKey, 'issues'] as const
 
 export const issueQuery = (projectKey: string, number: number) =>
