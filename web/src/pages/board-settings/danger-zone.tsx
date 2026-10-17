@@ -5,12 +5,10 @@ import {
   TrashProjectButton,
 } from '@/features/project-lifecycle/lifecycle-dialogs'
 import { LeaveProjectButton } from '@/features/project/member-controls'
+import { LAST_ADMIN, leaveRules } from '@/entities/project/leave-rules'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Project } from '@/shared/api/client'
-
-const LAST_ADMIN =
-  'You are the last admin: make another member admin first, or delete the project.'
 
 type RowProps = {
   label: string
@@ -35,10 +33,8 @@ const Row = ({ label, description, descriptionId, children }: RowProps) => (
 export const DangerZone = ({ project }: { project: Project }) => {
   const { data: members } = useSuspenseQuery(membersQuery(project.key))
   const { data: me } = useQuery(sessionQuery)
-  const own = members.find((member) => member.user_id === me?.id)
+  const { own, lastAdmin } = leaveRules(project.role, members, me?.id)
   const admin = project.role === 'admin'
-  const lastAdmin =
-    admin && members.filter((member) => member.role === 'admin').length === 1
   const names = { projectKey: project.key, projectName: project.name }
 
   return (

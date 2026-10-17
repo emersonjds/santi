@@ -52,6 +52,9 @@ const useMembersWrite = <Variables,>(
   const afterOwnChange = async () => {
     const name =
       queryClient.getQueryData(projectQuery(projectKey).queryKey)?.name ??
+      queryClient
+        .getQueryData(projectsQuery.queryKey)
+        ?.find((project) => project.key === projectKey)?.name ??
       projectKey
     if (own === 'leave') {
       await navigate({ to: '/' })
@@ -117,7 +120,15 @@ type ExitCopy = {
   confirm: string
 }
 
-type ExitProps = ControlProps & { copy: ExitCopy; describedBy?: string }
+/** A menu opens the dialog by state: no trigger, and the focus goes back where the menu says. */
+export type OpenedByState = {
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  onCloseAutoFocus?: (event: Event) => void
+}
+
+type ExitProps = ControlProps &
+  OpenedByState & { copy: ExitCopy; describedBy?: string }
 
 /** Removing a member and leaving are the same write; leaving takes the caller home. */
 const MemberExitButton = ({
@@ -126,8 +137,16 @@ const MemberExitButton = ({
   locked,
   copy,
   describedBy,
+  onOpenChange,
+  onCloseAutoFocus,
+  ...props
 }: ExitProps) => {
-  const [open, setOpen] = useState(false)
+  const [ownOpen, setOwnOpen] = useState(false)
+  const open = props.open ?? ownOpen
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next)
+    onOpenChange?.(next)
+  }
   const remove = useMembersWrite(projectKey, member, 'leave', async () =>
     okOrThrow(
       await api.DELETE('/api/projects/{key}/members/{user_id}', {
@@ -143,19 +162,21 @@ const MemberExitButton = ({
         if (!next) remove.reset()
       }}
     >
-      <AlertDialogTrigger asChild>
-        <Button
-          variant='outline'
-          className='h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9'
-          aria-disabled={locked || undefined}
-          onClick={(event) => locked && event.preventDefault()}
-          aria-label={copy.label}
-          aria-describedby={describedBy}
-        >
-          {copy.trigger}
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
+      {props.open === undefined && (
+        <AlertDialogTrigger asChild>
+          <Button
+            variant='outline'
+            className='h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9'
+            aria-disabled={locked || undefined}
+            onClick={(event) => locked && event.preventDefault()}
+            aria-label={copy.label}
+            aria-describedby={describedBy}
+          >
+            {copy.trigger}
+          </Button>
+        </AlertDialogTrigger>
+      )}
+      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{copy.title}</AlertDialogTitle>
           <AlertDialogDescription>{copy.description}</AlertDialogDescription>
@@ -193,9 +214,9 @@ export const RemoveMemberButton = (props: ControlProps) => (
   />
 )
 
-/** The danger zone: `member` is the caller; the last admin is `locked`, with the reason at `describedBy`. */
+/** The danger zone and the sidebar: `member` is the caller; the last admin is `locked`, with the reason at `describedBy`. */
 export const LeaveProjectButton = (
-  props: ControlProps & { describedBy?: string }
+  props: ControlProps & OpenedByState & { describedBy?: string }
 ) => (
   <MemberExitButton
     {...props}
