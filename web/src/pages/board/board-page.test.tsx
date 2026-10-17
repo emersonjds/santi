@@ -160,12 +160,18 @@ describe('board page', () => {
   })
 
   it.each([
-    [{ ends_at: new Date().toISOString() }, 'Ends today'],
+    [
+      { ends_at: new Date(Date.now() + 320 * 60_000).toISOString() },
+      '5h 20m left',
+    ],
     [
       { ends_at: new Date(Date.now() + 86_400_000).toISOString() },
       '1 day left',
     ],
-    [{ overdue: true }, 'Overdue'],
+    [
+      { ends_at: new Date(Date.now() - 20 * 60_000).toISOString() },
+      'Overdue by 20m',
+    ],
   ])('tells how long the sprint has left: %o', async (change, text) => {
     inProjects({
       'GET /api/projects/WEB/board': {

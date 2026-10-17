@@ -17,7 +17,7 @@ import {
   sprintReportQuery,
 } from '@/entities/report/report-queries'
 import type { SprintReport, SprintTotals } from '@/shared/api/client'
-import { day } from '@/shared/lib/sprint-dates'
+import { formatRange } from '@/shared/lib/sprint-dates'
 import { Button } from '@/shared/ui/button'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -98,7 +98,7 @@ const ReportHeader = ({ report }: { report: SprintReport }) => {
       )}
       {sprint.starts_at && sprint.ends_at && (
         <p className='text-muted-foreground'>
-          {day(sprint.starts_at)} – {day(sprint.ends_at)}
+          {formatRange(sprint.starts_at, sprint.ends_at)}
         </p>
       )}
       {sprint.goal && <p>{sprint.goal}</p>}
