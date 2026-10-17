@@ -19,6 +19,7 @@ import {
   type Sprint,
 } from '@/shared/api/client'
 import { showProblem } from '@/shared/lib/show-problem'
+import { zoneName } from '@/shared/lib/sprint-dates'
 import { toast } from '@/shared/lib/toast'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import { Button } from '@/shared/ui/button'
@@ -38,6 +39,7 @@ import {
   FormMessage,
 } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { NativeSelect } from '@/shared/ui/native-select'
 import { RootError } from '@/shared/ui/root-error'
 import { Textarea } from '@/shared/ui/textarea'
 import {
@@ -47,22 +49,30 @@ import {
   useStartSprint,
   useUpdateSprint,
 } from './sprint-mutations'
+import {
+  CUSTOM,
+  PRESETS,
+  customLength,
+  fromInputs,
+  nowToTheMinute,
+  sprintWindow,
+  toInputs,
+} from './sprint-window'
 
 export type SprintAction =
   | { kind: 'create' }
-  | { kind: 'start'; sprint: Sprint; section: BacklogSection }
+  | {
+      kind: 'start'
+      sprint: Sprint
+      section: BacklogSection
+      length: string | null
+    }
   // Without a section the action comes from the board, which counts from its own cards.
   | {
       kind: 'edit' | 'delete' | 'complete'
       sprint: Sprint
       section?: BacklogSection
     }
-
-const DAY = 86_400_000
-// Swedish dates read YYYY-MM-DD in local time, like the server's sprint dates.
-const today = () => new Date().toLocaleDateString('sv')
-const addDays = (date: string, days: number) =>
-  new Date(Date.parse(`${date}T12:00`) + days * DAY).toLocaleDateString('sv')
 
 // Mirrors sprints/domain.rs; the server stays the authority.
 const name = z
@@ -71,42 +81,51 @@ const name = z
   .min(1, 'Enter a name.')
   .max(100, 'Use at most 100 characters.')
 const goal = z.string().trim().max(1000, 'Use at most 1000 characters.')
-const ordered = (dates: { start_date: string; end_date: string }) =>
-  !dates.start_date || !dates.end_date || dates.end_date >= dates.start_date
-const ORDER = { message: 'End on or after the start date.', path: ['end_date'] }
+type Moments = {
+  starts_at: string
+  starts_at_time: string
+  ends_at: string
+  ends_at_time: string
+}
+const startOf = (values: Moments) =>
+  fromInputs(values.starts_at, values.starts_at_time, '00:00')
+const endOf = (values: Moments) =>
+  fromInputs(values.ends_at, values.ends_at_time, '23:59')
+const ordered = (values: Moments) =>
+  !values.starts_at || !values.ends_at || endOf(values) > startOf(values)
+const ORDER = { message: 'End after the start.', path: ['ends_at'] }
+const moments = {
+  starts_at: z.string(),
+  starts_at_time: z.string(),
+  ends_at: z.string(),
+  ends_at_time: z.string(),
+}
+const pairOf = (instant?: string | null) =>
+  instant ? toInputs(new Date(instant)) : { day: '', time: '' }
+const MOMENT_FIELDS = ['starts_at', 'ends_at'] as const
 
 const createSchema = z.object({
   name: z.string().trim().max(100, 'Use at most 100 characters.'),
   goal,
 })
-const editSchema = z
-  .object({ name, goal, start_date: z.string(), end_date: z.string() })
-  .refine(ordered, ORDER)
+const editSchema = z.object({ name, goal, ...moments }).refine(ordered, ORDER)
 const startSchema = z
   .object({
     name,
     goal,
     duration: z.string(),
-    start_date: z.string().min(1, 'Pick a start date.'),
-    end_date: z.string().min(1, 'Pick an end date.'),
+    ...moments,
+    starts_at: z.string().min(1, 'Pick a start date.'),
+    ends_at: z.string().min(1, 'Pick an end date.'),
   })
   .refine(ordered, ORDER)
 
-// D12: presets of 1 to 4 weeks, 2 by default, or any end date.
-const DURATIONS = [
-  ['1', '1 week'],
-  ['2', '2 weeks'],
-  ['3', '3 weeks'],
-  ['4', '4 weeks'],
-  ['custom', 'Custom'],
-] as const
+const DURATIONS = [...PRESETS, [CUSTOM, 'Custom']] as const
 
 // IA §10: a centered dialog on wide screens, a full-screen sheet on a phone.
 const SHEET =
   'max-h-[calc(100svh-2rem)] overflow-y-auto max-md:top-0 max-md:left-0 max-md:h-svh max-md:max-h-none max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0 max-md:content-start max-md:data-[state=open]:zoom-in-100'
 const FIELD = 'h-11 md:h-9'
-const SELECT =
-  'h-11 w-full rounded-md border border-input bg-background px-2 text-base md:h-9 md:text-sm'
 
 type ShellProps = {
   title: string
@@ -180,14 +199,12 @@ const TextField = <Values extends FieldValues>({
   form,
   name: field,
   label,
-  type = 'text',
-  onPick,
+  textarea,
 }: {
   form: UseFormReturn<Values>
   name: Path<Values>
   label: string
-  type?: 'text' | 'date' | 'textarea'
-  onPick?: (value: string) => void
+  textarea?: boolean
 }) => (
   <FormField
     control={form.control}
@@ -196,25 +213,65 @@ const TextField = <Values extends FieldValues>({
       <FormItem>
         <FormLabel>{label}</FormLabel>
         <FormControl>
-          {type === 'textarea' ? (
+          {textarea ? (
             <Textarea className='min-h-20' {...input} />
           ) : (
-            <Input
-              type={type}
-              autoComplete='off'
-              className={FIELD}
-              {...input}
-              onChange={(event) => {
-                input.onChange(event)
-                onPick?.(event.target.value)
-              }}
-            />
+            <Input autoComplete='off' className={FIELD} {...input} />
           )}
         </FormControl>
         <FormMessage />
       </FormItem>
     )}
   />
+)
+
+/** D48: a native date and time pair per bound; the refusal of a bound lands under its date. */
+const MomentFields = <Values extends FieldValues>({
+  form,
+  legend,
+  fields,
+  onPick,
+}: {
+  form: UseFormReturn<Values>
+  legend: 'Start' | 'End'
+  fields: readonly [date: Path<Values>, time: Path<Values>]
+  onPick?: () => void
+}) => (
+  <fieldset>
+    <legend className='mb-2 text-sm font-medium'>{`${legend}s`}</legend>
+    <div className='grid gap-2 sm:grid-cols-2'>
+      {fields.map((field, index) => (
+        <FormField
+          key={field}
+          control={form.control}
+          name={field}
+          render={({ field: input }) => (
+            <FormItem>
+              <FormControl>
+                <Input
+                  type={index ? 'time' : 'date'}
+                  aria-label={`${legend} ${index ? 'time' : 'date'}`}
+                  className={FIELD}
+                  {...input}
+                  onChange={(event) => {
+                    input.onChange(event)
+                    onPick?.()
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      ))}
+    </div>
+  </fieldset>
+)
+
+const ZoneLine = () => (
+  <p className='text-sm text-muted-foreground'>
+    Times use your time zone ({zoneName(new Date())}).
+  </p>
 )
 
 const CreateSprintForm = ({ projectKey, onClose }: FormProps) => {
@@ -246,7 +303,7 @@ const CreateSprintForm = ({ projectKey, onClose }: FormProps) => {
       <Form {...form}>
         <form onSubmit={submit} className='grid gap-4' noValidate>
           <TextField form={form} name='name' label='Name' />
-          <TextField form={form} name='goal' label='Goal' type='textarea' />
+          <TextField form={form} name='goal' label='Goal' textarea />
           <RootError message={form.formState.errors.root?.message} />
           <Actions
             label='Create sprint'
@@ -263,40 +320,47 @@ type SprintFormProps = FormProps & { sprint: Sprint; section?: BacklogSection }
 
 const EditSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   const update = useUpdateSprint(projectKey)
+  const starts = pairOf(sprint.starts_at)
+  const ends = pairOf(sprint.ends_at)
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
     defaultValues: {
       name: sprint.name,
       goal: sprint.goal,
-      start_date: sprint.start_date ?? '',
-      end_date: sprint.end_date ?? '',
+      starts_at: starts.day,
+      starts_at_time: starts.time,
+      ends_at: ends.day,
+      ends_at_time: ends.time,
     },
   })
   const submit = form.handleSubmit((values) =>
     update
       .mutateAsync({
         id: sprint.id,
-        ...values,
-        start_date: values.start_date || null,
-        end_date: values.end_date || null,
+        name: values.name,
+        goal: values.goal,
+        starts_at: values.starts_at ? startOf(values).toISOString() : null,
+        ends_at: values.ends_at ? endOf(values).toISOString() : null,
       })
-      .then(onClose, refusal(form, ['name', 'goal', 'start_date', 'end_date']))
+      .then(onClose, refusal(form, ['name', 'goal', ...MOMENT_FIELDS]))
   )
   return (
     <Shell title={`Edit ${sprint.name}`} onClose={onClose}>
       <Form {...form}>
         <form onSubmit={submit} className='grid gap-4' noValidate>
           <TextField form={form} name='name' label='Name' />
-          <div className='grid gap-4 sm:grid-cols-2'>
-            <TextField
-              form={form}
-              name='start_date'
-              label='Starts'
-              type='date'
-            />
-            <TextField form={form} name='end_date' label='Ends' type='date' />
-          </div>
-          <TextField form={form} name='goal' label='Goal' type='textarea' />
+          <MomentFields
+            form={form}
+            legend='Start'
+            fields={['starts_at', 'starts_at_time']}
+          />
+          <MomentFields
+            form={form}
+            legend='End'
+            fields={['ends_at', 'ends_at_time']}
+          />
+          <ZoneLine />
+          <TextField form={form} name='goal' label='Goal' textarea />
           <RootError message={form.formState.errors.root?.message} />
           <Actions
             label='Save'
@@ -340,37 +404,69 @@ const DeleteSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   )
 }
 
+/** SP-7: the start is now; a planned end still ahead is kept, else the board's last length (D48). */
+const startDefaults = (sprint: Sprint, length: string | null) => {
+  const now = nowToTheMinute()
+  const planned =
+    sprint.ends_at && Date.parse(sprint.ends_at) > now.getTime()
+      ? new Date(sprint.ends_at)
+      : null
+  const remembered = length ?? '2w'
+  const preset = PRESETS.some(([token]) => token === remembered)
+  const starts = toInputs(now)
+  const ends = toInputs(planned ?? sprintWindow(now, remembered))
+  return {
+    duration: planned || !preset ? CUSTOM : remembered,
+    starts_at: starts.day,
+    starts_at_time: starts.time,
+    ends_at: ends.day,
+    ends_at_time: ends.time,
+  }
+}
+
 const StartSprintForm = ({
   projectKey,
   sprint,
   section,
+  length,
   onClose,
-}: SprintFormProps & { section: BacklogSection }) => {
+}: SprintFormProps & { section: BacklogSection; length: string | null }) => {
   const start = useStartSprint(projectKey)
-  const startDate = sprint.start_date ?? today()
   const form = useForm<z.infer<typeof startSchema>>({
     resolver: zodResolver(startSchema),
     defaultValues: {
       name: sprint.name,
       goal: sprint.goal,
-      duration: sprint.end_date ? 'custom' : '2',
-      start_date: startDate,
-      end_date: sprint.end_date ?? addDays(startDate, 14),
+      ...startDefaults(sprint, length),
     },
   })
-  const follow = (from: string, duration: string) => {
-    if (duration === 'custom' || !from) return
-    form.setValue('end_date', addDays(from, Number(duration) * 7))
+  const follow = () => {
+    const values = form.getValues()
+    if (values.duration === CUSTOM || !values.starts_at) return
+    const end = toInputs(sprintWindow(startOf(values), values.duration))
+    form.setValue('ends_at', end.day)
+    form.setValue('ends_at_time', end.time)
   }
-  const submit = form.handleSubmit(({ duration: _, ...values }) =>
-    start.mutateAsync({ id: sprint.id, ...values }).then(
-      () => {
-        toast.success(`${values.name} started`)
-        onClose()
-      },
-      refusal(form, ['name', 'goal', 'start_date', 'end_date'])
-    )
-  )
+  const submit = form.handleSubmit(({ duration, ...values }) => {
+    const from = startOf(values)
+    const to = endOf(values)
+    return start
+      .mutateAsync({
+        id: sprint.id,
+        name: values.name,
+        goal: values.goal,
+        starts_at: from.toISOString(),
+        ends_at: to.toISOString(),
+        length: duration === CUSTOM ? customLength(from, to) : duration,
+      })
+      .then(
+        () => {
+          toast.success(`${values.name} started`)
+          onClose()
+        },
+        refusal(form, ['name', 'goal', ...MOMENT_FIELDS])
+      )
+  })
   return (
     <Shell
       title={`Start ${sprint.name}`}
@@ -387,12 +483,12 @@ const StartSprintForm = ({
               <FormItem>
                 <FormLabel>Duration</FormLabel>
                 <FormControl>
-                  <select
-                    className={SELECT}
+                  <NativeSelect
+                    className='w-full'
                     {...field}
                     onChange={(event) => {
                       field.onChange(event)
-                      follow(form.getValues('start_date'), event.target.value)
+                      follow()
                     }}
                   >
                     {DURATIONS.map(([value, label]) => (
@@ -400,28 +496,25 @@ const StartSprintForm = ({
                         {label}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </FormControl>
               </FormItem>
             )}
           />
-          <div className='grid gap-4 sm:grid-cols-2'>
-            <TextField
-              form={form}
-              name='start_date'
-              label='Starts'
-              type='date'
-              onPick={(value) => follow(value, form.getValues('duration'))}
-            />
-            <TextField
-              form={form}
-              name='end_date'
-              label='Ends'
-              type='date'
-              onPick={() => form.setValue('duration', 'custom')}
-            />
-          </div>
-          <TextField form={form} name='goal' label='Goal' type='textarea' />
+          <MomentFields
+            form={form}
+            legend='Start'
+            fields={['starts_at', 'starts_at_time']}
+            onPick={follow}
+          />
+          <MomentFields
+            form={form}
+            legend='End'
+            fields={['ends_at', 'ends_at_time']}
+            onPick={() => form.setValue('duration', CUSTOM)}
+          />
+          <ZoneLine />
+          <TextField form={form} name='goal' label='Goal' textarea />
           <RootError message={form.formState.errors.root?.message} />
           <Actions
             label='Start sprint'

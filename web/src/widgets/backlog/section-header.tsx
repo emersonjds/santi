@@ -53,9 +53,9 @@ const Dates = ({
   onAddDates: (sprint: Sprint) => void
 }) => {
   const note = useReadOnly()
-  return sprint.start_date && sprint.end_date ? (
+  return sprint.starts_at && sprint.ends_at ? (
     <span className='text-sm text-muted-foreground'>
-      {day(sprint.start_date)} – {day(sprint.end_date)}
+      {day(sprint.starts_at)} – {day(sprint.ends_at)}
     </span>
   ) : (
     <button

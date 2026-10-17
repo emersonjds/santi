@@ -7,9 +7,9 @@ import { COLUMN_WIDTH } from './board-column'
 
 const DAY = 86_400_000
 
-const timeLeft = (endDate: string) => {
+const timeLeft = (endsAt: string) => {
   const today = new Date().setHours(0, 0, 0, 0)
-  const days = Math.round((Date.parse(`${endDate}T00:00`) - today) / DAY)
+  const days = Math.round((new Date(endsAt).setHours(0, 0, 0, 0) - today) / DAY)
   if (days > 1) return `${days} days left`
   if (days === 1) return '1 day left'
   return 'Ends today'
@@ -33,7 +33,7 @@ export const SprintStrip = ({
         Overdue
       </span>
     ) : (
-      sprint.end_date && <span>{timeLeft(sprint.end_date)}</span>
+      sprint.ends_at && <span>{timeLeft(sprint.ends_at)}</span>
     )}
     <span className='ms-auto'>{menu}</span>
     {sprint.goal && <p className='line-clamp-2 basis-full'>{sprint.goal}</p>}

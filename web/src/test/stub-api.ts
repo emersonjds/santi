@@ -208,9 +208,8 @@ export const card = (fields: CardFixture): Card => ({
   ...fields,
 })
 
-// Swedish dates read YYYY-MM-DD in local time, like the server's sprint dates.
 const inDays = (days: number) =>
-  new Date(Date.now() + days * 86_400_000).toLocaleDateString('sv')
+  new Date(Date.now() + days * 86_400_000).toISOString()
 
 const column = (
   id: number,
@@ -234,8 +233,8 @@ export const WEB_BOARD: BoardView = {
     goal: 'Ship the board',
     state: 'active',
     overdue: false,
-    start_date: inDays(-4),
-    end_date: inDays(3),
+    starts_at: inDays(-4),
+    ends_at: inDays(3),
   },
   columns: [
     column(1, 'To do', [
@@ -484,8 +483,8 @@ export const sprintReport = (
     goal: '',
     state: 'closed',
     overdue: false,
-    start_date: '2026-09-01',
-    end_date: '2026-09-14',
+    starts_at: '2026-09-01T04:00:00Z',
+    ends_at: '2026-09-15T03:59:00Z',
   },
   newer_sprint_id: null,
   older_sprint_id: null,

@@ -96,9 +96,9 @@ const ReportHeader = ({ report }: { report: SprintReport }) => {
       {active && (
         <p className='text-muted-foreground'>Updates as the sprint moves.</p>
       )}
-      {sprint.start_date && sprint.end_date && (
+      {sprint.starts_at && sprint.ends_at && (
         <p className='text-muted-foreground'>
-          {day(sprint.start_date)} – {day(sprint.end_date)}
+          {day(sprint.starts_at)} – {day(sprint.ends_at)}
         </p>
       )}
       {sprint.goal && <p>{sprint.goal}</p>}

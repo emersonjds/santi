@@ -160,9 +160,9 @@ describe('board page', () => {
   })
 
   it.each([
-    [{ end_date: new Date().toLocaleDateString('sv') }, 'Ends today'],
+    [{ ends_at: new Date().toISOString() }, 'Ends today'],
     [
-      { end_date: new Date(Date.now() + 86_400_000).toLocaleDateString('sv') },
+      { ends_at: new Date(Date.now() + 86_400_000).toISOString() },
       '1 day left',
     ],
     [{ overdue: true }, 'Overdue'],
