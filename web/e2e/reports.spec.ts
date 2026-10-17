@@ -123,7 +123,9 @@ test('the reports tab lists the running sprint first, then the completed one, wi
     .getByRole('link', { name: 'Reports' })
     .click()
 
-  await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Reports', exact: true })
+  ).toBeVisible()
   const rows = page
     .getByRole('region', { name: 'Sprints' })
     .getByRole('listitem')
