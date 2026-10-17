@@ -12,7 +12,6 @@ import { Layers } from 'lucide-react'
 import { CreateSlot } from '@/widgets/board/create-slot'
 import { FilterBar } from '@/widgets/board/filter-bar'
 import { TOGGLE } from '@/widgets/board/filter-controls'
-import { RowEditorsProvider } from '@/features/edit-row/row-fields'
 import { useAssignKey } from '@/features/issue-quick-actions/assign-key'
 import type { SprintAction } from '@/features/sprint/sprint-dialog'
 import { backlogQuery } from '@/entities/issue/backlog-query'
@@ -32,6 +31,7 @@ import type {
   Card,
   Sprint,
 } from '@/shared/api/client'
+import { HeldEditors, useHeldEditors } from '@/shared/lib/held-editor'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -108,6 +108,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   // Held here, above the drag layer swap, so an open form survives it.
   const [creating, setCreating] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<Card | null>(null)
+  const editors = useHeldEditors()
   const epics = useMemo(
     () => new Map(backlog.epics.map((epic) => [epic.key, epic])),
     [backlog.epics]
@@ -282,7 +283,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   // Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads.
   return (
     <BacklogContext value={backlog}>
-      <RowEditorsProvider>
+      <HeldEditors value={editors}>
         {narrow ? (
           frame(plain)
         ) : (
@@ -297,7 +298,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
             />
           </Suspense>
         )}
-      </RowEditorsProvider>
+      </HeldEditors>
       {dialog && (
         <Suspense fallback={null}>
           <SprintDialog
