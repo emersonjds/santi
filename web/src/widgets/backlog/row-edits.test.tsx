@@ -1,7 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { issueQuery } from '@/entities/issue/issue-queries'
 import { renderApp } from '@/test/render-app'
-import { WEB, WEB_BACKLOG, inProjects, problem, routeOf } from '@/test/stub-api'
+import {
+  WEB,
+  WEB_BACKLOG,
+  WEB_ISSUE,
+  inProjects,
+  problem,
+  routeOf,
+} from '@/test/stub-api'
 
 const DELETE_7 = 'DELETE /api/projects/WEB/issues/7'
 const PATCH_6 = 'PATCH /api/projects/WEB/issues/6'
@@ -182,6 +190,25 @@ describe('backlog row edits', () => {
       .element(backlog.getByTitle('Urgent priority').first())
       .toBeInTheDocument()
     expect(await bodiesOf(requests, PATCH_7)).toEqual([{ priority: 'urgent' }])
+  })
+
+  it('marks the open issue stale once a row edit lands', async () => {
+    inProjects({
+      [PATCH_7]: { status: 200, body: {} },
+      'GET /api/projects/WEB/issues/7': { status: 200, body: WEB_ISSUE },
+    })
+    const { screen, queryClient } = await renderApp('/p/WEB/backlog')
+    const issue = issueQuery('WEB', 7)
+    await queryClient.prefetchQuery(issue)
+
+    await screen
+      .getByRole('region', { name: 'Backlog' })
+      .getByRole('combobox', { name: 'Priority of WEB-7' })
+      .selectOptions('Urgent')
+
+    await expect
+      .poll(() => queryClient.getQueryState(issue.queryKey)?.isInvalidated)
+      .toBe(true)
   })
 
   it('leaves row fields to the issue dialog on a phone', async () => {
