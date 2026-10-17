@@ -168,8 +168,8 @@ describe('backlog page', () => {
           sprint: {
             ...ACTIVE.sprint!,
             overdue: true,
-            start_date: '2026-03-02',
-            end_date: '2026-03-16',
+            starts_at: '2026-03-02T05:00:00Z',
+            ends_at: '2026-03-17T03:59:00Z',
           },
         },
         NO_SPRINT

@@ -161,10 +161,10 @@ test('complete the running sprint from the board header, open work back to the b
       summary,
       sprint_id: sprint.id,
     })
-  const today = new Date().toLocaleDateString('sv')
+  const now = Date.now()
   await api(page, 'POST', `/api/projects/${key}/sprints/${sprint.id}/start`, {
-    start_date: today,
-    end_date: today,
+    starts_at: new Date(now).toISOString(),
+    ends_at: new Date(now + 3_600_000).toISOString(),
   })
   await page.goto(`/p/${key}/board`)
   await expect(column(page, 'To Do').getByRole('article')).toHaveCount(2)

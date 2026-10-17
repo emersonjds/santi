@@ -46,9 +46,9 @@ const SprintRow = ({ totals, projectKey }: SprintRowProps) => {
             {sprint.name}
           </Link>
           {sprint.state === 'active' && <InProgress />}
-          {sprint.start_date && sprint.end_date && (
+          {sprint.starts_at && sprint.ends_at && (
             <span className='text-muted-foreground'>
-              {day(sprint.start_date)} – {day(sprint.end_date)}
+              {day(sprint.starts_at)} – {day(sprint.ends_at)}
             </span>
           )}
         </div>

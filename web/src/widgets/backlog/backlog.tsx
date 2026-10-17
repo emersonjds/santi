@@ -158,7 +158,12 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
       sprint: Sprint
     ) =>
     () =>
-      setDialog({ kind, sprint, section })
+      setDialog({
+        kind,
+        sprint,
+        section,
+        length: backlog.sprint_length ?? null,
+      })
 
   const sprintActions = (section: BacklogSection, sprint: Sprint) => {
     const hint = startHint(section, running?.name)
