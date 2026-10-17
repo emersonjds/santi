@@ -602,3 +602,33 @@ async fn files_with_too_many_different_values_are_refused_quickly(pool: PgPool) 
         "refusing took {elapsed:?}"
     );
 }
+
+#[sqlx::test]
+async fn imported_closed_sprint_has_completed_facts(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+    let csv = "Issue key,Summary,Status,Sprint,Custom field (Story Points)\n\
+               OLD-1,Shipped,Done,Old sprint,3\n";
+    let mapping = json!({
+        "statuses": { "Done": ana.status_id("SANTI", "Done").await },
+        "sprints": { "Old sprint": "closed" },
+    });
+
+    let (status, result) = import(&ana, csv, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let sprint = &sprints(&ana).await[0];
+    let (_, report) = ana
+        .get(&format!(
+            "/api/projects/SANTI/sprints/{}/report",
+            sprint["id"]
+        ))
+        .await;
+    let completed = &report["groups"][0];
+    assert_eq!(completed["issues"][0]["key"], "SANTI-1");
+    assert_eq!(completed["issues"][0]["points_at_start"], 3.0);
+    assert_eq!(completed["issues"][0]["points_at_end"], 3.0);
+    assert_eq!(report["committed"], 3.0);
+    let (_, velocity) = ana.get("/api/projects/SANTI/reports/velocity").await;
+    assert_eq!(velocity["sprints"][0]["completed"], 3.0);
+    assert_eq!(velocity["average_completed"], 3.0);
+}
