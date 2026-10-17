@@ -68,7 +68,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [Budget; 20] = [
+    let budgets: [Budget; 23] = [
         (
             "board",
             Method::GET,
@@ -220,6 +220,30 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             "/api/projects?state=trashed",
             None,
             2,
+            StatusCode::OK,
+        ),
+        (
+            "reports sprints",
+            Method::GET,
+            "/api/projects/PERF/reports/sprints",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "reports velocity",
+            Method::GET,
+            "/api/projects/PERF/reports/velocity",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "sprint report",
+            Method::GET,
+            "/api/projects/PERF/sprints/1/report",
+            None,
+            3,
             StatusCode::OK,
         ),
     ];

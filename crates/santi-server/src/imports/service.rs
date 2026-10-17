@@ -103,7 +103,7 @@ pub async fn import(
             .await?;
         }
         let inserted: Vec<String> = keys.iter().cloned().collect();
-        repo::record_joins(&mut tx, member.project_id, export.source, &inserted).await?;
+        repo::record_sprint_facts(&mut tx, member.project_id, export.source, &inserted).await?;
         tx.commit().await?;
         created.extend(keys);
     }

@@ -7,7 +7,9 @@ export type User = Schemas['User']
 export type Project = Schemas['Project']
 export type MyProject = Schemas['MyProject']
 export type HomeIssue = Schemas['HomeIssue']
-type HomeQuery = NonNullable<paths['/api/me/issues']['get']['parameters']['query']>
+type HomeQuery = NonNullable<
+  paths['/api/me/issues']['get']['parameters']['query']
+>
 export type HomeView = NonNullable<HomeQuery['view']>
 export type Member = Schemas['MemberInfo']
 export type BoardType = Schemas['BoardType']
@@ -34,6 +36,11 @@ export type ImportMapping = Schemas['ImportMapping']
 export type ImportResult = Schemas['ImportResult']
 export type SprintAction = Schemas['SprintAction']
 export type ImportSource = Schemas['ImportSource']
+export type SprintTotals = Schemas['SprintTotals']
+export type Velocity = Schemas['Velocity']
+export type SprintReport = Schemas['SprintReport']
+export type ReportGroup = Schemas['ReportGroup']
+export type ReportIssue = Schemas['ReportIssue']
 
 // The session is an HttpOnly cookie (D22): no token ever reaches this code.
 export const api = createClient<paths>({
