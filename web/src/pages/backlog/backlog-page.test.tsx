@@ -178,7 +178,9 @@ describe('backlog page', () => {
     const { screen } = await renderApp('/p/WEB/backlog')
 
     const active = screen.getByRole('region', { name: 'Sprint 4' })
-    await expect.element(active.getByText('Overdue')).toBeVisible()
+    await expect
+      .element(active.getByRole('timer'))
+      .toHaveTextContent(/^Overdue by \d+ days$/)
     await expect.element(active).toHaveTextContent('Mar 2 – Mar 16')
   })
 
