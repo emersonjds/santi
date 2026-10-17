@@ -1,6 +1,7 @@
 mod common;
 
 use axum::http::StatusCode;
+use chrono::{DateTime, DurationRound, TimeDelta, Timelike, Utc};
 use common::TestApp;
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -56,22 +57,96 @@ async fn sprint_of(app: &TestApp, number: i64) -> Value {
         .clone()
 }
 
+fn instant(value: &Value) -> DateTime<Utc> {
+    value.as_str().unwrap().parse().unwrap()
+}
+
 #[sqlx::test]
-async fn start_defaults_to_today_and_two_weeks(pool: PgPool) {
+async fn start_defaults_to_now_and_two_weeks(pool: PgPool) {
     let ana = scrum(pool).await;
     let sprint = sprint_with_issues(&ana, &["x"]).await;
-    let today = chrono::Utc::now().date_naive();
+    let before = Utc::now();
 
     let (status, started) = start(&ana, &sprint, json!({})).await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(started["state"], "active");
-    assert_eq!(started["start_date"], today.to_string());
+    let starts_at = instant(&started["starts_at"]);
+    let minute = TimeDelta::minutes(1);
+    assert!(before.duration_trunc(minute).unwrap() <= starts_at && starts_at <= Utc::now());
+    assert_eq!((starts_at.second(), starts_at.nanosecond()), (0, 0));
     assert_eq!(
-        started["end_date"],
-        (today + chrono::Days::new(14)).to_string()
+        instant(&started["ends_at"]) - starts_at,
+        TimeDelta::days(14)
     );
     assert!(started["started_at"].is_string());
+}
+
+#[sqlx::test]
+async fn start_takes_offsets_and_answers_utc(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = sprint_with_issues(&ana, &["x"]).await;
+
+    let (status, started) = start(
+        &ana,
+        &sprint,
+        json!({ "starts_at": "2026-10-16T09:00:00-03:00", "ends_at": "2026-10-16T22:00:00-03:00" }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::OK, "{started}");
+    assert_eq!(started["starts_at"], "2026-10-16T12:00:00Z");
+    assert_eq!(started["ends_at"], "2026-10-17T01:00:00Z");
+}
+
+#[sqlx::test]
+async fn old_date_fields_are_refused(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = sprint_with_issues(&ana, &["x"]).await;
+    let url = format!("/api/projects/SANTI/sprints/{}", sprint["id"]);
+
+    let (start_status, _) = start(&ana, &sprint, json!({ "start_date": "2026-10-16" })).await;
+    let (edit_status, _) = ana
+        .put(&url, json!({ "name": "x", "end_date": "2026-10-16" }))
+        .await;
+
+    assert_eq!(start_status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(edit_status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+#[sqlx::test]
+async fn overdue_flips_at_the_minute(pool: PgPool) {
+    let ana = scrum(pool.clone()).await;
+    let sprint = sprint_with_issues(&ana, &["x"]).await;
+    let url = format!("/api/projects/SANTI/sprints/{}", sprint["id"]);
+    let overdue = || async {
+        let (_, sprints) = ana.get("/api/projects/SANTI/sprints").await;
+        sprints[0]["overdue"].clone()
+    };
+
+    let (_, started) = start(
+        &ana,
+        &sprint,
+        json!({ "starts_at": Utc::now() - TimeDelta::hours(1), "ends_at": Utc::now() + TimeDelta::hours(1) }),
+    )
+    .await;
+    let ahead = overdue().await;
+    sqlx::query("UPDATE sprint SET ends_at = now() - interval '1 second'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let passed = overdue().await;
+    let (_, edited) = ana
+        .put(
+            &url,
+            json!({ "name": "x", "starts_at": started["starts_at"], "ends_at": Utc::now() + TimeDelta::minutes(2) }),
+        )
+        .await;
+
+    assert_eq!(started["overdue"], false);
+    assert_eq!(ahead, false);
+    assert_eq!(passed, true);
+    assert_eq!(edited["overdue"], false, "{edited}");
 }
 
 #[sqlx::test]
@@ -85,7 +160,7 @@ async fn start_guards_are_enforced(pool: PgPool) {
     let (backwards, _) = start(
         &ana,
         &first,
-        json!({ "start_date": "2026-11-10", "end_date": "2026-11-01" }),
+        json!({ "starts_at": "2026-11-10T00:00:00Z", "ends_at": "2026-11-01T00:00:00Z" }),
     )
     .await;
     start(&ana, &first, json!({})).await;
@@ -113,7 +188,7 @@ async fn an_overdue_sprint_stays_active_and_is_flagged(pool: PgPool) {
     let (_, started) = start(
         &ana,
         &sprint,
-        json!({ "start_date": "2026-01-01", "end_date": "2026-01-15" }),
+        json!({ "starts_at": "2026-01-01T00:00:00Z", "ends_at": "2026-01-15T23:59:00Z" }),
     )
     .await;
 
@@ -280,10 +355,10 @@ async fn closed_and_active_sprints_are_protected(pool: PgPool) {
     let (closed_dates, _) = ana
         .put(
             &url,
-            json!({ "name": "x", "start_date": "2026-01-01", "end_date": "2026-01-02" }),
+            json!({ "name": "x", "starts_at": "2026-01-01T00:00:00Z", "ends_at": "2026-01-02T00:00:00Z" }),
         )
         .await;
-    let (_, renamed) = ana.put(&url, json!({ "name": "Renamed", "start_date": started["start_date"], "end_date": started["end_date"] })).await;
+    let (_, renamed) = ana.put(&url, json!({ "name": "Renamed", "starts_at": started["starts_at"], "ends_at": started["ends_at"] })).await;
     let (into_closed, problem) = ana
         .post(
             "/api/projects/SANTI/issues/2/move",
@@ -306,4 +381,166 @@ async fn openapi_lists_lifecycle_routes(pool: PgPool) {
 
     assert!(api["paths"]["/api/projects/{key}/sprints/{id}/start"]["post"].is_object());
     assert!(api["paths"]["/api/projects/{key}/sprints/{id}/complete"]["post"].is_object());
+}
+
+type SprintRow = (String, Option<DateTime<Utc>>, Option<DateTime<Utc>>);
+
+/// Migrates up to 0019, adds a closed sprint of Oct 1–14 and a future one, sets the database zone, then runs 0020.
+async fn sprint_rows_after_0020(pool: &PgPool, zone: Option<&str>) -> Vec<SprintRow> {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    files.sort();
+    let run = |name: &std::path::Path| std::fs::read_to_string(name).unwrap();
+    let (before, after): (Vec<_>, Vec<_>) = files
+        .iter()
+        .partition(|path| path.file_name().unwrap().to_str().unwrap() < "0020");
+    for file in before {
+        sqlx::raw_sql(sqlx::AssertSqlSafe(run(file)))
+            .execute(pool)
+            .await
+            .unwrap();
+    }
+    sqlx::raw_sql(
+        "INSERT INTO project (key, name) VALUES ('MIG', 'm');
+         INSERT INTO board (project_id, board_type) SELECT id, 'scrum' FROM project;
+         INSERT INTO sprint (board_id, name, state, start_date, end_date, started_at, closed_at)
+         SELECT id, 'Old', 'closed', '2026-10-01', '2026-10-14', '2026-10-01', '2026-10-14' FROM board;
+         INSERT INTO sprint (board_id, name) SELECT id, 'Later' FROM board;",
+    )
+    .execute(pool)
+    .await
+    .unwrap();
+    if let Some(zone) = zone {
+        let database: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(pool)
+            .await
+            .unwrap();
+        sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+            r#"ALTER DATABASE "{database}" SET timezone TO '{zone}'"#
+        )))
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+
+    sqlx::raw_sql(sqlx::AssertSqlSafe(run(after[0])))
+        .execute(pool)
+        .await
+        .unwrap();
+
+    sqlx::query_as("SELECT name, starts_at, ends_at FROM sprint ORDER BY id")
+        .fetch_all(pool)
+        .await
+        .unwrap()
+}
+
+fn at(text: &str) -> Option<DateTime<Utc>> {
+    Some(text.parse().unwrap())
+}
+
+#[sqlx::test(migrations = false)]
+async fn migration_0020_anchors_days_in_the_database_time_zone(pool: PgPool) {
+    let rows = sprint_rows_after_0020(&pool, Some("America/Sao_Paulo")).await;
+
+    assert_eq!(
+        rows,
+        [
+            (
+                "Old".to_string(),
+                at("2026-10-01T03:00:00Z"),
+                at("2026-10-15T02:59:00Z")
+            ),
+            ("Later".to_string(), None, None),
+        ]
+    );
+    let touching = sqlx::query("UPDATE sprint SET ends_at = starts_at WHERE name = 'Old'")
+        .execute(&pool)
+        .await;
+    assert!(touching.is_err(), "the end must come after the start");
+    let unknown = sqlx::query("UPDATE board SET sprint_length = '3w'")
+        .execute(&pool)
+        .await;
+    assert!(unknown.is_err(), "3w is not a length");
+    sqlx::query("UPDATE board SET sprint_length = '90'")
+        .execute(&pool)
+        .await
+        .unwrap();
+}
+
+#[sqlx::test(migrations = false)]
+async fn migration_0020_uses_utc_without_a_database_zone(pool: PgPool) {
+    let rows = sprint_rows_after_0020(&pool, None).await;
+
+    assert_eq!(
+        rows[0],
+        (
+            "Old".to_string(),
+            at("2026-10-01T00:00:00Z"),
+            at("2026-10-14T23:59:00Z")
+        )
+    );
+}
+
+async fn remembered_length(app: &TestApp) -> Value {
+    app.get("/api/projects/SANTI/backlog").await.1["sprint_length"].clone()
+}
+
+#[sqlx::test]
+async fn start_remembers_the_length_for_the_board(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let window = |length: &str| {
+        json!({
+            "starts_at": "2026-10-16T09:00:00Z",
+            "ends_at": "2026-10-17T09:00:00Z",
+            "length": length,
+        })
+    };
+    assert_eq!(remembered_length(&ana).await, Value::Null);
+
+    let first = sprint_with_issues(&ana, &["a"]).await;
+    let (status, started) = start(&ana, &first, window("1d")).await;
+    assert_eq!(status, StatusCode::OK, "{started}");
+    assert_eq!(remembered_length(&ana).await, "1d");
+
+    complete(&ana, &first, json!({ "to": "backlog" })).await;
+    let second = sprint_with_issues(&ana, &["b"]).await;
+    assert_eq!(start(&ana, &second, json!({})).await.0, StatusCode::OK);
+    assert_eq!(remembered_length(&ana).await, "1d");
+
+    complete(&ana, &second, json!({ "to": "backlog" })).await;
+    let third = sprint_with_issues(&ana, &["c"]).await;
+    assert_eq!(start(&ana, &third, window("90")).await.0, StatusCode::OK);
+    assert_eq!(remembered_length(&ana).await, "90");
+}
+
+#[sqlx::test]
+async fn length_without_an_end_is_refused(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = sprint_with_issues(&ana, &["x"]).await;
+
+    let (status, problem) = start(&ana, &sprint, json!({ "length": "1d" })).await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+    assert_eq!(problem["errors"][0]["field"], "length");
+    let (_, sprints) = ana.get("/api/projects/SANTI/sprints").await;
+    assert_eq!(sprints[0]["state"], "future");
+    assert_eq!(remembered_length(&ana).await, Value::Null);
+}
+
+#[sqlx::test]
+async fn unknown_length_is_refused(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = sprint_with_issues(&ana, &["x"]).await;
+
+    let (status, _) = start(
+        &ana,
+        &sprint,
+        json!({ "ends_at": "2026-12-01T00:00:00Z", "length": "3w" }),
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }

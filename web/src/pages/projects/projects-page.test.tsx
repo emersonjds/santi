@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Project } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { inProjects, routeOf, signedIn } from '@/test/stub-api'
+import {
+  MY_OPS,
+  MY_WEB,
+  inProjects,
+  routeOf,
+  signedIn,
+} from '@/test/stub-api'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -25,7 +31,7 @@ const TRASHED: Project = {
   role: 'admin',
   state: 'trashed',
   trashed_at: new Date(Date.now() - 2 * DAY).toISOString(),
-  trashed_by: 'Bob Stone',
+  trashed_by: 'EMERSON JUNIOR DANIEL SILVA',
   purge_at: new Date(Date.now() + 58 * DAY - HOUR).toISOString(),
 }
 
@@ -79,6 +85,30 @@ describe('projects page', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Website' }))
       .toBeVisible()
+  })
+
+  it('shows the lead as avatar and short name, the full name on hover', async () => {
+    inProjects({
+      'GET /api/me/projects': {
+        status: 200,
+        body: [
+          { ...MY_OPS, lead_name: 'EMERSON JUNIOR DANIEL SILVA' },
+          { ...MY_WEB, lead_name: null },
+        ],
+      },
+    })
+    const { screen } = await renderApp('/projects')
+
+    const rows = screen.getByRole('table').getByRole('row')
+    await expect
+      .element(rows.nth(1))
+      .toHaveTextContent(/Operations.*OPS.*Kanban.*ES\s*Emerson Silva$/)
+    await expect
+      .element(rows.nth(1).getByText('Emerson Silva', { exact: true }))
+      .toHaveAttribute('title', 'Emerson Junior Daniel Silva')
+    await expect
+      .element(rows.nth(2))
+      .toHaveTextContent(/Website.*WEB.*Scrum$/)
   })
 
   it('unstars a project at once', async () => {
@@ -151,7 +181,10 @@ describe('projects page', () => {
     const row = screen.getByRole('table').getByRole('row').nth(1)
     await expect
       .element(row)
-      .toHaveTextContent(/Legacy.*OLD.*2 days ago by Bob Stone.*58 days/)
+      .toHaveTextContent(/Legacy.*OLD.*2 days ago by Emerson Silva.*58 days/)
+    await expect
+      .element(row.getByText('2 days ago by Emerson Silva'))
+      .toHaveAttribute('title', 'Emerson Junior Daniel Silva')
     await row.getByRole('button', { name: 'Restore Legacy' }).click()
 
     await expect.element(screen.getByText('Nothing in the trash')).toBeVisible()

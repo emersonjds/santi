@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT s.id, s.name, s.goal, s.state AS \"state: SprintState\", s.start_date, s.end_date,\n                  s.started_at, s.closed_at,\n                  (s.state = 'active' AND s.end_date < current_date) AS \"overdue!\",\n                  neighbor.newer_sprint_id AS \"newer_sprint_id?\", neighbor.older_sprint_id AS \"older_sprint_id?\"\n           FROM sprint s\n           LEFT JOIN (\n               SELECT id, lag(id) OVER started AS newer_sprint_id, lead(id) OVER started AS older_sprint_id\n               FROM sprint\n               WHERE board_id = $1 AND state <> 'future'\n               WINDOW started AS (ORDER BY coalesce(closed_at, 'infinity') DESC, id DESC)\n           ) neighbor ON neighbor.id = s.id\n           WHERE s.board_id = $1 AND s.id = $2",
+  "query": "SELECT id, name, goal, state AS \"state: SprintState\", starts_at, ends_at, started_at, closed_at,\n                  (state = 'active' AND ends_at <= now()) AS \"overdue!\"\n           FROM sprint WHERE board_id = $1 AND state = 'active'",
   "describe": {
     "columns": [
       {
@@ -49,23 +49,23 @@
       },
       {
         "ordinal": 4,
-        "name": "start_date",
-        "type_info": "Date",
+        "name": "starts_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "sprint",
-            "name": "start_date"
+            "name": "starts_at"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "end_date",
-        "type_info": "Date",
+        "name": "ends_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "sprint",
-            "name": "end_date"
+            "name": "ends_at"
           }
         }
       },
@@ -96,23 +96,10 @@
         "name": "overdue!",
         "type_info": "Bool",
         "origin": "Expression"
-      },
-      {
-        "ordinal": 9,
-        "name": "newer_sprint_id?",
-        "type_info": "Int8",
-        "origin": "Expression"
-      },
-      {
-        "ordinal": 10,
-        "name": "older_sprint_id?",
-        "type_info": "Int8",
-        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Int8",
         "Int8"
       ]
     },
@@ -125,10 +112,8 @@
       true,
       true,
       true,
-      null,
-      true,
-      true
+      null
     ]
   },
-  "hash": "c24e63db76ccd56d461e1ab580eb34bc3f3822e012108f113660ab8f1853c312"
+  "hash": "61c18582471f778ae1dd12b053eacdd994056b4815aba9b92777583db8c4479a"
 }

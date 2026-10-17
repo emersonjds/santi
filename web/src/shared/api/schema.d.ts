@@ -842,6 +842,11 @@ export interface components {
         Backlog: {
             epics: components["schemas"]["EpicSummary"][];
             sections: components["schemas"]["BacklogSection"][];
+            /**
+             * @description Length of the board's last started sprint (D48); null means two weeks.
+             * @example 2w
+             */
+            sprint_length?: string | null;
         };
         BacklogSection: {
             cards: components["schemas"]["Card"][];
@@ -1496,18 +1501,18 @@ export interface components {
         Sprint: {
             /** Format: date-time */
             closed_at?: string | null;
-            /** Format: date */
-            end_date?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
             goal: string;
             /** Format: int64 */
             id: number;
             name: string;
-            /** @description Active and past its end date; it stays active until completed (D15). */
+            /** @description Active and at or past its end; it stays active until completed (D15, D48). */
             overdue: boolean;
-            /** Format: date */
-            start_date?: string | null;
             /** Format: date-time */
             started_at?: string | null;
+            /** Format: date-time */
+            starts_at?: string | null;
             state: components["schemas"]["SprintState"];
         };
         /**
@@ -1560,15 +1565,20 @@ export interface components {
         };
         StartSprint: {
             /**
-             * Format: date
+             * Format: date-time
              * @description Defaults to two weeks after the start (D12).
              */
-            end_date?: string | null;
+            ends_at?: string | null;
             /**
-             * Format: date
-             * @description Defaults to today.
+             * @description Remembered as the board's next default (D48): `4h`, `1d`, `1w`, `2w`, `1m`, or minutes. Needs `ends_at`.
+             * @example 2w
              */
-            start_date?: string | null;
+            length?: string | null;
+            /**
+             * Format: date-time
+             * @description Defaults to now.
+             */
+            starts_at?: string | null;
         };
         Status: {
             category: components["schemas"]["StatusCategory"];
@@ -1632,12 +1642,12 @@ export interface components {
             summary?: string | null;
         };
         UpdateSprint: {
-            /** Format: date */
-            end_date?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
             goal?: string;
             name: string;
-            /** Format: date */
-            start_date?: string | null;
+            /** Format: date-time */
+            starts_at?: string | null;
         };
         UpdateStatus: {
             /**
@@ -4426,7 +4436,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Active; start defaults to today, end to two weeks later */
+            /** @description Active; start defaults to now, end to two weeks later */
             200: {
                 headers: {
                     [name: string]: unknown;

@@ -538,7 +538,7 @@ impl Santi {
     }
 
     #[tool(
-        description = "Start a future sprint; dates default to today and two weeks later. Requires `project` and `sprint_id`.",
+        description = "Start a future sprint. `starts_at` and `ends_at` are RFC 3339 with an offset (default now and two weeks later); `length` (`4h`, `1d`, `1w`, `2w`, `1m` or minutes) becomes the board's next default and needs `ends_at`. Requires `project` and `sprint_id`.",
         annotations(read_only_hint = false)
     )]
     async fn start_sprint(

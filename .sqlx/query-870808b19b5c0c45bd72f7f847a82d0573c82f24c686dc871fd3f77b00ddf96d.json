@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, goal, state AS \"state: SprintState\", start_date, end_date, started_at, closed_at,\n                  (state = 'active' AND end_date < current_date) AS \"overdue!\"\n           FROM sprint WHERE board_id = $1 ORDER BY id",
+  "query": "SELECT id, name, goal, state AS \"state: SprintState\", starts_at, ends_at, started_at, closed_at,\n                  (state = 'active' AND ends_at <= now()) AS \"overdue!\"\n           FROM sprint WHERE board_id = $1 AND id = $2\n           FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -49,23 +49,23 @@
       },
       {
         "ordinal": 4,
-        "name": "start_date",
-        "type_info": "Date",
+        "name": "starts_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "sprint",
-            "name": "start_date"
+            "name": "starts_at"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "end_date",
-        "type_info": "Date",
+        "name": "ends_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "sprint",
-            "name": "end_date"
+            "name": "ends_at"
           }
         }
       },
@@ -100,6 +100,7 @@
     ],
     "parameters": {
       "Left": [
+        "Int8",
         "Int8"
       ]
     },
@@ -115,5 +116,5 @@
       null
     ]
   },
-  "hash": "1302710c69f8e16863eefdc649d523cdfd6e07b0efa98fa7947f8cd13c15c1fd"
+  "hash": "870808b19b5c0c45bd72f7f847a82d0573c82f24c686dc871fd3f77b00ddf96d"
 }

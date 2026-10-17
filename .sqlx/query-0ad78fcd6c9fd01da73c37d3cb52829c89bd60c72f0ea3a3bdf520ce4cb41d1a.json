@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sprint SET state = 'active', starts_at = $2, ends_at = $3, started_at = now() WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Timestamptz",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "0ad78fcd6c9fd01da73c37d3cb52829c89bd60c72f0ea3a3bdf520ce4cb41d1a"
+}

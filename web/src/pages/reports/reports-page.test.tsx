@@ -25,8 +25,8 @@ const totals = (
     goal: '',
     state: 'closed',
     overdue: false,
-    start_date: '2026-09-01',
-    end_date: '2026-09-14',
+    starts_at: '2026-09-01T04:00:00Z',
+    ends_at: '2026-09-15T03:59:00Z',
     ...sprint,
   },
   committed,
@@ -52,7 +52,9 @@ const sprints = (screen: Pick<Locator, 'getByRole'>) =>
   screen.getByRole('region', { name: 'Sprints' }).getByRole('list')
 
 const sprintList = () =>
-  document.querySelector<HTMLElement>('section[aria-labelledby="sprints-title"] ul')
+  document.querySelector<HTMLElement>(
+    'section[aria-labelledby="sprints-title"] ul'
+  )
 
 describe('reports page', () => {
   beforeEach(() => page.viewport(1280, 800))

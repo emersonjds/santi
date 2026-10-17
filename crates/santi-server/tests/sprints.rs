@@ -80,11 +80,11 @@ async fn sprint_edits_validate_dates(pool: PgPool) {
     let sprint = ana.create_sprint("SANTI").await;
     let url = format!("/api/projects/SANTI/sprints/{}", sprint["id"]);
 
-    let (_, edited) = ana.put(&url, json!({ "name": "Renamed", "goal": "g", "start_date": "2026-11-01", "end_date": "2026-11-14" })).await;
+    let (_, edited) = ana.put(&url, json!({ "name": "Renamed", "goal": "g", "starts_at": "2026-11-01T09:00:00-03:00", "ends_at": "2026-11-14T22:00:00-03:00" })).await;
     let (backwards, problem) = ana
         .put(
             &url,
-            json!({ "name": "Renamed", "start_date": "2026-11-14", "end_date": "2026-11-01" }),
+            json!({ "name": "Renamed", "starts_at": "2026-11-14T00:00:00Z", "ends_at": "2026-11-14T00:00:00Z" }),
         )
         .await;
     let (unknown, _) = ana
@@ -92,9 +92,10 @@ async fn sprint_edits_validate_dates(pool: PgPool) {
         .await;
 
     assert_eq!(edited["name"], "Renamed");
-    assert_eq!(edited["end_date"], "2026-11-14");
+    assert_eq!(edited["starts_at"], "2026-11-01T12:00:00Z");
+    assert_eq!(edited["ends_at"], "2026-11-15T01:00:00Z");
     assert_eq!(backwards, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(problem["errors"][0]["field"], "end_date");
+    assert_eq!(problem["errors"][0]["field"], "ends_at");
     assert_eq!(unknown, StatusCode::NOT_FOUND);
 }
 
