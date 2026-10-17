@@ -168,8 +168,8 @@ describe('backlog page', () => {
           sprint: {
             ...ACTIVE.sprint!,
             overdue: true,
-            start_date: '2026-03-02',
-            end_date: '2026-03-16',
+            starts_at: '2026-03-02T05:00:00Z',
+            ends_at: '2026-03-17T03:59:00Z',
           },
         },
         NO_SPRINT
@@ -178,7 +178,9 @@ describe('backlog page', () => {
     const { screen } = await renderApp('/p/WEB/backlog')
 
     const active = screen.getByRole('region', { name: 'Sprint 4' })
-    await expect.element(active.getByText('Overdue')).toBeVisible()
+    await expect
+      .element(active.getByRole('timer'))
+      .toHaveTextContent(/^Overdue by \d+ days$/)
     await expect.element(active).toHaveTextContent('Mar 2 – Mar 16')
   })
 

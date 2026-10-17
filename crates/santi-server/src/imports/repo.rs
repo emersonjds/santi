@@ -57,8 +57,9 @@ pub async fn insert_closed_sprint(
     end: NaiveDate,
 ) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar!(
-        "INSERT INTO sprint (board_id, name, state, start_date, end_date, started_at, closed_at)
-         VALUES ($1, $2, 'closed', $3, $4, $3::date, $4::date)
+        "INSERT INTO sprint (board_id, name, state, starts_at, ends_at, started_at, closed_at)
+         VALUES ($1, $2, 'closed', ($3::date + time '00:00') AT TIME ZONE 'UTC',
+                 ($4::date + time '23:59') AT TIME ZONE 'UTC', $3::date, $4::date)
          RETURNING id",
         board_id,
         name,

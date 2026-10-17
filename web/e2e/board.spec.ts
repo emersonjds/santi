@@ -161,10 +161,10 @@ test('complete the running sprint from the board header, open work back to the b
       summary,
       sprint_id: sprint.id,
     })
-  const today = new Date().toLocaleDateString('sv')
+  const now = Date.now()
   await api(page, 'POST', `/api/projects/${key}/sprints/${sprint.id}/start`, {
-    start_date: today,
-    end_date: today,
+    starts_at: new Date(now).toISOString(),
+    ends_at: new Date(now + 3_600_000).toISOString(),
   })
   await page.goto(`/p/${key}/board`)
   await expect(column(page, 'To Do').getByRole('article')).toHaveCount(2)
@@ -182,6 +182,59 @@ test('complete the running sprint from the board header, open work back to the b
   await expect(
     page.getByRole('region', { name: 'Backlog', exact: true })
   ).toContainText('Beta task')
+})
+
+test('a sprint started for 4 hours counts down on the board and turns overdue at the minute', async ({
+  page,
+}) => {
+  await page.clock.install()
+  await register(page)
+  const key = `T${unique().slice(-6).toUpperCase()}`
+  await api(page, 'POST', '/api/projects', {
+    key,
+    name: `Clock ${key}`,
+    board_type: 'scrum',
+  })
+  const sprint = await api<{ id: number }>(
+    page,
+    'POST',
+    `/api/projects/${key}/sprints`,
+    {}
+  )
+  await api(page, 'POST', `/api/projects/${key}/issues`, {
+    summary: 'Alpha task',
+    sprint_id: sprint.id,
+  })
+
+  await page.goto(`/p/${key}/backlog`)
+  await page
+    .getByRole('region', { name: 'Sprint 1' })
+    .getByRole('button', { name: 'Start sprint' })
+    .click()
+  const start = page.getByRole('dialog', { name: 'Start Sprint 1' })
+  await start.getByLabel('Duration').selectOption('4h')
+  await start.getByRole('button', { name: 'Start sprint' }).click()
+  await expect(start).toBeHidden()
+
+  await page.goto(`/p/${key}/board`)
+  const strip = page.getByRole('region', { name: 'Active sprint' })
+  // The start is floored to the minute, so a minute boundary may pass before the board loads.
+  await expect(strip.getByRole('timer')).toHaveText(/^(4h|3h 59m) left$/)
+
+  const end = Math.ceil((Date.now() + 120_000) / 60_000) * 60_000
+  await api(page, 'PUT', `/api/projects/${key}/sprints/${sprint.id}`, {
+    name: 'Sprint 1',
+    starts_at: new Date(end - 3_600_000).toISOString(),
+    ends_at: new Date(end).toISOString(),
+  })
+  await page.reload()
+  const shown = await page.evaluate(() => Date.now())
+  await page.clock.runFor(end - 60_000 - shown)
+  await expect(strip.getByRole('timer')).toHaveText('1m left')
+  await expect(strip.getByRole('status')).toHaveText('')
+  await page.clock.runFor(60_000)
+  await expect(strip.getByRole('timer')).toHaveText('Overdue')
+  await expect(strip.getByRole('status')).toHaveText('Sprint 1 is overdue')
 })
 
 type Settings = {

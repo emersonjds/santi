@@ -72,9 +72,11 @@ pub async fn backlog(
     let sprints = sprints::repo::list_open(&mut conn, member.board_id).await?;
     let cards = repo::backlog_cards(&mut conn, member.project_id).await?;
     let epics = repo::epic_summaries(&mut conn, member.project_id).await?;
+    let sprint_length = sprints::repo::sprint_length(&mut conn, member.board_id).await?;
     Ok(Backlog {
         sections: domain::build_backlog_sections(sprints, cards, filter, Utc::now()),
         epics,
+        sprint_length,
     })
 }
 

@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DurationRound, TimeDelta, Utc};
 use santi_types::sprints::{
     CompleteSprint, CreateSprint, OpenIssuesDestination, Sprint, StartSprint, UpdateSprint,
 };
@@ -50,14 +50,14 @@ pub async fn update_sprint(
     let mut tx = pool.begin().await?;
     let current = repo::find_sprint_for_update(&mut tx, member.board_id, sprint_id).await?;
     let current = current.ok_or(AppError::NotFound)?;
-    domain::check_sprint_edit(&current, input.start_date, input.end_date)?;
+    domain::check_sprint_edit(&current, input.starts_at, input.ends_at)?;
     repo::update_sprint(
         &mut tx,
         sprint_id,
         &name,
         &goal,
-        input.start_date,
-        input.end_date,
+        input.starts_at,
+        input.ends_at,
     )
     .await?;
     tx.commit().await?;
@@ -87,8 +87,11 @@ pub async fn start_sprint(
     sprint_id: i64,
     input: StartSprint,
 ) -> Result<Sprint, AppError> {
-    let (start_date, end_date) =
-        domain::start_window(Utc::now().date_naive(), input.start_date, input.end_date)?;
+    let now = Utc::now()
+        .duration_trunc(TimeDelta::minutes(1))
+        .expect("now is far from the chrono range limits");
+    domain::check_length(input.length, input.ends_at)?;
+    let (starts_at, ends_at) = domain::start_window(now, input.starts_at, input.ends_at)?;
     let mut tx = pool.begin().await?;
     let sprint = repo::find_sprint_for_update(&mut tx, member.board_id, sprint_id)
         .await?
@@ -96,7 +99,10 @@ pub async fn start_sprint(
     let active = repo::find_active(&mut tx, member.board_id).await?;
     let issue_count = repo::count_issues(&mut tx, sprint.id).await?;
     domain::check_can_start(sprint.state, active.is_some(), issue_count)?;
-    repo::mark_started(&mut tx, sprint.id, start_date, end_date).await?;
+    repo::mark_started(&mut tx, sprint.id, starts_at, ends_at).await?;
+    if let Some(length) = input.length {
+        repo::remember_length(&mut tx, member.board_id, length).await?;
+    }
     repo::snapshot_scope(&mut tx, sprint.id).await?;
     tx.commit().await?;
     get_sprint(pool, member, sprint_id).await

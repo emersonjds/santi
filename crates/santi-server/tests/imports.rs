@@ -253,6 +253,11 @@ async fn importing_a_jira_export_links_parents_keeps_dates_and_is_idempotent(poo
         })
         .collect();
     assert_eq!(names, [("Sprint 1", "closed"), ("Sprint 2", "future")]);
+    let day_bounds = |field: &str| sprints[0][field].as_str().unwrap()[10..].to_string();
+    assert_eq!(
+        (day_bounds("starts_at"), day_bounds("ends_at")),
+        ("T00:00:00Z".to_string(), "T23:59:00Z".to_string())
+    );
     assert_eq!(story["sprint_id"], sprints[1]["id"]);
     let (_, comments) = ana.get("/api/projects/SANTI/issues/2/comments").await;
     assert_eq!(comments["items"][0]["body"], "Looks good");

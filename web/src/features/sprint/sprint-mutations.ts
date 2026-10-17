@@ -61,23 +61,29 @@ export const useDeleteSprint = (projectKey: string) =>
     )
   )
 
-/** SP-6: the start step confirms name, goal and dates, then starts with those dates. */
 export const useStartSprint = (projectKey: string) =>
-  useSprintWrite(projectKey, async ({ id, ...body }: Of<UpdateSprint>) => {
-    const path = { key: projectKey, id }
-    dataOrThrow(
-      await api.PUT('/api/projects/{key}/sprints/{id}', {
-        params: { path },
-        body,
-      })
-    )
-    return dataOrThrow(
-      await api.POST('/api/projects/{key}/sprints/{id}/start', {
-        params: { path },
-        body: { start_date: body.start_date, end_date: body.end_date },
-      })
-    )
-  })
+  useSprintWrite(
+    projectKey,
+    async ({
+      id,
+      length,
+      ...body
+    }: Of<UpdateSprint> & { length: string | null }) => {
+      const path = { key: projectKey, id }
+      dataOrThrow(
+        await api.PUT('/api/projects/{key}/sprints/{id}', {
+          params: { path },
+          body,
+        })
+      )
+      return dataOrThrow(
+        await api.POST('/api/projects/{key}/sprints/{id}/start', {
+          params: { path },
+          body: { starts_at: body.starts_at, ends_at: body.ends_at, length },
+        })
+      )
+    }
+  )
 
 export const useCompleteSprint = (projectKey: string) =>
   useSprintWrite(projectKey, async ({ id, ...body }: Of<CompleteSprint>) =>
