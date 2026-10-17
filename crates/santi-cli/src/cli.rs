@@ -1,13 +1,14 @@
 use std::path::PathBuf;
 
-use chrono::NaiveDate;
+use chrono::{DateTime, Local, NaiveTime};
 use clap::{Args, Parser, Subcommand};
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueType, Priority};
 use santi_types::projects::ProjectState;
-use santi_types::sprints::OpenIssuesDestination;
+use santi_types::sprints::{OpenIssuesDestination, SprintLength};
 
 use crate::client::{IssueKey, ProjectKey};
+use crate::sprint_time::{end_of_day, parse_moment};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -240,14 +241,19 @@ pub enum SprintsCommand {
         #[arg(long)]
         goal: Option<String>,
     },
-    /// Start a sprint (dates default to today and two weeks later)
+    /// Start a sprint: now and two weeks later unless --start, --end or --for say otherwise
     Start {
         project: ProjectKey,
         sprint: i64,
-        #[arg(long)]
-        start: Option<NaiveDate>,
-        #[arg(long)]
-        end: Option<NaiveDate>,
+        /// `YYYY-MM-DD HH:MM` or `YYYY-MM-DD` (00:00) in your time zone, or RFC 3339; default now. Maps to starts_at
+        #[arg(long, value_parser = start_moment)]
+        start: Option<DateTime<Local>>,
+        /// `YYYY-MM-DD HH:MM` or `YYYY-MM-DD` (23:59) in your time zone, or RFC 3339. Maps to ends_at
+        #[arg(long, value_parser = end_moment)]
+        end: Option<DateTime<Local>>,
+        /// 4h, 1d (until 23:59 that day), 1w, 2w or 1m (same day next month)
+        #[arg(long = "for", value_parser = preset, conflicts_with = "end")]
+        length: Option<SprintLength>,
     },
     /// Complete the active sprint; open issues go to --to
     Complete {
@@ -288,6 +294,23 @@ fn destination(text: &str) -> Result<OpenIssuesDestination, String> {
             .parse()
             .map(|sprint_id| OpenIssuesDestination::Sprint { sprint_id })
             .map_err(|_| format!("`{id}` is not backlog, new or a sprint id")),
+    }
+}
+
+fn start_moment(text: &str) -> Result<DateTime<Local>, String> {
+    parse_moment(text, &Local, NaiveTime::MIN, "--start")
+}
+
+fn end_moment(text: &str) -> Result<DateTime<Local>, String> {
+    parse_moment(text, &Local, end_of_day(), "--end")
+}
+
+fn preset(text: &str) -> Result<SprintLength, String> {
+    match text.parse() {
+        Ok(SprintLength::Minutes(_)) | Err(_) => Err(format!(
+            "`{text}` is not 4h, 1d, 1w, 2w or 1m; use --end for other lengths"
+        )),
+        length => length,
     }
 }
 
@@ -441,6 +464,39 @@ mod tests {
         assert_eq!(to("backlog"), OpenIssuesDestination::Backlog {});
         assert_eq!(to("new"), OpenIssuesDestination::NewSprint {});
         assert_eq!(to("7"), OpenIssuesDestination::Sprint { sprint_id: 7 });
+    }
+
+    #[test]
+    fn for_takes_presets_only() {
+        let Command::Sprints(SprintsCommand::Start { length, .. }) =
+            parse(&["santi", "sprints", "start", "WEB", "1", "--for", "4h"])
+        else {
+            panic!("not start");
+        };
+        assert_eq!(length, Some(SprintLength::FourHours));
+        for value in ["90", "3w"] {
+            let error =
+                Cli::try_parse_from(["santi", "sprints", "start", "WEB", "1", "--for", value])
+                    .unwrap_err();
+            assert!(error.to_string().contains("--end"), "{error}");
+        }
+    }
+
+    #[test]
+    fn for_conflicts_with_end() {
+        let error = Cli::try_parse_from([
+            "santi",
+            "sprints",
+            "start",
+            "WEB",
+            "1",
+            "--for",
+            "1d",
+            "--end",
+            "2026-10-16",
+        ])
+        .unwrap_err();
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
     }
 
     #[test]

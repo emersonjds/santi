@@ -4,7 +4,7 @@ use utoipa::{IntoParams, ToSchema};
 
 use crate::issues::{IssueType, Priority};
 use crate::projects::BoardType;
-use crate::sprints::Sprint;
+use crate::sprints::{Sprint, SprintLength};
 
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -171,4 +171,7 @@ pub struct EpicSummary {
 pub struct Backlog {
     pub sections: Vec<BacklogSection>,
     pub epics: Vec<EpicSummary>,
+    /// Length of the board's last started sprint (D48); null means two weeks.
+    #[schema(value_type = Option<String>, example = "2w")]
+    pub sprint_length: Option<SprintLength>,
 }

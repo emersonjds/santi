@@ -1,6 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
-import { page, userEvent } from 'vitest/browser'
+import { type Locator, page, userEvent } from 'vitest/browser'
 import type { Backlog } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
@@ -18,8 +18,21 @@ const NOT_RUNNING: Backlog = {
   sections: [PLANNED, EMPTY, NO_SPRINT],
 }
 
-const day = (offset: number) =>
-  new Date(Date.now() + offset * 86_400_000).toLocaleDateString('sv')
+// Planned 09:00 Nov 2 to 16:00 Nov 13, New York time (the test zone).
+const PLANNED_TIMES: Backlog = {
+  ...NOT_RUNNING,
+  sections: [
+    {
+      ...PLANNED,
+      sprint: {
+        ...PLANNED.sprint!,
+        starts_at: '2026-11-02T14:00:00Z',
+        ends_at: '2026-11-13T21:00:00Z',
+      },
+    },
+    NO_SPRINT,
+  ],
+}
 
 const bodyOf = async (requests: Request[], route: string) =>
   requests
@@ -33,8 +46,43 @@ const countOf = (requests: Request[], route: string) =>
 const section = (screen: RenderResult, name: string) =>
   screen.getByRole('region', { name })
 
+const expectPair = async (
+  dialog: Locator,
+  bound: 'Start' | 'End',
+  date: string,
+  time: string
+) => {
+  await expect.element(dialog.getByLabelText(`${bound} date`)).toHaveValue(date)
+  await expect.element(dialog.getByLabelText(`${bound} time`)).toHaveValue(time)
+}
+
+const openStart = async (
+  backlog = NOT_RUNNING,
+  routes: Parameters<typeof inProjects>[0] = {}
+) => {
+  const requests = inProjects({
+    'GET /api/projects/WEB/backlog': { status: 200, body: backlog },
+    'PUT /api/projects/WEB/sprints/5': { status: 200, body: {} },
+    'POST /api/projects/WEB/sprints/5/start': { status: 200, body: {} },
+    ...routes,
+  })
+  const { screen } = await renderApp('/p/WEB/backlog')
+  await section(screen, 'Sprint 5')
+    .getByRole('button', { name: 'Start sprint' })
+    .click()
+  return {
+    requests,
+    dialog: screen.getByRole('dialog', { name: 'Start Sprint 5' }),
+  }
+}
+
 describe('sprint dialogs', () => {
-  beforeEach(() => page.viewport(1280, 800))
+  beforeEach(async () => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true })
+    vi.setSystemTime(new Date(2026, 9, 16, 18, 0, 5))
+    await page.viewport(1280, 800)
+  })
+  afterEach(() => vi.useRealTimers())
 
   it('creates a sprint, named by the server unless a name is given', async () => {
     const requests = inProjects({
@@ -58,7 +106,7 @@ describe('sprint dialogs', () => {
       .toBeGreaterThan(1)
   })
 
-  it('edits name, goal and dates, refusing an end before the start', async () => {
+  it('edits name, goal and times, refusing an end before the start', async () => {
     const requests = inProjects({
       'PUT /api/projects/WEB/sprints/5': { status: 200, body: {} },
     })
@@ -68,18 +116,22 @@ describe('sprint dialogs', () => {
       .getByRole('button', { name: 'Add dates' })
       .click()
     const dialog = screen.getByRole('dialog', { name: 'Edit Sprint 5' })
-    await dialog.getByLabelText('Starts').fill('2026-11-02')
-    await dialog.getByLabelText('Ends').fill('2026-11-01')
+    await expect
+      .element(dialog)
+      .toHaveTextContent('Times use your time zone (EDT).')
+    await dialog.getByLabelText('Start date').fill('2026-11-02')
+    await dialog.getByLabelText('Start time').fill('09:00')
+    await dialog.getByLabelText('End date').fill('2026-11-02')
+    await dialog.getByLabelText('End time').fill('09:00')
     await dialog.getByRole('button', { name: 'Save' }).click()
 
-    await expect
-      .element(dialog.getByText('End on or after the start date.'))
-      .toBeVisible()
+    await expect.element(dialog.getByText('End after the start.')).toBeVisible()
     expect(requests.map(routeOf)).not.toContain(
       'PUT /api/projects/WEB/sprints/5'
     )
 
-    await dialog.getByLabelText('Ends').fill('2026-11-16')
+    await dialog.getByLabelText('End date').fill('2026-11-16')
+    await dialog.getByLabelText('End time').fill('')
     await dialog.getByLabelText('Name').fill('Checkout')
     await dialog.getByRole('button', { name: 'Save' }).click()
     await expect
@@ -87,8 +139,34 @@ describe('sprint dialogs', () => {
       .toEqual({
         name: 'Checkout',
         goal: '',
-        start_date: '2026-11-02',
-        end_date: '2026-11-16',
+        starts_at: '2026-11-02T14:00:00.000Z',
+        ends_at: '2026-11-17T04:59:00.000Z',
+      })
+  })
+
+  it('shows the planned times and clears the end of a future sprint', async () => {
+    const requests = inProjects({
+      'GET /api/projects/WEB/backlog': { status: 200, body: PLANNED_TIMES },
+      'PUT /api/projects/WEB/sprints/5': { status: 200, body: {} },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await screen.getByRole('button', { name: 'More for Sprint 5' }).click()
+    await screen.getByRole('menuitem', { name: 'Edit sprint' }).click()
+    const dialog = screen.getByRole('dialog', { name: 'Edit Sprint 5' })
+    await expectPair(dialog, 'Start', '2026-11-02', '09:00')
+    await expectPair(dialog, 'End', '2026-11-13', '16:00')
+    await dialog.getByLabelText('End date').fill('')
+    await dialog.getByLabelText('End time').fill('')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    await expect
+      .poll(() => bodyOf(requests, 'PUT /api/projects/WEB/sprints/5'))
+      .toEqual({
+        name: 'Sprint 5',
+        goal: '',
+        starts_at: '2026-11-02T14:00:00.000Z',
+        ends_at: null,
       })
   })
 
@@ -123,89 +201,138 @@ describe('sprint dialogs', () => {
     await expect.element(dialog).not.toBeInTheDocument()
   })
 
-  it('starts a sprint today for two weeks unless another length is picked', async () => {
-    const requests = inProjects({
-      'GET /api/projects/WEB/backlog': { status: 200, body: NOT_RUNNING },
-      'PUT /api/projects/WEB/sprints/5': { status: 200, body: {} },
-      'POST /api/projects/WEB/sprints/5/start': { status: 200, body: {} },
-    })
-    const { screen } = await renderApp('/p/WEB/backlog')
+  it('starts now for two weeks unless another length is picked', async () => {
+    const { requests, dialog } = await openStart()
 
-    await section(screen, 'Sprint 5')
-      .getByRole('button', { name: 'Start sprint' })
-      .click()
-    const dialog = screen.getByRole('dialog', { name: 'Start Sprint 5' })
     await expect
       .element(dialog)
       .toHaveTextContent('1 issue will be on the board.')
-    await expect.element(dialog.getByLabelText('Starts')).toHaveValue(day(0))
-    await expect.element(dialog.getByLabelText('Ends')).toHaveValue(day(14))
+    expect(
+      dialog
+        .getByRole('option')
+        .elements()
+        .map((option) => option.textContent)
+    ).toEqual(['4 hours', '1 day', '1 week', '2 weeks', '1 month', 'Custom'])
+    await expect.element(dialog.getByLabelText('Duration')).toHaveValue('2w')
+    await expectPair(dialog, 'Start', '2026-10-16', '18:00')
+    await expectPair(dialog, 'End', '2026-10-30', '18:00')
+    await expect
+      .element(dialog)
+      .toHaveTextContent('Times use your time zone (EDT).')
 
-    await dialog.getByLabelText('Duration').selectOptions('1 week')
-    await expect.element(dialog.getByLabelText('Ends')).toHaveValue(day(7))
+    await dialog.getByLabelText('Duration').selectOptions('4 hours')
+    await expectPair(dialog, 'End', '2026-10-16', '22:00')
     await dialog.getByLabelText('Goal').fill('Pay with saved cards')
     await dialog.getByRole('button', { name: 'Start sprint' }).click()
 
     await expect
       .poll(() => bodyOf(requests, 'POST /api/projects/WEB/sprints/5/start'))
-      .toEqual({ start_date: day(0), end_date: day(7) })
+      .toEqual({
+        starts_at: '2026-10-16T22:00:00.000Z',
+        ends_at: '2026-10-17T02:00:00.000Z',
+        length: '4h',
+      })
     expect(await bodyOf(requests, 'PUT /api/projects/WEB/sprints/5')).toEqual({
       name: 'Sprint 5',
       goal: 'Pay with saved cards',
-      start_date: day(0),
-      end_date: day(7),
+      starts_at: '2026-10-16T22:00:00.000Z',
+      ends_at: '2026-10-17T02:00:00.000Z',
     })
     await expect.element(dialog).not.toBeInTheDocument()
   })
 
-  it('proposes the planned dates and closes on Escape', async () => {
-    inProjects({
-      'GET /api/projects/WEB/backlog': {
-        status: 200,
-        body: {
-          ...NOT_RUNNING,
-          sections: [
-            {
-              ...PLANNED,
-              sprint: {
-                ...PLANNED.sprint!,
-                start_date: '2026-11-02',
-                end_date: '2026-11-13',
-              },
-            },
-            NO_SPRINT,
-          ],
-        },
-      },
-    })
-    const { screen } = await renderApp('/p/WEB/backlog')
+  it('moves the end with the start until the end is edited', async () => {
+    const { requests, dialog } = await openStart()
 
-    await section(screen, 'Sprint 5')
-      .getByRole('button', { name: 'Start sprint' })
-      .click()
-    const dialog = screen.getByRole('dialog', { name: 'Start Sprint 5' })
-    await expect
-      .element(dialog.getByLabelText('Starts'))
-      .toHaveValue('2026-11-02')
-    await expect
-      .element(dialog.getByLabelText('Ends'))
-      .toHaveValue('2026-11-13')
+    await dialog.getByLabelText('Duration').selectOptions('4 hours')
+    await dialog.getByLabelText('Start time').fill('19:00')
+    await expectPair(dialog, 'End', '2026-10-16', '23:00')
+    await dialog.getByLabelText('End time').fill('23:30')
     await expect
       .element(dialog.getByLabelText('Duration'))
       .toHaveValue('custom')
-    await dialog.getByLabelText('Starts').fill('2026-11-03')
+    await dialog.getByLabelText('Start time').fill('18:00')
+    await expectPair(dialog, 'End', '2026-10-16', '23:30')
+    await dialog.getByRole('button', { name: 'Start sprint' }).click()
+
     await expect
-      .element(dialog.getByLabelText('Ends'))
-      .toHaveValue('2026-11-13')
+      .poll(() => bodyOf(requests, 'POST /api/projects/WEB/sprints/5/start'))
+      .toEqual({
+        starts_at: '2026-10-16T22:00:00.000Z',
+        ends_at: '2026-10-17T03:30:00.000Z',
+        length: '330',
+      })
+  })
+
+  it.each([
+    ['1d', '1d', '23:59'],
+    ['90', 'custom', '19:30'],
+  ])('reopens with the remembered length %s', async (length, duration, end) => {
+    const { dialog } = await openStart({
+      ...NOT_RUNNING,
+      sprint_length: length,
+    })
+
+    await expect
+      .element(dialog.getByLabelText('Duration'))
+      .toHaveValue(duration)
+    await expectPair(dialog, 'End', '2026-10-16', end)
+  })
+
+  it('keeps a planned end, starts now and closes on Escape', async () => {
+    const { dialog } = await openStart(PLANNED_TIMES)
+
+    await expectPair(dialog, 'Start', '2026-10-16', '18:00')
+    await expectPair(dialog, 'End', '2026-11-13', '16:00')
+    await expect
+      .element(dialog.getByLabelText('Duration'))
+      .toHaveValue('custom')
+    await dialog.getByLabelText('Start date').fill('2026-10-17')
+    await expectPair(dialog, 'End', '2026-11-13', '16:00')
 
     await userEvent.keyboard('{Escape}')
     await expect.element(dialog).not.toBeInTheDocument()
   })
 
+  it('refuses an end equal to the start without sending', async () => {
+    const { requests, dialog } = await openStart()
+
+    await dialog.getByLabelText('End date').fill('2026-10-16')
+    await dialog.getByLabelText('End time').fill('18:00')
+    await dialog.getByRole('button', { name: 'Start sprint' }).click()
+
+    await expect.element(dialog.getByText('End after the start.')).toBeVisible()
+    expect(requests.map(routeOf)).not.toContain(
+      'PUT /api/projects/WEB/sprints/5'
+    )
+  })
+
+  it('moves through the fields in reading order', async () => {
+    const { dialog } = await openStart()
+
+    await dialog.getByLabelText('Name').click()
+    const seen: Element[] = []
+    while (seen.at(-1)?.textContent !== 'Start sprint') {
+      await userEvent.keyboard('{Tab}')
+      if (document.activeElement !== seen.at(-1))
+        seen.push(document.activeElement!)
+    }
+    expect(seen).toEqual(
+      [
+        dialog.getByLabelText('Duration'),
+        dialog.getByLabelText('Start date'),
+        dialog.getByLabelText('Start time'),
+        dialog.getByLabelText('End date'),
+        dialog.getByLabelText('End time'),
+        dialog.getByLabelText('Goal'),
+        dialog.getByRole('button', { name: 'Cancel' }),
+        dialog.getByRole('button', { name: 'Start sprint' }),
+      ].map((field) => field.element())
+    )
+  })
+
   it('keeps the start dialog open with the server refusal inline', async () => {
-    inProjects({
-      'GET /api/projects/WEB/backlog': { status: 200, body: NOT_RUNNING },
-      'PUT /api/projects/WEB/sprints/5': { status: 200, body: {} },
+    const { dialog } = await openStart(NOT_RUNNING, {
       'POST /api/projects/WEB/sprints/5/start': {
         status: 409,
         body: problem(
@@ -214,17 +341,31 @@ describe('sprint dialogs', () => {
         ),
       },
     })
-    const { screen } = await renderApp('/p/WEB/backlog')
-
-    await section(screen, 'Sprint 5')
-      .getByRole('button', { name: 'Start sprint' })
-      .click()
-    const dialog = screen.getByRole('dialog', { name: 'Start Sprint 5' })
     await dialog.getByRole('button', { name: 'Start sprint' }).click()
 
     await expect
       .element(dialog.getByRole('alert'))
       .toHaveTextContent('Complete the active sprint before starting another.')
+  })
+
+  it('shows a refused end under the end date, values kept', async () => {
+    const { dialog } = await openStart(NOT_RUNNING, {
+      'POST /api/projects/WEB/sprints/5/start': {
+        status: 422,
+        body: problem(422, 'Invalid sprint.', [
+          { field: 'ends_at', message: 'Pick an end within ten years.' },
+        ]),
+      },
+    })
+    await dialog.getByRole('button', { name: 'Start sprint' }).click()
+
+    await expect
+      .element(dialog.getByText('Pick an end within ten years.'))
+      .toBeVisible()
+    await expect
+      .element(dialog.getByLabelText('End date'))
+      .toHaveAttribute('aria-invalid', 'true')
+    await expectPair(dialog, 'End', '2026-10-30', '18:00')
   })
 
   it('completes a sprint, sending its open issues to the picked sprint', async () => {

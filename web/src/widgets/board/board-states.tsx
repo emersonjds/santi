@@ -1,19 +1,10 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { SprintCountdown } from '@/entities/sprint/sprint-countdown'
 import type { Sprint } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { COLUMN_WIDTH } from './board-column'
-
-const DAY = 86_400_000
-
-const timeLeft = (endDate: string) => {
-  const today = new Date().setHours(0, 0, 0, 0)
-  const days = Math.round((Date.parse(`${endDate}T00:00`) - today) / DAY)
-  if (days > 1) return `${days} days left`
-  if (days === 1) return '1 day left'
-  return 'Ends today'
-}
 
 /** SB-11: name, time left and goal of the running sprint; its "…" menu on the same line (R-4). */
 export const SprintStrip = ({
@@ -28,13 +19,7 @@ export const SprintStrip = ({
     className='flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground'
   >
     <strong className='font-semibold text-foreground'>{sprint.name}</strong>
-    {sprint.overdue ? (
-      <span className='rounded-full bg-warning-bg px-2 text-xs font-semibold text-warning'>
-        Overdue
-      </span>
-    ) : (
-      sprint.end_date && <span>{timeLeft(sprint.end_date)}</span>
-    )}
+    <SprintCountdown sprint={sprint} />
     <span className='ms-auto'>{menu}</span>
     {sprint.goal && <p className='line-clamp-2 basis-full'>{sprint.goal}</p>}
   </section>

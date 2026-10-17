@@ -91,7 +91,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             Method::GET,
             "/api/projects/PERF/backlog",
             None,
-            4,
+            5,
             StatusCode::OK,
         ),
         (

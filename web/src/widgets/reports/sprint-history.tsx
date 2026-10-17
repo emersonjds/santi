@@ -5,7 +5,7 @@ import {
   sprintHistoryQuery,
 } from '@/entities/report/report-queries'
 import type { SprintTotals } from '@/shared/api/client'
-import { day } from '@/shared/lib/sprint-dates'
+import { formatRange } from '@/shared/lib/sprint-dates'
 import { Button } from '@/shared/ui/button'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -46,9 +46,9 @@ const SprintRow = ({ totals, projectKey }: SprintRowProps) => {
             {sprint.name}
           </Link>
           {sprint.state === 'active' && <InProgress />}
-          {sprint.start_date && sprint.end_date && (
+          {sprint.starts_at && sprint.ends_at && (
             <span className='text-muted-foreground'>
-              {day(sprint.start_date)} – {day(sprint.end_date)}
+              {formatRange(sprint.starts_at, sprint.ends_at)}
             </span>
           )}
         </div>

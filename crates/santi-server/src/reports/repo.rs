@@ -15,7 +15,7 @@ pub async fn sprint_totals(
 ) -> Result<Vec<SprintTotals>, sqlx::Error> {
     let rows = sqlx::query!(
         r#"WITH page AS (
-               SELECT s.id, s.name, s.goal, s.state, s.start_date, s.end_date, s.started_at, s.closed_at
+               SELECT s.id, s.name, s.goal, s.state, s.starts_at, s.ends_at, s.started_at, s.closed_at
                FROM sprint s
                WHERE s.board_id = $1 AND s.state <> 'future'
                  AND ($2::bigint IS NULL OR (coalesce(s.closed_at, 'infinity'), s.id) <
@@ -24,9 +24,9 @@ pub async fn sprint_totals(
                LIMIT $3
            )
            SELECT page.id AS "id!", page.name AS "name!", page.goal AS "goal!",
-                  page.state AS "state!: SprintState", page.start_date, page.end_date, page.started_at,
+                  page.state AS "state!: SprintState", page.starts_at, page.ends_at, page.started_at,
                   page.closed_at,
-                  (page.state = 'active' AND page.end_date < current_date) AS "overdue!",
+                  (page.state = 'active' AND page.ends_at <= now()) AS "overdue!",
                   sum(si.points_at_start) FILTER (WHERE NOT si.added_after_start) AS committed,
                   CASE WHEN page.state = 'closed'
                        THEN sum(si.points_at_close) FILTER (WHERE si.outcome = 'completed')
@@ -36,7 +36,7 @@ pub async fn sprint_totals(
            LEFT JOIN sprint_issue si ON si.sprint_id = page.id
            LEFT JOIN issue i ON i.id = si.issue_id
            LEFT JOIN status st ON st.id = i.status_id
-           GROUP BY page.id, page.name, page.goal, page.state, page.start_date, page.end_date,
+           GROUP BY page.id, page.name, page.goal, page.state, page.starts_at, page.ends_at,
                     page.started_at, page.closed_at
            ORDER BY coalesce(page.closed_at, 'infinity') DESC, page.id DESC"#,
         board_id,
@@ -53,8 +53,8 @@ pub async fn sprint_totals(
                 name: row.name,
                 goal: row.goal,
                 state: row.state,
-                start_date: row.start_date,
-                end_date: row.end_date,
+                starts_at: row.starts_at,
+                ends_at: row.ends_at,
                 started_at: row.started_at,
                 closed_at: row.closed_at,
                 overdue: row.overdue,
@@ -78,9 +78,9 @@ pub async fn find_report_sprint(
     sprint_id: i64,
 ) -> Result<Option<ReportSprint>, sqlx::Error> {
     let row = sqlx::query!(
-        r#"SELECT s.id, s.name, s.goal, s.state AS "state: SprintState", s.start_date, s.end_date,
+        r#"SELECT s.id, s.name, s.goal, s.state AS "state: SprintState", s.starts_at, s.ends_at,
                   s.started_at, s.closed_at,
-                  (s.state = 'active' AND s.end_date < current_date) AS "overdue!",
+                  (s.state = 'active' AND s.ends_at <= now()) AS "overdue!",
                   neighbor.newer_sprint_id AS "newer_sprint_id?", neighbor.older_sprint_id AS "older_sprint_id?"
            FROM sprint s
            LEFT JOIN (
@@ -101,8 +101,8 @@ pub async fn find_report_sprint(
             name: row.name,
             goal: row.goal,
             state: row.state,
-            start_date: row.start_date,
-            end_date: row.end_date,
+            starts_at: row.starts_at,
+            ends_at: row.ends_at,
             started_at: row.started_at,
             closed_at: row.closed_at,
             overdue: row.overdue,
