@@ -92,7 +92,7 @@ const ProjectItem = ({
         </button>
         <SidebarMenuButton
           asChild
-          className='h-11 min-w-0 flex-1 pe-12 md:h-10 md:pe-9'
+          className='me-11 h-11 min-w-0 flex-1 max-md:pe-2! md:me-0 md:h-10'
         >
           <Link
             to='/p/$key'
