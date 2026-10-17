@@ -11,7 +11,6 @@ export const PRESETS = [
 
 export const CUSTOM = 'custom'
 
-/** The end of a sprint of `length` (a preset token or minutes) from `start`, in local time. */
 export const sprintWindow = (start: Date, length: string): Date => {
   const end = new Date(start)
   switch (length) {

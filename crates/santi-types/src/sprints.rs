@@ -57,7 +57,6 @@ pub struct UpdateSprint {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StartSprint {
-    /// Defaults to now.
     #[serde(default)]
     pub starts_at: Option<DateTime<Utc>>,
     /// Defaults to two weeks after the start (D12).
