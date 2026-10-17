@@ -128,14 +128,13 @@ describe('reports page', () => {
   })
 
   it('loads the next sprints on demand', async () => {
-    let call = 0
     const requests = inProjects({
       [HISTORY]: {
         status: 200,
-        body: () =>
-          call++ === 0
-            ? { items: [ACTIVE, CLOSED[0]], next_cursor: 3 }
-            : { items: [CLOSED[1]], next_cursor: null },
+        body: (request: Request) =>
+          new URL(request.url).searchParams.get('cursor') === '3'
+            ? { items: [CLOSED[1]], next_cursor: null }
+            : { items: [ACTIVE, CLOSED[0]], next_cursor: 3 },
       },
       [VELOCITY]: VELOCITY_OK,
     })
