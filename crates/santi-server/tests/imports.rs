@@ -632,3 +632,29 @@ async fn imported_closed_sprint_has_completed_facts(pool: PgPool) {
     assert_eq!(velocity["sprints"][0]["completed"], 3.0);
     assert_eq!(velocity["average_completed"], 3.0);
 }
+
+/// RP-34: a closed sprint's facts are frozen; an import landing in a same-named native one adds none.
+#[sqlx::test]
+async fn importing_into_a_native_closed_sprint_keeps_its_report(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+    let native = ran_sprint(&ana, "Old sprint", true).await;
+    let url = format!("/api/projects/SANTI/sprints/{}/report", native["id"]);
+    let (_, before) = ana.get(&url).await;
+    let (_, history_before) = ana.get("/api/projects/SANTI/reports/sprints").await;
+    let csv = "Issue key,Summary,Status,Sprint,Custom field (Story Points)\n\
+               OLD-1,Shipped,Done,Old sprint,3\n";
+    let mapping = json!({
+        "statuses": { "Done": ana.status_id("SANTI", "Done").await },
+        "sprints": { "Old sprint": "closed" },
+    });
+
+    let (status, result) = import(&ana, csv, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(issue(&ana, 2).await["sprint_id"], native["id"]);
+    assert_eq!(ana.get(&url).await.1, before);
+    assert_eq!(
+        ana.get("/api/projects/SANTI/reports/sprints").await.1,
+        history_before
+    );
+}

@@ -343,6 +343,16 @@ async fn backfill_writes_facts_only_for_imported_closed_sprints(pool: PgPool) {
         .execute(&pool)
         .await
         .unwrap();
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "late", "issue_type": "subtask", "parent": "SANTI-1" }),
+    )
+    .await;
+    sqlx::query("UPDATE issue SET sprint_id = $1 WHERE number = 3")
+        .bind(native["id"].as_i64().unwrap())
+        .execute(&pool)
+        .await
+        .unwrap();
     let facts = |sprint_id: i64| {
         sqlx::query_as::<_, (String, Option<f64>, Option<f64>, bool)>(
             "SELECT outcome, points_at_start, points_at_close, added_after_start

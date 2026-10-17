@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sprint_issue (sprint_id, issue_id, added_after_start, points_at_start, outcome, points_at_close)\n         SELECT s.id, i.id, s.state = 'active', i.points,\n                CASE WHEN s.state = 'closed' THEN 'completed' END,\n                CASE WHEN s.state = 'closed' THEN i.points END\n         FROM issue i JOIN sprint s ON s.id = i.sprint_id AND s.state <> 'future'\n         WHERE (s.state = 'active' OR NOT EXISTS (SELECT 1 FROM sprint_issue x WHERE x.sprint_id = s.id))\n           AND i.project_id = $1 AND i.external_source = $2 AND i.external_key = ANY($3)\n         ON CONFLICT (sprint_id, issue_id) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "8181d70304adb3a9dea18e9609de83246e929cbc93e72fc89a0d21f71e501c34"
+}
