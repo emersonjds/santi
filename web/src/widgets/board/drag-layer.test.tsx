@@ -101,6 +101,23 @@ describe('board drag layer', () => {
     )
   })
 
+  it('keeps an open inline create and its summary when the drag layer loads', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/OPS/board')
+    const doing = screen.getByRole('region', { name: 'Doing' })
+
+    await doing.getByRole('button', { name: 'Create issue' }).click()
+    const summary = doing.getByLabelText('New issue summary')
+    await summary.fill('Rotate the keys')
+    dragLayer.load()
+    await expect
+      .element(doing.getByRole('button', { name: 'Drag OPS-2' }))
+      .toBeVisible()
+
+    await expect.element(summary).toHaveFocus()
+    await expect.element(summary).toHaveValue('Rotate the keys')
+  })
+
   it('opens a column limit editor without rendering the other columns again', async () => {
     adminWithLimits()
     dragLayer.load()

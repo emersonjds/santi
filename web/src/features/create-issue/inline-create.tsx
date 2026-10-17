@@ -1,10 +1,11 @@
-import { type FormEvent, useState } from 'react'
+import type { FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
 import { statusesOf } from '@/entities/issue/statuses'
-import { type IssueType, fieldMessage } from '@/shared/api/client'
+import { fieldMessage } from '@/shared/api/client'
+import { useHeldEditor } from '@/shared/lib/held-editor'
 import { Input } from '@/shared/ui/input'
 
 // SB-23: never subtasks inline; epics are made from the dialog.
@@ -28,23 +29,26 @@ export const InlineCreate = ({
 }: InlineCreateProps) => {
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const create = useCreateIssue(projectKey)
-  const [summary, setSummary] = useState('')
-  const [type, setType] = useState<IssueType>('story')
+  const held = `create:${sprintId ?? 'backlog'}:${columnId ?? ''}`
+  const summary = useHeldEditor(held)
+  const type = useHeldEditor(`${held}:type`)
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const text = summary.trim()
-    if (!text) return
-    setSummary('')
+    const form = new FormData(event.currentTarget)
+    const text = String(form.get('summary')).trim()
+    const issueType = String(form.get('type'))
+    if (!text || !isIssueType(issueType)) return
+    summary.fill('')
     create.mutate(
       {
         summary: text,
-        issue_type: type,
+        issue_type: issueType,
         sprint_id: sprintId ?? undefined,
         status_id: statusesOf(settings, columnId ?? settings?.columns[0]?.id)[0]
           ?.id,
       },
-      { onError: () => setSummary(text) }
+      { onError: () => summary.fill(text) }
     )
   }
 
@@ -52,12 +56,12 @@ export const InlineCreate = ({
     <form onSubmit={submit} className='grid gap-1.5 px-2 pb-2'>
       <div className='flex gap-1.5'>
         <select
+          name='type'
           aria-label='New issue type'
           className='h-11 rounded-md border border-input bg-background px-1 text-base md:h-9 md:text-sm'
-          value={type}
-          onChange={(event) =>
-            isIssueType(event.target.value) && setType(event.target.value)
-          }
+          defaultValue='story'
+          {...type.field}
+          autoFocus={false}
         >
           {INLINE_TYPES.map((value) => (
             <option key={value} value={value}>
@@ -66,13 +70,12 @@ export const InlineCreate = ({
           ))}
         </select>
         <Input
+          name='summary'
           aria-label='New issue summary'
           placeholder='What needs doing?'
-          autoFocus
           maxLength={255}
           className='h-11 bg-background md:h-9'
-          value={summary}
-          onChange={(event) => setSummary(event.target.value)}
+          {...summary.field}
           onKeyDown={(event) => event.key === 'Escape' && onClose()}
         />
       </div>
