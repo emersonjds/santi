@@ -66,9 +66,10 @@ describe('backlog page', () => {
       .toHaveTextContent('Drag issues here to plan this sprint.')
 
     const backlog = screen.getByRole('region', { name: 'Backlog' })
-    await expect
-      .element(backlog.getByRole('button', { name: 'Create sprint' }))
-      .toBeVisible()
+    const create = backlog.getByRole('button', { name: 'Create sprint' })
+    await expect.element(create).toBeVisible()
+    await expect.element(create).toHaveClass('bg-primary')
+    expect(create.element().querySelector('svg')).not.toBeNull()
     await expect
       .element(backlog)
       .toHaveTextContent('2 of 2 issues visible · Estimate: 2 of 2')
