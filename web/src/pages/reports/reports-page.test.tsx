@@ -52,7 +52,7 @@ const sprints = (screen: Pick<Locator, 'getByRole'>) =>
   screen.getByRole('region', { name: 'Sprints' }).getByRole('list')
 
 const sprintList = () =>
-  document.querySelector<HTMLElement>('section[aria-label="Sprints"] ul')
+  document.querySelector<HTMLElement>('section[aria-labelledby="sprints-title"] ul')
 
 describe('reports page', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -69,6 +69,9 @@ describe('reports page', () => {
       .toBeVisible()
     await expect
       .element(screen.getByRole('heading', { name: 'Velocity' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Sprints', level: 2 }))
       .toBeVisible()
     const rows = sprints(screen).getByRole('listitem')
     await expect.element(rows.first()).toHaveTextContent('Sprint 4')
