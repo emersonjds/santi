@@ -9,6 +9,10 @@ import {
   missingLegalSettings,
   withoutLegalLinks,
 } from './src/shared/config/legal-build'
+import {
+  inlineStylesheets,
+  llmsTxt,
+} from './src/shared/config/landing-build'
 
 const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 
@@ -66,6 +70,26 @@ const seoFiles: Plugin = {
       fileName: 'sitemap.xml',
       source: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${siteUrl}/</loc></url></urlset>\n`,
     })
+    this.emitFile({
+      type: 'asset',
+      fileName: 'llms.txt',
+      source: llmsTxt(siteUrl),
+    })
+  },
+}
+
+const landingInlineCss: Plugin = {
+  name: 'santi-landing-inline-css',
+  apply: 'build',
+  transformIndexHtml: {
+    order: 'post',
+    handler: (html, { path, bundle }) =>
+      path === '/landing.html' && bundle
+        ? inlineStylesheets(html, (file) => {
+            const output = bundle[file]
+            return output?.type === 'asset' ? String(output.source) : undefined
+          })
+        : html,
   },
 }
 
@@ -102,6 +126,7 @@ export default defineConfig({
     tailwindcss(),
     seoFiles,
     legalLinks,
+    landingInlineCss,
   ],
   // Split route chunks hide their imports from the dependency scan; a dependency found mid-test reloads Vitest.
   optimizeDeps: { entries: ['src/**/*.tsx'] },
