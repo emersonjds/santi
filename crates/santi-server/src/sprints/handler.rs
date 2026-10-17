@@ -93,7 +93,7 @@ pub async fn delete_sprint(
         ("key" = String, Path, description = "Project key"),
         ("id" = i64, Path, description = "Sprint id")),
     responses(
-        (status = 200, body = Sprint, description = "Active; start defaults to today, end to two weeks later"),
+        (status = 200, body = Sprint, description = "Active; start defaults to now, end to two weeks later"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
         (status = 409, body = Problem, content_type = "application/problem+json", description = "`sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13)"),

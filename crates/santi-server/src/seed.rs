@@ -267,14 +267,14 @@ async fn add_sprints(
     board_id: i64,
     count: usize,
 ) -> Result<Vec<i64>, sqlx::Error> {
-    let today = Utc::now().date_naive();
+    let now = Utc::now();
     let mut ids = Vec::with_capacity(count);
     for index in 0..count {
         let number = sprints::repo::take_sprint_number(conn, board_id).await?;
         let name = format!("{SCRUM_KEY} Sprint {number}");
         let id = sprints::repo::insert_sprint(conn, board_id, &name, "").await?;
         let weeks_back = 2 * (count as i64 - 1 - index as i64);
-        let start = today - Duration::weeks(weeks_back) - Duration::days(7);
+        let start = now - Duration::weeks(weeks_back) - Duration::days(7);
         if index + 1 < count {
             sprints::repo::mark_started(conn, id, start, start + Duration::days(14)).await?;
         }

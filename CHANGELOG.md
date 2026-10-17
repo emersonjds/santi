@@ -10,6 +10,20 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- **Sprints:** start and end are times, not dates. The API fields `start_date`/`end_date` are now
+  `starts_at`/`ends_at` (RFC 3339) on sprints, sprint edits and sprint start; the old names are
+  refused. An active sprint is overdue from the minute its end passes.
+
+### Upgrade notes
+
+- Migration 0020 turns existing sprint dates into 00:00 (start) and 23:59 (end) in the
+  database's `timezone` setting, UTC when unset. Before deploying, run
+  `ALTER DATABASE <db> SET timezone TO '<zone>'` (for example `'America/Sao_Paulo'`) so old
+  sprints keep their day boundaries.
+- API clients: send `starts_at`/`ends_at` as instants with an offset instead of dates.
+
 ## [0.11.0] - 2026-10-17
 
 > Story points and priority stand out in purple and are edited right on the board card.

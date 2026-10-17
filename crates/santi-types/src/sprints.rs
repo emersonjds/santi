@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 use utoipa::ToSchema;
@@ -22,11 +22,11 @@ pub struct Sprint {
     pub name: String,
     pub goal: String,
     pub state: SprintState,
-    pub start_date: Option<NaiveDate>,
-    pub end_date: Option<NaiveDate>,
+    pub starts_at: Option<DateTime<Utc>>,
+    pub ends_at: Option<DateTime<Utc>>,
     pub started_at: Option<DateTime<Utc>>,
     pub closed_at: Option<DateTime<Utc>>,
-    /// Active and past its end date; it stays active until completed (D15).
+    /// Active and at or past its end; it stays active until completed (D15, D48).
     pub overdue: bool,
 }
 
@@ -48,21 +48,21 @@ pub struct UpdateSprint {
     #[serde(default)]
     pub goal: String,
     #[serde(default)]
-    pub start_date: Option<NaiveDate>,
+    pub starts_at: Option<DateTime<Utc>>,
     #[serde(default)]
-    pub end_date: Option<NaiveDate>,
+    pub ends_at: Option<DateTime<Utc>>,
 }
 
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StartSprint {
-    /// Defaults to today.
+    /// Defaults to now.
     #[serde(default)]
-    pub start_date: Option<NaiveDate>,
+    pub starts_at: Option<DateTime<Utc>>,
     /// Defaults to two weeks after the start (D12).
     #[serde(default)]
-    pub end_date: Option<NaiveDate>,
+    pub ends_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

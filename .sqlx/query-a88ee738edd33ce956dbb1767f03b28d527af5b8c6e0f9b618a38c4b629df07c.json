@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO sprint (board_id, name, state, start_date, end_date, started_at, closed_at)\n         VALUES ($1, $2, 'closed', $3, $4, $3::date, $4::date)\n         RETURNING id",
+  "query": "INSERT INTO sprint (board_id, name, state, starts_at, ends_at, started_at, closed_at)\n         VALUES ($1, $2, 'closed', ($3::date + time '00:00') AT TIME ZONE 'UTC',\n                 ($4::date + time '23:59') AT TIME ZONE 'UTC', $3::date, $4::date)\n         RETURNING id",
   "describe": {
     "columns": [
       {
@@ -27,5 +27,5 @@
       false
     ]
   },
-  "hash": "0cf89439cc280e2b57fa8c972be452be49cee33b64499dd45c02d76b1d6a375d"
+  "hash": "a88ee738edd33ce956dbb1767f03b28d527af5b8c6e0f9b618a38c4b629df07c"
 }
