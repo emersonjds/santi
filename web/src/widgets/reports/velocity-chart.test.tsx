@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, onTestFinished } from 'vitest'
 import { render } from 'vitest-browser-react'
 import type { Sprint, SprintTotals } from '@/shared/api/client'
 import { VelocityChart } from './velocity-chart'
@@ -16,6 +16,35 @@ const totals = (
     overdue: false,
   }
   return { sprint, committed, completed }
+}
+
+/** Paints `color` over `background` and reads the pixel back, so any CSS color syntax comes out as sRGB. */
+const painted = (color: string, background: string) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1
+  canvas.height = 1
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context) throw new Error('No 2D canvas')
+  context.fillStyle = background
+  context.fillRect(0, 0, 1, 1)
+  context.fillStyle = color
+  context.fillRect(0, 0, 1, 1)
+  return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+}
+
+/** WCAG 2.2 relative luminance and contrast ratio. */
+const luminance = (channels: number[]) => {
+  const [red, green, blue] = channels.map((channel) => {
+    const value = channel / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+const contrast = (first: number[], second: number[]) => {
+  const [lighter, darker] = [luminance(first), luminance(second)].sort(
+    (a, b) => b - a
+  )
+  return (lighter + 0.05) / (darker + 0.05)
 }
 
 const SEVEN = [1, 2, 3, 4, 5, 6, 7].map((id) => totals(id, 8, id))
@@ -64,6 +93,31 @@ describe('velocity chart', () => {
       .element(screen.getByRole('row').last())
       .toHaveTextContent('Average—')
   })
+
+  it.each(['light', 'dark'])(
+    'draws the committed bar at 3:1 or more against the chart in the %s theme',
+    async (theme) => {
+      document.documentElement.dataset.theme = theme
+      onTestFinished(() => {
+        delete document.documentElement.dataset.theme
+      })
+      const screen = await render(
+        <VelocityChart
+          velocity={{ sprints: [totals(1, 8, 5)], average_completed: 5 }}
+        />
+      )
+
+      const frame = screen.container.firstElementChild
+      const committed = screen.container.querySelector('rect')
+      if (!frame || !committed) throw new Error('No chart drawn')
+      const card = getComputedStyle(frame).backgroundColor
+      const ratio = contrast(
+        painted(getComputedStyle(committed).fill, card),
+        painted(card, 'black')
+      )
+      expect(ratio).toBeGreaterThanOrEqual(3)
+    }
+  )
 
   it('says so when no sprint has finished', async () => {
     const screen = await render(
