@@ -257,6 +257,8 @@ pub enum SprintsCommand {
         #[arg(long, default_value = "backlog", value_parser = destination)]
         to: OpenIssuesDestination,
     },
+    /// A started sprint's report: completed, not completed and removed issues
+    Report { project: ProjectKey, sprint: i64 },
 }
 
 /// Parses a snake_case value the way the API spells it (`in_progress`, `bug`).
