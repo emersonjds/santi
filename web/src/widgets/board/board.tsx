@@ -23,6 +23,8 @@ import { CARD_LIST, EmptySlot, IssueCard } from '@/entities/issue/issue-card'
 import { useUpdateIssue } from '@/entities/issue/issue-mutations'
 import { ImportHint } from '@/entities/project/import-hint'
 import { projectQuery } from '@/entities/project/project-queries'
+import { useProjectWritable } from '@/entities/project/writable'
+import { WriteLock } from '@/entities/project/write-lock'
 import type {
   BoardColumn,
   BoardSettings,
@@ -165,13 +167,14 @@ const Columns = ({
   const doneWindow =
     board.board_type === 'kanban' ? settings?.done_window_days : null
   const narrow = useIsMobile()
+  const writable = useProjectWritable(projectKey)
   // Held here, above the drag layer swap, so an open form survives it; one column's form at a time.
   const [creating, setCreating] = useState<number | null>(null)
   const [deleting, setDeleting] = useState<Card | null>(null)
   const [editors] = useState(createHeldEditors)
   const last = board.columns[board.columns.length - 1]
   useAssignKey(
-    () => board.columns.flatMap((column) => column.cards),
+    () => (writable ? board.columns.flatMap((column) => column.cards) : []),
     useUpdateIssue(projectKey)
   )
   const renderCard = useCallback(
@@ -225,7 +228,7 @@ const Columns = ({
         {column.cards.map((card) => (
           <li key={card.key}>{renderCard(card)}</li>
         ))}
-        {column.cards.length === 0 && <EmptySlot />}
+        {column.cards.length === 0 && writable && <EmptySlot />}
       </ol>
     )
   )
@@ -233,7 +236,7 @@ const Columns = ({
   return (
     <div className='flex flex-1 gap-3 overflow-x-auto overscroll-x-contain pb-2'>
       <HeldEditors value={editors}>
-        {narrow ? (
+        {narrow || !writable ? (
           plain
         ) : (
           <Suspense fallback={plain}>
@@ -278,7 +281,9 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
   return (
     <>
       {board.sprint && (
-        <RunningSprint sprint={board.sprint} projectKey={projectKey} />
+        <WriteLock projectKey={projectKey}>
+          <RunningSprint sprint={board.sprint} projectKey={projectKey} />
+        </WriteLock>
       )}
       <FilterBar projectKey={projectKey} search={search} text />
       {board.columns.every((column) => column.cards.length === 0) &&
@@ -298,13 +303,19 @@ const BoardBody = ({ projectKey, search }: BoardProps) => {
         shown={shown}
       />
       <BoardContext value={board}>
-        <Columns
-          board={board}
-          projectKey={projectKey}
-          shown={shown}
-          settings={settings}
-          limits={board.board_type === 'kanban' && project?.role === 'admin'}
-        />
+        <WriteLock projectKey={projectKey}>
+          <Columns
+            board={board}
+            projectKey={projectKey}
+            shown={shown}
+            settings={settings}
+            limits={
+              board.board_type === 'kanban' &&
+              project?.role === 'admin' &&
+              project.state !== 'archived'
+            }
+          />
+        </WriteLock>
       </BoardContext>
     </>
   )

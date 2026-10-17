@@ -26,6 +26,7 @@ import { fullName, shortName } from '@/shared/lib/initials'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
+import { NativeSelect } from '@/shared/ui/native-select'
 
 // Native selects: no menu chunk to load, the phone's own picker, 44px rows on touch (ui-layout).
 const GHOST =
@@ -90,7 +91,7 @@ const StatusField = ({ issue, projectKey }: IssueFieldsProps) => {
   return (
     <Field label='Status' issue={issue} projectKey={projectKey}>
       {(save, id) => (
-        <select
+        <NativeSelect
           id={id}
           className={cn(
             'h-11 w-full rounded-md border border-transparent px-2 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring md:h-8 md:w-fit md:max-w-full md:text-sm',
@@ -111,7 +112,7 @@ const StatusField = ({ issue, projectKey }: IssueFieldsProps) => {
               ))}
             </optgroup>
           ))}
-        </select>
+        </NativeSelect>
       )}
     </Field>
   )
@@ -135,7 +136,7 @@ const AssigneeField = ({ issue, projectKey }: IssueFieldsProps) => {
           )
         return (
           <>
-            <select
+            <NativeSelect
               id={id}
               aria-keyshortcuts='a'
               className={SELECT}
@@ -158,7 +159,7 @@ const AssigneeField = ({ issue, projectKey }: IssueFieldsProps) => {
                   {shortName(member.display_name)}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             {me && issue.assignee_id !== me.id && (
               <Button
                 variant='link'
@@ -184,7 +185,7 @@ const SprintField = ({ issue, projectKey }: IssueFieldsProps) => {
   return (
     <Field label='Sprint' issue={issue} projectKey={projectKey}>
       {(save, id) => (
-        <select
+        <NativeSelect
           id={id}
           className={SELECT}
           value={issue.sprint_id ?? ''}
@@ -199,7 +200,7 @@ const SprintField = ({ issue, projectKey }: IssueFieldsProps) => {
               {sprint.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       )}
     </Field>
   )
@@ -213,7 +214,7 @@ const EpicField = ({ issue, projectKey }: IssueFieldsProps) => {
   return (
     <Field label='Epic' issue={issue} projectKey={projectKey}>
       {(save, id) => (
-        <select
+        <NativeSelect
           id={id}
           className={SELECT}
           value={parent}
@@ -229,7 +230,7 @@ const EpicField = ({ issue, projectKey }: IssueFieldsProps) => {
               {epic.key} {epic.summary}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       )}
     </Field>
   )
@@ -267,7 +268,7 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
       </Fact>
       <Field label='Priority' {...field}>
         {(save, id) => (
-          <select
+          <NativeSelect
             id={id}
             className={SELECT}
             value={issue.priority}
@@ -281,12 +282,12 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
                 {label}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         )}
       </Field>
       <Field label='Type' {...field}>
         {(save, id) => (
-          <select
+          <NativeSelect
             id={id}
             className={SELECT}
             value={issue.issue_type}
@@ -300,7 +301,7 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
                 {label}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         )}
       </Field>
       <Field label='Points' {...field}>

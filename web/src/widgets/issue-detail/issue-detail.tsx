@@ -8,6 +8,8 @@ import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { projectQuery } from '@/entities/project/project-queries'
+import { useProjectWritable } from '@/entities/project/writable'
+import { WriteLock } from '@/entities/project/write-lock'
 import { sessionQuery } from '@/entities/session/session-query'
 import { type Issue, fieldMessage } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
@@ -197,6 +199,7 @@ export const IssueDetail = ({
   const { data: issue, error } = useQuery(issueQuery(projectKey, number))
   const { data: project } = useQuery(projectQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
+  const writable = useProjectWritable(projectKey)
   const [deleting, setDeleting] = useState(false)
   if (error)
     return (
@@ -219,7 +222,7 @@ export const IssueDetail = ({
             actions={
               <>
                 {actions}
-                {mayDelete(project, me, issue.reporter_id) && (
+                {writable && mayDelete(project, me, issue.reporter_id) && (
                   <Suspense
                     fallback={<span className='block size-11 md:size-8' />}
                   >
@@ -229,15 +232,21 @@ export const IssueDetail = ({
               </>
             }
           />
-          <Summary issue={issue} projectKey={projectKey} />
+          <WriteLock projectKey={projectKey}>
+            <Summary issue={issue} projectKey={projectKey} />
+          </WriteLock>
         </div>
-        <Description issue={issue} projectKey={projectKey} />
-        {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
-          <IssueSubtasks issue={issue} projectKey={projectKey} />
-        )}
-        <IssueComments projectKey={projectKey} number={number} />
+        <WriteLock projectKey={projectKey}>
+          <Description issue={issue} projectKey={projectKey} />
+          {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
+            <IssueSubtasks issue={issue} projectKey={projectKey} />
+          )}
+          <IssueComments projectKey={projectKey} number={number} />
+        </WriteLock>
       </div>
-      <IssueFields issue={issue} projectKey={projectKey} />
+      <WriteLock projectKey={projectKey}>
+        <IssueFields issue={issue} projectKey={projectKey} />
+      </WriteLock>
       {deleting && (
         <Suspense fallback={null}>
           <DeleteIssueDialog

@@ -1,5 +1,6 @@
 import { CircleCheck, Ellipsis, Pencil, Trash2 } from 'lucide-react'
 import type { Sprint } from '@/shared/api/client'
+import { useReadOnly } from '@/shared/lib/read-only'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,35 +23,43 @@ export const SprintMenu = ({
   onEdit,
   onDelete,
   onComplete,
-}: SprintMenuProps) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger
-      aria-label={`More for ${sprint.name}`}
-      className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-9'
-    >
-      <Ellipsis className='size-4' />
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align='end' className='w-44'>
-      <DropdownMenuItem className={ROW} onSelect={onEdit}>
-        <Pencil />
-        Edit sprint
-      </DropdownMenuItem>
-      {sprint.state === 'active' && onComplete && (
-        <DropdownMenuItem className={ROW} onSelect={onComplete}>
-          <CircleCheck />
-          Complete sprint
+}: SprintMenuProps) => {
+  const locked = useReadOnly() !== undefined
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`More for ${sprint.name}`}
+        className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-9'
+      >
+        <Ellipsis className='size-4' />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end' className='w-44'>
+        <DropdownMenuItem className={ROW} disabled={locked} onSelect={onEdit}>
+          <Pencil />
+          Edit sprint
         </DropdownMenuItem>
-      )}
-      {sprint.state === 'future' && onDelete && (
-        <DropdownMenuItem
-          className={ROW}
-          variant='destructive'
-          onSelect={onDelete}
-        >
-          <Trash2 />
-          Delete sprint
-        </DropdownMenuItem>
-      )}
-    </DropdownMenuContent>
-  </DropdownMenu>
-)
+        {sprint.state === 'active' && onComplete && (
+          <DropdownMenuItem
+            className={ROW}
+            disabled={locked}
+            onSelect={onComplete}
+          >
+            <CircleCheck />
+            Complete sprint
+          </DropdownMenuItem>
+        )}
+        {sprint.state === 'future' && onDelete && (
+          <DropdownMenuItem
+            className={ROW}
+            variant='destructive'
+            disabled={locked}
+            onSelect={onDelete}
+          >
+            <Trash2 />
+            Delete sprint
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

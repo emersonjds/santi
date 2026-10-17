@@ -6,6 +6,7 @@ import { useRecordVisit } from '@/entities/home/record-visit'
 import { BoardTypeBadge } from '@/entities/project/board-type-badge'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
+import { WriteLock } from '@/entities/project/write-lock'
 import { Button } from '@/shared/ui/button'
 import { ArchivedBanner } from './archived-banner'
 import { MemberStack, STACK } from './member-stack'
@@ -77,9 +78,11 @@ export const ProjectHeader = () => {
             />
           </Suspense>
           {project.role === 'admin' && (
-            <Suspense fallback={<InviteFallback />}>
-              <InviteDialog projectKey={project.key} />
-            </Suspense>
+            <WriteLock projectKey={project.key}>
+              <Suspense fallback={<InviteFallback />}>
+                <InviteDialog projectKey={project.key} />
+              </Suspense>
+            </WriteLock>
           )}
         </div>
       </div>
