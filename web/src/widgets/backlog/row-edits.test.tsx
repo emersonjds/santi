@@ -166,6 +166,24 @@ describe('backlog row edits', () => {
       .toEqual([{ assignee_id: null }])
   })
 
+  it('sets the priority in the row at once (SAN-95)', async () => {
+    const requests = inProjects({ [PATCH_7]: pending })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const backlog = screen.getByRole('region', { name: 'Backlog' })
+
+    await backlog
+      .getByRole('combobox', { name: 'Priority of WEB-7' })
+      .selectOptions('Urgent')
+
+    await expect
+      .element(backlog.getByRole('combobox', { name: 'Priority of WEB-7' }))
+      .toHaveValue('urgent')
+    await expect
+      .element(backlog.getByTitle('Urgent priority').first())
+      .toBeInTheDocument()
+    expect(await bodiesOf(requests, PATCH_7)).toEqual([{ priority: 'urgent' }])
+  })
+
   it('leaves row fields to the issue dialog on a phone', async () => {
     await page.viewport(375, 800)
     inProjects()
@@ -180,5 +198,11 @@ describe('backlog row edits', () => {
     expect(
       screen.getByRole('combobox', { name: /Assignee of/ }).elements()
     ).toHaveLength(0)
+    expect(
+      screen.getByRole('combobox', { name: /Priority of/ }).elements()
+    ).toHaveLength(0)
+    await expect
+      .element(screen.getByTitle('Urgent priority').first())
+      .toBeInTheDocument()
   })
 })

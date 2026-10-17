@@ -2,6 +2,7 @@ import { type ReactNode, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { LabelsPicker } from '@/features/edit-labels/labels-picker'
 import { boardSettingsQuery, epicsQuery } from '@/entities/issue/board-query'
+import { PriorityGlyph } from '@/entities/issue/issue-glyphs'
 import {
   type IssueChange,
   useEditIssue,
@@ -273,21 +274,24 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
       </Fact>
       <Field label='Priority' {...field}>
         {(save, id) => (
-          <NativeSelect
-            id={id}
-            className={SELECT}
-            value={issue.priority}
-            onChange={(event) => {
-              const priority = event.target.value
-              if (isPriority(priority)) save({ priority }, { priority })
-            }}
-          >
-            {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </NativeSelect>
+          <span className='flex min-w-0 items-center gap-2'>
+            <PriorityGlyph priority={issue.priority} />
+            <NativeSelect
+              id={id}
+              className={cn(SELECT, 'min-w-0')}
+              value={issue.priority}
+              onChange={(event) => {
+                const priority = event.target.value
+                if (isPriority(priority)) save({ priority }, { priority })
+              }}
+            >
+              {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </NativeSelect>
+          </span>
         )}
       </Field>
       <Field label='Type' {...field}>

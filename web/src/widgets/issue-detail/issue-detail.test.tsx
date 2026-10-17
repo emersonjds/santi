@@ -167,7 +167,9 @@ describe('issue detail', () => {
       [PATCH]: pending,
     })
 
+    await expect.element(dialog.getByTitle('Medium priority')).toBeVisible()
     await dialog.getByLabelText('Priority').selectOptions('High')
+    await expect.element(dialog.getByTitle('High priority')).toBeVisible()
     await userEvent.keyboard('{Escape}')
 
     await expect
