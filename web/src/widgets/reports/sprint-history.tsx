@@ -102,10 +102,7 @@ export const SprintHistory = ({ projectKey }: { projectKey: string }) => {
         <NoSprints projectKey={projectKey} />
       ) : (
         // ponytail: plain list; D39 virtualizes past 200 rows, reached only after four "Show more".
-        <ul
-          aria-label='Sprints'
-          className='grid gap-px overflow-hidden rounded-md border bg-border'
-        >
+        <ul className='grid gap-px overflow-hidden rounded-md border bg-border'>
           {sprints.map((totals) => (
             <SprintRow
               key={totals.sprint.id}

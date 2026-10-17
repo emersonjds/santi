@@ -49,10 +49,10 @@ const VELOCITY_OK = {
 }
 
 const sprints = (screen: Pick<Locator, 'getByRole'>) =>
-  screen.getByRole('list', { name: 'Sprints' })
+  screen.getByRole('region', { name: 'Sprints' }).getByRole('list')
 
 const sprintList = () =>
-  document.querySelector<HTMLElement>('ul[aria-label="Sprints"]')
+  document.querySelector<HTMLElement>('section[aria-label="Sprints"] ul')
 
 describe('reports page', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -72,6 +72,7 @@ describe('reports page', () => {
       .toBeVisible()
     const rows = sprints(screen).getByRole('listitem')
     await expect.element(rows.first()).toHaveTextContent('Sprint 4')
+    await expect.element(sprints(screen)).not.toHaveAccessibleName()
     await expect.element(rows.first()).toHaveTextContent('In progress')
     await expect.element(rows.first()).toHaveTextContent('Committed13')
     await expect.element(rows.first()).toHaveTextContent('Completed3')

@@ -88,6 +88,7 @@ describe('report groups', () => {
     const { screen } = await renderApp('/p/WEB/reports/3')
 
     const completed = region(screen)('Completed')
+    await expect.element(completed.getByRole('list')).not.toHaveAccessibleName()
     const row = completed.getByRole('listitem')
     await expect.element(row).toHaveTextContent('WEB-1')
     await expect.element(row).toHaveTextContent('Write the release notes')
