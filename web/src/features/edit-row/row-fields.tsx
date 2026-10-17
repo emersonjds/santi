@@ -26,6 +26,7 @@ type Editors = {
   open: string | null
   setOpen: Dispatch<SetStateAction<string | null>>
   draft: { current: string }
+  restoreDraft: (input: HTMLInputElement | null) => void
 }
 
 const RowEditors = createContext<Editors | null>(null)
@@ -34,14 +35,25 @@ const RowEditors = createContext<Editors | null>(null)
 export const RowEditorsProvider = ({ children }: { children: ReactNode }) => {
   const [open, setOpen] = useState<string | null>(null)
   const draft = useRef('')
-  const editors = useMemo(() => ({ open, setOpen, draft }), [open])
+  const editors = useMemo(
+    () => ({
+      open,
+      setOpen,
+      draft,
+      // At commit, not render: the drag layer renders concurrently while the user types.
+      restoreDraft: (input: HTMLInputElement | null) => {
+        if (input) input.value = draft.current
+      },
+    }),
+    [open]
+  )
   return <RowEditors value={editors}>{children}</RowEditors>
 }
 
 const useRowEditor = (id: string, value: string) => {
   const editors = use(RowEditors)
   if (!editors) throw new Error('A row editor needs a RowEditorsProvider')
-  const { open, setOpen, draft } = editors
+  const { open, setOpen, draft, restoreDraft } = editors
   return {
     editing: open === id,
     start: () => {
@@ -51,7 +63,7 @@ const useRowEditor = (id: string, value: string) => {
     stop: () => setOpen((current) => (current === id ? null : current)),
     field: {
       autoFocus: true,
-      defaultValue: draft.current,
+      ref: restoreDraft,
       onChange: (event: ChangeEvent<HTMLInputElement>) => {
         draft.current = event.currentTarget.value
       },
