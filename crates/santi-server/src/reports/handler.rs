@@ -23,6 +23,7 @@ pub fn router() -> OpenApiRouter<AppState> {
     params(("key" = String, Path, description = "Project key"), PageParams),
     responses(
         (status = 200, body = Page<SprintTotals>, description = "Started sprints: the active one first, then closed ones, newest close first (D46); `cursor` is the last sprint id"),
+        (status = 400, body = Problem, content_type = "application/problem+json", description = "Unparsable query value"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
         (status = 409, body = Problem, content_type = "application/problem+json", description = "`kanban-has-no-sprints`"),
@@ -57,6 +58,7 @@ pub async fn velocity(
         ("id" = i64, Path, description = "Sprint id")),
     responses(
         (status = 200, body = SprintReport, description = "Issues grouped as completed, not completed and removed, with points at start and at the end; live for the active sprint"),
+        (status = 400, body = Problem, content_type = "application/problem+json", description = "Unparsable sprint id"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
         (status = 409, body = Problem, content_type = "application/problem+json", description = "`kanban-has-no-sprints` or `sprint-not-started`")))]
