@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-16
+
+### Added
+
+- **Sidebar project row:** a chevron expands or collapses any project's Board, Backlog and
+  Settings (the current project starts open; the choice is remembered per project), and a "…"
+  menu offers Copy link, Settings, Archive project, Delete project and Leave project.
+
 ## [0.6.0] - 2026-10-16
 
 ### Added
@@ -156,7 +164,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/emersonjds/santi/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/emersonjds/santi/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/emersonjds/santi/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/emersonjds/santi/compare/v0.4.0...v0.5.0
