@@ -56,6 +56,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `get_issue` | one issue, with status, people and sprint by name | read-only |
 | `list_comments` | an issue's comments, oldest first, paged | read-only |
 | `list_sprints` | a board's sprints | read-only |
+| `get_sprint_report` | a started sprint's issues: completed, not completed, removed | read-only |
 | `list_epics` | a project's epics | read-only |
 | `create_issue` | new issue (story by default) | additive |
 | `update_issue` | change fields; `null` clears | idempotent |

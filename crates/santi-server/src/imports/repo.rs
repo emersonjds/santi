@@ -168,18 +168,22 @@ pub async fn insert_issues(
 }
 
 /// Like `sprints::repo::record_join`: new issues that landed in the running sprint (subtasks follow
-/// their parent there) count as added after its start.
-pub async fn record_joins(
+/// their parent there) count as added after its start; in a closed sprint without facts (an
+/// imported one), as completed work present from the start (D46, like migration 0019).
+pub async fn record_sprint_facts(
     conn: &mut PgConnection,
     project_id: i64,
     source: ImportSource,
     keys: &[String],
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO sprint_issue (sprint_id, issue_id, added_after_start, points_at_start)
-         SELECT s.id, i.id, true, i.points
-         FROM issue i JOIN sprint s ON s.id = i.sprint_id AND s.state = 'active'
-         WHERE i.project_id = $1 AND i.external_source = $2 AND i.external_key = ANY($3)
+        "INSERT INTO sprint_issue (sprint_id, issue_id, added_after_start, points_at_start, outcome, points_at_close)
+         SELECT s.id, i.id, s.state = 'active', i.points,
+                CASE WHEN s.state = 'closed' THEN 'completed' END,
+                CASE WHEN s.state = 'closed' THEN i.points END
+         FROM issue i JOIN sprint s ON s.id = i.sprint_id AND s.state <> 'future'
+         WHERE (s.state = 'active' OR NOT EXISTS (SELECT 1 FROM sprint_issue x WHERE x.sprint_id = s.id))
+           AND i.project_id = $1 AND i.external_source = $2 AND i.external_key = ANY($3)
          ON CONFLICT (sprint_id, issue_id) DO NOTHING",
         project_id,
         source as ImportSource,

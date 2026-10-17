@@ -9,6 +9,7 @@ pub mod members;
 pub mod pagination;
 pub mod projects;
 pub mod rate_limit;
+pub mod reports;
 pub mod seed;
 pub mod sprints;
 
@@ -140,6 +141,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(boards::handler::router())
         .merge(issues::handler::router())
         .merge(sprints::handler::router())
+        .merge(reports::handler::router())
         .merge(imports::handler::router())
         .merge(home::handler::router())
 }

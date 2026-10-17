@@ -1,0 +1,134 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT s.id, s.name, s.goal, s.state AS \"state: SprintState\", s.start_date, s.end_date,\n                  s.started_at, s.closed_at,\n                  (s.state = 'active' AND s.end_date < current_date) AS \"overdue!\",\n                  neighbor.newer_sprint_id AS \"newer_sprint_id?\", neighbor.older_sprint_id AS \"older_sprint_id?\"\n           FROM sprint s\n           LEFT JOIN (\n               SELECT id, lag(id) OVER started AS newer_sprint_id, lead(id) OVER started AS older_sprint_id\n               FROM sprint\n               WHERE board_id = $1 AND state <> 'future'\n               WINDOW started AS (ORDER BY coalesce(closed_at, 'infinity') DESC, id DESC)\n           ) neighbor ON neighbor.id = s.id\n           WHERE s.board_id = $1 AND s.id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "goal",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "goal"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "state: SprintState",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "state"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "start_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "start_date"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "end_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "end_date"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "started_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "started_at"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "closed_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "sprint",
+            "name": "closed_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "overdue!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "newer_sprint_id?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 10,
+        "name": "older_sprint_id?",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      null,
+      true,
+      true
+    ]
+  },
+  "hash": "c24e63db76ccd56d461e1ab580eb34bc3f3822e012108f113660ab8f1853c312"
+}

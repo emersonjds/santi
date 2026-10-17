@@ -1,0 +1,155 @@
+import { describe, expect, it, onTestFinished } from 'vitest'
+import { render } from 'vitest-browser-react'
+import type { Sprint, SprintTotals } from '@/shared/api/client'
+import { VelocityChart } from './velocity-chart'
+
+const totals = (
+  id: number,
+  committed: number | null,
+  completed: number | null
+): SprintTotals => {
+  const sprint: Sprint = {
+    id,
+    name: `Sprint ${id}`,
+    goal: '',
+    state: 'closed',
+    overdue: false,
+  }
+  return { sprint, committed, completed }
+}
+
+/** Paints `color` over `background` and reads the pixel back, so any CSS color syntax comes out as sRGB. */
+const painted = (color: string, background: string) => {
+  const canvas = document.createElement('canvas')
+  canvas.width = 1
+  canvas.height = 1
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context) throw new Error('No 2D canvas')
+  context.fillStyle = background
+  context.fillRect(0, 0, 1, 1)
+  context.fillStyle = color
+  context.fillRect(0, 0, 1, 1)
+  return [...context.getImageData(0, 0, 1, 1).data.slice(0, 3)]
+}
+
+/** WCAG 2.2 relative luminance and contrast ratio. */
+const luminance = (channels: number[]) => {
+  const [red, green, blue] = channels.map((channel) => {
+    const value = channel / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+}
+const contrast = (first: number[], second: number[]) => {
+  const [lighter, darker] = [luminance(first), luminance(second)].sort(
+    (a, b) => b - a
+  )
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+const SEVEN = [1, 2, 3, 4, 5, 6, 7].map((id) => totals(id, 8, id))
+
+describe('velocity chart', () => {
+  it('hides the drawing from screen readers and offers it as a table', async () => {
+    const screen = await render(
+      <VelocityChart
+        velocity={{
+          sprints: [totals(1, 8, 5), totals(2, null, 4)],
+          average_completed: 4.5,
+        }}
+      />
+    )
+
+    expect(
+      screen.container.querySelector('svg')?.getAttribute('aria-hidden')
+    ).toBe('true')
+    await screen.getByText('View as table').click()
+
+    const table = screen.getByRole('table', { name: 'Velocity by sprint' })
+    await expect.element(table).toBeVisible()
+    expect(
+      table
+        .getByRole('columnheader')
+        .elements()
+        .map((cell) => cell.textContent)
+    ).toEqual(['Sprint', 'Committed', 'Completed'])
+    const rows = table
+      .getByRole('row')
+      .elements()
+      .map((row) => row.textContent)
+    expect(rows.slice(1)).toEqual(['Sprint 185', 'Sprint 2—4', 'Average4.5'])
+  })
+
+  it('shows a dash when there is no average', async () => {
+    const screen = await render(
+      <VelocityChart
+        velocity={{ sprints: [totals(1, null, null)], average_completed: null }}
+      />
+    )
+
+    await screen.getByText('View as table').click()
+
+    await expect
+      .element(screen.getByRole('row').last())
+      .toHaveTextContent('Average—')
+  })
+
+  it.each(['light', 'dark'])(
+    'draws the committed bar at 3:1 or more against the chart in the %s theme',
+    async (theme) => {
+      document.documentElement.dataset.theme = theme
+      onTestFinished(() => {
+        delete document.documentElement.dataset.theme
+      })
+      const screen = await render(
+        <VelocityChart
+          velocity={{ sprints: [totals(1, 8, 5)], average_completed: 5 }}
+        />
+      )
+
+      const frame = screen.container.firstElementChild
+      const committed = screen.container.querySelector('rect')
+      if (!frame || !committed) throw new Error('No chart drawn')
+      const card = getComputedStyle(frame).backgroundColor
+      const ratio = contrast(
+        painted(getComputedStyle(committed).fill, card),
+        painted(card, 'black')
+      )
+      expect(ratio).toBeGreaterThanOrEqual(3)
+    }
+  )
+
+  it('says so when no sprint has finished', async () => {
+    const screen = await render(
+      <VelocityChart velocity={{ sprints: [], average_completed: null }} />
+    )
+
+    await expect
+      .element(screen.getByText('No sprint has finished yet.'))
+      .toBeVisible()
+  })
+
+  it('keeps one height whatever the number of sprints', async () => {
+    const one = await render(
+      <VelocityChart
+        velocity={{ sprints: [totals(1, 3, 3)], average_completed: 3 }}
+      />
+    )
+    const oneHeight = one.container.getBoundingClientRect().height
+    await one.unmount()
+    const none = await render(
+      <VelocityChart velocity={{ sprints: [], average_completed: null }} />
+    )
+    const noneHeight = none.container.getBoundingClientRect().height
+    await none.unmount()
+    const seven = await render(
+      <VelocityChart velocity={{ sprints: SEVEN, average_completed: 4 }} />
+    )
+
+    expect(seven.container.getBoundingClientRect().height).toBe(oneHeight)
+    expect(noneHeight).toBe(oneHeight)
+    expect(
+      seven.container.querySelector('svg')?.getBoundingClientRect().height
+    ).toBe(160)
+  })
+})

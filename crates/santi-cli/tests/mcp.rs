@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 22] = [
+const TOOLS: [&str; 23] = [
     "add_comment",
     "archive_project",
     "complete_sprint",
@@ -23,6 +23,7 @@ const TOOLS: [&str; 22] = [
     "get_backlog",
     "get_board",
     "get_issue",
+    "get_sprint_report",
     "list_comments",
     "list_epics",
     "list_projects",
@@ -95,6 +96,7 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         let hints = |name: &str| tool(name).annotations.clone().unwrap();
         assert_eq!(hints("get_board").read_only_hint, Some(true));
         assert_eq!(hints("list_comments").read_only_hint, Some(true));
+        assert_eq!(hints("get_sprint_report").read_only_hint, Some(true));
         assert_eq!(hints("delete_issue").destructive_hint, Some(true));
         assert_eq!(hints("purge_project").destructive_hint, Some(true));
         assert_eq!(hints("trash_project").destructive_hint, Some(true));
@@ -218,6 +220,25 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         )
         .await;
         assert_eq!(closed["state"], "closed");
+        let report = ok(
+            &client,
+            "get_sprint_report",
+            json!({ "project": "MCP", "sprint_id": sprint_id }),
+        )
+        .await;
+        let api: Value = reqwest::Client::new()
+            .get(format!(
+                "{}/api/projects/MCP/sprints/{sprint_id}/report",
+                server().url
+            ))
+            .bearer_auth(&token)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(report, api);
         let backlog = ok(&client, "get_backlog", json!({ "project": "MCP" })).await;
         assert!(
             backlog["sections"]

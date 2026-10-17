@@ -39,3 +39,18 @@ The script signs in, then hits each endpoint with the session cookie and `Accept
 Payloads: the backlog went from 906 KB raw (32 KB gzip) to 375 KB (26 KB gzip); the scrum board from 66 KB to 32 KB. Rank keys went from up to 667 characters to 5.
 
 Move is bound by the D21 project lock: ten concurrent moves in one project queue behind each other (one move alone takes about 2.3 ms), so the change did not move it. Laptop numbers drift by 20–50% once the machine heats up under sustained load; compare runs taken back to back after a pause.
+
+## Sprint reports (SAN-105)
+
+`EXPLAIN (ANALYZE, BUFFERS)` on the 5k seed (`--issues 5000 --users 50 --sprints 20`: 19 started sprints on `PERF`, 2795 `sprint_issue` facts), vacuumed, warm cache, third run of each, PostgreSQL 17 in OrbStack.
+
+| Query | Endpoint | Execution | Plan |
+|---|---|---|---|
+| history page (limit 50) | `GET /reports/sprints` | 2.70 ms | seq scan of the board's 20 sprints, then per sprint `sprint_issue_sprint_issue_key` and `issue_pkey` (2795 lookups), hash aggregate |
+| history with cursor | `GET /reports/sprints?cursor=10` | 1.62 ms | same, the cursor sprint read once (InitPlan) |
+| velocity (limit 7 + 1) | `GET /reports/velocity` | 0.86 ms | same, 8 sprints |
+| report header | `GET /sprints/{id}/report` | 0.03 ms | `lag`/`lead` over the board's 19 started sprints |
+| report rows, closed sprint (210 facts, 105 rows) | `GET /sprints/{id}/report` | 0.75 ms | `sprint_issue_sprint_issue_key`, hash join to `issue` (seq scan of 5k rows), memoized project and status |
+| report rows, active sprint | `GET /sprints/{id}/report` | 0.62 ms | same |
+
+All well under the 50 ms p95 budget (D39); no new index. The history aggregate grows with a board's facts (every started sprint's issues); the upgrade past thousands of sprints per board is the index on `(board_id, coalesce(closed_at, 'infinity') DESC, id DESC)` noted in the SAN-105 brief. The rows query hashes the whole `issue` table at this size; a larger table should tip the planner to `issue_pkey` lookups per fact (not measured).
