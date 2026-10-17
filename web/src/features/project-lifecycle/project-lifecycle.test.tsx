@@ -64,8 +64,34 @@ describe('project lifecycle: danger zone', () => {
       .element(zone.getByRole('button', { name: 'Delete project' }))
       .toBeEnabled()
     const leave = zone.getByRole('button', { name: 'Leave project' })
-    await expect.element(leave).toBeDisabled()
+    await expect.element(leave).toHaveAttribute('aria-disabled', 'true')
+    await expect.element(leave).not.toHaveAttribute('disabled')
     await expect.element(leave).toHaveAccessibleDescription(LAST_ADMIN)
+    leave.element().focus()
+    await expect.element(leave).toHaveFocus()
+    await leave.click({ force: true })
+    expect(screen.getByRole('alertdialog').elements()).toEqual([])
+  })
+
+  it('deletes an archived project from the danger zone', async () => {
+    const requests = inProjects({
+      'GET /api/projects/WEB': {
+        status: 200,
+        body: { ...WEB, state: 'archived' },
+      },
+      'POST /api/projects/WEB/trash': { status: 204 },
+    })
+    const { screen } = await renderApp('/p/WEB/settings')
+
+    const zone = dangerZone(screen)
+    expect(zone.getByRole('button', { name: 'Archive' }).elements()).toEqual([])
+    await zone.getByRole('button', { name: 'Delete project' }).click()
+    const dialog = screen.getByRole('alertdialog')
+    await dialog.getByLabelText('Type WEB to confirm').fill('WEB')
+    await dialog.getByRole('button', { name: 'Delete project' }).click()
+
+    await expect.element(screen.getByText('Moved WEB to trash')).toBeVisible()
+    expect(requests.map(routeOf)).toContain('POST /api/projects/WEB/trash')
   })
 
   it('gives a member only Leave, which takes them home', async () => {

@@ -146,8 +146,9 @@ const MemberExitButton = ({
       <AlertDialogTrigger asChild>
         <Button
           variant='outline'
-          className='h-11 md:h-9'
-          disabled={locked}
+          className='h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9'
+          aria-disabled={locked || undefined}
+          onClick={(event) => locked && event.preventDefault()}
           aria-label={copy.label}
           aria-describedby={describedBy}
         >
