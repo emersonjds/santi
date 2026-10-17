@@ -5,7 +5,7 @@ import { projectQuery } from './project-queries'
 /** D41: an empty project points its admins to the importer. */
 export const ImportHint = ({ projectKey }: { projectKey: string }) => {
   const { data: project } = useQuery(projectQuery(projectKey))
-  if (project?.role !== 'admin') return null
+  if (project?.role !== 'admin' || project.state === 'archived') return null
   return (
     <p className='text-sm text-muted-foreground'>
       No issues yet.{' '}

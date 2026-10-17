@@ -9,7 +9,6 @@ import {
   UserCheck,
   UserPlus,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { planMove, statusMove } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
@@ -21,6 +20,8 @@ import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Card } from '@/shared/api/client'
 import { fullName, shortName } from '@/shared/lib/initials'
+import { useReadOnly } from '@/shared/lib/read-only'
+import { toast } from '@/shared/lib/toast'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,11 +49,12 @@ const MoveTo = ({ card, projectKey }: CardMenuProps) => {
   const board = use(BoardContext)
   const move = useMoveIssue(projectKey)
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
+  const locked = useReadOnly() !== undefined
   if (!board) return null
 
   return (
     <DropdownMenuSub>
-      <DropdownMenuSubTrigger className={ROW}>
+      <DropdownMenuSubTrigger className={ROW} disabled={locked}>
         <ArrowRightLeft />
         Move to…
       </DropdownMenuSubTrigger>
@@ -115,6 +117,7 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
   const { data: members } = useSuspenseQuery(membersQuery(projectKey))
   const { data: me } = useSuspenseQuery(sessionQuery)
   const update = useUpdateIssue(projectKey)
+  const locked = useReadOnly() !== undefined
 
   const assign = (userId: number | null) =>
     update.mutate({
@@ -131,13 +134,17 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
   return (
     <>
       {me && card.assignee_id !== me.id && (
-        <DropdownMenuItem className={ROW} onSelect={() => assign(me.id)}>
+        <DropdownMenuItem
+          className={ROW}
+          disabled={locked}
+          onSelect={() => assign(me.id)}
+        >
           <UserCheck />
           Assign to me
         </DropdownMenuItem>
       )}
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger className={ROW}>
+        <DropdownMenuSubTrigger className={ROW} disabled={locked}>
           <UserPlus />
           Assign…
         </DropdownMenuSubTrigger>
@@ -167,7 +174,7 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
         </DropdownMenuSubContent>
       </DropdownMenuSub>
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger className={ROW}>
+        <DropdownMenuSubTrigger className={ROW} disabled={locked}>
           <SignalHigh />
           Set priority
         </DropdownMenuSubTrigger>
@@ -205,6 +212,7 @@ export const CardMenu = ({
 }: CardMenuProps & { onDelete: (card: Card) => void }) => {
   const { data: me } = useSuspenseQuery(sessionQuery)
   const { data: project } = useSuspenseQuery(projectQuery(projectKey))
+  const locked = useReadOnly() !== undefined
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -229,6 +237,7 @@ export const CardMenu = ({
           <DropdownMenuItem
             className={ROW}
             variant='destructive'
+            disabled={locked}
             onSelect={() => onDelete(card)}
           >
             <Trash2 />

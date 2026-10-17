@@ -1,5 +1,6 @@
 import { Suspense, lazy, useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 import { buttonVariants } from '@/shared/ui/button'
 import { hasLabel } from './labels'
@@ -12,6 +13,8 @@ const TRIGGER = cn(
   buttonVariants({ variant: 'ghost' }),
   'h-11 px-2 text-muted-foreground md:h-7'
 )
+
+const LOCKED = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
 
 type LabelsPickerProps = {
   projectKey: string
@@ -28,6 +31,7 @@ export const LabelsPicker = ({
   id,
 }: LabelsPickerProps) => {
   const [announcement, setAnnouncement] = useState('')
+  const note = useReadOnly()
   const add = (label: string) => {
     if (hasLabel(value, label)) return
     onChange([...value, label])
@@ -58,23 +62,39 @@ export const LabelsPicker = ({
             type='button'
             aria-label={`Remove label ${label}`}
             onClick={() => remove(label)}
-            className='grid size-11 shrink-0 place-items-center rounded-md outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-6'
+            {...lockedButton(note)}
+            className={cn(
+              'grid size-11 shrink-0 place-items-center rounded-md outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-6',
+              LOCKED
+            )}
           >
             <X className='size-3.5' aria-hidden='true' />
           </button>
         </span>
       ))}
-      <Suspense fallback={<span className={TRIGGER}>{trigger}</span>}>
-        <LabelsMenu
-          projectKey={projectKey}
-          value={value}
-          onAdd={add}
-          onRemove={remove}
-          trigger={trigger}
-          className={TRIGGER}
+      {note ? (
+        <button
+          type='button'
           id={id}
-        />
-      </Suspense>
+          aria-label='Add label'
+          className={cn(TRIGGER, LOCKED)}
+          {...lockedButton(note)}
+        >
+          {trigger}
+        </button>
+      ) : (
+        <Suspense fallback={<span className={TRIGGER}>{trigger}</span>}>
+          <LabelsMenu
+            projectKey={projectKey}
+            value={value}
+            onAdd={add}
+            onRemove={remove}
+            trigger={trigger}
+            className={TRIGGER}
+            id={id}
+          />
+        </Suspense>
+      )}
       <p role='status' className='sr-only'>
         {announcement}
       </p>

@@ -3,6 +3,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { ForbiddenPage } from '@/pages/forbidden/forbidden-page'
 import { projectQuery } from '@/entities/project/project-queries'
+import { useProjectWritable } from '@/entities/project/writable'
 import type { ImportPreview, ImportResult } from '@/shared/api/client'
 import { Skeleton } from '@/shared/ui/skeleton'
 
@@ -38,9 +39,19 @@ export const ImportPage = () => {
   const { key } = useParams({ from: '/_authenticated/p/$key' })
   const { data: project } = useSuspenseQuery(projectQuery(key))
   const [step, setStep] = useState<Step>({ name: 'upload' })
+  const writable = useProjectWritable(key)
   if (project.role !== 'admin') return <ForbiddenPage projectKey={key} />
   const kanban = project.board_type === 'kanban'
   const restart = () => setStep({ name: 'upload' })
+  if (!writable)
+    return (
+      <div className='mx-auto grid w-full max-w-3xl gap-1 px-4 py-6 sm:px-6'>
+        <h2 className='text-lg font-semibold'>Import issues</h2>
+        <p className='text-sm text-muted-foreground'>
+          Unarchive the project to import issues.
+        </p>
+      </div>
+    )
 
   return (
     <div className='mx-auto grid w-full max-w-3xl gap-4 px-4 py-6 sm:px-6'>
