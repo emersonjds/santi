@@ -10,6 +10,16 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-17
+
+> Drafts that stay: text typed in a new issue or new epic form survives the page finishing loading.
+
+### Fixed
+
+- **Backlog and board:** the inline "Create issue" form lost its summary and type, and the new
+  epic form closed, when the drag layer finished loading right after the page opened. Both now
+  keep what was typed.
+
 ## [0.9.0] - 2026-10-17
 
 > Archived projects are read-only in place: every write control is visible but disabled.
@@ -238,7 +248,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/emersonjds/santi/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/emersonjds/santi/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/emersonjds/santi/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/emersonjds/santi/compare/v0.8.0...v0.8.1
