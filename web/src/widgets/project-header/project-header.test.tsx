@@ -45,6 +45,32 @@ describe('project header', () => {
     ).toHaveLength(0)
   })
 
+  it('shows Reports after Backlog on scrum only, and sends kanban reports to the board', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/p/WEB/board')
+
+    const tabs = screen.getByRole('navigation', { name: 'Project views' })
+    await expect
+      .element(tabs.getByRole('link', { name: 'Reports' }))
+      .toHaveAttribute('href', '/p/WEB/reports')
+    expect(
+      tabs
+        .getByRole('link')
+        .elements()
+        .map((tab) => tab.textContent)
+    ).toEqual(['Board', 'Backlog', 'Reports', 'Settings'])
+
+    await router.navigate({ to: '/p/$key/reports', params: { key: 'OPS' } })
+
+    await expect
+      .element(screen.getByRole('region', { name: 'Board' }))
+      .toBeVisible()
+    expect(router.state.location.pathname).toBe('/p/OPS/board')
+    expect(tabs.getByRole('link', { name: 'Reports' }).elements()).toHaveLength(
+      0
+    )
+  })
+
   it('lists the members with their roles', async () => {
     inProjects()
     const { screen } = await renderApp('/p/OPS/board')

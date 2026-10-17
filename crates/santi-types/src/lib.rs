@@ -4,6 +4,7 @@ pub mod home;
 pub mod imports;
 pub mod issues;
 pub mod projects;
+pub mod reports;
 pub mod sprints;
 
 use serde::{Deserialize, Serialize};

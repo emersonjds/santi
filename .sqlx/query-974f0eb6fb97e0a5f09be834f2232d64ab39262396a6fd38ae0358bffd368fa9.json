@@ -1,0 +1,162 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT si.added_after_start, si.points_at_start, si.outcome AS \"outcome: ReportOutcome\",\n                  si.points_at_close, p.key || '-' || i.number AS \"key?\", i.summary AS \"summary?\",\n                  i.issue_type AS \"issue_type?: IssueType\", i.priority AS \"priority?: Priority\",\n                  st.name AS \"status_name?\", st.category AS \"status_category?: StatusCategory\",\n                  i.points AS points_now, p.key || '-' || epic.number AS \"epic_key?\",\n                  epic.summary AS \"epic_summary?\"\n           FROM sprint_issue si\n           LEFT JOIN issue i ON i.id = si.issue_id\n           LEFT JOIN project p ON p.id = i.project_id\n           LEFT JOIN status st ON st.id = i.status_id\n           LEFT JOIN issue epic ON epic.id = i.parent_id AND epic.issue_type = 'epic'\n           WHERE si.sprint_id = $1 AND i.issue_type IS DISTINCT FROM 'subtask'\n           ORDER BY i.number",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "added_after_start",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "sprint_issue",
+            "name": "added_after_start"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "points_at_start",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "sprint_issue",
+            "name": "points_at_start"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "outcome: ReportOutcome",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "sprint_issue",
+            "name": "outcome"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "points_at_close",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "sprint_issue",
+            "name": "points_at_close"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "key?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "summary?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "issue_type?: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "priority?: Priority",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "priority"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "status_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "status_category?: StatusCategory",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "points_now",
+        "type_info": "Float8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "points"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "epic_key?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 12,
+        "name": "epic_summary?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      false
+    ]
+  },
+  "hash": "974f0eb6fb97e0a5f09be834f2232d64ab39262396a6fd38ae0358bffd368fa9"
+}

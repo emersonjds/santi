@@ -10,6 +10,7 @@ use santi_types::issues::{
     StatusFilter, UpdateIssue,
 };
 use santi_types::projects::{Project, ProjectState};
+use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -198,6 +199,19 @@ impl Client {
             &["projects", project.as_str(), "sprints", &id, "start"],
         );
         self.send(request.json(dates)).await
+    }
+
+    pub async fn sprint_report(
+        &self,
+        project: &ProjectKey,
+        sprint: i64,
+    ) -> Result<SprintReport, Error> {
+        let id = sprint.to_string();
+        let request = self.request(
+            Method::GET,
+            &["projects", project.as_str(), "sprints", &id, "report"],
+        );
+        self.send(request).await
     }
 
     pub async fn complete_sprint(
