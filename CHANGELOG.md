@@ -14,6 +14,8 @@ UI moves to its own repository.
 
 - **Sprints:** starting a sprint remembers its length for the board's next one (`length` on
   sprint start, `sprint_length` on the backlog).
+- **CLI:** `santi sprints start` takes `--for 4h|1d|1w|2w|1m` and local `--start`/`--end` times;
+  sprint lines show local times with the UTC offset.
 
 ### Changed
 
