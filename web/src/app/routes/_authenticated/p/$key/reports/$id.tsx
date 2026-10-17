@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, notFound, redirect } from '@tanstack/react-router'
 import { SprintReportPage } from '@/pages/reports/sprint-report-page'
 import { loadProject } from '@/entities/project/project-queries'
 import {
@@ -11,6 +11,7 @@ export const Route = createFileRoute('/_authenticated/p/$key/reports/$id')({
   validateSearch: parseReportSearch,
   // The project (cached by the parent route) decides the kanban redirect; the report is not awaited, so the page draws its skeletons.
   loader: async ({ context: { queryClient }, params }) => {
+    if (!/^[1-9]\d*$/.test(params.id)) throw notFound()
     const project = await loadProject(queryClient, params.key)
     if (project.board_type === 'kanban')
       throw redirect({
