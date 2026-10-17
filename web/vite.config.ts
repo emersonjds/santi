@@ -145,6 +145,7 @@ export default defineConfig({
     unstubGlobals: true,
     browser: {
       enabled: true,
+      headless: true,
       provider: playwright(),
       instances: [{ browser: 'chromium' }],
     },
