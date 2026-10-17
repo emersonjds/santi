@@ -114,7 +114,9 @@ test('the reports tab lists the running sprint first, then the completed one, wi
     .click()
 
   await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible()
-  const rows = page.getByRole('list', { name: 'Sprints' }).getByRole('listitem')
+  const rows = page
+    .getByRole('region', { name: 'Sprints' })
+    .getByRole('listitem')
   await expect(rows).toHaveCount(2)
   await expect(rows.first()).toContainText('Sprint 2')
   await expect(rows.first()).toContainText('In progress')

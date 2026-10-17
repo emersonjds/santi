@@ -110,7 +110,7 @@ export const ReportGroupSection = ({
       ) : (
         <div className='grid gap-px overflow-hidden rounded-md border bg-border'>
           {shown.length > 0 && (
-            <ul aria-label={title} className='grid gap-px'>
+            <ul className='grid gap-px'>
               <LongRows
                 items={shown}
                 itemKey={(issue) => issue.key}
