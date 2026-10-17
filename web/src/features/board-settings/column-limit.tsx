@@ -1,7 +1,7 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Ellipsis } from 'lucide-react'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
+import { useHeldEditor } from '@/shared/lib/held-editor'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,13 +17,13 @@ type ColumnLimitProps = { projectKey: string; columnId: number }
 export const ColumnLimit = ({ projectKey, columnId }: ColumnLimitProps) => {
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const edit = useSettingsEdit(projectKey)
-  const [editing, setEditing] = useState(false)
+  const editor = useHeldEditor(`limit:${columnId}`)
   const column = settings?.columns.find((each) => each.id === columnId)
   if (!column) return null
   const current = column.wip_limit ?? null
 
   const save = (text: string) => {
-    setEditing(false)
+    editor.stop()
     const limit = Number(text) >= 1 ? Math.floor(Number(text)) : null
     if (limit !== current)
       edit.mutate({
@@ -34,7 +34,7 @@ export const ColumnLimit = ({ projectKey, columnId }: ColumnLimitProps) => {
       })
   }
 
-  if (editing)
+  if (editor.editing)
     return (
       <Input
         type='number'
@@ -42,8 +42,7 @@ export const ColumnLimit = ({ projectKey, columnId }: ColumnLimitProps) => {
         inputMode='numeric'
         placeholder='No limit'
         aria-label={`WIP limit of ${column.name}`}
-        autoFocus
-        defaultValue={current ?? ''}
+        {...editor.field}
         className='-my-2 h-11 w-24 bg-background tracking-normal normal-case md:h-8'
         onBlur={(event) => save(event.target.value)}
         onKeyDown={(event) => {
@@ -69,7 +68,7 @@ export const ColumnLimit = ({ projectKey, columnId }: ColumnLimitProps) => {
       >
         <DropdownMenuItem
           className='max-md:min-h-11'
-          onSelect={() => setEditing(true)}
+          onSelect={() => editor.start(String(current ?? ''))}
         >
           Set WIP limit
         </DropdownMenuItem>
