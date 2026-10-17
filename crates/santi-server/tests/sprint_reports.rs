@@ -365,3 +365,12 @@ async fn backfill_writes_facts_only_for_imported_closed_sprints(pool: PgPool) {
         native_before
     );
 }
+
+#[sqlx::test]
+async fn history_limit_out_of_range_is_422(pool: PgPool) {
+    let ana = scrum(pool).await;
+
+    let (status, problem) = ana.get("/api/projects/SANTI/reports/sprints?limit=0").await;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+}
