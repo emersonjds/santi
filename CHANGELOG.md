@@ -10,7 +10,18 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-16
+
+> Create sprint stands out: the backlog's Create sprint is now its primary action.
+
+### Changed
+
+- **Backlog:** Create sprint is a filled purple button with a + icon, the primary action of the
+  backlog section (each sprint section keeps its own Start or Complete as primary).
+
 ## [0.7.0] - 2026-10-16
+
+> Sidebar project menu: expand any project and reach Copy link, Settings, Archive, Delete or Leave from its row.
 
 ### Added
 
@@ -19,6 +30,12 @@ UI moves to its own repository.
   menu offers Copy link, Settings, Archive project, Delete project and Leave project.
 
 ## [0.6.0] - 2026-10-16
+
+> Archive and trash projects: read-only archive, a 60-day trash with restore, Active/Archived/Trash tabs, and leaving a project.
+
+### Upgrade notes
+
+- Migration `0018_project_lifecycle.sql` runs on start. Trashed projects are purged 60 days after trashing.
 
 ### Added
 
@@ -34,12 +51,20 @@ UI moves to its own repository.
 
 ## [0.5.1] - 2026-10-16
 
+> Quieter code: narrating comments removed or turned into names; reasons moved to the decision log.
+
 ### Changed
 
 - **Code comments:** comments that narrated the code were removed or turned into names; the
   rationale moved to `docs/specs/decisions.md` (D18, D37, D39). No behavior change.
 
 ## [0.5.0] - 2026-10-16
+
+> CLI and API clean-up from using santi on santi: names instead of ids, issue commands where you look for them, unknown fields refused.
+
+### Upgrade notes
+
+- API: a body with an unknown field or of the wrong shape answers 422 with the reason (it was ignored or 400). Malformed JSON stays 400.
 
 ### Added
 
@@ -57,6 +82,8 @@ UI moves to its own repository.
 
 ## [0.4.0] - 2026-10-16
 
+> Labels picker: search, defaults, create, chips on cards and backlog rows.
+
 ### Added
 
 - **Labels picker:** the Labels field in the issue view and the create dialog opens a searchable
@@ -67,6 +94,8 @@ UI moves to its own repository.
 
 ## [0.3.0] - 2026-10-16
 
+> Names that fit on one line: first and last name in tight places, full name on hover.
+
 ### Changed
 
 - **People's names:** shown by first and last name on one line ("Emerson Silva"), with the full
@@ -75,6 +104,12 @@ UI moves to its own repository.
   full name. CLI board and backlog lines use the short form.
 
 ## [0.2.0] - 2026-10-16
+
+> A personal home, a CLI and an MCP server: For you home, `santi` CLI, MCP for AI assistants, landing page and logo.
+
+### Upgrade notes
+
+- Migration `0017_home.sql` runs on start. Privacy policy version 2026-10-16.2: signed-in people accept it again.
 
 ### Added
 
@@ -106,6 +141,8 @@ UI moves to its own repository.
   asking for an API token.
 
 ## [0.1.0] - 2026-10-16
+
+> First release: Scrum and Kanban boards, backlog, sprints, epics and subtasks, CSV import, self-hosting.
 
 First release: the MVP, self-hosted with `docker compose up -d`.
 
@@ -164,7 +201,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/emersonjds/santi/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/emersonjds/santi/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/emersonjds/santi/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/emersonjds/santi/compare/v0.5.0...v0.5.1
