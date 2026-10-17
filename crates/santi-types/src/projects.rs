@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
@@ -34,6 +34,31 @@ pub struct CreateProject {
     pub board_type: BoardType,
 }
 
+/// SAN-70: an archived project is read-only; a trashed one answers 404 until restored or purged.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Type),
+    sqlx(type_name = "text", rename_all = "snake_case")
+)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectState {
+    #[default]
+    Active,
+    Archived,
+    Trashed,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct ProjectsQuery {
+    /// `archived` and `trashed` list only projects the caller administers.
+    #[serde(default)]
+    #[param(inline)]
+    pub state: ProjectState,
+}
+
 /// A project as seen by the caller: `role` is the caller's role in it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct Project {
@@ -42,6 +67,15 @@ pub struct Project {
     pub name: String,
     pub board_type: BoardType,
     pub role: MemberRole,
+    pub state: ProjectState,
+    pub archived_at: Option<DateTime<Utc>>,
+    /// Display name of who archived it.
+    pub archived_by: Option<String>,
+    pub trashed_at: Option<DateTime<Utc>>,
+    /// Display name of who moved it to the trash.
+    pub trashed_by: Option<String>,
+    /// When a trashed project is deleted for good: 60 days after `trashed_at` (OR-58).
+    pub purge_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

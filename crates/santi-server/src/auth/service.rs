@@ -4,7 +4,7 @@ use santi_types::auth::{
     LegalStatus, Login, ProjectExport, Register, User,
 };
 use santi_types::issues::{Issue, IssueFilter, PageParams, StatusFilter};
-use santi_types::projects::{MemberRole, Project};
+use santi_types::projects::{MemberRole, Project, ProjectState};
 use sqlx::{PgConnection, PgPool};
 
 use super::extract::CurrentUser;
@@ -115,10 +115,14 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
     let legal_acceptances = repo::list_acceptances(&mut conn, user.id).await?;
     let api_tokens = repo::list_api_tokens(&mut conn, user.id).await?;
     let (admin, other_projects): (Vec<Project>, Vec<Project>) =
-        projects::repo::list_projects(&mut conn, user.id)
+        projects::repo::list_projects(&mut conn, user.id, None)
             .await?
             .into_iter()
             .partition(|project| project.role == MemberRole::Admin);
+    let other_projects = other_projects
+        .into_iter()
+        .filter(|project| project.state == ProjectState::Active)
+        .collect();
     let mut exports = Vec::with_capacity(admin.len());
     for project in admin {
         let member = members::repo::find_member(&mut conn, &project.key, user.id)

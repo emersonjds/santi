@@ -10,7 +10,7 @@ pub struct InviteGrant {
 }
 
 /// D28 + D39: the caller's token and membership in one round trip. `None` = unknown or expired
-/// token (401); `Some(None)` = signed in but not a member of `project_key` (404).
+/// token (401); `Some(None)` = signed in but not a member of `project_key`, or it is trashed (404).
 pub async fn find_member_by_token(
     conn: &mut PgConnection,
     project_key: &str,
@@ -18,9 +18,10 @@ pub async fn find_member_by_token(
 ) -> Result<Option<Option<Member>>, sqlx::Error> {
     let row = sqlx::query!(
         r#"SELECT t.user_id, p.id AS "project_id?", p.key AS "project_key?", b.id AS "board_id?",
-                  b.board_type AS "board_type?: BoardType", m.role AS "role?: MemberRole"
+                  b.board_type AS "board_type?: BoardType", m.role AS "role?: MemberRole",
+                  p.archived_at IS NOT NULL AS "archived?"
            FROM auth_token t
-           LEFT JOIN project p ON p.key = $2
+           LEFT JOIN project p ON p.key = $2 AND p.trashed_at IS NULL
            LEFT JOIN member m ON m.project_id = p.id AND m.user_id = t.user_id
            LEFT JOIN board b ON b.project_id = m.project_id
            WHERE t.token_hash = $1 AND (t.expires_at IS NULL OR t.expires_at > now())"#,
@@ -37,11 +38,12 @@ pub async fn find_member_by_token(
             board_id: row.board_id?,
             board_type: row.board_type?,
             role: row.role?,
+            archived: row.archived?,
         })
     }))
 }
 
-/// The user's membership in the project with this key, if any.
+/// The user's membership in the project with this key, if any, in any state.
 pub async fn find_member(
     conn: &mut PgConnection,
     project_key: &str,
@@ -50,7 +52,8 @@ pub async fn find_member(
     sqlx::query_as!(
         Member,
         r#"SELECT m.user_id, p.id AS project_id, p.key AS project_key, b.id AS board_id,
-                  b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole"
+                  b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole",
+                  p.archived_at IS NOT NULL AS "archived!"
            FROM project p
            JOIN board b ON b.project_id = p.id
            JOIN member m ON m.project_id = p.id AND m.user_id = $2
@@ -205,16 +208,18 @@ pub async fn insert_invite(
     Ok(())
 }
 
-/// Invites are single use: a valid one is marked used and its grant returned.
+/// Invites are single use: a valid one into an active project is marked used and its grant returned.
 pub async fn take_invite(
     conn: &mut PgConnection,
     token_hash: &[u8],
 ) -> Result<Option<InviteGrant>, sqlx::Error> {
     sqlx::query_as!(
         InviteGrant,
-        r#"UPDATE invite SET used_at = now()
-           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
-           RETURNING project_id, role AS "role: MemberRole""#,
+        r#"UPDATE invite i SET used_at = now()
+           FROM project p
+           WHERE p.id = i.project_id AND p.archived_at IS NULL AND p.trashed_at IS NULL
+             AND i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > now()
+           RETURNING i.project_id, i.role AS "role: MemberRole""#,
         token_hash
     )
     .fetch_optional(&mut *conn)
@@ -224,20 +229,22 @@ pub async fn take_invite(
 pub struct InviteRow {
     pub preview: InvitePreview,
     pub used_at: Option<DateTime<Utc>>,
+    pub archived: bool,
 }
 
-/// The invite behind a token with its project and inviter, used or not.
+/// The invite behind a token with its project and inviter, used or not; none into a trashed project.
 pub async fn find_invite(
     conn: &mut PgConnection,
     token_hash: &[u8],
 ) -> Result<Option<InviteRow>, sqlx::Error> {
     let row = sqlx::query!(
         r#"SELECT p.key AS project_key, p.name AS project_name, i.role AS "role: MemberRole",
-                  i.expires_at, u.display_name AS inviter_name, i.used_at
+                  i.expires_at, u.display_name AS inviter_name, i.used_at,
+                  p.archived_at IS NOT NULL AS "archived!"
            FROM invite i
            JOIN project p ON p.id = i.project_id
            JOIN app_user u ON u.id = i.created_by
-           WHERE i.token_hash = $1"#,
+           WHERE i.token_hash = $1 AND p.trashed_at IS NULL"#,
         token_hash
     )
     .fetch_optional(&mut *conn)
@@ -251,5 +258,6 @@ pub async fn find_invite(
             inviter_name: row.inviter_name,
         },
         used_at: row.used_at,
+        archived: row.archived,
     }))
 }

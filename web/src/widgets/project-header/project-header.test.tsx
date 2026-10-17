@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { renderApp } from '@/test/render-app'
-import { inProjects, problem, routeOf } from '@/test/stub-api'
+import { OPS, WEB, inProjects, problem, routeOf } from '@/test/stub-api'
 
 const INVITE = { token: 'tok123', expires_at: '2026-10-23T12:00:00Z' }
 
@@ -118,5 +118,50 @@ describe('project header', () => {
     await expect
       .element(screen.getByRole('alert'))
       .toHaveTextContent('Only project admins can invite.')
+  })
+
+  it('marks an archived project read-only and lets an admin unarchive it', async () => {
+    let state = 'archived'
+    const requests = inProjects({
+      'GET /api/projects/WEB': { status: 200, body: () => ({ ...WEB, state }) },
+      'POST /api/projects/WEB/unarchive': {
+        status: 204,
+        body: () => void (state = 'active'),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const banner = screen.getByRole('status').filter({
+      hasText: 'This project is archived and read-only',
+    })
+    await expect.element(banner).toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: 'Create issue' }).first())
+      .toHaveAttribute('aria-disabled', 'true')
+    await banner.getByRole('button', { name: 'Unarchive' }).click()
+
+    await expect.element(banner).not.toBeInTheDocument()
+    expect(requests.map(routeOf)).toContain('POST /api/projects/WEB/unarchive')
+    await expect
+      .element(screen.getByRole('button', { name: 'Create issue' }).first())
+      .not.toHaveAttribute('aria-disabled')
+  })
+
+  it('shows members the archived banner without Unarchive', async () => {
+    inProjects({
+      'GET /api/projects/OPS': {
+        status: 200,
+        body: { ...OPS, state: 'archived' },
+      },
+    })
+    const { screen } = await renderApp('/p/OPS/board')
+
+    const banner = screen.getByRole('status').filter({
+      hasText: 'This project is archived and read-only',
+    })
+    await expect.element(banner).toBeVisible()
+    expect(
+      banner.getByRole('button', { name: 'Unarchive' }).elements()
+    ).toEqual([])
   })
 })

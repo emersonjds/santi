@@ -22,6 +22,7 @@ use rmcp::{RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_route
 use santi_types::issues::{
     CreateIssue, IssueFilter, IssueType, MoveIssue, PageParams, StatusFilter, UpdateIssue,
 };
+use santi_types::projects::ProjectState;
 use santi_types::sprints::{CompleteSprint, CreateSprint, OpenIssuesDestination, StartSprint};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -51,6 +52,13 @@ pub struct Santi {
 pub struct ProjectArgs {
     /// Project key, e.g. `WEB`.
     project: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ListProjectsArgs {
+    /// `active` (default), `archived` or `trashed`; the last two list only projects you administer.
+    #[serde(default)]
+    state: ProjectState,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -220,12 +228,94 @@ impl Santi {
         }
     }
 
+    async fn change_project(
+        &self,
+        args: ProjectArgs,
+        action: &str,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        let client = self.client(&context);
+        self.reply(
+            async {
+                client
+                    .change_project(&project(&args.project)?, action)
+                    .await
+            }
+            .await,
+        )
+    }
+
     #[tool(
-        description = "List the projects you belong to, with their keys and board types.",
+        description = "List the projects you belong to, with their keys, board types and state. Archived projects are read-only; trashed ones are deleted for good at `purge_at`.",
         annotations(read_only_hint = true)
     )]
-    async fn list_projects(&self, context: RequestContext<RoleServer>) -> Reply {
-        self.reply(self.client(&context).projects().await)
+    async fn list_projects(
+        &self,
+        Parameters(args): Parameters<ListProjectsArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        self.reply(self.client(&context).projects(args.state).await)
+    }
+
+    #[tool(
+        description = "Archive a project: read-only for everyone and out of every list until unarchived. Admins only. Requires `project`.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn archive_project(
+        &self,
+        Parameters(args): Parameters<ProjectArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        self.change_project(args, "archive", context).await
+    }
+
+    #[tool(
+        description = "Make an archived project active again. Admins only. Requires `project`.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn unarchive_project(
+        &self,
+        Parameters(args): Parameters<ProjectArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        self.change_project(args, "unarchive", context).await
+    }
+
+    #[tool(
+        description = "Move a project to the trash: hidden from everyone and deleted for good 60 days later unless restored. Admins only. Requires `project`.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn trash_project(
+        &self,
+        Parameters(args): Parameters<ProjectArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        self.change_project(args, "trash", context).await
+    }
+
+    #[tool(
+        description = "Bring a project back from the trash. Admins only. Requires `project`.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn restore_project(
+        &self,
+        Parameters(args): Parameters<ProjectArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        self.change_project(args, "restore", context).await
+    }
+
+    #[tool(
+        description = "Delete a trashed project for good with its issues, sprints and board; it cannot be undone. Admins only. Requires `project`.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn purge_project(
+        &self,
+        Parameters(args): Parameters<ProjectArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        let client = self.client(&context);
+        self.reply(async { client.purge_project(&project(&args.project)?).await }.await)
     }
 
     #[tool(

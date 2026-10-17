@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT CASE WHEN trashed_at IS NOT NULL THEN 'trashed'\n                       WHEN archived_at IS NOT NULL THEN 'archived'\n                       ELSE 'active' END AS \"state!: ProjectState\"\n           FROM project WHERE id = $1 FOR UPDATE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "state!: ProjectState",
+        "type_info": "Text",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c00eff9c1506159143aae2682b0fd1aa8058c110c1552d9abfd88b81545c28d9"
+}

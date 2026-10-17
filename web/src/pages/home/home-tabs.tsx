@@ -1,36 +1,11 @@
-import type { KeyboardEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { myProjectsQuery } from '@/entities/home/home-queries'
 import { HOME_VIEWS, VIEW_LABEL } from '@/entities/home/views'
 import type { HomeView } from '@/shared/api/client'
+import { moveTabFocus } from '@/shared/lib/move-tab-focus'
 import { cn } from '@/shared/lib/utils'
 import { IssueList } from './issue-list'
-
-/** WAI-ARIA tabs: arrow keys, Home and End move between tabs; Space opens the focused one. */
-const moveFocus = (event: KeyboardEvent<HTMLDivElement>) => {
-  if (event.key === ' ' && event.target instanceof HTMLElement) {
-    event.preventDefault()
-    event.target.click()
-    return
-  }
-  const tabs = [
-    ...event.currentTarget.querySelectorAll<HTMLElement>('[role=tab]'),
-  ]
-  const current = tabs.findIndex((tab) => tab === document.activeElement)
-  const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key]
-  const next =
-    event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? tabs.length - 1
-        : step === undefined
-          ? -1
-          : (current + step + tabs.length) % tabs.length
-  if (next < 0) return
-  event.preventDefault()
-  tabs[next].focus()
-}
 
 const AssignedCount = () => {
   const { data: projects } = useQuery(myProjectsQuery)
@@ -52,7 +27,7 @@ export const HomeTabs = ({ view }: { view: HomeView }) => (
     <div
       role='tablist'
       aria-label='Your work'
-      onKeyDown={moveFocus}
+      onKeyDown={moveTabFocus}
       className='flex flex-wrap gap-x-1 border-b'
     >
       {HOME_VIEWS.map((tab) => (

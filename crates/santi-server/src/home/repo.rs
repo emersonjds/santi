@@ -27,7 +27,7 @@ pub async fn my_projects(
            JOIN project p ON p.id = m.project_id
            JOIN board b ON b.project_id = p.id
            LEFT JOIN recent r ON r.project_id = p.id
-           WHERE m.user_id = $1
+           WHERE m.user_id = $1 AND p.archived_at IS NULL AND p.trashed_at IS NULL
            ORDER BY greatest(m.visited_at, r.at) DESC NULLS LAST, m.starred_at IS NULL, p.key"#,
         user_id
     )
@@ -36,7 +36,7 @@ pub async fn my_projects(
 }
 
 /// One query for every list: branches the view does not use are skipped by a one-time filter.
-/// Only issues of projects the caller still belongs to come back.
+/// Only issues of active projects the caller still belongs to come back.
 // ponytail: OFFSET paging over the caller's own history; keyset on (at, id) if lists grow past a few thousand rows.
 pub async fn my_issues(
     conn: &mut PgConnection,
@@ -70,6 +70,7 @@ pub async fn my_issues(
            JOIN status s ON s.id = i.status_id
            LEFT JOIN app_user a ON a.id = i.assignee_id
            LEFT JOIN issue_star st ON st.issue_id = i.id AND st.user_id = $1
+           WHERE p.archived_at IS NULL AND p.trashed_at IS NULL
            ORDER BY mine.at DESC, i.id DESC
            LIMIT $4 OFFSET $3"#,
         user_id,
@@ -91,7 +92,8 @@ pub async fn star_project(
     let updated = sqlx::query!(
         "UPDATE member SET starred_at = CASE WHEN $3 THEN coalesce(starred_at, now()) END
          FROM project p
-         WHERE p.id = member.project_id AND p.key = $2 AND member.user_id = $1",
+         WHERE p.id = member.project_id AND p.key = $2 AND member.user_id = $1
+           AND p.trashed_at IS NULL",
         user_id,
         key,
         starred
@@ -114,7 +116,7 @@ pub async fn star_issue(
          SELECT $1, i.id FROM issue i
          JOIN project p ON p.id = i.project_id
          JOIN member m ON m.project_id = p.id AND m.user_id = $1
-         WHERE p.key = $2 AND i.number = $3
+         WHERE p.key = $2 AND i.number = $3 AND p.trashed_at IS NULL
          ON CONFLICT (user_id, issue_id) DO UPDATE SET created_at = issue_star.created_at",
         user_id,
         project_key,
@@ -137,7 +139,7 @@ pub async fn unstar_issue(
              SELECT i.id FROM issue i
              JOIN project p ON p.id = i.project_id
              JOIN member m ON m.project_id = p.id AND m.user_id = $1
-             WHERE p.key = $2 AND i.number = $3),
+             WHERE p.key = $2 AND i.number = $3 AND p.trashed_at IS NULL),
            gone AS (DELETE FROM issue_star WHERE user_id = $1 AND issue_id IN (SELECT id FROM target))
          SELECT EXISTS (SELECT 1 FROM target) AS "found!""#,
         user_id,

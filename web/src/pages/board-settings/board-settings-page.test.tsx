@@ -422,23 +422,23 @@ describe('board settings: done window and access', () => {
     ).toHaveLength(0)
   })
 
-  it('links admins to settings from the tabs and the sidebar; members get 403', async () => {
+  it('links everyone to settings; members get only the danger zone', async () => {
     inProjects()
     const { screen, router } = await renderApp('/p/OPS/settings')
 
     await expect
-      .element(screen.getByText('Only project admins can change settings.'))
+      .element(screen.getByRole('region', { name: 'Danger zone' }))
       .toBeVisible()
+    expect(
+      screen.getByRole('heading', { name: 'Board settings' }).elements()
+    ).toHaveLength(0)
     const tabs = screen.getByRole('navigation', { name: 'Project views' })
     const sidebar = screen.getByRole('navigation', {
       name: 'Projects and pages',
     })
-    expect(
-      tabs.getByRole('link', { name: 'Settings' }).elements()
-    ).toHaveLength(0)
-    expect(
-      sidebar.getByRole('link', { name: 'Settings' }).elements()
-    ).toHaveLength(0)
+    await expect
+      .element(tabs.getByRole('link', { name: 'Settings' }))
+      .toHaveAttribute('aria-current', 'page')
 
     await router.navigate({ to: '/p/$key/board', params: { key: 'WEB' } })
     await sidebar.getByRole('link', { name: 'Settings' }).click()
