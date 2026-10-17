@@ -81,7 +81,10 @@ describe('reports page', () => {
   it('points to the backlog when no sprint has started', async () => {
     inProjects({
       [HISTORY]: page1([]),
-      [VELOCITY]: { status: 200, body: { sprints: [], average_completed: null } },
+      [VELOCITY]: {
+        status: 200,
+        body: { sprints: [], average_completed: null },
+      },
     })
     const { screen } = await renderApp('/p/WEB/reports')
 
@@ -111,7 +114,9 @@ describe('reports page', () => {
     await screen.getByRole('button', { name: 'Show more' }).click()
 
     await expect.element(sprints(screen).getByText('Sprint 2')).toBeVisible()
-    const last = requests.filter((request) => routeOf(request) === HISTORY).at(-1)
+    const last = requests
+      .filter((request) => routeOf(request) === HISTORY)
+      .at(-1)
     expect(new URL(last?.url ?? '').searchParams.get('cursor')).toBe('3')
     expect(new URL(last?.url ?? '').searchParams.get('limit')).toBe('50')
     expect(

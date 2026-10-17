@@ -23,6 +23,7 @@ import { Route as AuthenticatedPKeyBacklogRouteImport } from './routes/_authenti
 import { Route as AuthenticatedPKeyBoardRouteImport } from './routes/_authenticated/p/$key/board'
 import { Route as AuthenticatedPKeySearchRouteImport } from './routes/_authenticated/p/$key/search'
 import { Route as AuthenticatedPKeyIssuesNumberRouteImport } from './routes/_authenticated/p/$key/issues/$number'
+import { Route as AuthenticatedPKeyReportsIndexRouteImport } from './routes/_authenticated/p/$key/reports/index'
 import { Route as AuthenticatedPKeySettingsIndexRouteImport } from './routes/_authenticated/p/$key/settings/index'
 import { Route as AuthenticatedPKeySettingsImportRouteImport } from './routes/_authenticated/p/$key/settings/import'
 import { Route as AuthenticatedPKeySettingsMembersRouteImport } from './routes/_authenticated/p/$key/settings/members'
@@ -100,6 +101,12 @@ const AuthenticatedPKeyIssuesNumberRoute =
     path: '/issues/$number',
     getParentRoute: () => AuthenticatedPKeyRouteRoute,
   } as any)
+const AuthenticatedPKeyReportsIndexRoute =
+  AuthenticatedPKeyReportsIndexRouteImport.update({
+    id: '/reports/',
+    path: '/reports/',
+    getParentRoute: () => AuthenticatedPKeyRouteRoute,
+  } as any)
 const AuthenticatedPKeySettingsIndexRoute =
   AuthenticatedPKeySettingsIndexRouteImport.update({
     id: '/settings/',
@@ -135,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
   '/p/$key/settings/import': typeof AuthenticatedPKeySettingsImportRoute
   '/p/$key/settings/members': typeof AuthenticatedPKeySettingsMembersRoute
+  '/p/$key/reports/': typeof AuthenticatedPKeyReportsIndexRoute
   '/p/$key/settings/': typeof AuthenticatedPKeySettingsIndexRoute
 }
 export interface FileRoutesByTo {
@@ -152,6 +160,7 @@ export interface FileRoutesByTo {
   '/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
   '/p/$key/settings/import': typeof AuthenticatedPKeySettingsImportRoute
   '/p/$key/settings/members': typeof AuthenticatedPKeySettingsMembersRoute
+  '/p/$key/reports': typeof AuthenticatedPKeyReportsIndexRoute
   '/p/$key/settings': typeof AuthenticatedPKeySettingsIndexRoute
 }
 export interface FileRoutesById {
@@ -172,6 +181,7 @@ export interface FileRoutesById {
   '/_authenticated/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
   '/_authenticated/p/$key/settings/import': typeof AuthenticatedPKeySettingsImportRoute
   '/_authenticated/p/$key/settings/members': typeof AuthenticatedPKeySettingsMembersRoute
+  '/_authenticated/p/$key/reports/': typeof AuthenticatedPKeyReportsIndexRoute
   '/_authenticated/p/$key/settings/': typeof AuthenticatedPKeySettingsIndexRoute
 }
 export interface FileRouteTypes {
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/p/$key/issues/$number'
     | '/p/$key/settings/import'
     | '/p/$key/settings/members'
+    | '/p/$key/reports/'
     | '/p/$key/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -209,6 +220,7 @@ export interface FileRouteTypes {
     | '/p/$key/issues/$number'
     | '/p/$key/settings/import'
     | '/p/$key/settings/members'
+    | '/p/$key/reports'
     | '/p/$key/settings'
   id:
     | '__root__'
@@ -228,6 +240,7 @@ export interface FileRouteTypes {
     | '/_authenticated/p/$key/issues/$number'
     | '/_authenticated/p/$key/settings/import'
     | '/_authenticated/p/$key/settings/members'
+    | '/_authenticated/p/$key/reports/'
     | '/_authenticated/p/$key/settings/'
   fileRoutesById: FileRoutesById
 }
@@ -338,6 +351,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPKeyIssuesNumberRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
+    '/_authenticated/p/$key/reports/': {
+      id: '/_authenticated/p/$key/reports/'
+      path: '/reports'
+      fullPath: '/p/$key/reports/'
+      preLoaderRoute: typeof AuthenticatedPKeyReportsIndexRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
     '/_authenticated/p/$key/settings/': {
       id: '/_authenticated/p/$key/settings/'
       path: '/settings'
@@ -370,6 +390,7 @@ interface AuthenticatedPKeyRouteRouteChildren {
   AuthenticatedPKeyIssuesNumberRoute: typeof AuthenticatedPKeyIssuesNumberRoute
   AuthenticatedPKeySettingsImportRoute: typeof AuthenticatedPKeySettingsImportRoute
   AuthenticatedPKeySettingsMembersRoute: typeof AuthenticatedPKeySettingsMembersRoute
+  AuthenticatedPKeyReportsIndexRoute: typeof AuthenticatedPKeyReportsIndexRoute
   AuthenticatedPKeySettingsIndexRoute: typeof AuthenticatedPKeySettingsIndexRoute
 }
 
@@ -383,6 +404,7 @@ const AuthenticatedPKeyRouteRouteChildren: AuthenticatedPKeyRouteRouteChildren =
     AuthenticatedPKeySettingsImportRoute: AuthenticatedPKeySettingsImportRoute,
     AuthenticatedPKeySettingsMembersRoute:
       AuthenticatedPKeySettingsMembersRoute,
+    AuthenticatedPKeyReportsIndexRoute: AuthenticatedPKeyReportsIndexRoute,
     AuthenticatedPKeySettingsIndexRoute: AuthenticatedPKeySettingsIndexRoute,
   }
 
