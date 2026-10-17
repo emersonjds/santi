@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { Layers } from 'lucide-react'
+import { Layers, Plus } from 'lucide-react'
 import { CreateSlot } from '@/widgets/board/create-slot'
 import { FilterBar } from '@/widgets/board/filter-bar'
 import { TOGGLE } from '@/widgets/board/filter-controls'
@@ -192,11 +192,8 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
     section.sprint ? (
       sprintActions(section, section.sprint)
     ) : (
-      <Button
-        variant='outline'
-        className={ACTION}
-        onClick={() => setDialog({ kind: 'create' })}
-      >
+      <Button className={ACTION} onClick={() => setDialog({ kind: 'create' })}>
+        <Plus />
         Create sprint
       </Button>
     )
