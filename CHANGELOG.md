@@ -10,6 +10,11 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- **Sprints:** starting a sprint remembers its length for the board's next one (`length` on
+  sprint start, `sprint_length` on the backlog).
+
 ### Changed
 
 - **Sprints:** start and end are times, not dates. The API fields `start_date`/`end_date` are now

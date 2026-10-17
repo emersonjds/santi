@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use santi_types::sprints::{Sprint, SprintState};
+use santi_types::sprints::{Sprint, SprintLength, SprintState};
 use sqlx::PgConnection;
 
 /// D12: the board counter behind `Sprint N`; never reused.
@@ -272,4 +272,30 @@ pub async fn mark_closed(conn: &mut PgConnection, sprint_id: i64) -> Result<(), 
     .execute(&mut *conn)
     .await?;
     Ok(())
+}
+
+pub async fn remember_length(
+    conn: &mut PgConnection,
+    board_id: i64,
+    length: SprintLength,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE board SET sprint_length = $2 WHERE id = $1",
+        board_id,
+        length.to_string()
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// The CHECK in migration 0020 keeps every stored token parseable.
+pub async fn sprint_length(
+    conn: &mut PgConnection,
+    board_id: i64,
+) -> Result<Option<SprintLength>, sqlx::Error> {
+    let token = sqlx::query_scalar!("SELECT sprint_length FROM board WHERE id = $1", board_id)
+        .fetch_one(&mut *conn)
+        .await?;
+    Ok(token.and_then(|token| token.parse().ok()))
 }

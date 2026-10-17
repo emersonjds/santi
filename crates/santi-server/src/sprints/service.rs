@@ -90,6 +90,7 @@ pub async fn start_sprint(
     let now = Utc::now()
         .duration_trunc(TimeDelta::minutes(1))
         .expect("now is far from the chrono range limits");
+    domain::check_length(input.length, input.ends_at)?;
     let (starts_at, ends_at) = domain::start_window(now, input.starts_at, input.ends_at)?;
     let mut tx = pool.begin().await?;
     let sprint = repo::find_sprint_for_update(&mut tx, member.board_id, sprint_id)
@@ -99,6 +100,9 @@ pub async fn start_sprint(
     let issue_count = repo::count_issues(&mut tx, sprint.id).await?;
     domain::check_can_start(sprint.state, active.is_some(), issue_count)?;
     repo::mark_started(&mut tx, sprint.id, starts_at, ends_at).await?;
+    if let Some(length) = input.length {
+        repo::remember_length(&mut tx, member.board_id, length).await?;
+    }
     repo::snapshot_scope(&mut tx, sprint.id).await?;
     tx.commit().await?;
     get_sprint(pool, member, sprint_id).await

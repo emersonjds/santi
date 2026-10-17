@@ -4498,6 +4498,14 @@
             "items": {
               "$ref": "#/components/schemas/BacklogSection"
             }
+          },
+          "sprint_length": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Length of the board's last started sprint (D48); null means two weeks.",
+            "example": "2w"
           }
         }
       },
@@ -6781,6 +6789,14 @@
             ],
             "format": "date-time",
             "description": "Defaults to two weeks after the start (D12)."
+          },
+          "length": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Remembered as the board's next default (D48): `4h`, `1d`, `1w`, `2w`, `1m`, or minutes. Needs `ends_at`.",
+            "example": "2w"
           },
           "starts_at": {
             "type": [
