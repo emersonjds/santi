@@ -2,7 +2,6 @@ const MINUTE = 60_000
 const HOUR_MINUTES = 60
 const DAY_MINUTES = 1440
 
-/** The viewer's zone at `instant`: "EDT", "GMT-3". */
 export const zoneName = (instant: Date) =>
   new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
     .formatToParts(instant)
@@ -14,7 +13,6 @@ const day = (instant: Date) =>
 const minuteOfDay = (instant: Date) =>
   instant.getHours() * HOUR_MINUTES + instant.getMinutes()
 
-/** "Oct 1 – Oct 14" for whole local days, else "Oct 16, 09:00 – 22:00 EDT" with the times in the viewer's hour cycle. */
 export const formatRange = (
   startsAt: string,
   endsAt: string,
@@ -37,7 +35,6 @@ export const formatRange = (
   return `${day(start)}, ${time(start)} – ${until} ${zoneName(end)}`
 }
 
-/** "3 days left", "5h 20m left", "20m left"; from the end on "Overdue", then "Overdue by 20m" / "2h" / "3 days". */
 export const timeLeft = (now: number, endsAt: string) => {
   const diff = Date.parse(endsAt) - now
   if (diff > 0) {

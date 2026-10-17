@@ -3,7 +3,6 @@ import type { Sprint } from '@/shared/api/client'
 import { timeLeft } from '@/shared/lib/sprint-dates'
 import { useNow } from '@/shared/lib/use-now'
 
-/** Time left of a running sprint, the overdue badge once it ends, and one announcement when it turns overdue on screen. */
 export const SprintCountdown = ({ sprint }: { sprint: Sprint }) => {
   const now = useNow()
   const [startedOverdue] = useState(
