@@ -30,7 +30,7 @@ import type {
   Card,
   Sprint,
 } from '@/shared/api/client'
-import { HeldEditors, useHeldEditors } from '@/shared/lib/held-editor'
+import { HeldEditors, createHeldEditors } from '@/shared/lib/held-editor'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { ColumnPicker, ColumnShell } from './board-column'
 import { BoardSkeleton, NoSprint, SprintStrip } from './board-states'
@@ -168,7 +168,7 @@ const Columns = ({
   // Held here, above the drag layer swap, so an open form survives it; one column's form at a time.
   const [creating, setCreating] = useState<number | null>(null)
   const [deleting, setDeleting] = useState<Card | null>(null)
-  const editors = useHeldEditors()
+  const [editors] = useState(createHeldEditors)
   const last = board.columns[board.columns.length - 1]
   useAssignKey(
     () => board.columns.flatMap((column) => column.cards),
