@@ -90,7 +90,13 @@ export const SprintHistory = ({ projectKey }: { projectKey: string }) => {
   const history = useInfiniteQuery(sprintHistoryQuery(projectKey))
   const sprints = (history.data?.pages ?? []).flatMap((each) => each.items)
   return (
-    <section aria-label='Sprints' className='grid gap-3'>
+    <section aria-labelledby='sprints-title' className='grid gap-2'>
+      <h2
+        id='sprints-title'
+        className='text-sm font-semibold text-muted-foreground'
+      >
+        Sprints
+      </h2>
       {history.isError ? (
         <LoadFailed
           message="Couldn't load reports."
