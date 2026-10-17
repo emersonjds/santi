@@ -65,7 +65,9 @@ export const HeldEditors = createContext<ReturnType<
 > | null>(null)
 
 /** One field opened in place, or a form field held by id; `field` goes on its input. */
-export const useHeldEditor = (id: string) => {
+export const useHeldEditor = <Field extends HeldField = HTMLInputElement>(
+  id: string
+) => {
   const editors = use(HeldEditors)
   if (!editors) throw new Error('useHeldEditor needs HeldEditors provided')
   const editing = useSyncExternalStore(editors.subscribe, () =>
@@ -78,8 +80,8 @@ export const useHeldEditor = (id: string) => {
       fill: (value: string) => editors.fill(id, value),
       field: {
         autoFocus: true,
-        ref: (field: HeldField) => editors.mountField(id, field),
-        onChange: (event: ChangeEvent<HeldField>) =>
+        ref: (field: Field) => editors.mountField(id, field),
+        onChange: (event: ChangeEvent<Field>) =>
           editors.keepDraft(id, event.currentTarget.value),
       },
     }),
