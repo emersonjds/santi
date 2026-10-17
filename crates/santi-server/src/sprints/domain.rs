@@ -69,7 +69,6 @@ pub fn check_length(
     Ok(())
 }
 
-/// SP-11: future sprints edit freely, active ones keep both times set, closed ones keep their times.
 pub fn check_sprint_edit(
     current: &Sprint,
     start: Option<DateTime<Utc>>,

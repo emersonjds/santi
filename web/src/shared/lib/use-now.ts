@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 
 const MINUTE = 60_000
 
-/** The current time, refreshed on each minute boundary. */
 export const useNow = () => {
   const [now, setNow] = useState(Date.now)
   useEffect(() => {

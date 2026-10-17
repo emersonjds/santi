@@ -1,4 +1,3 @@
-//! Sprint times read and shown in a zone (D48): the CLI passes `Local`, tests a fixed offset.
 use std::fmt::Display;
 
 use chrono::{
@@ -17,7 +16,6 @@ pub fn now_to_the_minute() -> DateTime<Local> {
         .expect("now fits a minute")
 }
 
-/// `YYYY-MM-DD HH:MM`, `YYYY-MM-DD` (at `day_time`) in `zone`, or RFC 3339.
 pub fn parse_moment<Tz: TimeZone>(
     text: &str,
     zone: &Tz,
@@ -47,7 +45,6 @@ pub fn single<T>(result: MappedLocalTime<T>, flag: &str) -> Result<T, String> {
     }
 }
 
-/// Where a preset ends: `1d` at 23:59 of the start's local day, `1m` on the same day next month (clamped).
 pub fn sprint_window<Tz: TimeZone>(
     start: &DateTime<Tz>,
     length: SprintLength,
