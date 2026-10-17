@@ -45,7 +45,11 @@
   --type-subtask: #5e6475;
   --success: #0f766e;
   --success-bg: #ccfbf1;
-  --priority-urgent: #b42318;
+  /* D47: priority and points in purple. */
+  --priority-urgent: #4c35d2;
+  --priority-high: #8b78e9;
+  --points: #3f2cb0;
+  --points-bg: #ece8fb;
   --warning: #92400e;
   --warning-bg: #fef3c7;
   /* SAN-35 (D36 amendment): hover row, avatar tones, select chevron. */
@@ -110,7 +114,10 @@
   --type-subtask: #a8a29e;
   --success: #2dd4bf;
   --success-bg: #134e4a;
-  --priority-urgent: #f97066;
+  --priority-urgent: #b8abf1;
+  --priority-high: #8b78e9;
+  --points: #c4b8f5;
+  --points-bg: #2c2075;
   --warning: #fbbf24;
   --warning-bg: #3a2a0a;
   --hover: #33302d;
@@ -177,6 +184,9 @@
   --color-success: var(--success);
   --color-success-bg: var(--success-bg);
   --color-priority-urgent: var(--priority-urgent);
+  --color-priority-high: var(--priority-high);
+  --color-points: var(--points);
+  --color-points-bg: var(--points-bg);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
   --color-hover: var(--hover);
