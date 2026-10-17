@@ -18,7 +18,7 @@ export const TopBar = () => {
   const [sheet, setSheet] = useState(false)
 
   return (
-    <header className='sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background px-2 sm:px-4'>
+    <header className='sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background px-2 sm:px-4'>
       <SidebarTrigger className='size-11 md:size-9' />
       <Link
         to='/'
