@@ -43,8 +43,9 @@ Sidebar, top to bottom:
 | Group | v1 | Notes |
 |---|---|---|
 | Home | yes | `/` |
-| Projects (header + "New project" icon) | yes | one row per project: avatar, name, key |
-| └ current project expanded | yes | Board, Backlog (scrum only), Settings (admins only) |
+| Projects (header + "New project" icon) | yes | one row per project, every project listed (recents and "View all" → SAN-73): chevron, avatar + name + key (key hidden below `md`), "…" (SAN-91) |
+| └ chevron | yes | expands any project to Board, Backlog (scrum only), Settings (everyone); the current project starts open; the choice is kept per project in `localStorage` (`sidebar-expanded:<KEY>`), defaults when storage is blocked |
+| └ "…" menu | yes | Copy link (`<origin>/p/<KEY>`, toast), Settings; then Archive project (admins, not archived) and Delete project (admins) with the SAN-70 dialogs, and Leave project (disabled with the reason for the last admin). Shown on hover/focus on desktop, always on a phone; 44px targets on a phone; tab order chevron → name → "…"; focus returns to "…" after a dialog |
 | Recent, Starred, Filters, Dashboards | later | no view history, favorites or saved filters in the v1 model; reinstated → SAN-73, SAN-72, SAN-56, SAN-57 |
 
 Project navigation: the project header carries tabs; the sidebar repeats the same links for the
