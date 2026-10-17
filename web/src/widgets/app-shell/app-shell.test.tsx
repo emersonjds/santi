@@ -224,7 +224,9 @@ describe('sidebar project row', () => {
     const nav = sidebar(screen)
 
     const chevron = nav.getByRole('button', { name: 'Toggle Website' })
-    await expect.element(chevron).toBeVisible()
+    await expect
+      .element(nav.getByRole('button', { name: 'Actions for Website' }))
+      .toBeEnabled()
     chevron.element().focus()
     await expect.element(chevron).toHaveFocus()
     await userEvent.keyboard('{Tab}')
