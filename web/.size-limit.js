@@ -96,6 +96,16 @@ export default [
     gzip: true,
   },
   {
+    name: 'initial JS, /p/KEY/reports',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/reports/index.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
     name: 'initial JS, /p/KEY/settings/members (members)',
     path: firstVisit(
       SHELL,
