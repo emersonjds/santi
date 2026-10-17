@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, type Ref, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { ArrowDown, ArrowUp, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { isCategory } from '@/entities/issue/statuses'
+import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 import {
   AlertDialog,
@@ -188,6 +189,7 @@ export const SortableColumn = ({
   reorder,
 }: SortableColumnProps) => {
   const statusHeld = useHeld(STATUS)
+  const note = useReadOnly()
   const {
     attributes,
     listeners,
@@ -220,9 +222,10 @@ export const SortableColumn = ({
           {...attributes}
           {...listeners}
           aria-label={`Drag column ${column.name}`}
+          {...lockedButton(note)}
           className={cn(
             ICON,
-            'inline-flex touch-manipulation items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring'
+            'inline-flex touch-manipulation items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
           )}
         >
           <GripVertical className='size-4' />

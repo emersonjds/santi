@@ -25,6 +25,8 @@ import {
 import { useUpdateRow } from '@/entities/issue/issue-mutations'
 import { type Status, statusesById } from '@/entities/issue/statuses'
 import { ImportHint } from '@/entities/project/import-hint'
+import { useProjectWritable } from '@/entities/project/writable'
+import { WriteLock } from '@/entities/project/write-lock'
 import type {
   Backlog as BacklogView,
   BacklogSection,
@@ -99,8 +101,10 @@ type SectionsProps = {
 
 const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   const narrow = useIsMobile()
+  const writable = useProjectWritable(projectKey)
   useAssignKey(
-    () => backlog.sections.flatMap((section) => section.cards),
+    () =>
+      writable ? backlog.sections.flatMap((section) => section.cards) : [],
     useUpdateRow(projectKey)
   )
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
@@ -132,7 +136,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
         epic={card.parent_key ? epics.get(card.parent_key) : undefined}
         status={statuses.get(card.status_id)}
         handle={handle}
-        editable={!narrow}
+        editable={!narrow && writable}
         menu={
           <Suspense fallback={<MenuSlot />}>
             <RowMenu
@@ -144,7 +148,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
         }
       />
     ),
-    [projectKey, epics, statuses, narrow]
+    [projectKey, epics, statuses, narrow, writable]
   )
 
   const open =
@@ -254,9 +258,11 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
     <RowList
       cards={cards}
       empty={
-        section.sprint
-          ? 'Drag issues here to plan this sprint.'
-          : 'Create issues here, then drag them into a sprint.'
+        !writable
+          ? 'No issues.'
+          : section.sprint
+            ? 'Drag issues here to plan this sprint.'
+            : 'Create issues here, then drag them into a sprint.'
       }
       renderItem={renderItem}
     />
@@ -265,7 +271,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
     renderSection(
       section,
       renderList(section, section.cards, (card) =>
-        renderRow(card, <HandleSlot />)
+        renderRow(card, writable && <HandleSlot />)
       )
     )
   )
@@ -281,7 +287,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   return (
     <BacklogContext value={backlog}>
       <HeldEditors value={editors}>
-        {narrow ? (
+        {narrow || !writable ? (
           frame(plain)
         ) : (
           <Suspense fallback={frame(plain)}>
@@ -371,30 +377,32 @@ const BacklogBody = ({ projectKey, search }: BacklogProps) => {
         ) : (
           <ImportHint projectKey={projectKey} />
         ))}
-      <Sections
-        backlog={backlog}
-        projectKey={projectKey}
-        statuses={statuses}
-        panel={
-          panelOpen && (
-            <Suspense
-              fallback={<div className='hidden w-72 shrink-0 md:block' />}
-            >
-              <EpicPanel
-                epics={backlog.epics}
-                projectKey={projectKey}
-                selected={search.epic}
-                onClose={() =>
-                  void navigate({
-                    to: '.',
-                    search: (prev) => ({ ...prev, panel: undefined }),
-                  })
-                }
-              />
-            </Suspense>
-          )
-        }
-      />
+      <WriteLock projectKey={projectKey}>
+        <Sections
+          backlog={backlog}
+          projectKey={projectKey}
+          statuses={statuses}
+          panel={
+            panelOpen && (
+              <Suspense
+                fallback={<div className='hidden w-72 shrink-0 md:block' />}
+              >
+                <EpicPanel
+                  epics={backlog.epics}
+                  projectKey={projectKey}
+                  selected={search.epic}
+                  onClose={() =>
+                    void navigate({
+                      to: '.',
+                      search: (prev) => ({ ...prev, panel: undefined }),
+                    })
+                  }
+                />
+              </Suspense>
+            )
+          }
+        />
+      </WriteLock>
     </>
   )
 }

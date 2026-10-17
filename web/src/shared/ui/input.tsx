@@ -1,7 +1,9 @@
 import * as React from 'react'
+import { lockedField, useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 
 function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
+  const locked = lockedField(useReadOnly(), props['aria-describedby'])
   return (
     <input
       type={type}
@@ -13,6 +15,7 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
         className
       )}
       {...props}
+      {...locked}
     />
   )
 }

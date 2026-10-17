@@ -1,7 +1,9 @@
 import * as React from 'react'
+import { lockedField, useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 
 function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
+  const locked = lockedField(useReadOnly(), props['aria-describedby'])
   return (
     <textarea
       data-slot='textarea'
@@ -10,6 +12,7 @@ function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
         className
       )}
       {...props}
+      {...locked}
     />
   )
 }
