@@ -532,6 +532,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/reports/sprints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sprint_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/reports/velocity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["velocity"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/restore": {
         parameters: {
             query?: never;
@@ -590,6 +622,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["complete_sprint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/sprints/{id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sprint_report"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -960,6 +1008,13 @@ export interface components {
         DeleteAccount: {
             password: string;
         };
+        /** @description Deleted issues lost their key and type (D40); a group sums them into one line. */
+        DeletedIssues: {
+            /** Format: double */
+            points_at_end?: number | null;
+            /** Format: double */
+            points_at_start?: number | null;
+        };
         EpicSummary: {
             /** Format: int64 */
             child_count: number;
@@ -1292,6 +1347,24 @@ export interface components {
             /** Format: int64 */
             next_cursor?: number | null;
         };
+        /** @description One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page. */
+        Page_SprintTotals: {
+            items: {
+                /**
+                 * Format: double
+                 * @description Start points of the issues present at start.
+                 */
+                committed?: number | null;
+                /**
+                 * Format: double
+                 * @description End points of the completed issues; live for the active sprint.
+                 */
+                completed?: number | null;
+                sprint: components["schemas"]["Sprint"];
+            }[];
+            /** Format: int64 */
+            next_cursor?: number | null;
+        };
         PersonFound: {
             /** Format: int64 */
             count: number;
@@ -1379,6 +1452,36 @@ export interface components {
         ReorderColumns: {
             column_ids: number[];
         };
+        ReportGroup: {
+            deleted?: components["schemas"]["DeletedIssues"] | null;
+            /** @description By issue number; subtasks are never rows (RP-30). */
+            issues: components["schemas"]["ReportIssue"][];
+            outcome: components["schemas"]["ReportOutcome"];
+            /** Format: double */
+            points_at_end?: number | null;
+            /** Format: double */
+            points_at_start?: number | null;
+        };
+        ReportIssue: {
+            added_after_start: boolean;
+            epic_key?: string | null;
+            epic_summary?: string | null;
+            issue_type: components["schemas"]["IssueType"];
+            key: string;
+            /**
+             * Format: double
+             * @description Null for removed issues (OQ-9).
+             */
+            points_at_end?: number | null;
+            /** Format: double */
+            points_at_start?: number | null;
+            priority: components["schemas"]["Priority"];
+            status_category: components["schemas"]["StatusCategory"];
+            status_name: string;
+            summary: string;
+        };
+        /** @enum {string} */
+        ReportOutcome: "completed" | "not_completed" | "removed";
         RowProblem: {
             /**
              * Format: int64
@@ -1419,8 +1522,38 @@ export interface components {
             count: number;
             name: string;
         };
+        SprintReport: {
+            /** Format: double */
+            committed?: number | null;
+            /** Format: double */
+            completed?: number | null;
+            /** @description Completed, not completed and removed, always in that order. */
+            groups: components["schemas"]["ReportGroup"][];
+            /**
+             * Format: int64
+             * @description Neighbors among the board's started sprints, newest first (D46).
+             */
+            newer_sprint_id?: number | null;
+            /** Format: int64 */
+            older_sprint_id?: number | null;
+            sprint: components["schemas"]["Sprint"];
+        };
         /** @enum {string} */
         SprintState: "future" | "active" | "closed";
+        /** @description A started sprint with its points (D46); a total is null when nothing in it was estimated (RP-26). */
+        SprintTotals: {
+            /**
+             * Format: double
+             * @description Start points of the issues present at start.
+             */
+            committed?: number | null;
+            /**
+             * Format: double
+             * @description End points of the completed issues; live for the active sprint.
+             */
+            completed?: number | null;
+            sprint: components["schemas"]["Sprint"];
+        };
         /** @description A project key (`WEB`) or an issue key (`WEB-12`). */
         Star: {
             key: string;
@@ -1519,6 +1652,15 @@ export interface components {
             email: string;
             /** Format: int64 */
             id: number;
+        };
+        Velocity: {
+            /**
+             * Format: double
+             * @description A sprint with no estimated completed work counts as 0; null when every shown sprint is.
+             */
+            average_completed?: number | null;
+            /** @description Up to the 7 latest closed sprints, oldest first. */
+            sprints: components["schemas"]["SprintTotals"][];
         };
     };
     responses: never;
@@ -3771,6 +3913,115 @@ export interface operations {
             };
         };
     };
+    sprint_history: {
+        parameters: {
+            query?: {
+                /** @description 1 to 200, default 50. */
+                limit?: number;
+                cursor?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Started sprints: the active one first, then closed ones, newest close first (D46); `cursor` is the last sprint id */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_SprintTotals"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `kanban-has-no-sprints` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Limit out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    velocity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The 7 latest closed sprints, oldest first, with the average completed points */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Velocity"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `kanban-has-no-sprints` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     restore_project: {
         parameters: {
             query?: never;
@@ -4080,6 +4331,56 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    sprint_report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Sprint id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issues grouped as completed, not completed and removed, with points at start and at the end; live for the active sprint */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SprintReport"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `kanban-has-no-sprints` or `sprint-not-started` */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
