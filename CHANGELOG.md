@@ -10,6 +10,23 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-17
+
+> Landing page scores 100: it paints in about a second on a phone, with lighter screenshots.
+
+### Fixed
+
+- **Landing page:** its stylesheet is now inside the page, so the first paint no longer waits for
+  a second request (speed index on a phone went from 4.6 s to about 1 s). Screenshots come in
+  640, 1000 and full widths, so a phone downloads about 144 KB less. The GitHub star button is
+  named by its visible text for screen readers. Lighthouse gives 100 in performance,
+  accessibility, best practices and SEO on mobile and desktop.
+
+### Added
+
+- **`/llms.txt`:** a short plain-text summary of santi with links to the API docs, the OpenAPI
+  document and the source, for AI agents and crawlers.
+
 ## [0.9.1] - 2026-10-17
 
 > Drafts that stay: text typed in a new issue or new epic form survives the page finishing loading.
@@ -248,7 +265,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/emersonjds/santi/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/emersonjds/santi/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/emersonjds/santi/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/emersonjds/santi/compare/v0.8.1...v0.8.2
