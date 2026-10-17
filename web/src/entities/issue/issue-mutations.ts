@@ -130,10 +130,14 @@ export const useMoveIssue = (projectKey: string) => {
   )
 }
 
-type Update = { card: Card; change: UpdateIssue; shown: Partial<Card> }
+export type CardUpdate = {
+  card: Card
+  change: UpdateIssue
+  shown: Partial<Card>
+}
 
 export const useUpdateIssue = (projectKey: string) =>
-  useBoardWrite<Update>(
+  useBoardWrite<CardUpdate>(
     projectKey,
     async ({ card, change }) =>
       dataOrThrow(
@@ -148,7 +152,7 @@ export const useUpdateIssue = (projectKey: string) =>
 
 /** BL-19: a field edited on a backlog row, shown at once and taken back if the server refuses. */
 export const useUpdateRow = (projectKey: string) =>
-  useOptimisticWrite<Backlog, Update>({
+  useOptimisticWrite<Backlog, CardUpdate>({
     queryKey: backlogKey(projectKey),
     refresh: [boardsKey(projectKey)],
     write: async ({ card, change }) =>
