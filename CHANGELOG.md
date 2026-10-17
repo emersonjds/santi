@@ -23,6 +23,8 @@ UI moves to its own repository.
   `ALTER DATABASE <db> SET timezone TO '<zone>'` (for example `'America/Sao_Paulo'`) so old
   sprints keep their day boundaries.
 - API clients: send `starts_at`/`ends_at` as instants with an offset instead of dates.
+- During the deploy, sprint endpoints on the old instance fail for a few seconds after the
+  migration runs; open tabs need a reload to pick up the new fields.
 
 ## [0.11.0] - 2026-10-17
 
