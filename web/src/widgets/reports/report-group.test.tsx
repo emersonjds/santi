@@ -59,8 +59,9 @@ const GROUPS: ReportGroup[] = [
   }),
 ]
 
-const region = (screen: Awaited<ReturnType<typeof renderApp>>['screen']) =>
-  (name: string) => screen.getByRole('region', { name, exact: true })
+const region =
+  (screen: Awaited<ReturnType<typeof renderApp>>['screen']) => (name: string) =>
+    screen.getByRole('region', { name, exact: true })
 
 describe('report groups', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -100,7 +101,9 @@ describe('report groups', () => {
     await expect.element(completed).toHaveTextContent('3 → 5 points')
 
     const removed = region(screen)('Removed from sprint')
-    await expect.element(removed.getByRole('listitem')).toHaveTextContent('2 → —')
+    await expect
+      .element(removed.getByRole('listitem'))
+      .toHaveTextContent('2 → —')
     await expect.element(removed).toHaveTextContent('2 → — points')
 
     const notCompleted = region(screen)('Not completed')
@@ -132,7 +135,11 @@ describe('report groups', () => {
     const issues = Array.from({ length: 60 }, (_, index) =>
       reportIssue({ key: `WEB-${index + 1}`, summary: `Task ${index + 1}` })
     )
-    withGroups([group('completed', { issues }), group('not_completed'), group('removed')])
+    withGroups([
+      group('completed', { issues }),
+      group('not_completed'),
+      group('removed'),
+    ])
     const { screen } = await renderApp('/p/WEB/reports/3')
 
     const completed = region(screen)('Completed')
@@ -156,7 +163,11 @@ describe('report groups', () => {
       .element(region(screen)('Completed').getByRole('listitem'))
       .toBeVisible()
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(375)
-    for (const row of screen.getByRole('listitem').elements())
+    const rows = ['Completed', 'Removed from sprint'].flatMap((name) =>
+      region(screen)(name).getByRole('listitem').elements()
+    )
+    const deleted = region(screen)('Not completed').getByText('Deleted issues')
+    for (const row of [...rows, deleted.element()])
       expect(row.getBoundingClientRect().height).toBeGreaterThanOrEqual(44)
   })
 })

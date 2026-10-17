@@ -10,7 +10,7 @@ import { Button } from '@/shared/ui/button'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import { Skeleton } from '@/shared/ui/skeleton'
 
-const Total = ({
+export const Total = ({
   label,
   points,
 }: {
@@ -23,19 +23,29 @@ const Total = ({
   </span>
 )
 
-/** Stacked at 375px; from `sm` the totals take a column of their own. */
-const SprintRow = ({ totals }: { totals: SprintTotals }) => {
+export const InProgress = () => (
+  <span className='rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground'>
+    In progress
+  </span>
+)
+
+type SprintRowProps = { totals: SprintTotals; projectKey: string }
+
+/** Stacked at 375px; from `sm` the totals take a column of their own. The name's link covers the row. */
+const SprintRow = ({ totals, projectKey }: SprintRowProps) => {
   const { sprint } = totals
   return (
-    <li className='flex min-h-11 flex-col gap-1 bg-card px-3 py-2 text-sm sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-6'>
+    <li className='relative flex min-h-11 flex-col gap-1 bg-card px-3 py-2 text-sm hover:bg-hover sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-6'>
       <div className='grid min-w-0 gap-0.5'>
         <div className='flex flex-wrap items-center gap-x-2 gap-y-1'>
-          <span className='font-medium'>{sprint.name}</span>
-          {sprint.state === 'active' && (
-            <span className='rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-accent-foreground'>
-              In progress
-            </span>
-          )}
+          <Link
+            to='/p/$key/reports/$id'
+            params={{ key: projectKey, id: String(sprint.id) }}
+            className='font-medium outline-none after:absolute after:inset-0 focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-ring'
+          >
+            {sprint.name}
+          </Link>
+          {sprint.state === 'active' && <InProgress />}
           {sprint.start_date && sprint.end_date && (
             <span className='text-muted-foreground'>
               {day(sprint.start_date)} – {day(sprint.end_date)}
@@ -97,7 +107,11 @@ export const SprintHistory = ({ projectKey }: { projectKey: string }) => {
           className='grid gap-px overflow-hidden rounded-md border bg-border'
         >
           {sprints.map((totals) => (
-            <SprintRow key={totals.sprint.id} totals={totals} />
+            <SprintRow
+              key={totals.sprint.id}
+              totals={totals}
+              projectKey={projectKey}
+            />
           ))}
         </ul>
       )}

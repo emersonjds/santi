@@ -45,8 +45,9 @@ const THREE_SPRINTS = {
   ),
 }
 
+// The project header holds the first h1.
 const title = (screen: Awaited<ReturnType<typeof renderApp>>['screen']) =>
-  screen.getByRole('heading', { level: 1 })
+  screen.getByRole('heading', { level: 1 }).last()
 
 describe('sprint report', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -167,7 +168,10 @@ describe('sprint report', () => {
   it('draws the header and groups as skeletons while loading', async () => {
     let answer = () => {}
     const until = new Promise<void>((resolve) => (answer = resolve))
-    inProjects({ ...THREE_SPRINTS, [report(3)]: { ...THREE_SPRINTS[report(3)], until } })
+    inProjects({
+      ...THREE_SPRINTS,
+      [report(3)]: { ...THREE_SPRINTS[report(3)], until },
+    })
     const { screen } = await renderApp('/p/WEB/reports/3')
 
     await expect
@@ -182,8 +186,6 @@ describe('sprint report', () => {
     inProjects()
     const { router } = await renderApp('/p/OPS/reports/1')
 
-    await expect
-      .poll(() => router.state.location.pathname)
-      .toBe('/p/OPS/board')
+    await expect.poll(() => router.state.location.pathname).toBe('/p/OPS/board')
   })
 })
