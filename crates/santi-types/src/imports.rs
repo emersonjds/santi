@@ -10,8 +10,8 @@ use crate::issues::IssueType;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "text", rename_all = "snake_case")
+    derive(sqlx::Encode, sqlx::Decode),
+    sqlx(rename_all = "snake_case")
 )]
 #[serde(rename_all = "snake_case")]
 pub enum ImportSource {

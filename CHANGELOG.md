@@ -10,6 +10,12 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI:** the statement budget check no longer fails at random. Status, type, priority and the other
+  text-backed fields now bind as plain text, so a fresh database connection skips an extra type
+  lookup query.
+
 ## [0.11.0] - 2026-10-17
 
 > Story points and priority stand out in purple and are edited right on the board card.
