@@ -1,7 +1,7 @@
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
-use chrono::{DateTime, NaiveTime, Utc};
+use chrono::{DateTime, Local, Utc};
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
@@ -19,6 +19,7 @@ use crate::cli::{
 use crate::client::{Client, ProjectKey};
 use crate::config::{self, Config};
 use crate::error::Error;
+use crate::sprint_time::{self, window_text};
 
 pub async fn run(cli: Cli) -> Result<(), Error> {
     let path = config::path();
@@ -279,13 +280,23 @@ async fn sprints(client: &Client, command: SprintsCommand, json: bool) -> Result
             sprint,
             start,
             end,
+            length,
         } => {
-            let dates = StartSprint {
-                starts_at: start.map(|day| day.and_time(NaiveTime::MIN).and_utc()),
-                ends_at: end.map(|day| day.and_hms_opt(23, 59, 0).expect("23:59 exists").and_utc()),
-                length: None,
+            let start = start.unwrap_or_else(sprint_time::now_to_the_minute);
+            let (end, length) = match (end, length) {
+                (Some(end), _) => (Some(end), sprint_time::custom_length(&start, &end)),
+                (None, Some(length)) => (
+                    Some(sprint_time::sprint_window(&start, length).map_err(Error::Usage)?),
+                    Some(length),
+                ),
+                (None, None) => (None, None),
             };
-            client.start_sprint(&project, sprint, &dates).await?
+            let window = StartSprint {
+                starts_at: Some(start.with_timezone(&Utc)),
+                ends_at: end.map(|end| end.with_timezone(&Utc)),
+                length,
+            };
+            client.start_sprint(&project, sprint, &window).await?
         }
         SprintsCommand::Complete {
             project,
@@ -604,11 +615,7 @@ fn backlog_text(backlog: &Backlog) -> String {
 
 fn sprint_line(sprint: &Sprint) -> String {
     let dates = match (sprint.starts_at, sprint.ends_at) {
-        (Some(start), Some(end)) => format!(
-            " {} → {}",
-            start.format("%Y-%m-%d %H:%M"),
-            end.format("%Y-%m-%d %H:%M")
-        ),
+        (Some(start), Some(end)) => format!(" {}", window_text(start, end, &Local)),
         _ => String::new(),
     };
     format!(
@@ -929,16 +936,23 @@ mod tests {
         .unwrap();
         assert_eq!(
             report_text(&report),
-            "#3 Sprint 3 (closed) 2026-10-01 00:00 → 2026-10-14 23:59\n\
-             Committed 5 · Completed —\n\
-             Completed — 2 issues, 5 → 8 points\n\
-             \x20 WEB-1 Ship it (Story, Done) 5 → 5.5\n\
-             \x20 WEB-2 Ship it (Story, Done) — → 2.5 Added\n\
-             \x20 Deleted issues 1 → —\n\
-             Not completed — 0 issues, — → — points\n\
-             \x20 (none)\n\
-             Removed from sprint — 1 issue, 3 → — points\n\
-             \x20 WEB-4 Ship it (Story, Done) 3 → —"
+            format!(
+                "#3 Sprint 3 (closed) {}\n\
+                 Committed 5 · Completed —\n\
+                 Completed — 2 issues, 5 → 8 points\n\
+                 \x20 WEB-1 Ship it (Story, Done) 5 → 5.5\n\
+                 \x20 WEB-2 Ship it (Story, Done) — → 2.5 Added\n\
+                 \x20 Deleted issues 1 → —\n\
+                 Not completed — 0 issues, — → — points\n\
+                 \x20 (none)\n\
+                 Removed from sprint — 1 issue, 3 → — points\n\
+                 \x20 WEB-4 Ship it (Story, Done) 3 → —",
+                window_text(
+                    "2026-10-01T00:00:00Z".parse().unwrap(),
+                    "2026-10-14T23:59:00Z".parse().unwrap(),
+                    &Local
+                )
+            )
         );
     }
 }

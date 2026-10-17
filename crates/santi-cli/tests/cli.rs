@@ -440,6 +440,86 @@ fn sprint_planning_from_create_to_complete() {
 }
 
 #[test]
+fn sprints_start_for_four_hours() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "FOR", "scrum");
+    let sprint = json(santi.with(&token).args(["sprints", "create", "FOR"]));
+    let id = sprint["id"].as_i64().unwrap().to_string();
+    santi
+        .with(&token)
+        .args([
+            "issues",
+            "create",
+            "FOR",
+            "--summary",
+            "Ship",
+            "--sprint",
+            &id,
+        ])
+        .assert()
+        .success();
+    let started = json(
+        santi
+            .with(&token)
+            .args(["sprints", "start", "FOR", &id, "--for", "4h"]),
+    );
+    let at = |field: &str| {
+        started[field]
+            .as_str()
+            .unwrap()
+            .parse::<chrono::DateTime<chrono::Utc>>()
+            .unwrap()
+    };
+    assert_eq!(at("ends_at") - at("starts_at"), chrono::TimeDelta::hours(4));
+    let backlog = json(santi.with(&token).args(["backlog", "FOR"]));
+    assert_eq!(backlog["sprint_length"], "4h");
+}
+
+#[test]
+fn sprints_start_end_day_only_ends_at_2359_local() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "DAY", "scrum");
+    let sprint = json(santi.with(&token).args(["sprints", "create", "DAY"]));
+    let id = sprint["id"].as_i64().unwrap().to_string();
+    santi
+        .with(&token)
+        .args([
+            "issues",
+            "create",
+            "DAY",
+            "--summary",
+            "Ship",
+            "--sprint",
+            &id,
+        ])
+        .assert()
+        .success();
+    santi
+        .with(&token)
+        .env("TZ", "America/Sao_Paulo")
+        .args([
+            "sprints",
+            "start",
+            "DAY",
+            &id,
+            "--start",
+            "2026-10-16 09:00",
+            "--end",
+            "2026-10-16",
+        ])
+        .assert()
+        .success()
+        .stdout(contains("2026-10-16 09:00 → 2026-10-16 23:59 -03:00"));
+    let sprints = json(santi.with(&token).args(["sprints", "list", "DAY"]));
+    assert_eq!(sprints[0]["starts_at"], "2026-10-16T12:00:00Z");
+    assert_eq!(sprints[0]["ends_at"], "2026-10-17T02:59:00Z");
+    let backlog = json(santi.with(&token).args(["backlog", "DAY"]));
+    assert_eq!(backlog["sprint_length"], "899");
+}
+
+#[test]
 fn sprints_report_prints_text_and_json() {
     let santi = Santi::new();
     let token = server().user();

@@ -104,6 +104,18 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         assert_eq!(hints("create_issue").destructive_hint, Some(false));
         let schema = Value::Object((*tool("create_issue").input_schema).clone());
         assert_eq!(schema["required"], json!(["project", "summary"]));
+        let start = Value::Object((*tool("start_sprint").input_schema).clone());
+        for field in ["starts_at", "ends_at", "length"] {
+            assert!(start["properties"].get(field).is_some(), "{field}");
+        }
+        assert!(start["properties"].get("start_date").is_none());
+        assert!(
+            tool("start_sprint")
+                .description
+                .as_deref()
+                .unwrap()
+                .contains("RFC 3339")
+        );
         assert!(
             tool("move_issue")
                 .description
@@ -185,10 +197,17 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         let started = ok(
             &client,
             "start_sprint",
-            json!({ "project": "MCP", "sprint_id": sprint_id }),
+            json!({
+                "project": "MCP", "sprint_id": sprint_id,
+                "starts_at": "2026-10-16T09:00:00-03:00", "ends_at": "2026-10-16T22:00:00-03:00",
+                "length": "1d",
+            }),
         )
         .await;
         assert_eq!(started["state"], "active");
+        assert_eq!(started["starts_at"], "2026-10-16T12:00:00Z");
+        let backlog = ok(&client, "get_backlog", json!({ "project": "MCP" })).await;
+        assert_eq!(backlog["sprint_length"], "1d");
 
         let moved = ok(
             &client,
