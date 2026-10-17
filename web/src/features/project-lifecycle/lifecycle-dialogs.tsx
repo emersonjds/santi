@@ -1,4 +1,5 @@
 import { type ReactNode, useState } from 'react'
+import type { OpenedByState } from '@/features/project/member-controls'
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -17,21 +18,32 @@ import { useLifecycle } from './use-lifecycle'
 
 const SIZE = 'h-11 md:h-9'
 
-type ProjectProps = { projectKey: string; projectName: string }
+type ProjectProps = OpenedByState & { projectKey: string; projectName: string }
 
 export const ArchiveProjectButton = ({
   projectKey,
   projectName,
+  open,
+  onOpenChange,
+  onCloseAutoFocus,
 }: ProjectProps) => {
   const archive = useLifecycle(projectKey, 'archive')
   return (
-    <AlertDialog onOpenChange={(open) => open || archive.reset()}>
-      <AlertDialogTrigger asChild>
-        <Button variant='outline' className={SIZE}>
-          Archive
-        </Button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange?.(next)
+        if (!next) archive.reset()
+      }}
+    >
+      {open === undefined && (
+        <AlertDialogTrigger asChild>
+          <Button variant='outline' className={SIZE}>
+            Archive
+          </Button>
+        </AlertDialogTrigger>
+      )}
+      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{`Archive ${projectName}?`}</AlertDialogTitle>
           <AlertDialogDescription>
@@ -56,7 +68,7 @@ export const ArchiveProjectButton = ({
   )
 }
 
-type TypeKeyDialogProps = {
+type TypeKeyDialogProps = OpenedByState & {
   projectKey: string
   action: 'trash' | 'purge'
   trigger: ReactNode
@@ -73,6 +85,9 @@ const TypeKeyDialog = ({
   title,
   description,
   confirm,
+  open,
+  onOpenChange,
+  onCloseAutoFocus,
 }: TypeKeyDialogProps) => {
   const [typed, setTyped] = useState('')
   const change = useLifecycle(projectKey, action)
@@ -81,14 +96,18 @@ const TypeKeyDialog = ({
 
   return (
     <AlertDialog
-      onOpenChange={(open) => {
-        if (open) return
+      open={open}
+      onOpenChange={(next) => {
+        onOpenChange?.(next)
+        if (next) return
         setTyped('')
         change.reset()
       }}
     >
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
-      <AlertDialogContent>
+      {open === undefined && (
+        <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      )}
+      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
@@ -134,8 +153,10 @@ const TypeKeyDialog = ({
 export const TrashProjectButton = ({
   projectKey,
   projectName,
+  ...state
 }: ProjectProps) => (
   <TypeKeyDialog
+    {...state}
     projectKey={projectKey}
     action='trash'
     trigger={
