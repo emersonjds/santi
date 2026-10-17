@@ -3,6 +3,7 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import { ForbiddenPage } from '@/pages/forbidden/forbidden-page'
 import { projectQuery } from '@/entities/project/project-queries'
+import { useProjectWritable } from '@/entities/project/writable'
 import type { ImportPreview, ImportResult } from '@/shared/api/client'
 import { Skeleton } from '@/shared/ui/skeleton'
 
@@ -38,6 +39,7 @@ export const ImportPage = () => {
   const { key } = useParams({ from: '/_authenticated/p/$key' })
   const { data: project } = useSuspenseQuery(projectQuery(key))
   const [step, setStep] = useState<Step>({ name: 'upload' })
+  const writable = useProjectWritable(key)
   if (project.role !== 'admin') return <ForbiddenPage projectKey={key} />
   const kanban = project.board_type === 'kanban'
   const restart = () => setStep({ name: 'upload' })
@@ -50,8 +52,13 @@ export const ImportPage = () => {
           Step {NUMBER[step.name]} of 3
         </p>
       </div>
+      {!writable && (
+        <p className='text-sm text-muted-foreground'>
+          Unarchive the project to import issues.
+        </p>
+      )}
       <Suspense fallback={<Skeleton className='h-96' />}>
-        {step.name === 'upload' && (
+        {writable && step.name === 'upload' && (
           <UploadStep
             projectKey={key}
             onPreview={(file, preview) =>

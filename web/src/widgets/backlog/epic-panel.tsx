@@ -5,6 +5,7 @@ import { Plus } from 'lucide-react'
 import { EPIC_DROP } from '@/entities/issue/backlog-cache'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { type Backlog, fieldMessage } from '@/shared/api/client'
+import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import { cn } from '@/shared/lib/utils'
@@ -103,13 +104,15 @@ const CreateEpic = ({ projectKey }: { projectKey: string }) => {
   const create = useCreateIssue(projectKey)
   const [open, setOpen] = useState(false)
   const [summary, setSummary] = useState('')
+  const note = useReadOnly()
 
   if (!open)
     return (
       <button
         type='button'
-        className='flex h-11 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:h-9'
+        className='flex h-11 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-60 md:h-9'
         onClick={() => setOpen(true)}
+        {...lockedButton(note)}
       >
         <Plus className='size-4' />
         Create epic

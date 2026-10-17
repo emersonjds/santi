@@ -3,6 +3,8 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { DoneWindow } from '@/features/board-settings/done-window'
 import { projectQuery } from '@/entities/project/project-queries'
+import { useProjectWritable } from '@/entities/project/writable'
+import { WriteLock } from '@/entities/project/write-lock'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { DangerZone } from './danger-zone'
 
@@ -25,7 +27,9 @@ export const BoardSettingsPage = () => {
   return (
     <div className='mx-auto grid w-full max-w-3xl gap-8 px-4 py-6 sm:px-6'>
       {project.role === 'admin' && (
-        <BoardSettings projectKey={key} kanban={kanban} />
+        <WriteLock projectKey={key}>
+          <BoardSettings projectKey={key} kanban={kanban} />
+        </WriteLock>
       )}
       <DangerZone project={project} />
     </div>
@@ -38,22 +42,31 @@ const BoardSettings = ({
 }: {
   projectKey: string
   kanban: boolean
-}) => (
-  <>
-    <div className='flex flex-wrap items-center justify-between gap-3'>
-      <h2 className='text-lg font-semibold'>Board settings</h2>
-      <span className='flex gap-4'>
-        <Link to='/p/$key/settings/members' params={{ key }} className={LINK}>
-          Members
-        </Link>
-        <Link to='/p/$key/settings/import' params={{ key }} className={LINK}>
-          Import issues
-        </Link>
-      </span>
-    </div>
-    <Suspense fallback={<Skeleton className='h-96' />}>
-      <LayoutEditor projectKey={key} kanban={kanban} />
-      {kanban && <DoneWindow projectKey={key} />}
-    </Suspense>
-  </>
-)
+}) => {
+  const writable = useProjectWritable(key)
+  return (
+    <>
+      <div className='flex flex-wrap items-center justify-between gap-3'>
+        <h2 className='text-lg font-semibold'>Board settings</h2>
+        <span className='flex gap-4'>
+          <Link to='/p/$key/settings/members' params={{ key }} className={LINK}>
+            Members
+          </Link>
+          {writable && (
+            <Link
+              to='/p/$key/settings/import'
+              params={{ key }}
+              className={LINK}
+            >
+              Import issues
+            </Link>
+          )}
+        </span>
+      </div>
+      <Suspense fallback={<Skeleton className='h-96' />}>
+        <LayoutEditor projectKey={key} kanban={kanban} />
+        {kanban && <DoneWindow projectKey={key} />}
+      </Suspense>
+    </>
+  )
+}

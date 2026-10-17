@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react'
 import { issueCount } from '@/entities/issue/labels'
 import { CATEGORY, type Category, type Status } from '@/entities/issue/statuses'
 import type { BacklogSection, Sprint } from '@/shared/api/client'
+import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 
 const day = (date: string) =>
@@ -55,20 +56,23 @@ const Dates = ({
 }: {
   sprint: Sprint
   onAddDates: (sprint: Sprint) => void
-}) =>
-  sprint.start_date && sprint.end_date ? (
+}) => {
+  const note = useReadOnly()
+  return sprint.start_date && sprint.end_date ? (
     <span className='text-sm text-muted-foreground'>
       {day(sprint.start_date)} – {day(sprint.end_date)}
     </span>
   ) : (
     <button
       type='button'
-      className='h-11 rounded-md px-1 text-sm text-primary hover:underline md:h-9'
+      className='h-11 rounded-md px-1 text-sm text-primary hover:underline aria-disabled:cursor-not-allowed aria-disabled:opacity-60 aria-disabled:hover:no-underline md:h-9'
       onClick={() => onAddDates(sprint)}
+      {...lockedButton(note)}
     >
       Add dates
     </button>
   )
+}
 
 type SectionHeaderProps = {
   id: string
