@@ -1,13 +1,27 @@
 import type { KeyboardEvent, ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Pencil } from 'lucide-react'
-import { useUpdateRow } from '@/entities/issue/issue-mutations'
+import { PointsPill } from '@/entities/issue/issue-card'
+import { PriorityGlyph } from '@/entities/issue/issue-glyphs'
+import { type CardUpdate, useUpdateRow } from '@/entities/issue/issue-mutations'
+import { PRIORITY_LABEL, isPriority } from '@/entities/issue/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
 import { useHeldEditor } from '@/shared/lib/held-editor'
 
-type RowFieldProps = { card: Card; projectKey: string }
+type RowFieldProps = {
+  card: Card
+  projectKey: string
+  /** The cache the edit patches at once: the backlog's by default, the board's on a card. */
+  useUpdate?: (projectKey: string) => {
+    mutate: (update: CardUpdate) => void
+  }
+}
+
+/** R-8: a 44px hit area on a phone around a smaller face. */
+const HIT =
+  'relative z-10 grid shrink-0 cursor-pointer place-items-center max-md:-my-2.5 max-md:min-h-11 max-md:min-w-11'
 
 const INPUT =
   'relative z-10 h-8 rounded-md border border-input bg-background px-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -25,9 +39,10 @@ const commitKeys =
 export const RowSummary = ({
   card,
   projectKey,
+  useUpdate = useUpdateRow,
   children,
 }: RowFieldProps & { children: ReactNode }) => {
-  const update = useUpdateRow(projectKey)
+  const update = useUpdate(projectKey)
   const editor = useHeldEditor(`${card.key}:summary`)
   if (!editor.editing)
     return (
@@ -65,9 +80,13 @@ export const RowSummary = ({
 const pointsText = (points?: number | null) =>
   points == null ? '' : String(points)
 
-/** D11: a row's estimate, cleared by emptying the field. */
-export const RowPoints = ({ card, projectKey }: RowFieldProps) => {
-  const update = useUpdateRow(projectKey)
+/** D11, D47: an estimate, cleared by emptying the field. */
+export const RowPoints = ({
+  card,
+  projectKey,
+  useUpdate = useUpdateRow,
+}: RowFieldProps) => {
+  const update = useUpdate(projectKey)
   const editor = useHeldEditor(`${card.key}:points`)
   if (!editor.editing)
     return (
@@ -79,9 +98,9 @@ export const RowPoints = ({ card, projectKey }: RowFieldProps) => {
             : `${card.points} points`
         }
         onClick={() => editor.start(pointsText(card.points))}
-        className='relative z-10 min-w-7 rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground tabular-nums outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring'
+        className={`${HIT} rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring`}
       >
-        {card.points ?? '–'}
+        <PointsPill points={card.points} />
       </button>
     )
   return (
@@ -106,8 +125,12 @@ export const RowPoints = ({ card, projectKey }: RowFieldProps) => {
 }
 
 /** The avatar with the browser's own member picker laid over it: no menu chunk to load. */
-export const RowAssignee = ({ card, projectKey }: RowFieldProps) => {
-  const update = useUpdateRow(projectKey)
+export const RowAssignee = ({
+  card,
+  projectKey,
+  useUpdate = useUpdateRow,
+}: RowFieldProps) => {
+  const update = useUpdate(projectKey)
   const { data: members = [] } = useQuery(membersQuery(projectKey))
   return (
     <span className='relative z-10 grid size-6 shrink-0 place-items-center rounded-full focus-within:ring-2 focus-within:ring-ring'>
@@ -136,6 +159,38 @@ export const RowAssignee = ({ card, projectKey }: RowFieldProps) => {
         {members.map((member) => (
           <option key={member.user_id} value={member.user_id}>
             {member.display_name}
+          </option>
+        ))}
+      </select>
+    </span>
+  )
+}
+
+/** D47: the glyph with the browser's own priority picker laid over it. */
+export const RowPriority = ({
+  card,
+  projectKey,
+  useUpdate = useUpdateRow,
+}: RowFieldProps) => {
+  const update = useUpdate(projectKey)
+  return (
+    <span
+      className={`${HIT} size-6 rounded-md focus-within:ring-2 focus-within:ring-ring`}
+    >
+      <PriorityGlyph priority={card.priority} />
+      <select
+        aria-label={`Priority of ${card.key}`}
+        value={card.priority}
+        onChange={(event) => {
+          const priority = event.target.value
+          if (isPriority(priority))
+            update.mutate({ card, change: { priority }, shown: { priority } })
+        }}
+        className='absolute inset-0 cursor-pointer appearance-none opacity-0'
+      >
+        {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+          <option key={value} value={value}>
+            {label}
           </option>
         ))}
       </select>

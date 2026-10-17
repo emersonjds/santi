@@ -4,7 +4,7 @@ import {
   ArrowRightLeft,
   Copy,
   Ellipsis,
-  SignalHigh,
+  ChevronsUp,
   Trash2,
   UserCheck,
   UserPlus,
@@ -175,7 +175,7 @@ const Edits = ({ card, projectKey }: CardMenuProps) => {
       </DropdownMenuSub>
       <DropdownMenuSub>
         <DropdownMenuSubTrigger className={ROW} disabled={locked}>
-          <SignalHigh />
+          <ChevronsUp />
           Set priority
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent>
