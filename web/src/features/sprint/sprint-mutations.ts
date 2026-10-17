@@ -61,7 +61,6 @@ export const useDeleteSprint = (projectKey: string) =>
     )
   )
 
-/** SP-6: the start step confirms name, goal and times, then starts with those times and remembers the length (D48). */
 export const useStartSprint = (projectKey: string) =>
   useSprintWrite(
     projectKey,

@@ -225,7 +225,6 @@ const TextField = <Values extends FieldValues>({
   />
 )
 
-/** D48: a native date and time pair per bound; the refusal of a bound lands under its date. */
 const MomentFields = <Values extends FieldValues>({
   form,
   legend,
@@ -404,7 +403,6 @@ const DeleteSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   )
 }
 
-/** SP-7: the start is now; a planned end still ahead is kept, else the board's last length (D48). */
 const startDefaults = (sprint: Sprint, length: string | null) => {
   const now = nowToTheMinute()
   const planned =
