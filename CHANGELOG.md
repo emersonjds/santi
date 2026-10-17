@@ -10,11 +10,43 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-17
+
+> Sprints with a clock: start and end times, presets from 4 hours to a month, and a countdown to the minute.
+
+### Added
+
+- **Sprints:** starting a sprint remembers its length for the board's next one (`length` on
+  sprint start, `sprint_length` on the backlog).
+- **Sprints:** presets from 4 hours to 1 month with date and time pickers, times in your own zone,
+  and a countdown that turns into "Overdue by …" at the minute the sprint ends.
+- **CLI:** `santi sprints start` takes `--for 4h|1d|1w|2w|1m` and local `--start`/`--end` times;
+  sprint lines show local times with the UTC offset.
+
+### Changed
+
+- **Sprints:** start and end are times, not dates. The API fields `start_date`/`end_date` are now
+  `starts_at`/`ends_at` (RFC 3339) on sprints, sprint edits and sprint start; the old names are
+  refused. An active sprint is overdue from the minute its end passes.
+
 ### Fixed
 
+- **Projects list:** the Lead column shows the lead's avatar and short name ("Emerson Silva"), and
+  the Archived and Trash tabs read "21 hours ago by Emerson Silva" on one line; the full name is
+  on hover.
 - **CI:** the statement budget check no longer fails at random. Status, type, priority and the other
   text-backed fields now bind as plain text, so a fresh database connection skips an extra type
   lookup query.
+
+### Upgrade notes
+
+- Migration 0020 turns existing sprint dates into 00:00 (start) and 23:59 (end) in the
+  database's `timezone` setting, UTC when unset. Before deploying, run
+  `ALTER DATABASE <db> SET timezone TO '<zone>'` (for example `'America/Sao_Paulo'`) so old
+  sprints keep their day boundaries.
+- API clients: send `starts_at`/`ends_at` as instants with an offset instead of dates.
+- During the deploy, sprint endpoints on the old instance fail for a few seconds after the
+  migration runs; open tabs need a reload to pick up the new fields.
 
 ## [0.11.0] - 2026-10-17
 

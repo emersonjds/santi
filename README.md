@@ -126,7 +126,8 @@ santi projects list
 santi issues create WEB --summary "Fix login" --type bug
 santi issues move WEB-12 --status "In Progress"
 santi board WEB
-santi sprints start WEB 3
+santi sprints start WEB 3 --for 1w             # or 4h, 1d (until 23:59), 2w, 1m
+santi sprints start WEB 3 --end '2026-10-16 22:00'   # local time; sprint lines show the UTC offset
 santi search WEB "login" --status in_progress --json
 santi issues edit WEB-12 --sprint none          # back to the backlog; --sprint <ID> plans it
 santi issues comments WEB-12                    # every comment, oldest first

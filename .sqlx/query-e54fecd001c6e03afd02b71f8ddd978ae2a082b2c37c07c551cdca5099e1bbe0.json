@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "WITH page AS (\n               SELECT s.id, s.name, s.goal, s.state, s.start_date, s.end_date, s.started_at, s.closed_at\n               FROM sprint s\n               WHERE s.board_id = $1 AND s.state <> 'future'\n                 AND ($2::bigint IS NULL OR (coalesce(s.closed_at, 'infinity'), s.id) <\n                      (SELECT coalesce(c.closed_at, 'infinity'), c.id FROM sprint c WHERE c.board_id = $1 AND c.id = $2))\n               ORDER BY coalesce(s.closed_at, 'infinity') DESC, s.id DESC\n               LIMIT $3\n           )\n           SELECT page.id AS \"id!\", page.name AS \"name!\", page.goal AS \"goal!\",\n                  page.state AS \"state!: SprintState\", page.start_date, page.end_date, page.started_at,\n                  page.closed_at,\n                  (page.state = 'active' AND page.end_date < current_date) AS \"overdue!\",\n                  sum(si.points_at_start) FILTER (WHERE NOT si.added_after_start) AS committed,\n                  CASE WHEN page.state = 'closed'\n                       THEN sum(si.points_at_close) FILTER (WHERE si.outcome = 'completed')\n                       ELSE sum(i.points) FILTER (WHERE si.outcome IS NULL AND st.category = 'done')\n                  END AS completed\n           FROM page\n           LEFT JOIN sprint_issue si ON si.sprint_id = page.id\n           LEFT JOIN issue i ON i.id = si.issue_id\n           LEFT JOIN status st ON st.id = i.status_id\n           GROUP BY page.id, page.name, page.goal, page.state, page.start_date, page.end_date,\n                    page.started_at, page.closed_at\n           ORDER BY coalesce(page.closed_at, 'infinity') DESC, page.id DESC",
+  "query": "WITH page AS (\n               SELECT s.id, s.name, s.goal, s.state, s.starts_at, s.ends_at, s.started_at, s.closed_at\n               FROM sprint s\n               WHERE s.board_id = $1 AND s.state <> 'future'\n                 AND ($2::bigint IS NULL OR (coalesce(s.closed_at, 'infinity'), s.id) <\n                      (SELECT coalesce(c.closed_at, 'infinity'), c.id FROM sprint c WHERE c.board_id = $1 AND c.id = $2))\n               ORDER BY coalesce(s.closed_at, 'infinity') DESC, s.id DESC\n               LIMIT $3\n           )\n           SELECT page.id AS \"id!\", page.name AS \"name!\", page.goal AS \"goal!\",\n                  page.state AS \"state!: SprintState\", page.starts_at, page.ends_at, page.started_at,\n                  page.closed_at,\n                  (page.state = 'active' AND page.ends_at <= now()) AS \"overdue!\",\n                  sum(si.points_at_start) FILTER (WHERE NOT si.added_after_start) AS committed,\n                  CASE WHEN page.state = 'closed'\n                       THEN sum(si.points_at_close) FILTER (WHERE si.outcome = 'completed')\n                       ELSE sum(i.points) FILTER (WHERE si.outcome IS NULL AND st.category = 'done')\n                  END AS completed\n           FROM page\n           LEFT JOIN sprint_issue si ON si.sprint_id = page.id\n           LEFT JOIN issue i ON i.id = si.issue_id\n           LEFT JOIN status st ON st.id = i.status_id\n           GROUP BY page.id, page.name, page.goal, page.state, page.starts_at, page.ends_at,\n                    page.started_at, page.closed_at\n           ORDER BY coalesce(page.closed_at, 'infinity') DESC, page.id DESC",
   "describe": {
     "columns": [
       {
@@ -49,23 +49,23 @@
       },
       {
         "ordinal": 4,
-        "name": "start_date",
-        "type_info": "Date",
+        "name": "starts_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "sprint",
-            "name": "start_date"
+            "name": "starts_at"
           }
         }
       },
       {
         "ordinal": 5,
-        "name": "end_date",
-        "type_info": "Date",
+        "name": "ends_at",
+        "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "sprint",
-            "name": "end_date"
+            "name": "ends_at"
           }
         }
       },
@@ -131,5 +131,5 @@
       null
     ]
   },
-  "hash": "d859d84bb7bc4ad00a0f09dceae45828863113a6794558327ad3cc0c1ec4a290"
+  "hash": "e54fecd001c6e03afd02b71f8ddd978ae2a082b2c37c07c551cdca5099e1bbe0"
 }

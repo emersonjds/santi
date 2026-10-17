@@ -2,9 +2,10 @@ import type { ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { issueCount } from '@/entities/issue/labels'
 import { CATEGORY, type Category, type Status } from '@/entities/issue/statuses'
+import { SprintCountdown } from '@/entities/sprint/sprint-countdown'
 import type { BacklogSection, Sprint } from '@/shared/api/client'
 import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
-import { day } from '@/shared/lib/sprint-dates'
+import { formatRange } from '@/shared/lib/sprint-dates'
 import { cn } from '@/shared/lib/utils'
 
 const BADGE = 'rounded-full px-2 py-0.5 text-xs font-semibold'
@@ -53,9 +54,9 @@ const Dates = ({
   onAddDates: (sprint: Sprint) => void
 }) => {
   const note = useReadOnly()
-  return sprint.start_date && sprint.end_date ? (
+  return sprint.starts_at && sprint.ends_at ? (
     <span className='text-sm text-muted-foreground'>
-      {day(sprint.start_date)} – {day(sprint.end_date)}
+      {formatRange(sprint.starts_at, sprint.ends_at)}
     </span>
   ) : (
     <button
@@ -114,8 +115,10 @@ export const SectionHeader = ({
           Active
         </span>
       )}
-      {sprint?.overdue && (
-        <span className={cn(BADGE, 'bg-warning-bg text-warning')}>Overdue</span>
+      {sprint?.state === 'active' && (
+        <span className='text-sm text-muted-foreground'>
+          <SprintCountdown sprint={sprint} />
+        </span>
       )}
       {sprint && <Dates sprint={sprint} onAddDates={onAddDates} />}
       <span className='text-sm text-muted-foreground'>

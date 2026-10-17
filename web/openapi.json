@@ -7,7 +7,7 @@
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
     },
-    "version": "0.11.0"
+    "version": "0.12.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -3728,7 +3728,7 @@
         },
         "responses": {
           "200": {
-            "description": "Active; start defaults to today, end to two weeks later",
+            "description": "Active; start defaults to now, end to two weeks later",
             "content": {
               "application/json": {
                 "schema": {
@@ -4498,6 +4498,14 @@
             "items": {
               "$ref": "#/components/schemas/BacklogSection"
             }
+          },
+          "sprint_length": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Length of the board's last started sprint (D48); null means two weeks.",
+            "example": "2w"
           }
         }
       },
@@ -6604,12 +6612,12 @@
             ],
             "format": "date-time"
           },
-          "end_date": {
+          "ends_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           },
           "goal": {
             "type": "string"
@@ -6623,16 +6631,16 @@
           },
           "overdue": {
             "type": "boolean",
-            "description": "Active and past its end date; it stays active until completed (D15)."
+            "description": "Active and at or past its end; it stays active until completed (D15, D48)."
           },
-          "start_date": {
+          "started_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           },
-          "started_at": {
+          "starts_at": {
             "type": [
               "string",
               "null"
@@ -6774,21 +6782,29 @@
       "StartSprint": {
         "type": "object",
         "properties": {
-          "end_date": {
+          "ends_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date",
+            "format": "date-time",
             "description": "Defaults to two weeks after the start (D12)."
           },
-          "start_date": {
+          "length": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date",
-            "description": "Defaults to today."
+            "description": "Remembered as the board's next default (D48): `4h`, `1d`, `1w`, `2w`, `1m`, or minutes. Needs `ends_at`.",
+            "example": "2w"
+          },
+          "starts_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Defaults to now."
           }
         },
         "additionalProperties": false
@@ -6993,12 +7009,12 @@
           "name"
         ],
         "properties": {
-          "end_date": {
+          "ends_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           },
           "goal": {
             "type": "string"
@@ -7006,12 +7022,12 @@
           "name": {
             "type": "string"
           },
-          "start_date": {
+          "starts_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           }
         },
         "additionalProperties": false
