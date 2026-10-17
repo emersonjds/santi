@@ -640,9 +640,12 @@ fn group_lines(group: &ReportGroup) -> Vec<String> {
         ReportOutcome::NotCompleted => "Not completed",
         ReportOutcome::Removed => "Removed from sprint",
     };
+    let count = match group.issues.len() {
+        1 => "1 issue".to_string(),
+        count => format!("{count} issues"),
+    };
     let mut text = vec![format!(
-        "{title} — {} issues, {} → {} points",
-        group.issues.len(),
+        "{title} — {count}, {} → {} points",
         points(group.points_at_start),
         points(group.points_at_end)
     )];
@@ -929,7 +932,7 @@ mod tests {
              \x20 Deleted issues 1 → —\n\
              Not completed — 0 issues, — → — points\n\
              \x20 (none)\n\
-             Removed from sprint — 1 issues, 3 → — points\n\
+             Removed from sprint — 1 issue, 3 → — points\n\
              \x20 WEB-4 Ship it (Story, Done) 3 → —"
         );
     }
