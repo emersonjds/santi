@@ -544,3 +544,12 @@ Winner: A — accepted: no burndown family until a history log exists; removed i
 - Deleted issues (D40) lost their key and type, so each group sums them into one "deleted issues" line; subtasks never appear as rows (RP-5, RP-30).
 - Imported closed sprints: migration 0019 and the importer write completed facts (start = close = the issue's points, not added after start) for issues sitting in a closed sprint, so their report and velocity are not empty.
 - Budgets (D39): history and velocity 2 statements, report 3; no new index (facts by `(sprint_id, issue_id)`, sprints by `(board_id, id)`).
+
+## D47 — Priority and points in purple (SAN-95; amends D36)
+Context: D36 colored only the urgent priority, in the bug red, with signal-bar glyphs. The owner asked for priority and story points to stand out on the card the way the reference board does, in santi's purple.
+Options: A) keep D36 (only urgent colored) B) purple scale for urgent and high, neutral medium and low, chevron glyphs C) a color per priority
+Product vote: B — the owner's call; purple is the brand and is free in the category, red stays for bugs and errors.
+Architecture vote: B — two tokens and a glyph map, no new component; C needs four hues that survive colour-blind simulation, and glyphs already tell priorities apart.
+Winner: B. Glyphs: double chevron up (urgent), chevron up (high), equals (medium), chevron down (low); glyph and name first, color second.
+- Tokens: `--priority-urgent` light #4C35D2 (7.64:1 on white) / dark #B8ABF1 (7.46:1 on card #262422); `--priority-high` #8B78E9 in both themes (3.52:1 on white, 4.39:1 on dark card, icons need 3:1). Medium uses the muted foreground, low the subtle one.
+- Points: `--points` on `--points-bg`, light #3F2CB0 on #ECE8FB (7.96:1), dark #C4B8F5 on #2C2075 (7.34:1).

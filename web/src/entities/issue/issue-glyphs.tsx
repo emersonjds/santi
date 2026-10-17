@@ -1,21 +1,21 @@
 import {
   BookOpen,
   Bug,
-  CircleAlert,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUp,
   ClipboardCheck,
+  Equal,
   Layers,
   ListTree,
   type LucideIcon,
-  SignalHigh,
-  SignalLow,
-  SignalMedium,
 } from 'lucide-react'
 import type { IssueType, Priority } from '@/shared/api/client'
 import { PRIORITY_LABEL, TYPE_LABEL } from './labels'
 
 type Glyph = { label: string; icon: LucideIcon; color: string }
 
-// D36: glyph and text first, color second; of the priorities only urgent is colored.
+// D47: glyph and text first, color second; urgent and high in purple.
 const TYPES = {
   story: { label: TYPE_LABEL.story, icon: BookOpen, color: 'text-type-story' },
   task: {
@@ -35,22 +35,22 @@ const TYPES = {
 const PRIORITIES = {
   urgent: {
     label: PRIORITY_LABEL.urgent,
-    icon: CircleAlert,
+    icon: ChevronsUp,
     color: 'text-priority-urgent',
   },
   high: {
     label: PRIORITY_LABEL.high,
-    icon: SignalHigh,
-    color: 'text-foreground',
+    icon: ChevronUp,
+    color: 'text-priority-high',
   },
   medium: {
     label: PRIORITY_LABEL.medium,
-    icon: SignalMedium,
+    icon: Equal,
     color: 'text-muted-foreground',
   },
   low: {
     label: PRIORITY_LABEL.low,
-    icon: SignalLow,
+    icon: ChevronDown,
     color: 'text-subtle-foreground',
   },
 } satisfies Record<Priority, Glyph>

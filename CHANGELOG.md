@@ -10,6 +10,34 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-17
+
+> Story points and priority stand out in purple and are edited right on the board card.
+
+### Added
+
+- **Board cards:** the story points pill is always shown (`–` when empty) and opens a number
+  field on click: Enter or leaving the field saves, Esc cancels, an empty field clears the
+  estimate. The priority glyph opens the platform's priority picker. Both update the card at once
+  and roll back if the server refuses. Archived projects show them read-only.
+- **Backlog rows:** the same priority picker next to the points pill.
+- **Issue details:** the priority glyph beside the Priority field.
+
+### Changed
+
+- **Priority glyphs:** double chevron up (Urgent), chevron up (High), equals (Medium) and chevron
+  down (Low), in the purple scale for Urgent and High; red is kept for bugs only.
+
+### Fixed
+
+- Typing an unreadable estimate (for example `-`) in a points field no longer clears the points.
+- On phones, a card with labels no longer pushes the column wider than the screen.
+- The issue dialog shows the new points or priority right after a card or row edit.
+
+### Upgrade notes
+
+- None: no migration and no API change.
+
 ## [0.10.0] - 2026-10-17
 
 > Sprint reports: every past sprint, its report and the team's velocity, on the web, CLI and MCP.
@@ -294,7 +322,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/emersonjds/santi/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/emersonjds/santi/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/emersonjds/santi/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/emersonjds/santi/compare/v0.9.0...v0.9.1

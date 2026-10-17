@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type * as SortableBoardModule from '@/features/move-issue/sortable-board'
+import type * as IssueCardModule from '@/entities/issue/issue-card'
 import { renderApp } from '@/test/render-app'
 import {
   OPS,
@@ -19,6 +20,7 @@ const dragLayer = vi.hoisted(() => ({
 }))
 
 const columnRenders = vi.hoisted(() => new Map<string, number>())
+const cardRenders = vi.hoisted(() => new Map<string, number>())
 
 // The drag layer suspends until the test loads it, as its lazy chunk does in the app.
 vi.mock('@/features/move-issue/sortable-board', async (importOriginal) => {
@@ -45,6 +47,19 @@ vi.mock('./board-column', async (importOriginal) => {
       const name = props.column.name
       columnRenders.set(name, (columnRenders.get(name) ?? 0) + 1)
       return createElement(original.ColumnShell, props)
+    },
+  }
+})
+
+vi.mock('@/entities/issue/issue-card', async (importOriginal) => {
+  const { createElement } = await import('react')
+  const original = await importOriginal<typeof IssueCardModule>()
+  return {
+    ...original,
+    IssueCard: (props: Parameters<typeof IssueCardModule.IssueCard>[0]) => {
+      const key = props.card.key
+      cardRenders.set(key, (cardRenders.get(key) ?? 0) + 1)
+      return createElement(original.IssueCard, props)
     },
   }
 })
@@ -141,5 +156,29 @@ describe('board drag layer', () => {
     expect(
       [...columnRenders.keys()].filter((name) => name !== 'Doing')
     ).toEqual([])
+  })
+
+  it('sets the priority of one card without rendering the other cards again', async () => {
+    inProjects({
+      'PATCH /api/projects/OPS/issues/2': {
+        status: 200,
+        body: {},
+        until: new Promise(() => {}),
+      },
+    })
+    dragLayer.load()
+    const { screen } = await renderApp('/p/OPS/board')
+    const doing = screen.getByRole('region', { name: 'Doing' })
+    await expect
+      .element(doing.getByRole('button', { name: 'Drag OPS-2' }))
+      .toBeVisible()
+
+    cardRenders.clear()
+    await doing
+      .getByRole('combobox', { name: 'Priority of OPS-2' })
+      .selectOptions('Urgent')
+    await expect.element(doing.getByText('Urgent priority')).toBeInTheDocument()
+
+    expect([...cardRenders.keys()]).toEqual(['OPS-2'])
   })
 })
