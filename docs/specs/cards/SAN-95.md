@@ -12,7 +12,7 @@ Owner, 2026-10-16: on the reference board, story points and priority stand out b
 | 4 | Points edit | The pill is a button; click, Enter or Space swaps it for a number field: Enter or blur saves, Esc cancels, empty clears. Optimistic with rollback (the backlog row's `RowPoints` behavior). |
 | 5 | Priority edit | The glyph is the visible face of a native `<select>` laid over it (the `RowAssignee` pattern): keyboard and phone get the platform menu, no menu chunk to load. Options show the priority names. |
 | 6 | Where | Board card and backlog row get both editors; issue detail shows the glyph beside its priority field; every other `PriorityGlyph` (reports) picks up the new glyphs. Search and home lists have no priority today. |
-| 7 | Read-only | Viewer or archived project (SAN-104 `WriteLock`): static pill and glyph, no button, no select. |
+| 7 | Read-only | Archived project (SAN-104 `WriteLock`; santi has no viewer role yet, SAN-66): static pill and glyph, no button, no select. |
 
 ## Acceptance
 
@@ -22,4 +22,4 @@ Owner, 2026-10-16: on the reference board, story points and priority stand out b
 - Inline priority: choosing an option saves it with the same optimism and rollback; the select has `aria-label` "Priority of SAN-1".
 - Clicking pill or glyph neither opens the issue nor starts a drag; keyboard focus reaches both after the summary link.
 - Editing one card does not re-render the other cards of the column (memoized card, D39 INP).
-- States: 375px (44px touch targets kept through the hit area, no horizontal scroll), 1440px, light and dark, keyboard focus ring, read-only project.
+- States: 375px (44px touch targets kept through the hit area, no horizontal scroll), 1440px, light and dark, keyboard focus ring, archived project.
