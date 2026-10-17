@@ -9,7 +9,6 @@ import {
   UserCheck,
   UserPlus,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { planMove, statusMove } from '@/entities/issue/board-cache'
 import { BoardContext } from '@/entities/issue/board-context'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
@@ -22,6 +21,7 @@ import { sessionQuery } from '@/entities/session/session-query'
 import type { Card } from '@/shared/api/client'
 import { fullName, shortName } from '@/shared/lib/initials'
 import { useReadOnly } from '@/shared/lib/read-only'
+import { toast } from '@/shared/lib/toast'
 import {
   DropdownMenu,
   DropdownMenuContent,
