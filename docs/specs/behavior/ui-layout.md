@@ -22,7 +22,9 @@ sessions (`research/organizations/page-projects-dir.txt`, `page-url-prm-board-c.
 `research/ui-layout/for-you-a11y.json`. `documented` (all in `research/sidebar/`): [R]
 `find-recent-work-items`, [V] `navigate-to-your-work` (older navigation), [FD] `manage-filters`
 and `search-for-an-existing-or-shared-dashboard`, [FY] `what-is-the-for-you-page`, [L]
-design-system layout examples (`ads-layout_examples.txt`). No flyout was opened live.
+design-system layout examples (`ads-layout_examples.txt`). `observed` [Z] live session on an issue
+page at 1280px and 375px, flyouts, menus and customize opened by click and key
+(`research/sidebar/scn-*.json`, `page-desktop.json`, `customize-notes.txt`).
 
 ## Rules
 
@@ -90,17 +92,29 @@ Sidebar mechanics
 - UI-49 A "more projects" disclosure closes the list. The full list is a projects directory page: one table row per reachable project (name, key, type, lead, row more-actions), name order ignoring case, a result count, a filter, paging. `observed` [S]
 - UI-50 Customize sidebar opens from a button at the sidebar foot and from the sidebar's "more" entry, which also holds the entries not shown in the sidebar; UI-7 rules apply. `observed` [O] `documented` [N]
 - UI-51 Layout: header and footer stay fixed, the middle scrolls on its own. `documented` [L]
-- UI-52 Width: default 320px; a drag handle on the sidebar edge resizes it from 240px to half the viewport; double-click on the handle collapses; the width survives collapse, expand and reload; resizing closes any open popup. `documented` [L] `observed` handle present [S]
+- UI-52 Width: default 320px; a drag handle on the sidebar edge resizes it from 240px to half the viewport; double-click on the handle collapses; the width survives collapse, expand and reload; resizing closes any open popup. `documented` [L] `observed` handle present [S]; the handle is a slider control, 200–500px, arrow keys step 20px; each change is saved to the account's navigation settings on the server, not to web storage [Z]
 - UI-53 Collapse: top-bar toggle or Ctrl+[. Collapsed, hovering the toggle peeks the sidebar as an overlay that closes when the pointer leaves and stays open while a menu inside it is open. `documented` [L][N]
 - UI-54 Below 1024px the sidebar collapses on its own and opens as an overlay; below 768px that overlay is at most 320px or 90% of the screen, whichever is smaller. `documented` [L]
 - UI-55 Entries for the vendor's other products (apps, plans, teams, goals, external links, feedback) exist; out of scope. `observed` [S]
+- UI-56 Recent, starred, plans and more projects open on click as a flyout dialog beside the sidebar; the trigger shows expanded; opening one closes the other; each has a close button and a heading. `observed` [Z]
+- UI-57 Esc closes a flyout and focus returns to its trigger; reopening starts with an empty search. Arrow keys from the flyout's initial focus did not reach a row. `observed` [Z]
+- UI-58 Recent flyout: search box on top, rows grouped by time bucket (today, yesterday, this week, this month seen), each row the item name plus a relative time, linking to the issue, board or project. 15 rows load first; scrolling to the end loads 15 more behind a loading indicator. A view-all link at the foot goes to the home hub's viewed tab: groups today, yesterday, last week, last month; rows of type icon, name, a context line (type, key and project for issues; board and project for boards; project type for projects) and a time (relative within a day, then a date); a load-more button pages. `observed` [Z]
+- UI-59 Recent search filters as you type after a short pause, case-insensitive substring on the name, beyond the loaded rows; a clear button appears with text. No match: a no-results heading, a one-line hint, the view-all link stays. `observed` [Z]
+- UI-60 Starred flyout: search box, a type filter menu (all, boards, filters, dashboards, projects), rows of name plus unstar toggle, newest star first, view-all link. Unstarring there keeps the row with the toggle flipped to star until the flyout closes; the sidebar updates at once. Empty: a nothing-starred-yet heading, a hint on how to star, the view-all link, no search. `observed` [Z]
+- UI-61 Projects section: a starred project leaves the recent sublist and shows under a starred sublabel above it, newest star first, never twice. The recent sublist holds 5 non-starred projects; after a star it shrinks until the next page load, then refills to 5. Unstarring returns the row to recent at once. Recent order matched the order of project-related items in the recent flyout; opening an issue also records its project as visited. `observed` [Z]
+- UI-62 Projects header more-actions: a manage-projects link (directory page) and a change-view submenu of three exclusive options: recent and starred (default), starred only, only the most recent project. `observed` [Z]
+- UI-63 Project row more-actions: star toggle, add people, project settings, archive, delete, and a read-only line with project type and management style; company-managed projects add set-background. Board rows have their own actions menu. `observed` [Z]
+- UI-64 More projects: flyout with a search over all projects, a recent group (recent projects not in the sidebar) then an other group in name order, and a view-all link to the directory; sidebar plus flyout list each reachable project once. `observed` [Z]
+- UI-65 The current page's project row is the open one: it lists that project's recently visited boards (2 for a 2-board project); other several-board rows stay closed. A row opened by hand loads its recent boards on demand (placeholder rows first) and closes again on reload. `observed` [Z]
+- UI-66 Customize is a modal dialog with staged changes (cancel, save): a short note that it affects only the viewer, then two lists (tracker entries; other-product shortcuts), each entry a show-in-sidebar checkbox plus a menu to reorder or hide it. Home is always shown (checkbox locked). Project rows are not listed; no reset control. `observed` [Z]
+- UI-67 At 375px the sidebar starts hidden; the top-bar toggle opens it over the page, without the resize handle; flyouts open as a page-level layer; the top search shrinks to a button and the top-bar actions fold into one more menu. `observed` [Z]
 
 ## santi adoption
 
 Mirror UI-1, UI-2 minus switcher and upgrade, UI-3, UI-6, UI-8, UI-10..13, UI-15..23, UI-26..30,
 UI-32, UI-33 minus chips beyond title/description/type/assignee/estimate/sprint, UI-36..38.
 - Sidebar: shipped shape in `../information-architecture.md` (Sidebar table); SAN-73 brings
-  recent, starred, more projects, customize and resize per UI-40..UI-54. Filters and dashboards
+  recent, starred, more projects, customize and resize per UI-40..UI-67 minus UI-55. Filters and dashboards
   wait for those features.
 - D6: subtasks are flat cards with a parent-key chip, not indented under the parent (overrides UI-13 nesting).
 - D10: epic panel lists key, summary, child count and progress; epics never appear as rows.
@@ -161,13 +175,6 @@ shortcuts, AI suggestions in create.
 - OQ-6 Board card click: right panel or modal over the board?
 - OQ-7 Project navigation: are board/backlog only header tabs, also sidebar children, or both? Reference answer in UI-48: views are tabs, sidebar children are boards.
 - OQ-8 Narrow widths: how does the reference board behave below tablet width (not captured)?
-- OQ-9 Recent and starred: side flyout or inline expansion; opened by click or hover; touch behavior.
-- OQ-10 Recent panel: search box, time grouping (today, yesterday, this week, older), row content (icon, name, context line, relative time), item limit, view-all page (content, filters, paging), empty state.
-- OQ-11 Starred panel: order (manual, by type, by star time), limit, unstar from inside the panel, empty state.
-- OQ-12 Panel keyboard: Esc, arrow keys, focus return to the trigger.
-- OQ-13 Project rows: which visit counts for recency, whether five is a fixed cap, and whether a starred project moves above the recents or shows twice.
-- OQ-14 Projects header more-actions: which actions it holds.
-- OQ-15 More projects: inline list, flyout with search, or link to the directory page.
-- OQ-16 Open project row: how many boards, other children, whether the open state persists.
-- OQ-17 Customize: dialog or in-place mode; can project rows be reordered; reset to defaults.
-- OQ-18 Resize: keyboard control of the handle; width per device or per account.
+- OQ-9 Flyouts: does hover open them; touch behavior (no hover or touch input was available).
+- OQ-11 Starred: is there a row limit or paging (two items were the most tested).
+- OQ-12 Flyout keyboard: Tab order and whether focus is trapped inside.
