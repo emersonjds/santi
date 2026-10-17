@@ -43,6 +43,15 @@ export const ImportPage = () => {
   if (project.role !== 'admin') return <ForbiddenPage projectKey={key} />
   const kanban = project.board_type === 'kanban'
   const restart = () => setStep({ name: 'upload' })
+  if (!writable)
+    return (
+      <div className='mx-auto grid w-full max-w-3xl gap-1 px-4 py-6 sm:px-6'>
+        <h2 className='text-lg font-semibold'>Import issues</h2>
+        <p className='text-sm text-muted-foreground'>
+          Unarchive the project to import issues.
+        </p>
+      </div>
+    )
 
   return (
     <div className='mx-auto grid w-full max-w-3xl gap-4 px-4 py-6 sm:px-6'>
@@ -52,13 +61,8 @@ export const ImportPage = () => {
           Step {NUMBER[step.name]} of 3
         </p>
       </div>
-      {!writable && (
-        <p className='text-sm text-muted-foreground'>
-          Unarchive the project to import issues.
-        </p>
-      )}
       <Suspense fallback={<Skeleton className='h-96' />}>
-        {writable && step.name === 'upload' && (
+        {step.name === 'upload' && (
           <UploadStep
             projectKey={key}
             onPreview={(file, preview) =>

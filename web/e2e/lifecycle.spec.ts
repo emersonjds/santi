@@ -75,9 +75,9 @@ test('archive is read-only until unarchived; trash leaves the sidebar until rest
     .getByRole('status')
     .filter({ hasText: 'This project is archived and read-only' })
   await expect(banner).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Create issue' })).toHaveCount(
-    0
-  )
+  await expect(
+    page.getByRole('button', { name: 'Create issue' }).first()
+  ).toHaveAttribute('aria-disabled', 'true')
   await banner.getByRole('button', { name: 'Unarchive' }).click()
   await expect(banner).toHaveCount(0)
   await expect(inSidebar).toBeVisible()

@@ -138,16 +138,16 @@ describe('project header', () => {
     await expect
       .element(screen.getByRole('button', { name: 'Invite' }))
       .toHaveAttribute('aria-disabled', 'true')
-    expect(
-      screen.getByRole('button', { name: 'Create issue' }).elements()
-    ).toEqual([])
+    await expect
+      .element(screen.getByRole('button', { name: 'Create issue' }).first())
+      .toHaveAttribute('aria-disabled', 'true')
     await banner.getByRole('button', { name: 'Unarchive' }).click()
 
     await expect.element(banner).not.toBeInTheDocument()
     expect(requests.map(routeOf)).toContain('POST /api/projects/WEB/unarchive')
     await expect
       .element(screen.getByRole('button', { name: 'Create issue' }).first())
-      .toBeVisible()
+      .not.toHaveAttribute('aria-disabled')
     await expect
       .element(screen.getByRole('button', { name: 'Invite' }))
       .not.toHaveAttribute('aria-disabled')

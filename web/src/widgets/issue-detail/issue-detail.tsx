@@ -8,7 +8,10 @@ import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { projectQuery } from '@/entities/project/project-queries'
-import { useProjectWritable } from '@/entities/project/writable'
+import {
+  ARCHIVED_NOTE,
+  useProjectWritable,
+} from '@/entities/project/writable'
 import { WriteLock } from '@/entities/project/write-lock'
 import { sessionQuery } from '@/entities/session/session-query'
 import { type Issue, fieldMessage } from '@/shared/api/client'
@@ -222,11 +225,14 @@ export const IssueDetail = ({
             actions={
               <>
                 {actions}
-                {writable && mayDelete(project, me, issue.reporter_id) && (
+                {mayDelete(project, me, issue.reporter_id) && (
                   <Suspense
                     fallback={<span className='block size-11 md:size-8' />}
                   >
-                    <IssueMenu onDelete={() => setDeleting(true)} />
+                    <IssueMenu
+                      note={writable ? undefined : ARCHIVED_NOTE}
+                      onDelete={() => setDeleting(true)}
+                    />
                   </Suspense>
                 )}
               </>
