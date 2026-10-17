@@ -5,8 +5,8 @@ use utoipa::{IntoParams, ToSchema};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "text", rename_all = "snake_case")
+    derive(sqlx::Encode, sqlx::Decode),
+    sqlx(rename_all = "snake_case")
 )]
 #[serde(rename_all = "snake_case")]
 pub enum BoardType {
@@ -17,8 +17,8 @@ pub enum BoardType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "text", rename_all = "snake_case")
+    derive(sqlx::Encode, sqlx::Decode),
+    sqlx(rename_all = "snake_case")
 )]
 #[serde(rename_all = "snake_case")]
 pub enum MemberRole {
@@ -38,8 +38,8 @@ pub struct CreateProject {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
-    derive(sqlx::Type),
-    sqlx(type_name = "text", rename_all = "snake_case")
+    derive(sqlx::Encode, sqlx::Decode),
+    sqlx(rename_all = "snake_case")
 )]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
