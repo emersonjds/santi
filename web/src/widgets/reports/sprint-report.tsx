@@ -50,7 +50,6 @@ const PickerButton = ({ current, ...props }: PickerButtonProps) => (
   <Button
     {...props}
     variant='outline'
-    aria-haspopup='listbox'
     className='h-11 min-w-0 flex-1 justify-between sm:w-64 sm:flex-none md:h-9'
   >
     <span className='truncate'>
@@ -134,16 +133,16 @@ export const SprintReportView = ({
   })
   const history = useInfiniteQuery(sprintHistoryQuery(projectKey))
   const sprints = (history.data?.pages ?? []).flatMap((each) => each.items)
-  const neighbors = report.data ?? neighborsIn(sprints, sprintId)
+  const shown = report.isPlaceholderData ? undefined : report.data
+  const neighbors = shown ?? neighborsIn(sprints, sprintId)
   const current =
-    report.data?.sprint.name ??
+    shown?.sprint.name ??
     sprints.find(({ sprint }) => sprint.id === sprintId)?.sprint.name
   const open = (id: number) =>
     void navigate({
       to: '/p/$key/reports/$id',
       params: { key: projectKey, id: String(id) },
     })
-  const shown = !report.isPlaceholderData && report.data
 
   return (
     <>
@@ -178,14 +177,14 @@ export const SprintReportView = ({
           message="Couldn't load this report."
           onRetry={() => void report.refetch()}
         />
-      ) : !report.data ? (
+      ) : !shown ? (
         <ReportSkeleton />
       ) : (
         <>
-          <ReportHeader report={report.data} />
-          {report.data.groups.map((group) => (
+          <ReportHeader report={shown} />
+          {shown.groups.map((group) => (
             <ReportGroupSection
-              key={`${report.data.sprint.id}-${group.outcome}`}
+              key={`${shown.sprint.id}-${group.outcome}`}
               group={group}
               projectKey={projectKey}
             />

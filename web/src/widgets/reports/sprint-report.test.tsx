@@ -113,6 +113,7 @@ describe('sprint report', () => {
     const picker = screen.getByRole('button', { name: /Choose sprint/ })
     // The lazy picker has replaced its placeholder button.
     await expect.element(picker).toHaveAttribute('aria-expanded', 'false')
+    await expect.element(picker).toHaveAttribute('aria-haspopup', 'dialog')
     await picker.click()
     const options = screen.getByRole('option')
     await expect.element(options.first()).toHaveTextContent('Sprint 4')
@@ -183,6 +184,44 @@ describe('sprint report', () => {
     answer()
 
     await expect.element(title(screen)).toHaveTextContent('Sprint 3')
+  })
+
+  it('steps two sprints back on two quick clicks, drawing skeletons meanwhile', async () => {
+    let answer = () => {}
+    const until = new Promise<void>((resolve) => (answer = resolve))
+    inProjects({
+      ...THREE_SPRINTS,
+      [report(3)]: { ...THREE_SPRINTS[report(3)], until },
+    })
+    const { screen, router } = await renderApp('/p/WEB/reports/4')
+    await expect.element(title(screen)).toHaveTextContent('Sprint 4')
+    const previous = screen.getByRole('button', { name: 'Previous sprint' })
+
+    await previous.click()
+
+    await expect
+      .element(screen.getByRole('status', { name: 'Loading report' }))
+      .toBeVisible()
+    await expect
+      .element(screen.getByRole('button', { name: /Choose sprint/ }))
+      .toHaveTextContent('Sprint 3')
+    await expect
+      .element(screen.getByRole('region', { name: 'Sprint 4' }))
+      .not.toBeInTheDocument()
+    await previous.click()
+
+    await expect.element(title(screen)).toHaveTextContent('Sprint 2')
+    expect(router.state.location.pathname).toBe('/p/WEB/reports/2')
+    answer()
+  })
+
+  it('answers a sprint id that is not a number with the not-found page', async () => {
+    inProjects(THREE_SPRINTS)
+    const { screen } = await renderApp('/p/WEB/reports/abc')
+
+    await expect
+      .element(screen.getByRole('heading', { name: 'Page not found' }))
+      .toBeVisible()
   })
 
   it('sends a kanban project to its board', async () => {
