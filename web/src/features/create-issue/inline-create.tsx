@@ -31,7 +31,7 @@ export const InlineCreate = ({
   const create = useCreateIssue(projectKey)
   const held = `create:${sprintId ?? 'backlog'}:${columnId ?? ''}`
   const summary = useHeldEditor(held)
-  const type = useHeldEditor(`${held}:type`)
+  const type = useHeldEditor<HTMLSelectElement>(`${held}:type`)
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
