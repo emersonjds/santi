@@ -4,11 +4,16 @@ import { Ellipsis, GripVertical, Layers } from 'lucide-react'
 import {
   RowAssignee,
   RowPoints,
+  RowPriority,
   RowSummary,
 } from '@/features/edit-row/row-fields'
 import { issueNumber } from '@/entities/issue/board-query'
-import { LabelChips, SubtaskCount } from '@/entities/issue/issue-card'
-import { TypeGlyph } from '@/entities/issue/issue-glyphs'
+import {
+  LabelChips,
+  PointsPill,
+  SubtaskCount,
+} from '@/entities/issue/issue-card'
+import { PriorityGlyph, TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { StatusPill } from '@/entities/issue/status-pill'
 import type { Status } from '@/entities/issue/statuses'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
@@ -41,18 +46,13 @@ type BacklogRowProps = {
   status?: Status
   handle: ReactNode
   menu: ReactNode
-  /** BL-19: summary, points and assignee edited in the row (wide screens; a phone opens the issue). */
+  /** BL-19: summary, points, priority and assignee edited in the row (wide screens; a phone opens the issue). */
   editable: boolean
 }
 
 const Points = ({ card }: { card: Card }) =>
   card.points != null && (
-    <span
-      className='rounded-full bg-muted px-2 text-xs font-semibold text-muted-foreground tabular-nums'
-      aria-label={`${card.points} points`}
-    >
-      {card.points}
-    </span>
+    <PointsPill points={card.points} label={`${card.points} points`} />
   )
 
 const Assignee = ({ card }: { card: Card }) =>
@@ -112,6 +112,11 @@ export const BacklogRow = memo(
             {status && <StatusPill status={status} />}
             <SubtaskCount card={card} />
             {editable ? <RowPoints {...fields} /> : <Points card={card} />}
+            {editable ? (
+              <RowPriority {...fields} />
+            ) : (
+              <PriorityGlyph priority={card.priority} />
+            )}
             {editable ? <RowAssignee {...fields} /> : <Assignee card={card} />}
           </span>
         </div>
