@@ -4,10 +4,9 @@ use santi_types::reports::{ReportIssue, ReportOutcome, SprintTotals};
 use santi_types::sprints::{Sprint, SprintState};
 use sqlx::PgConnection;
 
-use super::domain::FactRow;
+use super::domain::{self, FactRow};
 
-/// D46: started sprints, the active one first, then closed ones by close time, newest first;
-/// `limit + 1` rows so the caller can tell a next page exists.
+/// D46: started sprints, the active one first, then closed ones by close time, newest first.
 pub async fn sprint_totals(
     conn: &mut PgConnection,
     board_id: i64,
@@ -22,7 +21,7 @@ pub async fn sprint_totals(
                  AND ($2::bigint IS NULL OR (coalesce(s.closed_at, 'infinity'), s.id) <
                       (SELECT coalesce(c.closed_at, 'infinity'), c.id FROM sprint c WHERE c.board_id = $1 AND c.id = $2))
                ORDER BY coalesce(s.closed_at, 'infinity') DESC, s.id DESC
-               LIMIT $3::bigint + 1
+               LIMIT $3
            )
            SELECT page.id AS "id!", page.name AS "name!", page.goal AS "goal!",
                   page.state AS "state!: SprintState", page.start_date, page.end_date, page.started_at,
@@ -60,8 +59,8 @@ pub async fn sprint_totals(
                 closed_at: row.closed_at,
                 overdue: row.overdue,
             },
-            committed: row.committed,
-            completed: row.completed,
+            committed: row.committed.map(domain::round),
+            completed: row.completed.map(domain::round),
         })
         .collect())
 }
@@ -139,46 +138,27 @@ pub async fn report_rows(
     .await?;
     Ok(rows
         .into_iter()
-        .map(|row| {
-            let issue = match (
-                row.key,
-                row.summary,
-                row.issue_type,
-                row.priority,
-                row.status_name,
-                row.status_category,
-            ) {
-                (
-                    Some(key),
-                    Some(summary),
-                    Some(issue_type),
-                    Some(priority),
-                    Some(status_name),
-                    Some(status_category),
-                ) => Some(ReportIssue {
-                    key,
-                    summary,
-                    issue_type,
-                    priority,
-                    status_name,
-                    status_category,
+        .map(|row| FactRow {
+            issue: (|| {
+                Some(ReportIssue {
+                    key: row.key?,
+                    summary: row.summary?,
+                    issue_type: row.issue_type?,
+                    priority: row.priority?,
+                    status_name: row.status_name?,
+                    status_category: row.status_category?,
                     epic_key: row.epic_key,
                     epic_summary: row.epic_summary,
                     points_at_start: None,
                     points_at_end: None,
                     added_after_start: false,
-                }),
-                _ => None,
-            };
-            FactRow {
-                done_now: row.status_category == Some(StatusCategory::Done),
-                issue,
-                points_now: row.points_now,
-                added_after_start: row.added_after_start,
-                points_at_start: row.points_at_start,
-                outcome: row.outcome,
-                points_at_close: row.points_at_close,
-            }
+                })
+            })(),
+            points_now: row.points_now,
+            added_after_start: row.added_after_start,
+            points_at_start: row.points_at_start,
+            outcome: row.outcome,
+            points_at_close: row.points_at_close,
         })
         .collect())
 }

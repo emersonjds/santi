@@ -384,3 +384,101 @@ async fn history_limit_out_of_range_is_422(pool: PgPool) {
 
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
 }
+
+#[sqlx::test]
+async fn reports_stay_inside_the_project(pool: PgPool) {
+    let ana = scrum(pool).await;
+    ran_sprint(&ana, 1.0, Some(true)).await;
+    ana.create_project("OTHER", "scrum").await;
+    let other = ana.create_sprint("OTHER").await;
+    ana.create_issue(
+        "OTHER",
+        json!({ "summary": "theirs", "sprint_id": other["id"] }),
+    )
+    .await;
+    let (started, _) = ana
+        .post(
+            &format!("/api/projects/OTHER/sprints/{}/start", other["id"]),
+            json!({}),
+        )
+        .await;
+    assert_eq!(started, StatusCode::OK);
+    let stranger = ana.another_user("eve@example.com").await;
+
+    let (crossed, _) = ana
+        .get(&format!(
+            "/api/projects/SANTI/sprints/{}/report",
+            other["id"]
+        ))
+        .await;
+    let (status, page) = ana
+        .get(&format!(
+            "/api/projects/SANTI/reports/sprints?cursor={}",
+            other["id"]
+        ))
+        .await;
+    let (strange_velocity, _) = stranger.get("/api/projects/SANTI/reports/velocity").await;
+
+    assert_eq!(crossed, StatusCode::NOT_FOUND);
+    assert_eq!(status, StatusCode::OK, "{page}");
+    assert_eq!(page["items"], json!([]));
+    assert_eq!(page["next_cursor"], Value::Null);
+    assert_eq!(strange_velocity, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
+async fn archived_projects_keep_reports_and_trashed_ones_hide_them(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = ran_sprint(&ana, 1.0, Some(true)).await;
+    let urls = [
+        "/api/projects/SANTI/reports/sprints".to_string(),
+        "/api/projects/SANTI/reports/velocity".to_string(),
+        format!("/api/projects/SANTI/sprints/{}/report", sprint["id"]),
+    ];
+
+    let (archived, _) = ana.post("/api/projects/SANTI/archive", json!(null)).await;
+    assert_eq!(archived, StatusCode::NO_CONTENT);
+    for url in &urls {
+        let (status, body) = ana.get(url).await;
+        assert_eq!(status, StatusCode::OK, "{url} {body}");
+    }
+    let (trashed, _) = ana.post("/api/projects/SANTI/trash", json!(null)).await;
+    assert_eq!(trashed, StatusCode::NO_CONTENT);
+    for url in &urls {
+        let (status, _) = ana.get(url).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{url}");
+    }
+}
+
+#[sqlx::test]
+async fn unparsable_sprint_id_or_cursor_is_400(pool: PgPool) {
+    let ana = scrum(pool).await;
+
+    for url in [
+        "/api/projects/SANTI/sprints/abc/report",
+        "/api/projects/SANTI/reports/sprints?cursor=abc",
+    ] {
+        let (status, _) = ana.get(url).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{url}");
+    }
+}
+
+#[sqlx::test]
+async fn fractional_points_add_up_to_clean_totals(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = ana.create_sprint("SANTI").await;
+    issue_in(&ana, &sprint, "a", Some(0.1)).await;
+    issue_in(&ana, &sprint, "b", Some(0.2)).await;
+    start(&ana, &sprint).await;
+    mark_done(&ana, 1).await;
+    mark_done(&ana, 2).await;
+    complete(&ana, &sprint).await;
+
+    let report = report(&ana, &sprint).await;
+    let (_, history) = ana.get("/api/projects/SANTI/reports/sprints").await;
+
+    assert_eq!(report["committed"], 0.3);
+    assert_eq!(report["completed"], 0.3);
+    assert_eq!(history["items"][0]["committed"], 0.3);
+    assert_eq!(history["items"][0]["completed"], 0.3);
+}
