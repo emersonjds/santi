@@ -69,7 +69,16 @@ const sprintWith = async (
   return sprint.id
 }
 
+/** Waits for the lazy chunks (picker, Invite) to replace their disabled stand-ins and for the fonts. */
 const shoot = async (page: Page, name: string) => {
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByRole('button', { name: 'Invite' })).toBeEnabled()
+  const picker = page.getByRole('button', { name: /^Choose sprint:/ })
+  if (await picker.count())
+    await expect(picker).toHaveAttribute('aria-haspopup', 'dialog')
+  await page.evaluate(async () => {
+    await document.fonts.ready
+  })
   for (const theme of ['light', 'dark'])
     for (const width of [1440, 375]) {
       await page.setViewportSize({ width, height: 900 })
@@ -82,6 +91,7 @@ const shoot = async (page: Page, name: string) => {
       await page.screenshot({
         path: `${SHOTS}/${name}-${width}-${theme}.png`,
         fullPage: true,
+        animations: 'disabled',
       })
     }
 }
