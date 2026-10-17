@@ -1,4 +1,10 @@
-import { type ReactNode, useId, useState } from 'react'
+import {
+  type ComponentProps,
+  type ReactNode,
+  Suspense,
+  lazy,
+  useId,
+} from 'react'
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -13,15 +19,7 @@ import {
 import type { SprintReport, SprintTotals } from '@/shared/api/client'
 import { day } from '@/shared/lib/sprint-dates'
 import { Button } from '@/shared/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/shared/ui/command'
 import { LoadFailed } from '@/shared/ui/load-failed'
-import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { ReportGroupSection } from './report-group'
 import { InProgress, Total } from './sprint-history'
@@ -38,62 +36,30 @@ const neighborsIn = (sprints: SprintTotals[], sprintId: number): Neighbors => {
   }
 }
 
-type SprintPickerProps = {
-  sprints: SprintTotals[]
-  current?: string
-  onPick: (sprintId: number) => void
-}
+// Lazy: cmdk and the popover would push this route's first visit past 170 KB (D39).
+const SprintPicker = lazy(() =>
+  import('./sprint-picker').then((module) => ({
+    default: module.SprintPicker,
+  }))
+)
 
-const SprintPicker = ({ sprints, current, onPick }: SprintPickerProps) => {
-  const [open, setOpen] = useState(false)
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant='outline'
-          aria-haspopup='listbox'
-          className='h-11 min-w-0 flex-1 justify-between sm:w-64 sm:flex-none md:h-9'
-        >
-          <span className='truncate'>
-            <span className='sr-only'>Choose sprint: </span>
-            {current}
-          </span>
-          <ChevronsUpDown aria-hidden='true' />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align='start'
-        collisionPadding={16}
-        className='w-72 max-w-[calc(100vw-2rem)] p-0'
-      >
-        <Command>
-          <CommandInput
-            aria-label='Find a sprint'
-            placeholder='Find a sprint'
-            className='text-base md:text-sm'
-          />
-          <CommandList>
-            <CommandEmpty>No sprints match.</CommandEmpty>
-            {sprints.map(({ sprint }) => (
-              <CommandItem
-                key={sprint.id}
-                value={`${sprint.name} ${sprint.id}`}
-                onSelect={() => {
-                  setOpen(false)
-                  onPick(sprint.id)
-                }}
-                className='min-h-11 md:min-h-8'
-              >
-                <span className='truncate'>{sprint.name}</span>
-                {sprint.state === 'active' && <InProgress />}
-              </CommandItem>
-            ))}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  )
-}
+type PickerButtonProps = ComponentProps<typeof Button> & { current?: string }
+
+/** Spreads its props: the popover trigger hands it its handlers, ref and state. */
+const PickerButton = ({ current, ...props }: PickerButtonProps) => (
+  <Button
+    {...props}
+    variant='outline'
+    aria-haspopup='listbox'
+    className='h-11 min-w-0 flex-1 justify-between sm:w-64 sm:flex-none md:h-9'
+  >
+    <span className='truncate'>
+      <span className='sr-only'>Choose sprint: </span>
+      {current}
+    </span>
+    <ChevronsUpDown aria-hidden='true' />
+  </Button>
+)
 
 type StepProps = {
   label: string
@@ -182,7 +148,13 @@ export const SprintReportView = ({
   return (
     <>
       <div className='flex items-center gap-2'>
-        <SprintPicker sprints={sprints} current={current} onPick={open} />
+        <Suspense fallback={<PickerButton current={current} />}>
+          <SprintPicker
+            sprints={sprints}
+            onPick={open}
+            trigger={<PickerButton current={current} />}
+          />
+        </Suspense>
         <Step
           label='Previous sprint'
           target={neighbors.older_sprint_id}

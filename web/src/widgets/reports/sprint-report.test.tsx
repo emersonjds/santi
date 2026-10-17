@@ -110,7 +110,10 @@ describe('sprint report', () => {
     inProjects(THREE_SPRINTS)
     const { screen, router } = await renderApp('/p/WEB/reports/3')
 
-    await screen.getByRole('button', { name: /Choose sprint/ }).click()
+    const picker = screen.getByRole('button', { name: /Choose sprint/ })
+    // The lazy picker has replaced its placeholder button.
+    await expect.element(picker).toHaveAttribute('aria-expanded', 'false')
+    await picker.click()
     const options = screen.getByRole('option')
     await expect.element(options.first()).toHaveTextContent('Sprint 4')
     await expect.element(options.first()).toHaveTextContent('In progress')
