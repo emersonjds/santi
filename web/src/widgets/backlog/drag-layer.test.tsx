@@ -87,6 +87,59 @@ describe('backlog drag layer', () => {
     ])
   })
 
+  it('keeps an open inline create, its type and its summary when the drag layer loads', async () => {
+    const requests = inProjects({
+      'POST /api/projects/WEB/issues': {
+        status: 201,
+        body: {},
+        until: new Promise(() => {}),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+    const backlog = screen.getByRole('region', { name: 'Backlog' })
+
+    await backlog.getByRole('button', { name: 'Create issue' }).click()
+    await backlog.getByLabelText('New issue type').selectOptions('Bug')
+    const summary = backlog.getByLabelText('New issue summary')
+    await summary.fill('Plan the launch')
+    dragLayer.load()
+    await expect
+      .element(backlog.getByRole('button', { name: 'Drag WEB-7' }))
+      .toBeVisible()
+
+    await expect.element(summary).toHaveFocus()
+    await expect.element(summary).toHaveValue('Plan the launch')
+    await expect
+      .element(backlog.getByLabelText('New issue type'))
+      .toHaveValue('bug')
+    await userEvent.keyboard('{Enter}')
+    await expect.element(summary).toHaveValue('')
+    expect(
+      await bodiesOf(requests, 'POST /api/projects/WEB/issues')
+    ).toMatchObject([{ summary: 'Plan the launch', issue_type: 'bug' }])
+  })
+
+  it('keeps an open new epic and its summary when the drag layer loads', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/backlog?panel=epics')
+    const panel = screen.getByRole('complementary', { name: 'Epics' })
+
+    await panel.getByRole('button', { name: 'Create epic' }).click()
+    const summary = panel.getByRole('textbox', { name: 'New epic summary' })
+    await summary.fill('Search revamp')
+    dragLayer.load()
+    await expect
+      .element(
+        screen
+          .getByRole('region', { name: 'Backlog' })
+          .getByRole('button', { name: 'Drag WEB-7' })
+      )
+      .toBeVisible()
+
+    await expect.element(summary).toHaveFocus()
+    await expect.element(summary).toHaveValue('Search revamp')
+  })
+
   it('discards a draft kept across the drag layer load on Escape', async () => {
     const requests = pendingPatch()
     const { screen } = await renderApp('/p/WEB/backlog')

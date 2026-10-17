@@ -1,10 +1,11 @@
-import { type FormEvent, type ReactNode, useState } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useDroppable } from '@dnd-kit/core'
 import { Plus } from 'lucide-react'
 import { EPIC_DROP } from '@/entities/issue/backlog-cache'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { type Backlog, fieldMessage } from '@/shared/api/client'
+import { useHeldEditor } from '@/shared/lib/held-editor'
 import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
@@ -102,16 +103,15 @@ const Progress = ({ epic }: { epic: Epic }) => {
 
 const CreateEpic = ({ projectKey }: { projectKey: string }) => {
   const create = useCreateIssue(projectKey)
-  const [open, setOpen] = useState(false)
-  const [summary, setSummary] = useState('')
+  const editor = useHeldEditor('create-epic')
   const note = useReadOnly()
 
-  if (!open)
+  if (!editor.editing)
     return (
       <button
         type='button'
         className='flex h-11 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-60 md:h-9'
-        onClick={() => setOpen(true)}
+        onClick={() => editor.start('')}
         {...lockedButton(note)}
       >
         <Plus className='size-4' />
@@ -119,28 +119,27 @@ const CreateEpic = ({ projectKey }: { projectKey: string }) => {
       </button>
     )
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    const text = summary.trim()
+    const text = String(new FormData(event.currentTarget).get('summary')).trim()
     if (!text) return
-    setSummary('')
+    editor.fill('')
     create.mutate(
       { summary: text, issue_type: 'epic' },
-      { onError: () => setSummary(text) }
+      { onError: () => editor.fill(text) }
     )
   }
 
   return (
     <form onSubmit={submit} className='grid gap-1.5'>
       <Input
+        name='summary'
         aria-label='New epic summary'
         placeholder='Name the epic'
-        autoFocus
         maxLength={255}
         className='h-11 md:h-9'
-        value={summary}
-        onChange={(event) => setSummary(event.target.value)}
-        onKeyDown={(event) => event.key === 'Escape' && setOpen(false)}
+        {...editor.field}
+        onKeyDown={(event) => event.key === 'Escape' && editor.stop()}
       />
       {create.error && (
         <p className='text-sm text-destructive'>{fieldMessage(create.error)}</p>
