@@ -4,6 +4,7 @@ use chrono::NaiveDate;
 use clap::{Args, Parser, Subcommand};
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueType, Priority};
+use santi_types::projects::ProjectState;
 use santi_types::sprints::OpenIssuesDestination;
 
 use crate::client::{IssueKey, ProjectKey};
@@ -78,7 +79,31 @@ pub enum Command {
 #[derive(Debug, Subcommand)]
 pub enum ProjectsCommand {
     /// List the projects you belong to
-    List,
+    List {
+        /// active, archived or trashed; archived and trashed list only projects you administer
+        #[arg(long, default_value = "active", value_parser = enum_value::<ProjectState>)]
+        state: ProjectState,
+    },
+    /// Archive a project: read-only and out of every list until unarchived (admins)
+    Archive { project: ProjectKey },
+    /// Make an archived project active again (admins)
+    Unarchive { project: ProjectKey },
+    /// Move a project to the trash; it is deleted for good 60 days later (admins)
+    Trash {
+        project: ProjectKey,
+        /// Trash without asking
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Bring a project back from the trash (admins)
+    Restore { project: ProjectKey },
+    /// Delete a trashed project for good, with all its issues; cannot be undone (admins)
+    Purge {
+        project: ProjectKey,
+        /// Purge without asking
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]

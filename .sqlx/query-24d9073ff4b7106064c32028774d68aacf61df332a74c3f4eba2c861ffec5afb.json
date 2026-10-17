@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE project SET trashed_at = NULL, trashed_by = NULL\n         WHERE id = $1 AND trashed_at IS NOT NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "24d9073ff4b7106064c32028774d68aacf61df332a74c3f4eba2c861ffec5afb"
+}

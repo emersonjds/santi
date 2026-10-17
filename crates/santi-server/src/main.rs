@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // D45
     let legal_pages = std::env::var("SANTI_LEGAL_PAGES").as_deref() != Ok("off");
     let legal = santi_server::Legal::from_web_dir(legal_pages, std::path::Path::new(&web_dir));
-    // D45: purge.
+    // D45 and OR-58: purge.
     let purge_pool = pool.clone();
     tokio::spawn(async move {
         let mut hourly = tokio::time::interval(std::time::Duration::from_secs(60 * 60));
@@ -44,6 +44,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             hourly.tick().await;
             if let Err(error) = santi_server::purge_expired(&purge_pool).await {
                 eprintln!("purge failed: {error}");
+            }
+            if let Err(error) = santi_server::purge_trash(&purge_pool).await {
+                eprintln!("trash purge failed: {error}");
             }
         }
     });

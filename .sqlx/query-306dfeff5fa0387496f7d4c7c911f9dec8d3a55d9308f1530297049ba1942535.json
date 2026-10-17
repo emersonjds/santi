@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT t.user_id, p.id AS \"project_id?\", p.key AS \"project_key?\", b.id AS \"board_id?\",\n                  b.board_type AS \"board_type?: BoardType\", m.role AS \"role?: MemberRole\"\n           FROM auth_token t\n           LEFT JOIN project p ON p.key = $2\n           LEFT JOIN member m ON m.project_id = p.id AND m.user_id = t.user_id\n           LEFT JOIN board b ON b.project_id = m.project_id\n           WHERE t.token_hash = $1 AND (t.expires_at IS NULL OR t.expires_at > now())",
+  "query": "SELECT m.user_id, p.id AS project_id, p.key AS project_key, b.id AS board_id,\n                  b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\",\n                  p.archived_at IS NOT NULL AS \"archived!\"\n           FROM project p\n           JOIN board b ON b.project_id = p.id\n           JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.key = $1",
   "describe": {
     "columns": [
       {
@@ -9,14 +9,14 @@
         "type_info": "Int8",
         "origin": {
           "Table": {
-            "table": "auth_token",
+            "table": "member",
             "name": "user_id"
           }
         }
       },
       {
         "ordinal": 1,
-        "name": "project_id?",
+        "name": "project_id",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -27,7 +27,7 @@
       },
       {
         "ordinal": 2,
-        "name": "project_key?",
+        "name": "project_key",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -38,7 +38,7 @@
       },
       {
         "ordinal": 3,
-        "name": "board_id?",
+        "name": "board_id",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -49,7 +49,7 @@
       },
       {
         "ordinal": 4,
-        "name": "board_type?: BoardType",
+        "name": "board_type: BoardType",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -60,7 +60,7 @@
       },
       {
         "ordinal": 5,
-        "name": "role?: MemberRole",
+        "name": "role: MemberRole",
         "type_info": "Text",
         "origin": {
           "Table": {
@@ -68,22 +68,29 @@
             "name": "role"
           }
         }
+      },
+      {
+        "ordinal": 6,
+        "name": "archived!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
-        "Bytea",
-        "Text"
+        "Text",
+        "Int8"
       ]
     },
     "nullable": [
       false,
-      true,
-      true,
-      true,
-      true,
-      true
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
     ]
   },
-  "hash": "29c7c1130367478576c31e64ae632a1d969d8ca8067cfd5983973de594f30c50"
+  "hash": "306dfeff5fa0387496f7d4c7c911f9dec8d3a55d9308f1530297049ba1942535"
 }

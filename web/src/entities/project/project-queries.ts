@@ -8,6 +8,16 @@ export const projectsQuery = queryOptions({
   queryFn: async () => dataOrThrow(await api.GET('/api/projects')),
 })
 
+/** SAN-70: only the projects the caller administers. */
+export const projectsInStateQuery = (state: 'archived' | 'trashed') =>
+  queryOptions({
+    queryKey: ['projects', { state }],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/api/projects', { params: { query: { state } } })
+      ),
+  })
+
 export const projectQuery = (key: string) =>
   queryOptions({
     queryKey: ['projects', key],
