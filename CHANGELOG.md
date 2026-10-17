@@ -10,6 +10,23 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-17
+
+> Archived projects are read-only in place: every write control is visible but disabled.
+
+### Changed
+
+- **Archived projects:** on the board, backlog, issue page, sprint header, board settings, members
+  and import, every write control now stays where it is but is disabled and points at the
+  archived banner, instead of failing with an error when used. Drag and drop is off, fields are
+  read-only, and Create issue, More actions and Import issues show as disabled.
+
+### Fixed
+
+- **Notifications:** a confirmation sent right after a page opened (for example "Archived SAN"
+  just after opening settings) could be lost before the notification area loaded. It now waits
+  and shows.
+
 ## [0.8.2] - 2026-10-16
 
 > Top bar stays on top: rows no longer scroll over the header.
@@ -221,7 +238,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/emersonjds/santi/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/emersonjds/santi/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/emersonjds/santi/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/emersonjds/santi/compare/v0.7.0...v0.8.0
