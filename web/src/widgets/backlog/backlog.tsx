@@ -31,6 +31,7 @@ import type {
   Card,
   Sprint,
 } from '@/shared/api/client'
+import { HeldEditors, createHeldEditors } from '@/shared/lib/held-editor'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -107,6 +108,7 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   // Held here, above the drag layer swap, so an open form survives it.
   const [creating, setCreating] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<Card | null>(null)
+  const [editors] = useState(createHeldEditors)
   const epics = useMemo(
     () => new Map(backlog.epics.map((epic) => [epic.key, epic])),
     [backlog.epics]
@@ -278,20 +280,22 @@ const Sections = ({ backlog, projectKey, statuses, panel }: SectionsProps) => {
   // Plain lists first; on wide screens the drag layer takes over with the same markup once its chunk loads.
   return (
     <BacklogContext value={backlog}>
-      {narrow ? (
-        frame(plain)
-      ) : (
-        <Suspense fallback={frame(plain)}>
-          <SortableBacklog
-            backlog={backlog}
-            projectKey={projectKey}
-            frame={frame}
-            renderSection={renderSection}
-            renderList={renderList}
-            renderRow={renderRow}
-          />
-        </Suspense>
-      )}
+      <HeldEditors value={editors}>
+        {narrow ? (
+          frame(plain)
+        ) : (
+          <Suspense fallback={frame(plain)}>
+            <SortableBacklog
+              backlog={backlog}
+              projectKey={projectKey}
+              frame={frame}
+              renderSection={renderSection}
+              renderList={renderList}
+              renderRow={renderRow}
+            />
+          </Suspense>
+        )}
+      </HeldEditors>
       {dialog && (
         <Suspense fallback={null}>
           <SprintDialog
