@@ -259,6 +259,25 @@ async fn history_lists_active_first_then_closed_newest_first_with_cursor(pool: P
 }
 
 #[sqlx::test]
+async fn active_sprint_past_its_end_reads_overdue(pool: PgPool) {
+    let ana = scrum(pool).await;
+    let sprint = ana.create_sprint("SANTI").await;
+    issue_in(&ana, &sprint, "late", Some(1.0)).await;
+    let (status, started) = ana
+        .post(
+            &format!("/api/projects/SANTI/sprints/{}/start", sprint["id"]),
+            json!({ "starts_at": "2026-01-01T00:00:00Z", "ends_at": "2026-01-02T00:00:00Z" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{started}");
+
+    let (_, history) = ana.get("/api/projects/SANTI/reports/sprints").await;
+
+    assert_eq!(history["items"][0]["sprint"]["overdue"], true);
+    assert_eq!(report(&ana, &sprint).await["sprint"]["overdue"], true);
+}
+
+#[sqlx::test]
 async fn velocity_returns_closed_only_with_average(pool: PgPool) {
     let ana = scrum(pool).await;
     let first = ran_sprint(&ana, 2.0, Some(true)).await;
