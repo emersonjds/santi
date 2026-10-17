@@ -31,6 +31,9 @@ UI moves to its own repository.
 
 ### Fixed
 
+- **Projects list:** the Lead column shows the lead's avatar and short name ("Emerson Silva"), and
+  the Archived and Trash tabs read "21 hours ago by Emerson Silva" on one line; the full name is
+  on hover.
 - **CI:** the statement budget check no longer fails at random. Status, type, priority and the other
   text-backed fields now bind as plain text, so a fresh database connection skips an extra type
   lookup query.
