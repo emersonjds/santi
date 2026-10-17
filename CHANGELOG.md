@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-17
+
+> Sprints with a clock: start and end times, presets from 4 hours to a month, and a countdown to the minute.
+
 ### Added
 
 - **Sprints:** starting a sprint remembers its length for the board's next one (`length` on
