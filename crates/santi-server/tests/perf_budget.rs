@@ -12,6 +12,7 @@ use common::{TestApp, body_json, json_request, session_cookie};
 use santi_server::seed::{self, SeedSize};
 use serde_json::{Value, json};
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 
 static STATEMENTS: AtomicUsize = AtomicUsize::new(0);
 
@@ -248,6 +249,14 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
         ),
     ];
     for (name, method, uri, body, budget, expected) in budgets {
+        // A fresh single-connection pool: the first run lands on a cold connection, the worst
+        // case for sqlx's per-connection caches, so the budget holds whichever connection serves.
+        let cold = PgPoolOptions::new()
+            .max_connections(1)
+            .connect_with((*pool.connect_options()).clone())
+            .await
+            .unwrap();
+        let app = TestApp::anonymous(cold);
         let mut fastest = Duration::MAX;
         let mut statements = 0;
         let mut payload = Value::Null;
@@ -261,7 +270,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             let status = response.status();
             payload = body_json(response).await;
             fastest = fastest.min(started.elapsed());
-            statements = STATEMENTS.load(Ordering::SeqCst);
+            statements = statements.max(STATEMENTS.load(Ordering::SeqCst));
             assert_eq!(status, expected, "{name}: {payload}");
         }
         assert!(

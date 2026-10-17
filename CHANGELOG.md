@@ -23,6 +23,12 @@ UI moves to its own repository.
   `starts_at`/`ends_at` (RFC 3339) on sprints, sprint edits and sprint start; the old names are
   refused. An active sprint is overdue from the minute its end passes.
 
+### Fixed
+
+- **CI:** the statement budget check no longer fails at random. Status, type, priority and the other
+  text-backed fields now bind as plain text, so a fresh database connection skips an extra type
+  lookup query.
+
 ### Upgrade notes
 
 - Migration 0020 turns existing sprint dates into 00:00 (start) and 23:59 (end) in the
