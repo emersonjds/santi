@@ -10,6 +10,42 @@ pub mod sprints;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+/// Text-backed enums bind as the built-in `text` OID. A derived `sqlx::Type` names the type
+/// instead, and sqlx then looks the OID up once per pooled connection (SAN-131).
+#[cfg(feature = "sqlx")]
+macro_rules! text_type {
+    ($($name:ty),*) => {$(
+        impl sqlx::Type<sqlx::Postgres> for $name {
+            fn type_info() -> sqlx::postgres::PgTypeInfo {
+                <String as sqlx::Type<sqlx::Postgres>>::type_info()
+            }
+
+            fn compatible(ty: &sqlx::postgres::PgTypeInfo) -> bool {
+                <String as sqlx::Type<sqlx::Postgres>>::compatible(ty)
+            }
+        }
+
+        impl sqlx::postgres::PgHasArrayType for $name {
+            fn array_type_info() -> sqlx::postgres::PgTypeInfo {
+                <String as sqlx::postgres::PgHasArrayType>::array_type_info()
+            }
+        }
+    )*};
+}
+
+#[cfg(feature = "sqlx")]
+text_type!(
+    boards::StatusCategory,
+    issues::IssueType,
+    issues::Priority,
+    projects::BoardType,
+    projects::MemberRole,
+    projects::ProjectState,
+    imports::ImportSource,
+    sprints::SprintState,
+    reports::ReportOutcome
+);
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct Health {
     pub status: String,
