@@ -1,7 +1,7 @@
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveTime, Utc};
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
@@ -281,8 +281,8 @@ async fn sprints(client: &Client, command: SprintsCommand, json: bool) -> Result
             end,
         } => {
             let dates = StartSprint {
-                start_date: start,
-                end_date: end,
+                starts_at: start.map(|day| day.and_time(NaiveTime::MIN).and_utc()),
+                ends_at: end.map(|day| day.and_hms_opt(23, 59, 0).expect("23:59 exists").and_utc()),
             };
             client.start_sprint(&project, sprint, &dates).await?
         }
@@ -602,8 +602,12 @@ fn backlog_text(backlog: &Backlog) -> String {
 }
 
 fn sprint_line(sprint: &Sprint) -> String {
-    let dates = match (sprint.start_date, sprint.end_date) {
-        (Some(start), Some(end)) => format!(" {start} → {end}"),
+    let dates = match (sprint.starts_at, sprint.ends_at) {
+        (Some(start), Some(end)) => format!(
+            " {} → {}",
+            start.format("%Y-%m-%d %H:%M"),
+            end.format("%Y-%m-%d %H:%M")
+        ),
         _ => String::new(),
     };
     format!(
@@ -899,7 +903,7 @@ mod tests {
         let report: SprintReport = serde_json::from_value(serde_json::json!({
             "sprint": {
                 "id": 3, "name": "Sprint 3", "goal": "", "state": "closed",
-                "start_date": "2026-10-01", "end_date": "2026-10-14",
+                "starts_at": "2026-10-01T00:00:00Z", "ends_at": "2026-10-14T23:59:00Z",
                 "started_at": "2026-10-01T00:00:00Z", "closed_at": "2026-10-14T00:00:00Z",
                 "overdue": false,
             },
@@ -924,7 +928,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             report_text(&report),
-            "#3 Sprint 3 (closed) 2026-10-01 → 2026-10-14\n\
+            "#3 Sprint 3 (closed) 2026-10-01 00:00 → 2026-10-14 23:59\n\
              Committed 5 · Completed —\n\
              Completed — 2 issues, 5 → 8 points\n\
              \x20 WEB-1 Ship it (Story, Done) 5 → 5.5\n\

@@ -1,11 +1,11 @@
-use chrono::{Days, NaiveDate};
+use chrono::{DateTime, TimeDelta, Utc};
 use santi_types::issues::IssueType;
 use santi_types::projects::BoardType;
 use santi_types::sprints::{Sprint, SprintState};
 
 use crate::error::{AppError, reject_nul};
 
-pub const DEFAULT_SPRINT_DAYS: u64 = 14;
+pub const DEFAULT_SPRINT_DAYS: i64 = 14;
 
 /// SP-1: sprints exist only on scrum boards.
 pub fn require_scrum(board_type: BoardType) -> Result<(), AppError> {
@@ -47,34 +47,34 @@ pub fn check_goal(goal: &str) -> Result<String, AppError> {
     Ok(goal.to_string())
 }
 
-pub fn check_dates(start: Option<NaiveDate>, end: Option<NaiveDate>) -> Result<(), AppError> {
+pub fn check_window(
+    start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
+) -> Result<(), AppError> {
     if let (Some(start), Some(end)) = (start, end)
-        && end < start
+        && end <= start
     {
-        return Err(AppError::invalid(
-            "end_date",
-            "must be on or after the start date",
-        ));
+        return Err(AppError::invalid("ends_at", "must be after the start"));
     }
     Ok(())
 }
 
-/// SP-11: future sprints edit freely, active ones keep both dates set, closed ones keep their dates.
+/// SP-11: future sprints edit freely, active ones keep both times set, closed ones keep their times.
 pub fn check_sprint_edit(
     current: &Sprint,
-    start: Option<NaiveDate>,
-    end: Option<NaiveDate>,
+    start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
 ) -> Result<(), AppError> {
-    check_dates(start, end)?;
+    check_window(start, end)?;
     match current.state {
         SprintState::Future => Ok(()),
         SprintState::Active if start.is_none() || end.is_none() => Err(AppError::invalid(
-            "end_date",
-            "an active sprint needs a start and an end date",
+            "ends_at",
+            "an active sprint needs a start and an end",
         )),
         SprintState::Active => Ok(()),
-        SprintState::Closed if (start, end) != (current.start_date, current.end_date) => Err(
-            AppError::invalid("start_date", "a closed sprint keeps its dates"),
+        SprintState::Closed if (start, end) != (current.starts_at, current.ends_at) => Err(
+            AppError::invalid("starts_at", "a closed sprint keeps its times"),
         ),
         SprintState::Closed => Ok(()),
     }
@@ -133,13 +133,13 @@ pub fn sprint_for_new_issue(
 }
 
 pub fn start_window(
-    today: NaiveDate,
-    start: Option<NaiveDate>,
-    end: Option<NaiveDate>,
-) -> Result<(NaiveDate, NaiveDate), AppError> {
-    let start = start.unwrap_or(today);
-    let end = end.unwrap_or(start + Days::new(DEFAULT_SPRINT_DAYS));
-    check_dates(Some(start), Some(end))?;
+    now: DateTime<Utc>,
+    start: Option<DateTime<Utc>>,
+    end: Option<DateTime<Utc>>,
+) -> Result<(DateTime<Utc>, DateTime<Utc>), AppError> {
+    let start = start.unwrap_or(now);
+    let end = end.unwrap_or(start + TimeDelta::days(DEFAULT_SPRINT_DAYS));
+    check_window(Some(start), Some(end))?;
     Ok((start, end))
 }
 
@@ -194,7 +194,7 @@ pub fn check_destination(closing_sprint_id: i64, target: &Sprint) -> Result<(), 
 mod tests {
     use super::*;
 
-    fn date(text: &str) -> NaiveDate {
+    fn at(text: &str) -> DateTime<Utc> {
         text.parse().unwrap()
     }
 
@@ -204,8 +204,8 @@ mod tests {
             name: "Sprint 1".into(),
             goal: String::new(),
             state,
-            start_date: Some(date("2026-10-01")),
-            end_date: Some(date("2026-10-14")),
+            starts_at: Some(at("2026-10-01T00:00:00Z")),
+            ends_at: Some(at("2026-10-14T23:59:00Z")),
             started_at: None,
             closed_at: None,
             overdue: false,
@@ -238,33 +238,51 @@ mod tests {
     }
 
     #[test]
-    fn end_date_cannot_precede_start_date() {
-        assert!(check_dates(Some(date("2026-10-02")), Some(date("2026-10-01"))).is_err());
-        assert!(check_dates(Some(date("2026-10-01")), Some(date("2026-10-01"))).is_ok());
-        assert!(check_dates(None, Some(date("2026-10-01"))).is_ok());
+    fn window_must_end_after_it_starts() {
+        let start = Some(at("2026-10-16T12:00:00Z"));
+        assert_eq!(
+            check_window(start, start),
+            Err(AppError::invalid("ends_at", "must be after the start"))
+        );
+        assert!(check_window(start, Some(at("2026-10-16T11:59:00Z"))).is_err());
+        assert!(check_window(start, Some(at("2026-10-16T12:01:00Z"))).is_ok());
+        assert!(check_window(None, start).is_ok());
+        assert!(check_window(start, None).is_ok());
     }
 
     #[test]
     fn edits_depend_on_the_sprint_state() {
-        let same = (Some(date("2026-10-01")), Some(date("2026-10-14")));
+        let same = (
+            Some(at("2026-10-01T00:00:00Z")),
+            Some(at("2026-10-14T23:59:00Z")),
+        );
         assert!(check_sprint_edit(&sprint(SprintState::Future), None, None).is_ok());
-        assert!(check_sprint_edit(&sprint(SprintState::Active), None, same.1).is_err());
+        assert_eq!(
+            check_sprint_edit(&sprint(SprintState::Active), None, same.1),
+            Err(AppError::invalid(
+                "ends_at",
+                "an active sprint needs a start and an end"
+            ))
+        );
         assert!(
             check_sprint_edit(
                 &sprint(SprintState::Active),
                 same.0,
-                Some(date("2026-10-20"))
+                Some(at("2026-10-20T22:00:00Z"))
             )
             .is_ok()
         );
         assert!(check_sprint_edit(&sprint(SprintState::Closed), same.0, same.1).is_ok());
-        assert!(
+        assert_eq!(
             check_sprint_edit(
                 &sprint(SprintState::Closed),
                 same.0,
-                Some(date("2026-10-20"))
-            )
-            .is_err()
+                Some(at("2026-10-20T22:00:00Z"))
+            ),
+            Err(AppError::invalid(
+                "starts_at",
+                "a closed sprint keeps its times"
+            ))
         );
     }
 
@@ -330,17 +348,20 @@ mod tests {
     }
 
     #[test]
-    fn start_window_defaults_to_today_and_two_weeks() {
-        let today = date("2026-10-15");
+    fn start_window_defaults_to_now_and_two_weeks() {
+        let now = at("2026-10-16T21:30:00Z");
         assert_eq!(
-            start_window(today, None, None).unwrap(),
-            (today, date("2026-10-29"))
+            start_window(now, None, None).unwrap(),
+            (now, at("2026-10-30T21:30:00Z"))
         );
         assert_eq!(
-            start_window(today, Some(date("2026-10-20")), None).unwrap(),
-            (date("2026-10-20"), date("2026-11-03"))
+            start_window(now, Some(at("2026-10-20T09:00:00Z")), None).unwrap(),
+            (at("2026-10-20T09:00:00Z"), at("2026-11-03T09:00:00Z"))
         );
-        assert!(start_window(today, Some(date("2026-10-20")), Some(date("2026-10-19"))).is_err());
+        assert_eq!(
+            start_window(now, None, Some(now)),
+            Err(AppError::invalid("ends_at", "must be after the start"))
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-use chrono::NaiveDate;
+use chrono::{DateTime, Utc};
 use santi_types::sprints::{Sprint, SprintState};
 use sqlx::PgConnection;
 
@@ -39,8 +39,8 @@ pub async fn find_sprint(
 ) -> Result<Option<Sprint>, sqlx::Error> {
     sqlx::query_as!(
         Sprint,
-        r#"SELECT id, name, goal, state AS "state: SprintState", start_date, end_date, started_at, closed_at,
-                  (state = 'active' AND end_date < current_date) AS "overdue!"
+        r#"SELECT id, name, goal, state AS "state: SprintState", starts_at, ends_at, started_at, closed_at,
+                  (state = 'active' AND ends_at <= now()) AS "overdue!"
            FROM sprint WHERE board_id = $1 AND id = $2"#,
         board_id,
         sprint_id
@@ -56,8 +56,8 @@ pub async fn find_sprint_for_update(
 ) -> Result<Option<Sprint>, sqlx::Error> {
     sqlx::query_as!(
         Sprint,
-        r#"SELECT id, name, goal, state AS "state: SprintState", start_date, end_date, started_at, closed_at,
-                  (state = 'active' AND end_date < current_date) AS "overdue!"
+        r#"SELECT id, name, goal, state AS "state: SprintState", starts_at, ends_at, started_at, closed_at,
+                  (state = 'active' AND ends_at <= now()) AS "overdue!"
            FROM sprint WHERE board_id = $1 AND id = $2
            FOR UPDATE"#,
         board_id,
@@ -73,8 +73,8 @@ pub async fn list_sprints(
 ) -> Result<Vec<Sprint>, sqlx::Error> {
     sqlx::query_as!(
         Sprint,
-        r#"SELECT id, name, goal, state AS "state: SprintState", start_date, end_date, started_at, closed_at,
-                  (state = 'active' AND end_date < current_date) AS "overdue!"
+        r#"SELECT id, name, goal, state AS "state: SprintState", starts_at, ends_at, started_at, closed_at,
+                  (state = 'active' AND ends_at <= now()) AS "overdue!"
            FROM sprint WHERE board_id = $1 ORDER BY id"#,
         board_id
     )
@@ -86,8 +86,8 @@ pub async fn list_sprints(
 pub async fn list_open(conn: &mut PgConnection, board_id: i64) -> Result<Vec<Sprint>, sqlx::Error> {
     sqlx::query_as!(
         Sprint,
-        r#"SELECT id, name, goal, state AS "state: SprintState", start_date, end_date, started_at, closed_at,
-                  (state = 'active' AND end_date < current_date) AS "overdue!"
+        r#"SELECT id, name, goal, state AS "state: SprintState", starts_at, ends_at, started_at, closed_at,
+                  (state = 'active' AND ends_at <= now()) AS "overdue!"
            FROM sprint WHERE board_id = $1 AND state <> 'closed'
            ORDER BY state = 'future', id"#,
         board_id
@@ -102,8 +102,8 @@ pub async fn find_active(
 ) -> Result<Option<Sprint>, sqlx::Error> {
     sqlx::query_as!(
         Sprint,
-        r#"SELECT id, name, goal, state AS "state: SprintState", start_date, end_date, started_at, closed_at,
-                  (state = 'active' AND end_date < current_date) AS "overdue!"
+        r#"SELECT id, name, goal, state AS "state: SprintState", starts_at, ends_at, started_at, closed_at,
+                  (state = 'active' AND ends_at <= now()) AS "overdue!"
            FROM sprint WHERE board_id = $1 AND state = 'active'"#,
         board_id
     )
@@ -116,16 +116,16 @@ pub async fn update_sprint(
     sprint_id: i64,
     name: &str,
     goal: &str,
-    start_date: Option<NaiveDate>,
-    end_date: Option<NaiveDate>,
+    starts_at: Option<DateTime<Utc>>,
+    ends_at: Option<DateTime<Utc>>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE sprint SET name = $2, goal = $3, start_date = $4, end_date = $5 WHERE id = $1",
+        "UPDATE sprint SET name = $2, goal = $3, starts_at = $4, ends_at = $5 WHERE id = $1",
         sprint_id,
         name,
         goal,
-        start_date,
-        end_date
+        starts_at,
+        ends_at
     )
     .execute(&mut *conn)
     .await?;
@@ -160,14 +160,14 @@ pub async fn count_issues(conn: &mut PgConnection, sprint_id: i64) -> Result<i64
 pub async fn mark_started(
     conn: &mut PgConnection,
     sprint_id: i64,
-    start_date: NaiveDate,
-    end_date: NaiveDate,
+    starts_at: DateTime<Utc>,
+    ends_at: DateTime<Utc>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE sprint SET state = 'active', start_date = $2, end_date = $3, started_at = now() WHERE id = $1",
+        "UPDATE sprint SET state = 'active', starts_at = $2, ends_at = $3, started_at = now() WHERE id = $1",
         sprint_id,
-        start_date,
-        end_date
+        starts_at,
+        ends_at
     )
     .execute(&mut *conn)
     .await?;

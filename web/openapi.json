@@ -3728,7 +3728,7 @@
         },
         "responses": {
           "200": {
-            "description": "Active; start defaults to today, end to two weeks later",
+            "description": "Active; start defaults to now, end to two weeks later",
             "content": {
               "application/json": {
                 "schema": {
@@ -6604,12 +6604,12 @@
             ],
             "format": "date-time"
           },
-          "end_date": {
+          "ends_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           },
           "goal": {
             "type": "string"
@@ -6623,16 +6623,16 @@
           },
           "overdue": {
             "type": "boolean",
-            "description": "Active and past its end date; it stays active until completed (D15)."
+            "description": "Active and at or past its end; it stays active until completed (D15, D48)."
           },
-          "start_date": {
+          "started_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           },
-          "started_at": {
+          "starts_at": {
             "type": [
               "string",
               "null"
@@ -6774,21 +6774,21 @@
       "StartSprint": {
         "type": "object",
         "properties": {
-          "end_date": {
+          "ends_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date",
+            "format": "date-time",
             "description": "Defaults to two weeks after the start (D12)."
           },
-          "start_date": {
+          "starts_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date",
-            "description": "Defaults to today."
+            "format": "date-time",
+            "description": "Defaults to now."
           }
         },
         "additionalProperties": false
@@ -6993,12 +6993,12 @@
           "name"
         ],
         "properties": {
-          "end_date": {
+          "ends_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           },
           "goal": {
             "type": "string"
@@ -7006,12 +7006,12 @@
           "name": {
             "type": "string"
           },
-          "start_date": {
+          "starts_at": {
             "type": [
               "string",
               "null"
             ],
-            "format": "date"
+            "format": "date-time"
           }
         },
         "additionalProperties": false

@@ -330,8 +330,8 @@ async fn backfill_writes_facts_only_for_imported_closed_sprints(pool: PgPool) {
     ana.create_issue("SANTI", json!({ "summary": "imported", "points": 5 }))
         .await;
     let imported: i64 = sqlx::query_scalar(
-        "INSERT INTO sprint (board_id, name, state, start_date, end_date, started_at, closed_at)
-         SELECT b.id, 'Old', 'closed', '2026-01-01', '2026-01-14', '2026-01-01', '2026-01-14'
+        "INSERT INTO sprint (board_id, name, state, starts_at, ends_at, started_at, closed_at)
+         SELECT b.id, 'Old', 'closed', '2026-01-01T00:00:00Z', '2026-01-14T23:59:00Z', '2026-01-01', '2026-01-14'
          FROM board b JOIN project p ON p.id = b.project_id WHERE p.key = 'SANTI'
          RETURNING id",
     )
