@@ -10,6 +10,17 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-10-16
+
+> Editors that stay open: an inline edit no longer closes when the page finishes loading.
+
+### Fixed
+
+- **Backlog and board:** a summary, points or column-limit editor opened while the drag layer was
+  still loading closed by itself and lost the text typed so far (the rows were rebuilt when the
+  drag layer arrived). The open editor and its draft now survive that, and opening or closing an
+  editor re-renders only that editor.
+
 ## [0.8.0] - 2026-10-16
 
 > Create sprint stands out: the backlog's Create sprint is now its primary action.
@@ -201,7 +212,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/emersonjds/santi/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/emersonjds/santi/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/emersonjds/santi/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/emersonjds/santi/compare/v0.5.1...v0.6.0
