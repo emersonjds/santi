@@ -97,6 +97,7 @@ Market: Jira offers the same presets; Linear fixes cycle length per team instead
 Product vote: A — zero-typing default path; N = count of sprints ever created on the board + 1, so deleting one never reuses a number. End date before start date is rejected inline, no modal.
 Architecture vote: A — `board.next_sprint_number` incremented with `UPDATE … RETURNING` in the create transaction (same pattern as D20); dates are `date` columns with `CHECK (end_date >= start_date)` and native `<input type="date">`.
 Winner: A — zero typing, numbers never reused, one counter; accepted: the name is free text after creation, so a renamed sprint loses its number.
+Amended by D48: start and end are instants (`starts_at`/`ends_at`); presets 4 hours, 1 day, 1 week, 2 weeks, 1 month, custom; default the board's last length, else 2 weeks.
 
 ## D13 — Starting/completing edge cases
 Context: SP OQ-3/6/13.
@@ -120,6 +121,7 @@ Market: Jira/Linear/YouTrack all leave it active past end date; none auto-close 
 Product vote: A — overdue badge/color on the sprint header, user closes explicitly; never auto-close on their behalf.
 Architecture vote: A — overdue is computed at render (`end_date < current_date`), no stored state, no scheduler.
 Winner: A — no data-loss risk and no background job; accepted: closing stays the user's job.
+Amended by D48: overdue is `ends_at <= now()`, to the minute and zone-free.
 
 ## D16 — Column/status mapping edits
 Context: SB OQ-1/5/8/9, BL OQ-5, KB OQ-10.
@@ -553,3 +555,15 @@ Architecture vote: B — two tokens and a glyph map, no new component; C needs f
 Winner: B. Glyphs: double chevron up (urgent), chevron up (high), equals (medium), chevron down (low); glyph and name first, color second.
 - Tokens: `--priority-urgent` light #4C35D2 (7.64:1 on white) / dark #B8ABF1 (7.46:1 on card #262422); `--priority-high` #8B78E9 in both themes (3.52:1 on white, 4.39:1 on dark card, icons need 3:1). Medium uses the muted foreground, low the subtle one.
 - Points: `--points` on `--points-bg`, light #3F2CB0 on #ECE8FB (7.96:1), dark #C4B8F5 on #2C2075 (7.34:1).
+
+## D48 — Sprint start and end are instants (SAN-96; amends D12 and D15)
+Context: sprints ran on `date` columns; the owner runs sprints of hours and a day (one ended at 22:00). Overdue was `end_date < current_date` in the database session zone (UTC), so it flipped at 21:00 in UTC−3. santi has no time zone setting anywhere.
+Options: A) `timestamptz`, shown and entered in the viewer's zone with the zone name B) a board IANA time zone setting C) keep dates
+Product vote: A — the owner's call; per-viewer zones are what trackers do, a board zone belongs to the working calendar (RP-6).
+Architecture vote: A — overdue `ends_at <= now()` needs no zone; "1 day" and "1 month" are computed by the client in its own zone and sent as RFC 3339, so the server never handles zones. B adds a column, validation and a settings field and still cannot migrate correctly.
+Winner: A — accepted: viewers in different zones see different day boundaries; a breaking rename for API clients.
+- Columns `sprint.starts_at`/`ends_at` (`timestamptz`), `CHECK (ends_at > starts_at)`; API, OpenAPI, CLI help and MCP use the same names; CLI flags stay `--start`/`--end` plus `--for`.
+- Presets: 4 hours (exact), 1 day (until 23:59 of the start day), 1 week, 2 weeks (calendar days, wall clock kept), 1 month (same day next month, clamped), custom. 3 and 4 weeks go through custom.
+- Remembered length: `board.sprint_length` (`4h`, `1d`, `1w`, `2w`, `1m` or custom minutes), written by a start that sends `length`, returned on the backlog; null means 2 weeks.
+- Migration: dates become 00:00 and 23:59:00 in the database's `timezone` setting, read from `pg_db_role_setting` because sqlx connects with `TimeZone=UTC`. Upgrade note: `ALTER DATABASE <db> SET timezone TO '<zone>'` before deploying.
+- Display: one range formatter (whole days collapse to dates), time left ticking on the minute, zone name next to times (web `Intl` short name, CLI UTC offset).

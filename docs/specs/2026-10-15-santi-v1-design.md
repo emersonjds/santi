@@ -121,7 +121,7 @@ Fine-grained rules are confirmed by the behavior specs from the investigation ep
   Kanban columns may have a max WIP limit that only warns (D7). Kanban hides `done` issues
   after a per-board window counted from `done_at` (D8, D33) and has no separate backlog (D9).
   Deleting a column moves its statuses to a chosen column (D16).
-- **Sprint**: name (default `Sprint N`), goal, start and end dates, state `future`, `active`
+- **Sprint**: name (default `Sprint N`), goal, start and end times (D48), state `future`, `active`
   or `closed` (D12). At most one active sprint per board. Completing a sprint moves unfinished
   issues to the backlog or to a chosen future sprint (D13). Only future sprints can be
   deleted (D14, D32); an overdue sprint stays active (D15).
