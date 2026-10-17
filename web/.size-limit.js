@@ -42,7 +42,7 @@ export default [
   },
   {
     name: 'landing page hero screenshot',
-    path: 'dist/landing/board.webp',
+    path: 'dist/assets/board-1500-*.webp',
     limit: '60 KB',
     gzip: false,
     brotli: false,
