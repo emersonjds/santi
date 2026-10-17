@@ -10,6 +10,15 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-10-16
+
+> Top bar stays on top: rows no longer scroll over the header.
+
+### Fixed
+
+- **Top bar:** scrolling the backlog or board, a row's points, avatar and menu painted over the
+  sticky top bar (search and Create). The top bar now stays above page content.
+
 ## [0.8.1] - 2026-10-16
 
 > Editors that stay open: an inline edit no longer closes when the page finishes loading.
@@ -212,7 +221,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/emersonjds/santi/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/emersonjds/santi/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/emersonjds/santi/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/emersonjds/santi/compare/v0.6.0...v0.7.0
