@@ -1,8 +1,32 @@
-import { type Page, expect, test } from '@playwright/test'
+import { type Locator, type Page, expect, test } from '@playwright/test'
 
 const PASSWORD = 'correct horse battery'
 
 const unique = () => `${Date.now()}${Math.random().toString(36).slice(2, 6)}`
+
+/** Calls the API from inside the page, so the session cookie and same-origin checks apply as for the SPA. */
+const api = (page: Page, method: string, path: string, body?: unknown) =>
+  page.evaluate(
+    async ({ method, path, body }) => {
+      const response = await fetch(path, {
+        method,
+        headers: { 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      })
+      if (!response.ok) throw new Error(`${method} ${path}: ${response.status}`)
+    },
+    { method, path, body }
+  )
+
+const dragWithMouse = async (page: Page, from: Locator, to: Locator) => {
+  const start = await from.boundingBox()
+  const end = await to.boundingBox()
+  if (!start || !end) throw new Error('nothing to drag')
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(end.x + end.width / 2, end.y + 40, { steps: 12 })
+  await page.mouse.up()
+}
 
 const register = async (page: Page) => {
   await page.goto('/register')
@@ -51,9 +75,9 @@ test('archive is read-only until unarchived; trash leaves the sidebar until rest
     .getByRole('status')
     .filter({ hasText: 'This project is archived and read-only' })
   await expect(banner).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: 'Create issue' }).first()
-  ).toHaveAttribute('aria-disabled', 'true')
+  await expect(page.getByRole('button', { name: 'Create issue' })).toHaveCount(
+    0
+  )
   await banner.getByRole('button', { name: 'Unarchive' }).click()
   await expect(banner).toHaveCount(0)
   await expect(inSidebar).toBeVisible()
@@ -111,4 +135,69 @@ test('expands another project from its sidebar row and copies its link', async (
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     new URL(`/p/${keys[0]}`, page.url()).href
   )
+})
+
+test('an archived board neither drags nor edits until it is unarchived', async ({
+  page,
+}) => {
+  await register(page)
+  const key = `R${unique().slice(-6).toUpperCase()}`
+  await api(page, 'POST', '/api/projects', {
+    key,
+    name: `Frozen ${key}`,
+    board_type: 'kanban',
+  })
+  await api(page, 'POST', `/api/projects/${key}/issues`, {
+    summary: 'Alpha task',
+  })
+  await api(page, 'POST', `/api/projects/${key}/archive`)
+  const writes: string[] = []
+  // Recording a view is a read the server keeps.
+  page.on('request', (request) => {
+    const url = request.url()
+    if (
+      request.method() !== 'GET' &&
+      url.includes('/issues') &&
+      !url.endsWith('/view')
+    )
+      writes.push(`${request.method()} ${url}`)
+  })
+
+  await page.goto(`/p/${key}/board`)
+  const banner = page
+    .getByRole('status')
+    .filter({ hasText: 'This project is archived and read-only' })
+  await expect(banner).toBeVisible()
+  const todo = page.getByRole('region', { name: 'To Do', exact: true })
+  const doing = page.getByRole('region', { name: 'In Progress', exact: true })
+  await expect(todo).toContainText('Alpha task')
+  await dragWithMouse(page, todo.getByText('Alpha task'), doing)
+  await expect(todo).toContainText('Alpha task')
+  await expect(doing).not.toContainText('Alpha task')
+
+  await page.goto(`/p/${key}/issues/1`)
+  const summary = page.getByRole('textbox', { name: 'Summary' })
+  await expect(summary).toHaveValue('Alpha task')
+  await expect(summary).toHaveAttribute('readonly', '')
+  const edit = page.getByRole('button', { name: 'Edit description' })
+  await expect(edit).toHaveAttribute('aria-disabled', 'true')
+  await edit.click({ force: true })
+  await expect(page.getByRole('textbox', { name: 'Description' })).toHaveCount(
+    0
+  )
+  expect(writes).toEqual([])
+
+  await banner.getByRole('button', { name: 'Unarchive' }).click()
+  await expect(banner).toHaveCount(0)
+  await expect(summary).not.toHaveAttribute('readonly')
+  const saved = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'PATCH' &&
+      response.url().endsWith(`/api/projects/${key}/issues/1`)
+  )
+  await summary.fill('Alpha task, thawed')
+  await summary.press('Enter')
+  expect((await saved).ok()).toBe(true)
+  await page.reload()
+  await expect(summary).toHaveValue('Alpha task, thawed')
 })
