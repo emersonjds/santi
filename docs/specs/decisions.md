@@ -218,6 +218,7 @@ Options: A) checks inside each handler B) one membership extractor
 Product vote: n/a
 Architecture vote: B — project routes carry `/projects/{key}/`; one extractor loads project and caller membership in one query and yields `Member`; every service function takes `&Member`, so no use case runs unchecked; non-members get 404; admin-only rules check `member.role` in domain; repo queries always filter by the member's project, so ids from another project never resolve.
 Winner: B — one place to audit; accepted: every project-scoped URL carries the project key.
+Amendment (SAN-70): the same extractor applies the project lifecycle. A trashed project resolves to no membership (404 for everyone, admins included); restore and purge reach it through their own lookup by key, admins only. An archived project lets reads through and answers every other method with 409 `project-archived`, except an allow-list by route template (unarchive, visit, issue view) and a member deleting their own membership (leaving); stars live under `/api/me` and check only that the project is not trashed. A new write route is guarded by default; a new read-like POST must join the allow-list. Accepted: the allow-list matches route templates, so renaming one of those routes must update it (tests cover each).
 
 ## D29 — Pagination
 Context: board and backlog are bounded views; search and lists grow without bound.

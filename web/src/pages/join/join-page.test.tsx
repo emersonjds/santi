@@ -112,6 +112,20 @@ describe('join a project', () => {
     ).toHaveLength(0)
   })
 
+  it('says the project is archived and offers no join', async () => {
+    const detail =
+      'This project is archived and read-only; an admin can unarchive it.'
+    inProjects({
+      'GET /api/invites/tok123': { status: 409, body: problem(409, detail) },
+    })
+    const { screen } = await renderApp('/invites/tok123')
+
+    await expect.element(screen.getByRole('alert')).toHaveTextContent(detail)
+    expect(
+      screen.getByRole('button', { name: 'Join project' }).elements()
+    ).toHaveLength(0)
+  })
+
   it('says when the link does not exist', async () => {
     inProjects()
     const { screen } = await renderApp('/invites/tok123')

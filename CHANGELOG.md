@@ -10,6 +10,20 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-16
+
+### Added
+
+- **Archive and trash projects:** a danger zone at the end of project Settings lets admins
+  archive a project (read-only for everyone, hidden from lists and search, still open by link
+  with a banner and Unarchive) or delete it to the trash (type the key to confirm; restorable
+  for 60 days, then purged; Undo for a few seconds after). `/projects` has Active, Archived and
+  Trash tabs with Unarchive, Restore and Delete forever. Any member can leave a project; the last
+  admin cannot. API `POST /api/projects/{key}/archive|unarchive|trash|restore`,
+  `DELETE /api/projects/{key}`, `GET /api/projects?state=`; CLI `santi projects archive|unarchive|
+  trash|restore|purge`; matching MCP tools. Keys stay reserved while archived or trashed.
+  Migration 0018.
+
 ## [0.5.1] - 2026-10-16
 
 ### Changed
@@ -142,7 +156,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/emersonjds/santi/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/emersonjds/santi/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/emersonjds/santi/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/emersonjds/santi/compare/v0.3.0...v0.4.0

@@ -76,7 +76,7 @@ describe('members page', () => {
       .toBeDisabled()
     await expect
       .element(screen.getByRole('button', { name: 'Remove Alice' }))
-      .toBeDisabled()
+      .toHaveAttribute('aria-disabled', 'true')
     await expect
       .element(screen.getByText('A project needs at least one admin.'))
       .toBeVisible()

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE invite SET used_at = now()\n           WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()\n           RETURNING project_id, role AS \"role: MemberRole\"",
+  "query": "UPDATE invite i SET used_at = now()\n           FROM project p\n           WHERE p.id = i.project_id AND p.archived_at IS NULL AND p.trashed_at IS NULL\n             AND i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > now()\n           RETURNING i.project_id, i.role AS \"role: MemberRole\"",
   "describe": {
     "columns": [
       {
@@ -36,5 +36,5 @@
       false
     ]
   },
-  "hash": "48c5d9e9557dfa924ae4fcd7520e9002ae5e78f7b0acf31bfc3c017476dfb1e0"
+  "hash": "211c089bc5d684d7f4e6aa532506f823f701f45e24c783f07e2fd306096aa7d3"
 }

@@ -7,7 +7,7 @@
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
     },
-    "version": "0.5.1"
+    "version": "0.6.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -187,6 +187,16 @@
           },
           "404": {
             "description": "Unknown token",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`: the project is archived",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -728,9 +738,26 @@
           "projects"
         ],
         "operationId": "list_projects",
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "description": "`archived` and `trashed` list only projects the caller administers.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "SAN-70: an archived project is read-only; a trashed one answers 404 until restored or purged.",
+              "enum": [
+                "active",
+                "archived",
+                "trashed"
+              ]
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "The caller's projects, by key",
+            "description": "The caller's projects in that state (default `active`), by key; `archived` and `trashed` only those the caller administers",
             "content": {
               "application/json": {
                 "schema": {
@@ -743,6 +770,16 @@
             }
           },
           "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unknown state",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -838,6 +875,7 @@
         ],
         "responses": {
           "200": {
+            "description": "Also an archived project, read-only",
             "content": {
               "application/json": {
                 "schema": {
@@ -856,6 +894,130 @@
             }
           },
           "404": {
+            "description": "Unknown, not a member, or in the trash",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "purge_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted for good with its issues, sprints, board, members and invites; cannot be undone"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, or trashed and the caller is not an admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-not-trashed`: only a trashed project can be purged",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/archive": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "archive_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Archived: read-only for everyone and out of every list until unarchived"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`: already archived",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2874,6 +3036,69 @@
         }
       }
     },
+    "/api/projects/{key}/restore": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "restore_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Back from the trash"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown, or trashed and the caller is not an admin",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-not-trashed`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/{key}/sprints": {
       "get": {
         "tags": [
@@ -3531,6 +3756,120 @@
           },
           "409": {
             "description": "`in-use`: an issue holds it; `keep-done-column`: the last done status",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/trash": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "trash_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "In the trash (an archived project is unarchived): 404 for everyone until restored; purged 60 days later"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/unarchive": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "unarchive_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Active again"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-not-archived`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5621,9 +5960,24 @@
           "key",
           "name",
           "board_type",
-          "role"
+          "role",
+          "state"
         ],
         "properties": {
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "archived_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name of who archived it."
+          },
           "board_type": {
             "$ref": "#/components/schemas/BoardType"
           },
@@ -5637,8 +5991,33 @@
           "name": {
             "type": "string"
           },
+          "purge_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When a trashed project is deleted for good: 60 days after `trashed_at` (OR-58)."
+          },
           "role": {
             "$ref": "#/components/schemas/MemberRole"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ProjectState"
+          },
+          "trashed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "trashed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name of who moved it to the trash."
           }
         }
       },
@@ -5709,6 +6088,15 @@
             }
           }
         }
+      },
+      "ProjectState": {
+        "type": "string",
+        "description": "SAN-70: an archived project is read-only; a trashed one answers 404 until restored or purged.",
+        "enum": [
+          "active",
+          "archived",
+          "trashed"
+        ]
       },
       "Register": {
         "type": "object",

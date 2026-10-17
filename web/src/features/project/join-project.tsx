@@ -67,7 +67,11 @@ export const JoinProject = ({ token }: { token: string }) => {
     return (
       <RootError
         message={
-          hasStatus(error, 410) ? `${error.message} ${ASK_AGAIN}` : UNKNOWN
+          hasStatus(error, 410)
+            ? `${error.message} ${ASK_AGAIN}`
+            : hasStatus(error, 409)
+              ? error.message
+              : UNKNOWN
         }
       />
     )

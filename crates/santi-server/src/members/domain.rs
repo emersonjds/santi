@@ -1,3 +1,4 @@
+use axum::http::Method;
 use chrono::{DateTime, Utc};
 use santi_types::projects::MemberRole;
 
@@ -11,6 +12,34 @@ pub fn require_admin(member: &Member) -> Result<(), AppError> {
         return Err(AppError::Forbidden);
     }
     Ok(())
+}
+
+/// Writes an archived project still takes (SAN-70): visits and views feed the caller's home, and
+/// the routes that undo the archive, and trashing. Stars live under `/api/me` and leaving is
+/// handled apart.
+const WRITABLE_WHILE_ARCHIVED: [&str; 4] = [
+    "/api/projects/{key}/unarchive",
+    "/api/projects/{key}/trash",
+    "/api/projects/{key}/visit",
+    "/api/projects/{key}/issues/{number}/view",
+];
+
+/// SAN-70: an archived project answers every write with 409, except the routes above and a
+/// member removing themselves (leaving). `route` is the matched route template.
+pub fn check_writable(
+    member: &Member,
+    method: &Method,
+    route: &str,
+    target_user: Option<i64>,
+) -> Result<(), AppError> {
+    let read = *method == Method::GET || *method == Method::HEAD;
+    let leaving = *method == Method::DELETE
+        && route == "/api/projects/{key}/members/{user_id}"
+        && target_user == Some(member.user_id);
+    if !member.archived || read || leaving || WRITABLE_WHILE_ARCHIVED.contains(&route) {
+        return Ok(());
+    }
+    Err(crate::projects::domain::archived())
 }
 
 /// `new_role` is None when the member is being removed.
@@ -64,6 +93,7 @@ mod tests {
             board_id: 1,
             board_type: BoardType::Scrum,
             role,
+            archived: false,
         }
     }
 

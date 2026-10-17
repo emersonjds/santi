@@ -19,7 +19,9 @@ const CreateIssueDialog = lazy(() =>
 /** IA §5: the current project, else the last one opened, else the first. */
 const preselect = (keys: string[], current?: string) => {
   const last = lastProject()
-  return current ?? (last && keys.includes(last) ? last : keys[0])
+  // An archived project is missing from `keys`.
+  if (current && keys.includes(current)) return current
+  return last && keys.includes(last) ? last : keys[0]
 }
 
 export const CreateButton = () => {

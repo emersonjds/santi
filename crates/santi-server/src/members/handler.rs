@@ -139,6 +139,7 @@ pub async fn accept_invite(
         (status = 200, body = InvitePreview, description = "What accepting the invite grants"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown token"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`: the project is archived"),
         (status = 410, body = Problem, content_type = "application/problem+json", description = "`invite-used` or `invite-expired`")))]
 pub async fn preview_invite(
     State(state): State<AppState>,
