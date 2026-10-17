@@ -1,14 +1,7 @@
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import {
-  Archive,
-  Ellipsis,
-  Link2,
-  LogOut,
-  Settings,
-  Trash2,
-} from 'lucide-react'
+import { Archive, Link2, LogOut, Settings, Trash2 } from 'lucide-react'
 import {
   ArchiveProjectButton,
   TrashProjectButton,
@@ -26,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
-import { SidebarMenuAction } from '@/shared/ui/sidebar'
+import { ProjectActionsButton } from './project-actions-button'
 
 const ROW = 'h-11 md:h-8'
 
@@ -38,7 +31,7 @@ const copyLink = (key: string) =>
     () => toast.error(`Couldn't copy the link to ${key}`)
   )
 
-/** SAN-91: the sidebar row's "…"; the dialogs are the danger zone's (SAN-70). */
+/** SAN-91: the sidebar row's "…" (lazy chunk); the dialogs are the danger zone's (SAN-70). */
 export const ProjectActions = ({
   project,
   onNavigate,
@@ -72,14 +65,7 @@ export const ProjectActions = ({
     <>
       <DropdownMenu onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
-          <SidebarMenuAction
-            ref={trigger}
-            showOnHover
-            aria-label={`Actions for ${project.name}`}
-            className='top-0 size-11 after:hidden md:top-1 md:size-8'
-          >
-            <Ellipsis />
-          </SidebarMenuAction>
+          <ProjectActionsButton ref={trigger} projectName={project.name} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align='start' className='w-60'>
           <DropdownMenuItem

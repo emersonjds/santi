@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { ChevronRight, House, Plus } from 'lucide-react'
@@ -26,7 +26,13 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from '@/shared/ui/sidebar'
-import { ProjectActions } from './project-actions'
+import { ProjectActionsButton } from './project-actions-button'
+
+const ProjectActions = lazy(() =>
+  import('./project-actions').then((module) => ({
+    default: module.ProjectActions,
+  }))
+)
 
 const CURRENT =
   'aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:shadow-[inset_3px_0_0_var(--color-primary)]'
@@ -102,7 +108,11 @@ const ProjectItem = ({
           </Link>
         </SidebarMenuButton>
       </div>
-      <ProjectActions project={project} onNavigate={onNavigate} />
+      <Suspense
+        fallback={<ProjectActionsButton projectName={project.name} disabled />}
+      >
+        <ProjectActions project={project} onNavigate={onNavigate} />
+      </Suspense>
       <SidebarMenuSub id={pagesId} hidden={!expanded}>
         <SidebarMenuSubItem>
           <SidebarMenuSubButton asChild className={`h-9 ${CURRENT}`}>
