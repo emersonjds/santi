@@ -1,3 +1,4 @@
+use santi_types::boards::StatusCategory;
 use santi_types::reports::{
     DeletedIssues, ReportGroup, ReportIssue, ReportOutcome, SprintReport, SprintTotals, Velocity,
 };
@@ -8,7 +9,6 @@ pub const VELOCITY_SPRINTS: usize = 7;
 /// One `sprint_issue` fact with its issue as it is now; `issue` is None once deleted (D40).
 pub struct FactRow {
     pub issue: Option<ReportIssue>,
-    pub done_now: bool,
     pub points_now: Option<f64>,
     pub added_after_start: bool,
     pub points_at_start: Option<f64>,
@@ -22,6 +22,12 @@ pub fn total(values: impl IntoIterator<Item = Option<f64>>) -> Option<f64> {
         .into_iter()
         .flatten()
         .reduce(|sum, value| sum + value)
+        .map(round)
+}
+
+/// Two decimals, so 0.1 + 0.2 reads 0.3 everywhere.
+pub fn round(value: f64) -> f64 {
+    (value * 100.0).round() / 100.0
 }
 
 /// `history` is newest first, as the history page lists it.
@@ -33,7 +39,7 @@ pub fn velocity(history: Vec<SprintTotals>) -> Velocity {
         .collect();
     sprints.reverse();
     let average_completed =
-        total(sprints.iter().map(|row| row.completed)).map(|sum| sum / sprints.len() as f64);
+        total(sprints.iter().map(|row| row.completed)).map(|sum| round(sum / sprints.len() as f64));
     Velocity {
         sprints,
         average_completed,
@@ -72,10 +78,10 @@ struct Placed {
 /// D46: the stored outcome decides; without one the live status does, and a deleted issue counts
 /// as removed.
 fn place(row: FactRow, closed: bool) -> Placed {
-    let outcome = row.outcome.unwrap_or(match (&row.issue, row.done_now) {
-        (None, _) => ReportOutcome::Removed,
-        (Some(_), true) => ReportOutcome::Completed,
-        (Some(_), false) => ReportOutcome::NotCompleted,
+    let outcome = row.outcome.unwrap_or(match &row.issue {
+        None => ReportOutcome::Removed,
+        Some(issue) if issue.status_category == StatusCategory::Done => ReportOutcome::Completed,
+        Some(_) => ReportOutcome::NotCompleted,
     });
     let points_at_end = match outcome {
         ReportOutcome::Removed => None,
@@ -125,7 +131,6 @@ fn group_rows(rows: Vec<FactRow>, closed: bool) -> Vec<ReportGroup> {
 mod tests {
     use super::*;
     use ReportOutcome::{Completed, NotCompleted, Removed};
-    use santi_types::boards::StatusCategory;
     use santi_types::issues::{IssueType, Priority};
 
     fn sprint(id: i64, state: SprintState) -> Sprint {
@@ -169,12 +174,21 @@ mod tests {
     fn fact(key: Option<&str>) -> FactRow {
         FactRow {
             issue: key.map(issue),
-            done_now: false,
             points_now: None,
             added_after_start: false,
             points_at_start: None,
             outcome: None,
             points_at_close: None,
+        }
+    }
+
+    fn done(key: &str) -> FactRow {
+        FactRow {
+            issue: Some(ReportIssue {
+                status_category: StatusCategory::Done,
+                ..issue(key)
+            }),
+            ..fact(None)
         }
     }
 
@@ -192,6 +206,17 @@ mod tests {
         assert_eq!(total([]), None);
         assert_eq!(total([Some(0.0)]), Some(0.0));
         assert_eq!(total([Some(2.0), None, Some(0.5)]), Some(2.5));
+    }
+
+    #[test]
+    fn totals_and_average_round_to_two_decimals() {
+        assert_eq!(total([Some(0.1), Some(0.2)]), Some(0.3));
+        let history = vec![
+            totals(3, SprintState::Closed, Some(1.0)),
+            totals(2, SprintState::Closed, None),
+            totals(1, SprintState::Closed, None),
+        ];
+        assert_eq!(velocity(history).average_completed, Some(0.33));
     }
 
     #[test]
@@ -245,9 +270,8 @@ mod tests {
             },
             FactRow {
                 outcome: Some(NotCompleted),
-                done_now: true,
                 points_at_close: Some(2.0),
-                ..fact(Some("SANTI-2"))
+                ..done("SANTI-2")
             },
         ];
 
@@ -274,10 +298,9 @@ mod tests {
     fn active_rows_without_outcome_group_by_live_status() {
         let rows = vec![
             FactRow {
-                done_now: true,
                 points_at_start: Some(2.0),
                 points_now: Some(5.0),
-                ..fact(Some("SANTI-1"))
+                ..done("SANTI-1")
             },
             FactRow {
                 points_now: Some(1.0),

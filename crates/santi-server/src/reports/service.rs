@@ -16,7 +16,7 @@ pub async fn sprint_history(
     sprints::domain::require_scrum(member.board_type)?;
     let limit = pagination::page_limit(page.limit)?;
     let mut conn = pool.acquire().await?;
-    let rows = repo::sprint_totals(&mut conn, member.board_id, page.cursor, limit).await?;
+    let rows = repo::sprint_totals(&mut conn, member.board_id, page.cursor, limit + 1).await?;
     Ok(pagination::into_page(rows, limit, |row| row.sprint.id))
 }
 
@@ -24,7 +24,7 @@ pub async fn sprint_history(
 pub async fn velocity(pool: &PgPool, member: &Member) -> Result<Velocity, AppError> {
     sprints::domain::require_scrum(member.board_type)?;
     let mut conn = pool.acquire().await?;
-    let limit = domain::VELOCITY_SPRINTS as i64;
+    let limit = domain::VELOCITY_SPRINTS as i64 + 1;
     let history = repo::sprint_totals(&mut conn, member.board_id, None, limit).await?;
     Ok(domain::velocity(history))
 }
