@@ -13,6 +13,6 @@ export const NativeSelect = ({
       className
     )}
     {...props}
-    {...lockedSelect(useReadOnly())}
+    {...lockedSelect(useReadOnly(), props['aria-describedby'])}
   />
 )

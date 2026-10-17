@@ -5,5 +5,7 @@ import { projectQuery } from './project-queries'
 export const ARCHIVED_NOTE = 'archived-note'
 
 /** SAN-70: an archived project answers every write with 409, so its pages offer none. */
-export const useProjectWritable = (projectKey: string) =>
-  useQuery(projectQuery(projectKey)).data?.state !== 'archived'
+export const useProjectWritable = (projectKey: string) => {
+  const { data: project } = useQuery(projectQuery(projectKey))
+  return project !== undefined && project.state !== 'archived'
+}
