@@ -8,7 +8,10 @@ import type {
   HomeIssue,
   Issue,
   MyProject,
+  ReportGroup,
+  ReportIssue,
   Sprint,
+  SprintReport,
 } from '@/shared/api/client'
 
 /** `body` may be a function of the request, read on each call: a reply that changes once something was written, or with the query. */
@@ -444,3 +447,54 @@ export const WEB_BACKLOG: Backlog = {
     },
   ],
 }
+
+type ReportIssueFixture = Partial<ReportIssue> &
+  Pick<ReportIssue, 'key' | 'summary'>
+
+/** A report row: a medium story, done, 3 points from start to end, there from the start. */
+export const reportIssue = (fields: ReportIssueFixture): ReportIssue => ({
+  issue_type: 'story',
+  priority: 'medium',
+  status_name: 'Done',
+  status_category: 'done',
+  epic_key: null,
+  epic_summary: null,
+  points_at_start: 3,
+  points_at_end: 3,
+  added_after_start: false,
+  ...fields,
+})
+
+const emptyGroup = (outcome: ReportGroup['outcome']): ReportGroup => ({
+  outcome,
+  points_at_start: null,
+  points_at_end: null,
+  issues: [],
+  deleted: null,
+})
+
+/** The report of a closed WEB sprint with no neighbors and three empty groups. */
+export const sprintReport = (
+  id: number,
+  fields: Partial<SprintReport> = {}
+): SprintReport => ({
+  sprint: {
+    id,
+    name: `Sprint ${id}`,
+    goal: '',
+    state: 'closed',
+    overdue: false,
+    start_date: '2026-09-01',
+    end_date: '2026-09-14',
+  },
+  newer_sprint_id: null,
+  older_sprint_id: null,
+  committed: 8,
+  completed: 5,
+  groups: [
+    emptyGroup('completed'),
+    emptyGroup('not_completed'),
+    emptyGroup('removed'),
+  ],
+  ...fields,
+})
