@@ -45,7 +45,7 @@ function Button({
     asChild?: boolean
   }) {
   const Comp = asChild ? Slot : 'button'
-  const locked = lockedButton(useReadOnly())
+  const locked = lockedButton(useReadOnly(), props['aria-describedby'])
 
   return (
     <Comp
