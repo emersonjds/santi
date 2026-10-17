@@ -1,7 +1,7 @@
 mod common;
 
 use axum::http::StatusCode;
-use chrono::{DateTime, TimeDelta, Utc};
+use chrono::{DateTime, DurationRound, TimeDelta, Timelike, Utc};
 use common::TestApp;
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -72,7 +72,9 @@ async fn start_defaults_to_now_and_two_weeks(pool: PgPool) {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(started["state"], "active");
     let starts_at = instant(&started["starts_at"]);
-    assert!(before <= starts_at && starts_at <= Utc::now());
+    let minute = TimeDelta::minutes(1);
+    assert!(before.duration_trunc(minute).unwrap() <= starts_at && starts_at <= Utc::now());
+    assert_eq!((starts_at.second(), starts_at.nanosecond()), (0, 0));
     assert_eq!(
         instant(&started["ends_at"]) - starts_at,
         TimeDelta::days(14)

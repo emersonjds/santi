@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DurationRound, TimeDelta, Utc};
 use santi_types::sprints::{
     CompleteSprint, CreateSprint, OpenIssuesDestination, Sprint, StartSprint, UpdateSprint,
 };
@@ -87,7 +87,10 @@ pub async fn start_sprint(
     sprint_id: i64,
     input: StartSprint,
 ) -> Result<Sprint, AppError> {
-    let (starts_at, ends_at) = domain::start_window(Utc::now(), input.starts_at, input.ends_at)?;
+    let now = Utc::now()
+        .duration_trunc(TimeDelta::minutes(1))
+        .expect("now is far from the chrono range limits");
+    let (starts_at, ends_at) = domain::start_window(now, input.starts_at, input.ends_at)?;
     let mut tx = pool.begin().await?;
     let sprint = repo::find_sprint_for_update(&mut tx, member.board_id, sprint_id)
         .await?
