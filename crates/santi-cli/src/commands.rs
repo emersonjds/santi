@@ -9,6 +9,7 @@ use santi_types::issues::{
     UpdateIssue,
 };
 use santi_types::projects::{Project, ProjectState};
+use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 
@@ -260,6 +261,10 @@ async fn sprints(client: &Client, command: SprintsCommand, json: bool) -> Result
         SprintsCommand::List { project } => {
             let sprints = client.sprints(&project).await?;
             return show(json, &sprints, |sprints| lines(sprints, sprint_line));
+        }
+        SprintsCommand::Report { project, sprint } => {
+            let report = client.sprint_report(&project, sprint).await?;
+            return show(json, &report, report_text);
         }
         SprintsCommand::Create {
             project,
@@ -609,6 +614,69 @@ fn sprint_line(sprint: &Sprint) -> String {
     )
 }
 
+/// Absent points read "—", never 0 (RP-26).
+fn points(points: Option<f64>) -> String {
+    points.map_or("—".into(), |points| points.to_string())
+}
+
+fn report_text(report: &SprintReport) -> String {
+    let mut text = vec![
+        sprint_line(&report.sprint),
+        format!(
+            "Committed {} · Completed {}",
+            points(report.committed),
+            points(report.completed)
+        ),
+    ];
+    for group in &report.groups {
+        text.extend(group_lines(group));
+    }
+    text.join("\n")
+}
+
+fn group_lines(group: &ReportGroup) -> Vec<String> {
+    let title = match group.outcome {
+        ReportOutcome::Completed => "Completed",
+        ReportOutcome::NotCompleted => "Not completed",
+        ReportOutcome::Removed => "Removed from sprint",
+    };
+    let mut text = vec![format!(
+        "{title} — {} issues, {} → {} points",
+        group.issues.len(),
+        points(group.points_at_start),
+        points(group.points_at_end)
+    )];
+    text.extend(group.issues.iter().map(report_issue_line));
+    if let Some(deleted) = &group.deleted {
+        text.push(format!(
+            "  Deleted issues {} → {}",
+            points(deleted.points_at_start),
+            points(deleted.points_at_end)
+        ));
+    }
+    if text.len() == 1 {
+        text.push("  (none)".into());
+    }
+    text
+}
+
+fn report_issue_line(issue: &ReportIssue) -> String {
+    let added = if issue.added_after_start {
+        " Added"
+    } else {
+        ""
+    };
+    format!(
+        "  {} {} ({}, {}) {} → {}{added}",
+        issue.key,
+        issue.summary,
+        issue.issue_type.label(),
+        issue.status_name,
+        points(issue.points_at_start),
+        points(issue.points_at_end)
+    )
+}
+
 fn preview_text(preview: &ImportPreview) -> String {
     let mut text = vec![format!(
         "{} export: {} rows",
@@ -813,5 +881,56 @@ mod tests {
             "Emerson Silva · 2 hours ago\nFirst\nline two\n\nAna Lima · just now\nSecond"
         );
         assert_eq!(comments_text(&[], now), "(no comments)");
+    }
+
+    #[test]
+    fn report_text_lists_groups_rows_and_dashes() {
+        let row = |key: &str, start: Option<f64>, end: Option<f64>, added: bool| {
+            serde_json::json!({
+                "key": key, "summary": "Ship it", "issue_type": "story", "priority": "high",
+                "status_name": "Done", "status_category": "done", "epic_key": null,
+                "epic_summary": null, "points_at_start": start, "points_at_end": end,
+                "added_after_start": added,
+            })
+        };
+        let report: SprintReport = serde_json::from_value(serde_json::json!({
+            "sprint": {
+                "id": 3, "name": "Sprint 3", "goal": "", "state": "closed",
+                "start_date": "2026-10-01", "end_date": "2026-10-14",
+                "started_at": "2026-10-01T00:00:00Z", "closed_at": "2026-10-14T00:00:00Z",
+                "overdue": false,
+            },
+            "newer_sprint_id": null, "older_sprint_id": 2,
+            "committed": 5.0, "completed": null,
+            "groups": [
+                {
+                    "outcome": "completed", "points_at_start": 5.0, "points_at_end": 8.0,
+                    "issues": [row("WEB-1", Some(5.0), Some(5.5), false), row("WEB-2", None, Some(2.5), true)],
+                    "deleted": { "points_at_start": 1.0, "points_at_end": null },
+                },
+                {
+                    "outcome": "not_completed", "points_at_start": null, "points_at_end": null,
+                    "issues": [], "deleted": null,
+                },
+                {
+                    "outcome": "removed", "points_at_start": 3.0, "points_at_end": null,
+                    "issues": [row("WEB-4", Some(3.0), None, false)], "deleted": null,
+                },
+            ],
+        }))
+        .unwrap();
+        assert_eq!(
+            report_text(&report),
+            "#3 Sprint 3 (closed) 2026-10-01 → 2026-10-14\n\
+             Committed 5 · Completed —\n\
+             Completed — 2 issues, 5 → 8 points\n\
+             \x20 WEB-1 Ship it (Story, Done) 5 → 5.5\n\
+             \x20 WEB-2 Ship it (Story, Done) — → 2.5 Added\n\
+             \x20 Deleted issues 1 → —\n\
+             Not completed — 0 issues, — → — points\n\
+             \x20 (none)\n\
+             Removed from sprint — 1 issues, 3 → — points\n\
+             \x20 WEB-4 Ship it (Story, Done) 3 → —"
+        );
     }
 }
