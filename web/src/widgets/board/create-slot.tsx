@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
-import { projectQuery } from '@/entities/project/project-queries'
+import { ARCHIVED_NOTE, useProjectWritable } from '@/entities/project/writable'
+import { lockedButton } from '@/shared/lib/read-only'
 
 const InlineCreate = lazy(() =>
   import('@/features/create-issue/inline-create').then((module) => ({
@@ -29,15 +29,14 @@ export const CreateSlot = ({
   open,
   setOpen,
 }: CreateSlotProps) => {
-  const { data: project } = useQuery(projectQuery(projectKey))
-  const archived = project?.state === 'archived'
-  if (!open)
+  const writable = useProjectWritable(projectKey)
+  if (!open || !writable)
     return (
       <button
         type='button'
-        aria-disabled={archived || undefined}
-        className={`${CREATE_ROW} outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-60`}
-        onClick={() => archived || setOpen(true)}
+        className={`${CREATE_ROW} outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground`}
+        onClick={() => setOpen(true)}
+        {...lockedButton(writable ? undefined : ARCHIVED_NOTE)}
       >
         <Plus className='size-4' />
         Create issue

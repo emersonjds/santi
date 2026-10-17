@@ -8,6 +8,7 @@ import { mayDelete } from '@/entities/issue/may-delete'
 import { projectQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Card } from '@/shared/api/client'
+import { useReadOnly } from '@/shared/lib/read-only'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,7 @@ export const RowMenu = ({ card, projectKey, onDelete }: RowMenuProps) => {
   const setEpic = useSetEpic(projectKey)
   const { data: me } = useSuspenseQuery(sessionQuery)
   const { data: project } = useSuspenseQuery(projectQuery(projectKey))
+  const locked = useReadOnly() !== undefined
   if (!backlog) return null
 
   return (
@@ -50,7 +52,7 @@ export const RowMenu = ({ card, projectKey, onDelete }: RowMenuProps) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-44'>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger className={ROW}>
+          <DropdownMenuSubTrigger className={ROW} disabled={locked}>
             Move to…
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className='max-h-96 w-44 overflow-y-auto'>
@@ -87,7 +89,7 @@ export const RowMenu = ({ card, projectKey, onDelete }: RowMenuProps) => {
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
-          <DropdownMenuSubTrigger className={ROW}>
+          <DropdownMenuSubTrigger className={ROW} disabled={locked}>
             Set epic
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className='max-h-96 w-56 overflow-y-auto'>
@@ -116,6 +118,7 @@ export const RowMenu = ({ card, projectKey, onDelete }: RowMenuProps) => {
             <DropdownMenuItem
               className={ROW}
               variant='destructive'
+              disabled={locked}
               onSelect={() => onDelete(card)}
             >
               <Trash2 />

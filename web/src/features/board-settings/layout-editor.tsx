@@ -16,6 +16,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
+import { useReadOnly } from '@/shared/lib/read-only'
 import { RootError } from '@/shared/ui/root-error'
 import { AddColumnForm, ColumnRow, SortableColumn } from './column-rows'
 import { COLUMN, STATUS, UNMAPPED, ZONE } from './drag-kinds'
@@ -44,6 +45,7 @@ export const LayoutEditor = ({ projectKey, kanban }: LayoutEditorProps) => {
     })
   )
 
+  const locked = useReadOnly() !== undefined
   const { columns } = settings
   const movable = columns.slice(0, -1)
   const rightmost = columns[columns.length - 1]
@@ -82,7 +84,7 @@ export const LayoutEditor = ({ projectKey, kanban }: LayoutEditorProps) => {
 
   return (
     <DndContext
-      sensors={sensors}
+      sensors={locked ? [] : sensors}
       collisionDetection={closestCenter}
       onDragEnd={end}
     >
