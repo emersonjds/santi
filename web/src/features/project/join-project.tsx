@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
+import { myProjectsQuery } from '@/entities/home/home-queries'
 import { ROLE_LABEL } from '@/entities/project/labels'
 import {
   invitePreviewQuery,
@@ -35,7 +36,11 @@ const JoinButton = ({ token }: { token: string }) => {
       ),
     onSuccess: async (project) => {
       queryClient.setQueryData(projectQuery(project.key).queryKey, project)
-      await queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey })
+      await Promise.all(
+        [projectsQuery.queryKey, myProjectsQuery.queryKey].map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey })
+        )
+      )
       await navigate({ to: '/p/$key', params: { key: project.key } })
     },
   })
