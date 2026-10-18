@@ -5,10 +5,12 @@ import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
 import { issueNumber } from './board-query'
 import { PriorityGlyph, TypeGlyph } from './issue-glyphs'
+import { LabelChip } from './label-chip'
 import { timeAgo } from './time-ago'
 
 /** The list a column draws its cards in; the drag layer reuses it so nothing shifts when it loads. */
-export const CARD_LIST = 'grid min-h-16 grid-cols-1 content-start gap-2 px-2 pb-2'
+export const CARD_LIST =
+  'grid min-h-16 grid-cols-1 content-start gap-2 px-2 pb-2'
 
 export const EmptySlot = () => (
   <li className='rounded-md border border-dashed border-input px-3 py-4 text-center text-sm text-subtle-foreground'>
@@ -35,13 +37,12 @@ export const LabelChips = ({ labels }: { labels: string[] }) => {
   return (
     <span className='flex min-w-0 items-center gap-1'>
       {labels.slice(0, 2).map((label) => (
-        <span
+        <LabelChip
           key={label}
-          title={label}
-          className='max-w-20 min-w-0 truncate rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'
-        >
-          {label}
-        </span>
+          size='compact'
+          name={label}
+          className='min-w-9'
+        />
       ))}
       {rest.length > 0 && (
         <span
@@ -86,9 +87,9 @@ type IssueCardProps = {
 
 export const IssueCard = memo(
   ({ card, projectKey, menu, points, priority }: IssueCardProps) => (
-    <article className='relative grid gap-2 rounded-md border bg-card p-3 pe-11 text-sm shadow-xs transition-[border-color,box-shadow] duration-150 ease-out hover:border-input/60 hover:shadow-sm'>
+    <article className='relative grid gap-2 rounded-md border bg-card p-3 text-sm shadow-xs transition-[border-color,box-shadow] duration-150 ease-out hover:border-input/60 hover:shadow-sm'>
       {card.parent_key && (
-        <span className='w-fit rounded-sm bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'>
+        <span className='me-8 w-fit rounded-sm bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'>
           {card.parent_key}
         </span>
       )}
@@ -102,21 +103,21 @@ export const IssueCard = memo(
         }}
         draggable={false}
         data-issue-key={card.key}
-        className='line-clamp-2 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring'
+        className='line-clamp-2 pe-8 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-ring'
       >
         {card.summary}
       </Link>
-      <div className='flex min-h-6 items-center gap-2 text-xs'>
+      <div className='flex min-h-6 min-w-0 items-center gap-2 text-xs'>
         <TypeGlyph type={card.issue_type} />
         <span
-          className='tracking-wide whitespace-nowrap text-subtle-foreground tabular-nums'
+          className='shrink-0 tracking-wide whitespace-nowrap text-subtle-foreground tabular-nums'
           title={`Updated ${timeAgo(card.updated_at)}`}
         >
           {card.key}
         </span>
         <SubtaskCount card={card} />
         <LabelChips labels={card.labels} />
-        <span className='ms-auto flex items-center gap-2'>
+        <span className='ms-auto flex shrink-0 items-center gap-2'>
           {points ?? (
             <PointsPill points={card.points} label={pointsLabel(card.points)} />
           )}
