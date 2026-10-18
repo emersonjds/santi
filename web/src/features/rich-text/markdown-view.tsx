@@ -49,7 +49,10 @@ const SafeLink = ({
 }
 
 const MentionChip = ({ name }: { name: string }) => (
-  <span className='inline-flex items-center gap-1 rounded-full bg-accent py-px ps-0.5 pe-2 align-middle font-medium text-accent-foreground'>
+  <span
+    data-mention
+    className='inline-flex items-center gap-1 rounded-full bg-accent py-px ps-0.5 pe-2 align-middle font-medium text-accent-foreground'
+  >
     <span aria-hidden='true'>
       <UserAvatar name={name} className='size-5' />
     </span>

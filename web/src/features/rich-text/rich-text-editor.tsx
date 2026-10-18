@@ -13,7 +13,7 @@ import {
   autocompletion,
   completionStatus,
 } from '@codemirror/autocomplete'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { history, historyKeymap, standardKeymap } from '@codemirror/commands'
 import { Language, defineLanguageFacet, syntaxTree } from '@codemirror/language'
 import {
   Compartment,
@@ -488,7 +488,7 @@ export const RichTextEditor = (props: RichTextEditorProps) => {
                 'key' in action ? [{ key: action.key, run: action.run }] : []
               ),
             ]),
-            keymap.of([...defaultKeymap, ...historyKeymap]),
+            keymap.of([...standardKeymap, ...historyKeymap]),
             EditorView.lineWrapping,
             placeholderText(initial.placeholder),
             EditorView.contentAttributes.of({
