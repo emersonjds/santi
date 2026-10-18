@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, Page,
-    PageParams, StatusFilter, UpdateIssue,
+    PageParams, StatusFilter, UpdateComment, UpdateIssue,
 };
 use sqlx::{PgConnection, PgPool};
 
@@ -277,6 +277,49 @@ pub async fn add_comment(
     repo::insert_comment(&mut conn, issue_id, member.user_id, &body)
         .await
         .map_err(not_found_if_parent_gone)
+}
+
+pub async fn edit_comment(
+    pool: &PgPool,
+    member: &Member,
+    number: i64,
+    comment_id: i64,
+    input: UpdateComment,
+) -> Result<Comment, AppError> {
+    let mut conn = pool.acquire().await?;
+    let issue_id = repo::find_id(&mut conn, member.project_id, number)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let comment = repo::find_comment(&mut conn, issue_id, comment_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    domain::check_delete(member.role, member.user_id, comment.author_id)?;
+    let Some(body) = domain::comment_edit(&comment.body, &input.body)? else {
+        return Ok(comment);
+    };
+    repo::update_comment(&mut conn, issue_id, comment_id, member.user_id, &body)
+        .await?
+        .ok_or(AppError::NotFound)
+}
+
+pub async fn delete_comment(
+    pool: &PgPool,
+    member: &Member,
+    number: i64,
+    comment_id: i64,
+) -> Result<(), AppError> {
+    let mut conn = pool.acquire().await?;
+    let issue_id = repo::find_id(&mut conn, member.project_id, number)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let comment = repo::find_comment(&mut conn, issue_id, comment_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    domain::check_delete(member.role, member.user_id, comment.author_id)?;
+    if !repo::delete_comment(&mut conn, issue_id, comment_id).await? {
+        return Err(AppError::NotFound);
+    }
+    Ok(())
 }
 
 pub async fn list_comments(

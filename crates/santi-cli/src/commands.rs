@@ -950,6 +950,9 @@ mod tests {
             author_name: "Bo".into(),
             body: "[@Ana Souza](mention:42) please".into(),
             created_at: "2026-10-16T12:00:00Z".parse().unwrap(),
+            edited_at: None,
+            edited_by_id: None,
+            edited_by_name: None,
         };
         let now = comment.created_at;
         assert_eq!(
@@ -1031,6 +1034,9 @@ mod tests {
             author_name: author.into(),
             body: body.into(),
             created_at: at.parse().unwrap(),
+            edited_at: None,
+            edited_by_id: None,
+            edited_by_name: None,
         };
         let comments = [
             comment(
