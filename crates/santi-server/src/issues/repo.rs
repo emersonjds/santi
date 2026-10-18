@@ -438,7 +438,8 @@ pub async fn list_project_comments(
 ) -> Result<Vec<ExportedComment>, sqlx::Error> {
     sqlx::query_as!(
         ExportedComment,
-        r#"SELECT p.key || '-' || i.number AS "issue_key!", c.author_id, c.body, c.created_at
+        r#"SELECT p.key || '-' || i.number AS "issue_key!", c.author_id, c.body, c.created_at,
+                  c.edited_at, c.edited_by AS edited_by_id
            FROM issue_comment c
            JOIN issue i ON i.id = c.issue_id
            JOIN project p ON p.id = i.project_id

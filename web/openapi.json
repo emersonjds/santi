@@ -5510,6 +5510,21 @@
             "type": "string",
             "format": "date-time"
           },
+          "edited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Last change of the text; null until a save changes it (D52)."
+          },
+          "edited_by_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
           "issue_key": {
             "type": "string"
           }
