@@ -396,7 +396,11 @@ pub fn to_search_query(
 
 pub fn check_comment_body(body: &str) -> Result<String, AppError> {
     reject_nul("body", body)?;
-    let body = body.trim();
+    let body = body.trim_end();
+    let first = body
+        .find(|letter: char| !letter.is_whitespace())
+        .unwrap_or(0);
+    let body = &body[body[..first].rfind('\n').map_or(0, |at| at + 1)..];
     if body.is_empty() || body.chars().count() > MAX_RICH_TEXT {
         return Err(AppError::invalid("body", "must have 1 to 65536 characters"));
     }
@@ -723,9 +727,14 @@ mod tests {
     }
 
     #[test]
-    fn comment_body_is_trimmed_and_required() {
-        assert_eq!(check_comment_body(" hi ").unwrap(), "hi");
+    fn comment_body_loses_blank_lines_and_trailing_space_and_is_required() {
+        assert_eq!(check_comment_body(" hi ").unwrap(), " hi");
+        assert_eq!(
+            check_comment_body(" \n\n    let x = 1\n  \n").unwrap(),
+            "    let x = 1"
+        );
         assert!(check_comment_body("  ").is_err());
+        assert!(check_comment_body(" \n\t\n ").is_err());
     }
 
     #[test]
