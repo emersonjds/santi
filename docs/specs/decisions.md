@@ -578,3 +578,17 @@ Architecture vote: A — one guarded helper, same as `last-project.ts` and the s
 Winner: A — accepted: preferences do not follow the viewer across browsers; SAN-93 moves them server-side.
 - Keys: `sidebar-width` (200–500, default 320) and `sidebar-projects-view` (`recent-starred` default, `starred`, `latest`); unreadable or out-of-range values fall back to the default; storage that throws keeps the choice until reload.
 - Row expansion is not a preference: the current project opens, a hand-opened row closes on reload (UI-65); `sidebar-expanded:<KEY>` goes away.
+
+## D50 — Rich text is Markdown; mentions are links (SAN-135; amends ED-15/ED-46 baseline)
+Context: description and comments get a toolbar, rendering and @mentions. The baseline stores rich text as a document tree and sends it over the API (ED-15, ED-46); santi stores plain text, the CLI and MCP read and write it as text, and the issue page has ~24 KB of D39 headroom.
+Options: A) CommonMark + GFM string B) a document tree (JSON) with Markdown as CLI/MCP import/export
+Product vote: A — CLI and MCP users write text with their own tools; no JSON tree to hand-build.
+UX vote: B — a re-serialized Markdown string reflows under the cursor.
+IA vote: A — a tree makes every text surface carry a tree renderer.
+Architecture vote: A — the reflow only happens when an editor re-serializes a tree; a source editor (CodeMirror 6) stores the typed bytes. B adds a schema, a migration of every body and a Rust tree→text renderer, and a WYSIWYG editor over Markdown would destroy what its schema lacks (a CLI-written table). Plain text is already valid Markdown, so nothing migrates.
+Winner: A — accepted: old bodies with Markdown characters now format; screen readers read Markdown markers in the editor.
+- Format: CommonMark + GFM (tables, task lists, strikethrough, autolinks); a single newline is a line break. Stored, returned and accepted byte for byte in DB, API, OpenAPI, CLI and MCP; fields stay `description` and `body`.
+- Mention: `[@Display Name](mention:<user_id>)`, a plain link; `user_id` is `app_user.id`; `[`, `]`, `\` in the name are backslash-escaped. The name is captured at insert and never rewritten; the web shows the member's current name by id, and the captured name as muted text when the id is not a project member. CLI text prints `@Display Name`; JSON and MCP return the token.
+- Safety lives in the one HTML renderer (web `MarkdownView`: React elements, raw HTML as text, safe URL protocols, images as links); the server does not sanitize, it only refuses NUL and oversize bodies.
+- One cap for description and comment: 65,536 characters (`MAX_RICH_TEXT`).
+- Budgets (D39): editor and renderer are lazy chunks (≤ 120 KB and ≤ 50 KB gzip, `size-limit`); initial JS per route unchanged.
