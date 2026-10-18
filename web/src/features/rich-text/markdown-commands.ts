@@ -1,3 +1,5 @@
+import { GFM, parser } from '@lezer/markdown'
+
 /** Pure edits over the Markdown source; the editor turns them into one transaction. */
 export type Range = { from: number; to: number }
 export type Change = { from: number; to: number; insert: string }
@@ -157,17 +159,31 @@ export const insertDivider = (text: string, range: Range): Edit => {
   }
 }
 
-const MARK = /(\*\*|__|~~|`|\*|_)(.+?)\1/g
+export const gfm = parser.configure(GFM)
 
+const MARKED = new Set([
+  'Emphasis',
+  'StrongEmphasis',
+  'Strikethrough',
+  'InlineCode',
+])
+
+/** Drops the markers of every mark wholly in the range, as the parser reads them. */
 export const clearMarks = (text: string, { from, to }: Range): Edit => {
-  let plain = text.slice(from, to)
-  for (let last = ''; last !== plain;) {
-    last = plain
-    plain = plain.replace(MARK, '$2')
-  }
+  const changes: Change[] = []
+  gfm.parse(text).iterate({
+    from,
+    to,
+    enter: ({ name, node }) => {
+      if (!MARKED.has(name) || node.from < from || node.to > to) return
+      for (const mark of [node.firstChild, node.lastChild])
+        if (mark) changes.push({ from: mark.from, to: mark.to, insert: '' })
+    },
+  })
+  const removed = changes.reduce((sum, mark) => sum + mark.to - mark.from, 0)
   return {
-    changes: [{ from, to, insert: plain }],
-    selection: { from, to: from + plain.length },
+    changes: changes.sort((a, b) => a.from - b.from),
+    selection: { from, to: to - removed },
   }
 }
 

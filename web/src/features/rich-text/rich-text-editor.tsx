@@ -33,7 +33,6 @@ import {
   keymap,
   placeholder as placeholderText,
 } from '@codemirror/view'
-import { GFM, parser } from '@lezer/markdown'
 import type { Member } from '@/shared/api/client'
 import { avatarTone, initials, shortName } from '@/shared/lib/initials'
 import { cn } from '@/shared/lib/utils'
@@ -42,6 +41,7 @@ import { emojiNamed, emojiStartingWith } from './emoji'
 import {
   type Range,
   continueList,
+  gfm,
   indentList,
   wrapLink,
 } from './markdown-commands'
@@ -67,12 +67,7 @@ export type RichTextEditorProps = {
   keyShortcut?: string
 }
 
-const markdown = new Language(
-  defineLanguageFacet(),
-  parser.configure(GFM),
-  [],
-  'markdown'
-)
+const markdown = new Language(defineLanguageFacet(), gfm, [], 'markdown')
 
 const MUTED = 'text-muted-foreground'
 const HEADING = 'font-semibold'
@@ -414,6 +409,7 @@ export const RichTextEditor = (props: RichTextEditorProps) => {
   const [picking, setPicking] = useState(false)
   const [refused, setRefused] = useState(false)
   const [readOnly] = useState(() => new Compartment())
+  const [mentions] = useState(() => new Compartment())
 
   const mount = useCallback(
     (host: HTMLDivElement) => {
@@ -431,7 +427,7 @@ export const RichTextEditor = (props: RichTextEditorProps) => {
             history(),
             markdown.extension,
             liveStyles,
-            chips(() => latest.current.members),
+            mentions.of(chips(() => latest.current.members)),
             autocompletion({
               override: [
                 mentionSource(
@@ -519,7 +515,7 @@ export const RichTextEditor = (props: RichTextEditorProps) => {
       if (initial.autoFocus) editor.focus()
       return () => editor.destroy()
     },
-    [readOnly]
+    [readOnly, mentions]
   )
 
   const { value } = props
@@ -530,6 +526,13 @@ export const RichTextEditor = (props: RichTextEditorProps) => {
       annotations: Transaction.addToHistory.of(false),
     })
   }, [view, value])
+
+  const { members } = props
+  useEffect(() => {
+    view?.dispatch({
+      effects: mentions.reconfigure(chips(() => members)),
+    })
+  }, [view, mentions, members])
 
   const locked = Boolean(props.readOnly)
   useEffect(() => {

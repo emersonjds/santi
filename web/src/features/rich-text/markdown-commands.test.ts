@@ -101,6 +101,20 @@ describe('markdown commands', () => {
     expect(run('«**bold** and _it_ ~~gone~~ `code`»', clearMarks)).toBe(
       '«bold and it gone code»'
     )
+    expect(run('«***both*** __two__ *one*»', clearMarks)).toBe('«both two one»')
+  })
+
+  it('leaves markers that are not marks alone', () => {
+    for (const text of [
+      'https://x.dev/a_b_c',
+      'foo_bar_baz',
+      '2 * 3 * 4',
+      '[@foo_bar_baz](mention:2)',
+      '[@Ana \\_B\\_](mention:2)',
+      '[x](https://x.dev/_y_)',
+    ])
+      expect(run(`«${text}»`, clearMarks)).toBe(`«${text}»`)
+    expect(run('«`a_b_` and `**x**`»', clearMarks)).toBe('«a_b_ and **x**»')
   })
 
   it('continues a list on Enter and ends it on an empty item', () => {
