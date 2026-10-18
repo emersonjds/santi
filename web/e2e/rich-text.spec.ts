@@ -115,7 +115,7 @@ test('a comment mentions a member picked with the keyboard and posts with Mod-En
   const violations = violationsOf(page)
   await page.goto(await issueOfAda(page))
 
-  await page.getByLabel('Add a comment').click()
+  await page.getByRole('button', { name: 'Add a comment…' }).click()
   const editor = editorOf(page, 'Add a comment')
   await expect(editor).toBeFocused()
   await page.keyboard.type('Over to @ad')
