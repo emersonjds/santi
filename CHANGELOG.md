@@ -10,6 +10,16 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-10-18
+
+> Pickers scroll again: the mouse wheel and touch scroll option lists opened inside the issue dialog.
+
+### Fixed
+
+- **Issue dialog:** the label picker list (and every popover opened inside a dialog, such as
+  filters, members and the sprint picker) now scrolls with the mouse wheel, the trackpad and touch;
+  before, only dragging the scrollbar worked.
+
 ## [0.13.0] - 2026-10-17
 
 > A sidebar that gets you back to your work: Recent and Starred panels, starred and recent projects, More projects and a resizable width.
@@ -388,7 +398,10 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.13.1...HEAD
+[0.13.1]: https://github.com/emersonjds/santi/compare/v0.13.0...v0.13.1
+[0.13.0]: https://github.com/emersonjds/santi/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/emersonjds/santi/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/emersonjds/santi/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/emersonjds/santi/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/emersonjds/santi/compare/v0.9.1...v0.9.2
