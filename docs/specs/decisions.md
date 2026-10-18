@@ -374,6 +374,8 @@ Done at cutover (SAN-42, 2026-10-16): the SPA serves from `/` (Vite `base` and r
 
 Amendment (SAN-61, 2026-10-16, landing page): the public landing page is a second Vite entry, `web/landing.html` — static HTML styled by its own Tailwind entry (`app/styles/landing.css`, D36 tokens, shadcn button and card classes ported) with no React; its only script is the copy button (< 1 KB gzip; budgets in `pnpm size`: JS ≤ 10 KB, CSS ≤ 10 KB, hero image ≤ 60 KB). The server answers `GET /` with `landing.html` when the request carries no `__Host-santi_session` cookie and with `index.html` when it does (the SPA still redirects to `/login` if that session is invalid), with `Vary: Cookie` so a browser never revalidates one page against the other; `/about` is always the landing page. Both stay `no-cache` under the D22 security headers and CSP. Chosen over a React route because the landing needs none of the SPA's 128–147 KB of first-visit JS and must paint under 1 s on a throttled phone. Its absolute URLs (canonical, Open Graph, `robots.txt`, `sitemap.xml`) come from `VITE_SITE_URL` at build time (Docker `--build-arg`), default `http://localhost:8080`.
 
+Amended (SAN-73): the sidebar feeds `GET /api/me/recent` and `GET /api/me/starred` are one statement each after the token lookup (budget 2), offset paging as the home lists; they read by `user_id` prefixes (`issue_activity`, `issue_star` primary keys, `member_user_idx`), no new index. No new visit tracking: a project's time is `greatest(member.visited_at, newest view or work on its issues)`, shared with `/api/me/projects`. The More projects flyout filters the cached `/api/me/projects` list without a request.
+
 Amended (SAN-92, rationale moved out of code comments): `useOptimisticWrite` refetches only when the last pending write under its key settles; the settling write still counts in `isMutating`, and a refetch under a later pending write would undo that write on screen. A rollback writes a fresh object, since the drag layer drops its pending order only when its view changes identity. After a deploy, an open tab whose lazy `import()` fails reloads once per tab session onto the new build (`sessionStorage` guard; without storage, no reload, so no loop).
 
 ## D38 — Repository layout: monorepo now, split-ready
@@ -567,3 +569,12 @@ Winner: A — accepted: viewers in different zones see different day boundaries;
 - Remembered length: `board.sprint_length` (`4h`, `1d`, `1w`, `2w`, `1m` or custom minutes), written by a start that sends `length`, returned on the backlog; null means 2 weeks.
 - Migration: dates become 00:00 and 23:59:00 in the database's `timezone` setting, read from `pg_db_role_setting` because sqlx connects with `TimeZone=UTC`. Upgrade note: `ALTER DATABASE <db> SET timezone TO '<zone>'` before deploying.
 - Display: one range formatter (whole days collapse to dates), time left ticking on the minute, zone name next to times (web `Intl` short name, CLI UTC offset).
+
+## D49 — Viewer UI preferences in web storage until personal settings (SAN-73)
+Context: the sidebar gains a width (UI-52) and a Projects view (UI-62) per viewer; the reference keeps both in the account's navigation settings on the server. santi has no personal settings yet (SAN-93).
+Options: A) `localStorage` now, server later B) a settings table and endpoint now C) no persistence
+Product vote: A — the owner asked for the mechanics now; losing them on another device is minor next to losing them on reload.
+Architecture vote: A — one guarded helper, same as `last-project.ts` and the shortcuts switch; B builds the SAN-93 model ahead of its card; C breaks UI-52 (width survives reload).
+Winner: A — accepted: preferences do not follow the viewer across browsers; SAN-93 moves them server-side.
+- Keys: `sidebar-width` (200–500, default 320) and `sidebar-projects-view` (`recent-starred` default, `starred`, `latest`); unreadable or out-of-range values fall back to the default; storage that throws keeps the choice until reload.
+- Row expansion is not a preference: the current project opens, a hand-opened row closes on reload (UI-65); `sidebar-expanded:<KEY>` goes away.

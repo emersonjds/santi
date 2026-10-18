@@ -42,11 +42,16 @@ Sidebar, top to bottom:
 
 | Group | v1 | Notes |
 |---|---|---|
-| Home | yes | `/` |
-| Projects (header + "New project" icon) | yes | one row per project, every project listed (recents and "View all" → SAN-73): chevron, avatar + name + key (key hidden below `md`), "…" (SAN-91) |
-| └ chevron | yes | expands any project to Board, Backlog (scrum only), Settings (everyone); the current project starts open; the choice is kept per project in `localStorage` (`sidebar-expanded:<KEY>`), defaults when storage is blocked |
-| └ "…" menu | yes | Copy link (`<origin>/p/<KEY>`, toast), Settings; then Archive project (admins, not archived) and Delete project (admins) with the SAN-70 dialogs, and Leave project (disabled with the reason for the last admin). Shown on hover/focus on desktop, always on a phone; 44px targets on a phone; tab order chevron → name → "…"; focus returns to "…" after a dialog |
-| Recent, Starred, Filters, Dashboards | later | no view history, favorites or saved filters in the v1 model; reinstated → SAN-73, SAN-72, SAN-56, SAN-57 |
+| For you | yes | `/` |
+| Recent | yes (SAN-73) | flyout (UI-56..59): search, time groups, pages of 15 from `GET /api/me/recent` (projects and issues); view-all → `/?tab=viewed` |
+| Starred | yes (SAN-73) | flyout (UI-60): search, type menu All / Projects / Issues, unstar toggle, `GET /api/me/starred`; view-all → `/?tab=starred` |
+| Projects (header: + "New project", "…") | yes | "…": Manage projects (`/projects`), View submenu (Recent and starred / Starred only / Most recent project, `localStorage`, D49). Rows from `/api/me/projects`: "Starred" sublist (newest star first), then "Recent" (5 non-starred); each row chevron, avatar + name + key (key hidden below `md`), star, "…" |
+| └ chevron | yes | expands to Board, Backlog and Reports (scrum only), Settings (everyone); the current project is open; a row opened by hand closes on reload (UI-65) |
+| └ "…" menu | yes | Star/Unstar, Copy link (`<origin>/p/<KEY>`, toast), Add people (admins, Members page), Settings; then Archive project (admins, not archived) and Delete project (admins) with the SAN-70 dialogs, and Leave project (disabled with the reason for the last admin); read-only "Scrum project" / "Kanban project" last. Star and "…" shown on hover/focus on desktop, always on a phone; 44px targets on a phone; tab order chevron → name → star → "…"; focus returns to "…" after a dialog |
+| └ More projects | yes (SAN-73) | flyout (UI-64) over the cached project list: search, recent group then other by name, view-all → `/projects`; sidebar plus flyout list each project once |
+| Resize handle | yes (SAN-73), ≥ `md` | 200–500px, default 320px, arrows ±20px, double-click collapses; width in `localStorage` (D49) |
+| Filters, Dashboards, Plans | hidden | appear with SAN-56, SAN-57, SAN-55 |
+| Customize sidebar | later | UI-7, UI-50, UI-66; follow-up card with SAN-56/57 |
 
 Project navigation: the project header carries tabs; the sidebar repeats the same links for the
 current project (ui-layout OQ-7: both).
@@ -55,8 +60,9 @@ current project (ui-layout OQ-7: both).
 |---|---|---|
 | Board | yes | everyone |
 | Backlog | yes, scrum only | everyone |
-| Settings | yes | admins only |
-| Summary, List, Calendar, Releases, Reports | later | reinstated → P5 (Summary, List, Calendar), SAN-55 (Releases, Reports) |
+| Reports | yes, scrum only | everyone |
+| Settings | yes | everyone (edits need admin) |
+| Summary, List, Calendar, Releases | later | reinstated → P5 (Summary, List, Calendar), SAN-55 (Releases) |
 
 Tabs are fixed in v1 (UI-8 reordering: later; reinstated → P5).
 

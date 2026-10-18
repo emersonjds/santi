@@ -43,12 +43,16 @@ const useMembersWrite = <Variables,>(
   const navigate = useNavigate()
   const { data: me } = useQuery(sessionQuery)
   const refresh = () =>
-    Promise.all(
-      [membersQuery(projectKey), projectQuery(projectKey), projectsQuery].map(
-        ({ queryKey }) =>
-          queryClient.invalidateQueries({ queryKey, exact: true })
-      )
-    )
+    Promise.all([
+      ...[
+        membersQuery(projectKey),
+        projectQuery(projectKey),
+        projectsQuery,
+      ].map(({ queryKey }) =>
+        queryClient.invalidateQueries({ queryKey, exact: true })
+      ),
+      queryClient.invalidateQueries({ queryKey: ['home'] }),
+    ])
 
   const afterOwnChange = async () => {
     const name =

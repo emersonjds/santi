@@ -1,56 +1,8 @@
-import type { InfiniteData } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Star } from 'lucide-react'
-import { myIssuesQuery, myProjectsQuery } from '@/entities/home/home-queries'
-import {
-  type HomeIssue,
-  type MyProject,
-  api,
-  okOrThrow,
-} from '@/shared/api/client'
-import { useOptimisticWrite } from '@/shared/lib/optimistic-write'
+import type { HomeIssue, MyItem, MyProject } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
-
-type Toggle = { key: string; starred: boolean }
-
-const writeStar = async ({ key, starred }: Toggle) =>
-  okOrThrow(
-    starred
-      ? await api.POST('/api/me/stars', { body: { key } })
-      : await api.DELETE('/api/me/stars/{key}', { params: { path: { key } } })
-  )
-
-const failure = ({ key, starred }: Toggle) =>
-  `${key} was not ${starred ? 'starred' : 'unstarred'}`
-
-const ISSUES_KEY = myIssuesQuery('recommended').queryKey.slice(0, 2)
-
-/** D37: every home list flips the star at once; a failure puts it back. */
-const useStarIssue = () =>
-  useOptimisticWrite<InfiniteData<{ items: HomeIssue[] }>, Toggle>({
-    queryKey: ISSUES_KEY,
-    write: writeStar,
-    change: (view, { key, starred }) => ({
-      ...view,
-      pages: view.pages.map((page) => ({
-        ...page,
-        items: page.items.map((issue) =>
-          issue.key === key ? { ...issue, starred } : issue
-        ),
-      })),
-    }),
-    failure,
-  })
-
-const useStarProject = () =>
-  useOptimisticWrite<MyProject[], Toggle>({
-    queryKey: myProjectsQuery.queryKey,
-    write: writeStar,
-    change: (projects, { key, starred }) =>
-      projects.map((project) =>
-        project.key === key ? { ...project, starred } : project
-      ),
-    failure,
-  })
+import { useStarIssue, useStarProject } from './use-star'
 
 type StarToggleProps = {
   label: string
@@ -96,9 +48,11 @@ export const StarIssueButton = ({ issue }: { issue: HomeIssue }) => {
 export const StarProjectButton = ({
   project,
   className,
+  onToggle,
 }: {
   project: MyProject
   className?: string
+  onToggle?: () => void
 }) => {
   const star = useStarProject()
   return (
@@ -106,9 +60,31 @@ export const StarProjectButton = ({
       label={`Star ${project.name}`}
       starred={project.starred}
       className={className}
-      onToggle={() =>
+      onToggle={() => {
+        onToggle?.()
         star.mutate({ key: project.key, starred: !project.starred })
-      }
+      }}
+    />
+  )
+}
+
+/** UI-60: the row keeps its place with the toggle flipped; the other lists change at once. */
+export const StarItemButton = ({ item }: { item: MyItem }) => {
+  const [starred, setStarred] = useState(true)
+  const starIssue = useStarIssue()
+  const starProject = useStarProject()
+  const star = item.kind === 'issue' ? starIssue : starProject
+  return (
+    <StarToggle
+      label={`Star ${item.kind === 'issue' ? item.key : item.name}`}
+      starred={starred}
+      onToggle={() => {
+        setStarred(!starred)
+        star.mutate(
+          { key: item.key, starred: !starred },
+          { onError: () => setStarred(starred) }
+        )
+      }}
     />
   )
 }

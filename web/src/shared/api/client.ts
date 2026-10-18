@@ -7,6 +7,7 @@ export type User = Schemas['User']
 export type Project = Schemas['Project']
 export type MyProject = Schemas['MyProject']
 export type HomeIssue = Schemas['HomeIssue']
+export type MyItem = Schemas['MyItem']
 type HomeQuery = NonNullable<
   paths['/api/me/issues']['get']['parameters']['query']
 >

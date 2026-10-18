@@ -69,7 +69,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [Budget; 23] = [
+    let budgets: [Budget; 25] = [
         (
             "board",
             Method::GET,
@@ -179,6 +179,22 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             "viewed",
             Method::GET,
             "/api/me/issues?view=viewed",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "recent",
+            Method::GET,
+            "/api/me/recent?q=perf&limit=15",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "starred feed",
+            Method::GET,
+            "/api/me/starred?kind=issue&limit=15",
             None,
             2,
             StatusCode::OK,
