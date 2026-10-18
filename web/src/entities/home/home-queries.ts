@@ -23,3 +23,44 @@ export const myIssuesQuery = (view: HomeView) =>
     initialPageParam: 0,
     getNextPageParam: (last) => last.next_cursor ?? undefined,
   })
+
+const FLYOUT_PAGE = 15
+
+export const recentQuery = (q: string) =>
+  infiniteQueryOptions({
+    queryKey: ['home', 'recent', q],
+    queryFn: async ({ pageParam }) =>
+      dataOrThrow(
+        await api.GET('/api/me/recent', {
+          params: {
+            query: { q, limit: FLYOUT_PAGE, cursor: pageParam || undefined },
+          },
+        })
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+  })
+
+export type StarredKind = 'project' | 'issue'
+
+export const starredQuery = (kind: StarredKind | undefined, q: string) =>
+  infiniteQueryOptions({
+    queryKey: ['home', 'starred', kind, q],
+    queryFn: async ({ pageParam }) =>
+      dataOrThrow(
+        await api.GET('/api/me/starred', {
+          params: {
+            query: {
+              kind,
+              q,
+              limit: FLYOUT_PAGE,
+              cursor: pageParam || undefined,
+            },
+          },
+        })
+      ),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next_cursor ?? undefined,
+    // UI-60: an item unstarred in the flyout stays until it closes; reopening asks again.
+    gcTime: 0,
+  })
