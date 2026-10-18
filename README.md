@@ -1,13 +1,39 @@
-<h1><img src="web/public/brand/icon-512.png" alt="" width="40" height="40" align="top"> santi</h1>
+<p align="center">
+  <img src="web/public/brand/icon-512.png" alt="santi logo" width="112" height="112">
+</p>
 
-santi is a free, open-source agile tracker you host yourself. Teams plan work on Scrum or Kanban
-boards, groom a backlog, run sprints and track epics, all from a fast web UI backed by a
-documented JSON API. The server is written in Rust (axum, PostgreSQL), the UI in React, and the
-whole thing ships as one container image. No per-seat pricing, no telemetry.
+<h1 align="center">santi</h1>
 
-> **Status:** 0.1.0, the first release. It runs well on one machine for a team; public hosting
-> needs HTTPS in front of it (see [Running on another host](#running-on-another-host)). The
-> HTTP API may still change before 1.0.
+<p align="center">
+  <strong>A free, open-source agile tracker you host yourself.</strong><br>
+  Scrum and Kanban boards, backlog, sprints and reports, from the web, the command line or an AI agent.
+</p>
+
+<p align="center">
+  <a href="https://github.com/emersonjds/santi/actions/workflows/ci.yml"><img src="https://github.com/emersonjds/santi/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/emersonjds/santi/releases/latest"><img src="https://img.shields.io/github/v/release/emersonjds/santi?label=release" alt="Latest release"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="License: MIT OR Apache-2.0"></a>
+</p>
+
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#cli-and-mcp">CLI and MCP</a> ·
+  <a href="#api">API</a> ·
+  <a href="docs/deploy/railway.md">Deploy</a> ·
+  <a href="CHANGELOG.md">Changelog</a> ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+</p>
+
+santi gives a team everything it needs to plan and ship work: boards, a backlog, sprints, epics
+and sprint reports, behind a fast web UI and a documented JSON API. The server is written in Rust
+(axum, PostgreSQL), the UI in React, and the whole thing ships as one container image. No
+per-seat pricing, no telemetry. santi's own backlog runs on santi.
+
+> **Status:** pre-1.0, released often (see [Releases](https://github.com/emersonjds/santi/releases)).
+> It runs well for a team on one machine or one small cloud instance; public hosting needs HTTPS
+> in front of it (see [Running on another host](#running-on-another-host)). The HTTP API may still
+> change between minor versions until 1.0.
 
 ![Board with an active sprint](docs/screenshots/board.webp)
 
@@ -17,30 +43,49 @@ whole thing ships as one container image. No per-seat pricing, no telemetry.
 
 ## Features
 
+**Plan and track**
+
 - **Boards:** Scrum boards show the running sprint; Kanban boards show the flow and hide done work
-  after a set number of days. Columns hold one or more statuses, take WIP limits, and cards move
-  by drag and drop or by a keyboard "Move to…" menu.
-- **Backlog and sprints:** plan sprints by dragging issues between sections, edit rows in place,
-  start and complete sprints; open work at completion goes to the backlog, a future sprint or a
-  new one.
+  after a set number of days. Columns hold one or more statuses and take WIP limits; cards move by
+  drag and drop or a keyboard "Move to…" menu, and points and priority are edited on the card.
+- **Backlog and sprints:** plan sprints by dragging issues between sections and edit rows in place.
+  Sprints start and end at a set time (presets from 4 hours to a month, with a countdown); open
+  work at completion goes to the backlog, a future sprint or a new one.
 - **Issues:** epics, stories, tasks, bugs and subtasks with status, assignee, priority, points,
-  labels, parent, comments and a full issue page; delete for admins and the reporter.
+  labels (search, create, colors on cards), parent, comments and a full issue page.
 - **Epics:** a panel on the backlog to create epics, assign issues to them and filter by them.
+- **Reports:** every completed sprint keeps its report (completed, not completed, added and
+  removed work) and the team's velocity chart, on the web, CLI and MCP.
+
+**Find your way**
+
+- **For you:** a personal home with Worked on, Viewed, Assigned to me and Starred tabs.
+- **Sidebar:** Recent and Starred panels, starred and recent projects, a More projects search and
+  a width you drag to fit.
 - **Filters and search:** assignee, "only my issues", recently updated, type, label, epic and
   text, all kept in the URL; a project search page and a search field in the top bar.
 - **Keyboard:** `c` creates an issue, `j`/`k` move between issues, `o` opens one, `g b` / `g l`
   jump to the board or backlog, `?` lists the rest.
+- **Phones:** the UI works down to 375 px wide; the board shows one column at a time.
+
+**Run a team**
+
 - **Projects and people:** admin and member roles, invite links with a preview, a members page,
   board settings for columns and statuses.
-- **Phones:** the UI works down to 375 px wide; the board shows one column at a time.
-- **API tokens** for scripts, and an **importer** for CSV exports from other trackers.
-- **CLI and MCP:** the `santi` command line and `santi mcp`, an MCP server for AI agents.
+- **Project lifecycle:** archive a project read-only, move it to a 60-day trash with restore, or
+  leave it.
+- **Your data:** export your account and every project you administer as JSON from the account
+  menu; import CSV exports from other trackers.
+- **Automation:** API tokens for scripts, the `santi` CLI and `santi mcp`, an MCP server for AI
+  agents.
 
-Planned: multi-select on the backlog, email notifications.
+On the way: rich text with @mentions, personal settings (language, theme, time zone), issue
+history and links, organizations, email invites and restore from an export. Each release is
+described on the [Releases](https://github.com/emersonjds/santi/releases) page.
 
 ## Quick start
 
-You need Docker with Compose (on macOS, [OrbStack](https://orbstack.dev) works well).
+You need Docker with Compose ([Docker Desktop](https://www.docker.com/products/docker-desktop/) on macOS and Windows).
 
 ```bash
 git clone https://github.com/emersonjds/santi.git
@@ -72,7 +117,8 @@ Any address other than `localhost` needs HTTPS, or the browser drops the session
 reverse proxy (Caddy, nginx, Traefik) in front of port 8080, terminate TLS there and forward the
 original `Host` header (nginx: `proxy_set_header Host $host;`); santi compares it with `Origin` to
 block cross-site writes. Back up the PostgreSQL volume (`pg_dump`) on a schedule; santi does not
-do it for you.
+do it for you yet. `GET /api/me/export` (or **Export my data** in the account menu) downloads
+the account and every project it administers as JSON, which works as an extra copy.
 
 ## Configuration
 
@@ -162,7 +208,7 @@ Numbers, method and the load script: [docs/perf.md](docs/perf.md).
 
 ## Development
 
-You need the latest stable Rust (1.97 or newer), Node 24+ with pnpm, and Docker (OrbStack) for PostgreSQL.
+You need the latest stable Rust (1.97 or newer), Node 24+ with pnpm, and Docker (Docker Desktop) for PostgreSQL.
 
 ```bash
 docker compose up -d postgres                      # PostgreSQL only, on localhost:5440
