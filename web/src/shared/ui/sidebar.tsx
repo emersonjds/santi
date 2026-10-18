@@ -274,16 +274,19 @@ function SidebarResizer() {
       tabIndex={0}
       data-resizing={resizing || undefined}
       onPointerDown={(event) => {
+        if (event.button !== 0) return
         event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
         setResizing(true)
         const move = (moved: PointerEvent) => setWidth(moved.clientX)
+        const ends = ['pointerup', 'pointercancel', 'lostpointercapture']
         const stop = () => {
           setResizing(false)
           window.removeEventListener('pointermove', move)
-          window.removeEventListener('pointerup', stop)
+          for (const type of ends) window.removeEventListener(type, stop)
         }
         window.addEventListener('pointermove', move)
-        window.addEventListener('pointerup', stop)
+        for (const type of ends) window.addEventListener(type, stop)
       }}
       onDoubleClick={() => setOpen(false)}
       onKeyDown={(event) => {
@@ -293,7 +296,7 @@ function SidebarResizer() {
         event.preventDefault()
         setWidth(width + step)
       }}
-      className='pointer-events-auto absolute inset-y-0 -inset-e-3 z-20 w-6 cursor-col-resize outline-none after:absolute after:inset-y-0 after:start-1/2 after:w-0.5 after:-translate-x-1/2 hover:after:bg-sidebar-border focus-visible:after:bg-ring data-resizing:after:bg-ring'
+      className='pointer-events-auto absolute inset-y-0 -inset-e-3 z-20 w-6 cursor-col-resize touch-none outline-none after:absolute after:inset-y-0 after:start-1/2 after:w-0.5 after:-translate-x-1/2 hover:after:bg-sidebar-border focus-visible:after:bg-ring data-resizing:after:bg-ring'
     />
   )
 }
