@@ -408,3 +408,175 @@ async fn erasing_the_account_drops_stars_and_history(pool: PgPool) {
     .unwrap();
     assert_eq!(left, 0);
 }
+
+async fn feed(app: &TestApp, uri: &str) -> Value {
+    let (status, page) = app.get(uri).await;
+    assert_eq!(status, StatusCode::OK, "{uri}: {page}");
+    page
+}
+
+#[sqlx::test]
+async fn recent_mixes_projects_and_issues_newest_first(pool: PgPool) {
+    let (ana, bob) = two_projects(pool).await;
+    ana.create_project("API", "scrum").await;
+    ana.create_issue("WEB", json!({ "summary": "Login page" }))
+        .await;
+    ana.create_issue("OPS", json!({ "summary": "Deploy" }))
+        .await;
+    let visit = "/api/projects/WEB/visit";
+    assert_eq!(
+        ana.browser_post("ana@example.com", visit).await,
+        StatusCode::NO_CONTENT
+    );
+    open_issue(&bob, "bob@example.com", "WEB", 1).await;
+
+    let page = feed(&ana, "/api/me/recent").await;
+
+    assert_eq!(keys(&page), ["WEB", "OPS", "OPS-1", "WEB-1"]);
+    let project = &page["items"][1];
+    assert_eq!(project["kind"], "project");
+    assert_eq!(project["name"], "Project OPS");
+    assert_eq!(project["project_key"], "OPS");
+    assert_eq!(project["project_name"], "Project OPS");
+    assert_eq!(project["board_type"], "kanban");
+    assert!(project["issue_type"].is_null());
+    assert!(project["at"].is_string());
+    let issue = &page["items"][3];
+    assert_eq!(issue["kind"], "issue");
+    assert_eq!(issue["name"], "Login page");
+    assert_eq!(issue["project_key"], "WEB");
+    assert_eq!(issue["project_name"], "Project WEB");
+    assert_eq!(issue["board_type"], "scrum");
+    assert_eq!(issue["issue_type"], "story");
+    assert!(page["next_cursor"].is_null());
+    assert_eq!(keys(&feed(&bob, "/api/me/recent").await), ["WEB", "WEB-1"]);
+}
+
+#[sqlx::test]
+async fn starred_lists_projects_and_issues_newest_star_first(pool: PgPool) {
+    let (ana, bob) = two_projects(pool).await;
+    ana.create_issue("WEB", json!({ "summary": "Login page" }))
+        .await;
+    for key in ["WEB-1", "OPS", "WEB"] {
+        let (status, body) = ana.post("/api/me/stars", json!({ "key": key })).await;
+        assert_eq!(status, StatusCode::NO_CONTENT, "{key}: {body}");
+    }
+
+    let page = feed(&ana, "/api/me/starred").await;
+
+    assert_eq!(keys(&page), ["WEB", "OPS", "WEB-1"]);
+    assert_eq!(page["items"][2]["kind"], "issue");
+    assert_eq!(page["items"][2]["issue_type"], "story");
+    let projects = feed(&ana, "/api/me/starred?kind=project").await;
+    assert_eq!(keys(&projects), ["WEB", "OPS"]);
+    let issues = feed(&ana, "/api/me/starred?kind=issue").await;
+    assert_eq!(keys(&issues), ["WEB-1"]);
+    assert!(keys(&feed(&bob, "/api/me/starred").await).is_empty());
+    let (status, _) = ana.get("/api/me/starred?kind=board").await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test]
+async fn my_projects_carry_star_and_visit_times(pool: PgPool) {
+    let (ana, _bob) = two_projects(pool).await;
+    ana.create_issue("OPS", json!({ "summary": "work" })).await;
+    ana.post("/api/me/stars", json!({ "key": "WEB" })).await;
+
+    let projects = my_projects(&ana).await;
+
+    let ops = projects.iter().find(|project| project["key"] == "OPS");
+    let ops = ops.unwrap();
+    assert!(ops["starred_at"].is_null());
+    assert!(ops["visited_at"].is_string());
+    let web = projects.iter().find(|project| project["key"] == "WEB");
+    let web = web.unwrap();
+    assert!(web["starred_at"].is_string());
+    assert!(web["visited_at"].is_null());
+}
+
+#[sqlx::test]
+async fn feeds_search_names_and_keys(pool: PgPool) {
+    let (ana, _bob) = two_projects(pool).await;
+    ana.create_issue("WEB", json!({ "summary": "Login page" }))
+        .await;
+    ana.create_issue("WEB", json!({ "summary": "50% off" }))
+        .await;
+    for key in ["WEB", "WEB-1", "WEB-2"] {
+        ana.post("/api/me/stars", json!({ "key": key })).await;
+    }
+
+    for feed_uri in ["/api/me/recent", "/api/me/starred"] {
+        let search = |q: &str| format!("{feed_uri}?q={q}");
+        assert_eq!(keys(&feed(&ana, &search("LOGIN")).await), ["WEB-1"]);
+        assert_eq!(keys(&feed(&ana, &search("web-2")).await), ["WEB-2"]);
+        assert_eq!(keys(&feed(&ana, &search("%25")).await), ["WEB-2"]);
+        assert_eq!(keys(&feed(&ana, &search("project%20web")).await), ["WEB"]);
+        assert!(keys(&feed(&ana, &search("nothing")).await).is_empty());
+        assert!(keys(&feed(&ana, &search("_")).await).is_empty());
+        assert_eq!(keys(&feed(&ana, &search("%20")).await).len(), 3);
+    }
+}
+
+#[sqlx::test]
+async fn feeds_page_and_reject_bad_queries(pool: PgPool) {
+    let (ana, bob) = two_projects(pool).await;
+    for index in 1..=3 {
+        ana.create_issue("OPS", json!({ "summary": format!("issue {index}") }))
+            .await;
+        ana.post("/api/me/stars", json!({ "key": format!("OPS-{index}") }))
+            .await;
+    }
+
+    for (feed_uri, rest) in [("/api/me/recent", 2), ("/api/me/starred?kind=issue", 1)] {
+        let join = if feed_uri.contains('?') { '&' } else { '?' };
+        let first = feed(&ana, &format!("{feed_uri}{join}limit=2")).await;
+        assert_eq!(keys(&first).len(), 2, "{feed_uri}");
+        let cursor = first["next_cursor"].as_i64().unwrap();
+        let second = feed(&ana, &format!("{feed_uri}{join}limit=2&cursor={cursor}")).await;
+        assert_eq!(keys(&second).len(), rest, "{feed_uri}");
+        assert!(second["next_cursor"].is_null());
+        let (status, _) = ana.get(&format!("{feed_uri}{join}limit=0")).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    }
+    let anonymous = TestApp {
+        token: None,
+        ..bob.clone()
+    };
+    for uri in ["/api/me/recent", "/api/me/starred"] {
+        assert_eq!(anonymous.get(uri).await.0, StatusCode::UNAUTHORIZED);
+    }
+}
+
+#[sqlx::test]
+async fn feeds_skip_projects_left_archived_or_trashed(pool: PgPool) {
+    let (ana, bob) = two_projects(pool).await;
+    ana.create_project("API", "scrum").await;
+    for key in ["WEB", "OPS", "API"] {
+        ana.create_issue(key, json!({ "summary": "x" })).await;
+        ana.post("/api/me/stars", json!({ "key": key })).await;
+        ana.post("/api/me/stars", json!({ "key": format!("{key}-1") }))
+            .await;
+    }
+    open_issue(&bob, "bob@example.com", "WEB", 1).await;
+    bob.post("/api/me/stars", json!({ "key": "WEB" })).await;
+    assert_eq!(keys(&feed(&bob, "/api/me/recent").await), ["WEB", "WEB-1"]);
+
+    let (status, _) = ana.post("/api/projects/OPS/archive", json!({})).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = ana.post("/api/projects/API/trash", json!({})).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (status, _) = ana
+        .delete(&format!("/api/projects/WEB/members/{}", bob.user_id))
+        .await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+
+    for uri in ["/api/me/recent", "/api/me/starred"] {
+        let left = feed(&ana, uri).await;
+        assert!(
+            keys(&left).iter().all(|key| key.starts_with("WEB")),
+            "{uri}: {left}"
+        );
+        assert_eq!(keys(&left).len(), 2, "{uri}");
+        assert!(keys(&feed(&bob, uri).await).is_empty(), "{uri}");
+    }
+}

@@ -1,0 +1,104 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH recent AS (\n             SELECT i.project_id, max(greatest(a.viewed_at, a.worked_at)) AS at\n             FROM issue_activity a JOIN issue i ON i.id = a.issue_id\n             WHERE a.user_id = $1\n             GROUP BY i.project_id)\n           SELECT p.key, p.name, b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\",\n                  (SELECT u.display_name FROM member l JOIN app_user u ON u.id = l.user_id\n                   WHERE l.project_id = p.id AND l.role = 'admin'\n                   ORDER BY l.user_id LIMIT 1) AS \"lead_name?\",\n                  m.starred_at IS NOT NULL AS \"starred!\",\n                  (SELECT count(*) FROM issue i JOIN status s ON s.id = i.status_id\n                   WHERE i.project_id = p.id AND i.assignee_id = $1 AND s.category <> 'done') AS \"open_assigned!\",\n                  m.starred_at, greatest(m.visited_at, r.at) AS \"visited_at?\"\n           FROM member m\n           JOIN project p ON p.id = m.project_id\n           JOIN board b ON b.project_id = p.id\n           LEFT JOIN recent r ON r.project_id = p.id\n           WHERE m.user_id = $1 AND p.archived_at IS NULL AND p.trashed_at IS NULL\n           ORDER BY greatest(m.visited_at, r.at) DESC NULLS LAST, m.starred_at IS NULL, p.key",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "board_type: BoardType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "board",
+            "name": "board_type"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "role: MemberRole",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "lead_name?",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 5,
+        "name": "starred!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "open_assigned!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "starred_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "starred_at"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "visited_at?",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      null,
+      null,
+      null,
+      true,
+      null
+    ]
+  },
+  "hash": "6cd9a5119a52441d4055d3c369bb1474e521a368383f5266081af7cf40677959"
+}
