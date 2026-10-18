@@ -619,10 +619,12 @@ fn category_from_name(name: &str) -> StatusCategory {
 
 fn type_from_name(name: &str) -> IssueType {
     match name.to_lowercase().as_str() {
-        "epic" => IssueType::Epic,
-        "task" => IssueType::Task,
-        "bug" | "defect" => IssueType::Bug,
-        "sub-task" | "subtask" | "sub-issue" | "sub-bug" => IssueType::Subtask,
+        "epic" | "épico" | "épica" | "épopée" => IssueType::Epic,
+        "task" | "tarefa" | "tarea" | "tâche" | "aufgabe" => IssueType::Task,
+        "bug" | "defect" | "erro" | "error" | "fehler" => IssueType::Bug,
+        "sub-task" | "subtask" | "sub-issue" | "sub-bug" | "subtarefa" | "sub-tarefa"
+        | "subtarea" | "sous-tâche" | "unteraufgabe" => IssueType::Subtask,
+        // Story, História, Historia, Histoire, and any type santi has no kind for.
         _ => IssueType::Story,
     }
 }
@@ -860,7 +862,7 @@ pub fn plan_import(
         let description: String = row
             .description
             .chars()
-            .take(issues::domain::MAX_DESCRIPTION)
+            .take(issues::domain::MAX_RICH_TEXT)
             .collect();
         if description.len() < row.description.len() {
             problem("description cut to 65536 characters".into());
@@ -902,7 +904,11 @@ pub fn plan_import(
                 .iter()
                 .filter(|comment| !comment.body.is_empty())
                 .map(|comment| {
-                    let body: String = comment.body.chars().take(20_000).collect();
+                    let body: String = comment
+                        .body
+                        .chars()
+                        .take(issues::domain::MAX_RICH_TEXT)
+                        .collect();
                     (body, comment.created.unwrap_or(created).min(now))
                 })
                 .collect(),
@@ -1135,6 +1141,32 @@ mod tests {
         );
         assert_eq!(parse_date("2026-09-14"), Some(at(2026, 9, 14, 0, 0)));
         assert_eq!(parse_date("not a date"), None);
+    }
+
+    #[test]
+    fn issue_types_named_in_the_site_language_keep_their_kind() {
+        let cases = [
+            ("Tarefa", IssueType::Task),
+            ("Tarea", IssueType::Task),
+            ("Tâche", IssueType::Task),
+            ("Aufgabe", IssueType::Task),
+            ("Subtarefa", IssueType::Subtask),
+            ("Sub-tarefa", IssueType::Subtask),
+            ("Subtarea", IssueType::Subtask),
+            ("Sous-tâche", IssueType::Subtask),
+            ("Unteraufgabe", IssueType::Subtask),
+            ("História", IssueType::Story),
+            ("Historia", IssueType::Story),
+            ("Épico", IssueType::Epic),
+            ("Épica", IssueType::Epic),
+            ("Épopée", IssueType::Epic),
+            ("Erro", IssueType::Bug),
+            ("Fehler", IssueType::Bug),
+            ("Something else", IssueType::Story),
+        ];
+        for (name, kind) in cases {
+            assert_eq!(type_from_name(name), kind, "{name}");
+        }
     }
 
     #[test]
@@ -1438,7 +1470,7 @@ mod tests {
     fn plan_cuts_long_descriptions() {
         let csv = format!(
             "Issue key,Summary,Status,Description\nA-1,Long,Done,{}\n",
-            "x".repeat(issues::domain::MAX_DESCRIPTION + 5)
+            "x".repeat(issues::domain::MAX_RICH_TEXT + 5)
         );
         let export = read_export(&csv).unwrap();
 
@@ -1453,13 +1485,33 @@ mod tests {
 
         assert_eq!(
             plan.issues[0].description.chars().count(),
-            issues::domain::MAX_DESCRIPTION
+            issues::domain::MAX_RICH_TEXT
         );
         assert!(
             plan.problems
                 .iter()
                 .any(|problem| problem.message == "description cut to 65536 characters")
         );
+    }
+
+    #[test]
+    fn plan_cuts_long_comments() {
+        let csv = format!(
+            "Issue key,Summary,Status,Comment\nA-1,Long,Done,2026-01-01 10:00;x;{}\n",
+            "x".repeat(65_541)
+        );
+        let export = read_export(&csv).unwrap();
+
+        let plan = plan_import(
+            &export,
+            &jira_mapping(),
+            &categories(),
+            &HashMap::new(),
+            1,
+            Utc::now(),
+        );
+
+        assert_eq!(plan.issues[0].comments[0].0.chars().count(), 65_536);
     }
 
     #[test]

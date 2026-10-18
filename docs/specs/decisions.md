@@ -578,3 +578,37 @@ Architecture vote: A — one guarded helper, same as `last-project.ts` and the s
 Winner: A — accepted: preferences do not follow the viewer across browsers; SAN-93 moves them server-side.
 - Keys: `sidebar-width` (200–500, default 320) and `sidebar-projects-view` (`recent-starred` default, `starred`, `latest`); unreadable or out-of-range values fall back to the default; storage that throws keeps the choice until reload.
 - Row expansion is not a preference: the current project opens, a hand-opened row closes on reload (UI-65); `sidebar-expanded:<KEY>` goes away.
+
+## D50 — Rich text is Markdown; mentions are links (SAN-135; amends ED-15/ED-46 baseline)
+Context: description and comments get a toolbar, rendering and @mentions. The baseline stores rich text as a document tree and sends it over the API (ED-15, ED-46); santi stores plain text, the CLI and MCP read and write it as text, and the issue page has ~24 KB of D39 headroom.
+Options: A) CommonMark + GFM string B) a document tree (JSON) with Markdown as CLI/MCP import/export
+Product vote: A — CLI and MCP users write text with their own tools; no JSON tree to hand-build.
+UX vote: B — a re-serialized Markdown string reflows under the cursor.
+IA vote: A — a tree makes every text surface carry a tree renderer.
+Architecture vote: A — the reflow only happens when an editor re-serializes a tree; a source editor (CodeMirror 6) stores the typed bytes. B adds a schema, a migration of every body and a Rust tree→text renderer, and a WYSIWYG editor over Markdown would destroy what its schema lacks (a CLI-written table). Plain text is already valid Markdown, so nothing migrates.
+Winner: A — accepted: old bodies with Markdown characters now format; screen readers read Markdown markers in the editor.
+- Format: CommonMark + GFM (tables, task lists, strikethrough, autolinks); a single newline is a line break. Stored, returned and accepted byte for byte in DB, API, OpenAPI, CLI and MCP; fields stay `description` and `body`.
+- Mention: `[@Display Name](mention:<user_id>)`, a plain link; `user_id` is `app_user.id`; `[`, `]`, `\` in the name are backslash-escaped. The name is captured at insert and never rewritten; the web shows the member's current name by id, and the captured name as muted text when the id is not a project member. CLI text prints `@Display Name`; JSON and MCP return the token.
+- Safety lives in the one HTML renderer (web `MarkdownView`: React elements, raw HTML as text, safe URL protocols, images as links); the server does not sanitize, it only refuses NUL and oversize bodies.
+- One cap for description and comment: 65,536 characters (`MAX_RICH_TEXT`).
+- Budgets (D39): editor and renderer are lazy chunks (≤ 120 KB and ≤ 50 KB gzip, `size-limit`); initial JS per route unchanged.
+
+**D50 amendment (build, 2026-10-18):** the editor chunk measures 143.3 KB gzip counted honestly
+(CodeMirror ~110 KB plus the Radix menu code the toolbar's dropdown menus pull in when the issue
+menu has not loaded it). Budget for that lazy chunk is 150 KB; it loads on idle and never counts
+toward the D39 first-visit budget (issue page initial JS 153.2 KB). Rejected: measuring beside the
+issue menu (only admins and reporters load that menu, so it hid ~28 KB from everyone else) and
+dropping Radix from the toolbar menus (a second menu implementation). Description save waits for
+the server (Save busy, editor read-only, draft kept with the message on error) instead of closing
+optimistically: a lost rich-text draft costs more than one round trip under the 30 ms p95 budget.
+
+## D51 — Label colors from the name, eight label tokens (SAN-151; amends D36)
+Context: label chips are all gray (`bg-muted`); labels are plain strings per issue, label entities with a chosen color are SAN-103.
+Options: A) hue hashed from the name over new label tokens B) reuse the six avatar tones C) wait for SAN-103
+UX vote: B — tokens already exist in both themes. UI and IA votes: A — 8–10 hues, tinted background + strong text.
+Architecture vote: A — avatar tones hold the progress purple (`avatar-1`) and the To Do gray (`avatar-5`), leaving four hues, and a chip would match a person's avatar; C leaves the owner's complaint open for a backlog card.
+Winner: A — accepted: 13 standard labels share 8 hues; the name stays the identity, SAN-103 lets the owner pick.
+- Tokens `--label-{hue}` (text) on `--label-{hue}-bg`, as `bg-label-{hue}-bg text-label-{hue}`, `font-medium`, no dot or border. Light / dark, text on background:
+  red #B42318/#FEE2E2 5.38:1, #F87171/#450A0A 5.84:1 · orange #9A3412/#FFEDD5 6.38:1, #FB923C/#431407 6.92:1 · amber #92400E/#FEF3C7 6.37:1, #FBBF24/#3A2A0A 8.30:1 · lime #3F6212/#ECFCCB 6.52:1, #BEF264/#1A2E05 11.19:1 · sky #075985/#E0F2FE 6.59:1, #38BDF8/#082F49 6.48:1 · blue #1D4ED8/#DBEAFE 5.49:1, #93C5FD/#172554 8.15:1 · fuchsia #86198F/#FAE8FF 7.08:1, #E879F9/#4A044E 6.02:1 · pink #9D174D/#FCE7F3 6.71:1, #F9A8D4/#500724 8.29:1.
+- Excluded: violet/indigo (primary, In Progress, points), gray (To Do, empty), teal and cyan (Done and success).
+- Mapping: `labelTone(name)` hashes the lowercased name with the avatar hash (`pickByName`) into a fixed hue order; reordering the list recolors every label. It is the only color source, so SAN-103 replaces its body (stored hue, hash as fallback) without touching call sites.

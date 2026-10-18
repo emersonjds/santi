@@ -13,11 +13,12 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 23] = [
+const TOOLS: [&str; 25] = [
     "add_comment",
     "archive_project",
     "complete_sprint",
     "create_issue",
+    "create_project",
     "create_sprint",
     "delete_issue",
     "get_backlog",
@@ -26,6 +27,7 @@ const TOOLS: [&str; 23] = [
     "get_sprint_report",
     "list_comments",
     "list_epics",
+    "list_members",
     "list_projects",
     "list_sprints",
     "move_issue",
@@ -148,6 +150,17 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         assert_eq!(story["key"], "MCP-2");
         let epics = ok(&client, "list_epics", json!({ "project": "MCP" })).await;
         assert_eq!(epics["items"][0]["key"], "MCP-1");
+        let members = ok(&client, "list_members", json!({ "project": "MCP" })).await;
+        assert_eq!(members[0]["role"], "admin");
+        assert_eq!(hints("list_members").read_only_hint, Some(true));
+        for name in ["create_issue", "update_issue", "add_comment"] {
+            let description = tool(name).description.as_deref().unwrap();
+            assert!(
+                description.contains("Markdown")
+                    && description.contains("[@Name](mention:<user_id>)"),
+                "{name}: {description}"
+            );
+        }
 
         let edited = ok(
             &client,
@@ -166,7 +179,7 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         ok(
             &client,
             "add_comment",
-            json!({ "issue": "MCP-2", "body": "Needs 3DS" }),
+            json!({ "issue": "MCP-2", "body": "Needs 3DS, [@Ana](mention:1)" }),
         )
         .await;
         let comments = ok(
@@ -175,7 +188,7 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
             json!({ "issue": "MCP-2", "limit": 1 }),
         )
         .await;
-        assert_eq!(comments["items"][0]["body"], "Needs 3DS");
+        assert_eq!(comments["items"][0]["body"], "Needs 3DS, [@Ana](mention:1)");
         assert_eq!(comments["next_cursor"], Value::Null);
 
         let sprint = ok(
@@ -326,6 +339,7 @@ fn stdio_rejects_missing_unknown_and_malformed_arguments() {
             "get_backlog",
             "search_issues",
             "list_epics",
+            "list_members",
         ] {
             let description = tool(name).description.as_deref().unwrap();
             assert!(description.contains("untrusted"), "{name}: {description}");
@@ -627,12 +641,41 @@ fn streamable_http_checks_the_host_and_caps_sessions() {
 #[test]
 fn stdio_archives_trashes_restores_and_purges_a_project() {
     let token = server().user();
-    server().project(&token, "GONE", "kanban");
     let config = tempfile::tempdir().unwrap();
     server().block_on(async {
         let mut command = santi(&config);
         command.env("SANTI_TOKEN", &token);
         let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        let created = ok(
+            &client,
+            "create_project",
+            json!({ "key": "gone", "name": "Gone soon", "board_type": "kanban" }),
+        )
+        .await;
+        assert_eq!(created["key"], "GONE");
+        assert_eq!(created["board_type"], "kanban");
+        assert_eq!(created["role"], "admin");
+        let scrum = ok(
+            &client,
+            "create_project",
+            json!({ "key": "GONES", "name": "Scrum by default" }),
+        )
+        .await;
+        assert_eq!(scrum["board_type"], "scrum");
+        let duplicate = rejected(
+            &client,
+            "create_project",
+            json!({ "key": "GONE", "name": "Again" }),
+        )
+        .await;
+        assert!(duplicate.contains("already exists"), "{duplicate}");
+        let malformed = rejected(
+            &client,
+            "create_project",
+            json!({ "key": "../x", "name": "Bad" }),
+        )
+        .await;
+        assert!(malformed.contains("project key"), "{malformed}");
         let project = json!({ "project": "GONE" });
         let keys = |projects: Value| -> Vec<String> {
             projects
@@ -644,7 +687,10 @@ fn stdio_archives_trashes_restores_and_purges_a_project() {
         };
 
         ok(&client, "archive_project", project.clone()).await;
-        assert!(keys(ok(&client, "list_projects", json!({})).await).is_empty());
+        assert_eq!(
+            keys(ok(&client, "list_projects", json!({})).await),
+            ["GONES"]
+        );
         let archived = ok(&client, "list_projects", json!({ "state": "archived" })).await;
         assert_eq!(keys(archived), ["GONE"]);
         let read_only = rejected(

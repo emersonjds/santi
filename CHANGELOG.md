@@ -10,6 +10,105 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-18
+
+> Rich text everywhere: Markdown descriptions and comments with a formatting toolbar, live styling, @mentions and emoji.
+
+### Added
+
+- **Descriptions and comments:** written and stored as Markdown (CommonMark + GFM, D50). The
+  editor styles as you type (bold, italic, strikethrough, code, links, headings, lists, task
+  lists, quotes, code blocks, tables), has a toolbar with text style, marks, link, code, lists,
+  emoji and a More menu, undo and redo, and the usual keyboard shortcuts; Cmd/Ctrl+Enter saves or
+  posts, Esc cancels. On a phone the toolbar scrolls inside itself.
+- **@mentions:** type `@` to pick a project member (name or email, assignee and reporter first).
+  A mention is stored as `[@Name](mention:<user_id>)` and shows as a chip with the member's current
+  name; someone no longer in the project shows as plain muted text.
+- **Emoji:** type `:` or use the toolbar to insert one of about 250 emoji.
+- **CLI:** `santi members <KEY>` lists a project's people with their ids; `issues show` and
+  `issues comments` print mentions as `@Name` (`--json` keeps the raw token).
+- **MCP:** `list_members`; the issue and comment tools say bodies are Markdown and how to mention.
+
+### Changed
+
+- **Limits:** descriptions and comments share one cap of 65,536 characters (comments were 20,000);
+  a counter appears near the limit.
+- **Rendering is safe by construction:** raw HTML shows as text, only safe link schemes are
+  clickable, images show as links, links to other sites open in a new tab without access to santi.
+- **Comments keep their leading indentation** (an indented code block stays a code block).
+- **Description save** waits for the server and keeps the draft, with the error, if it fails.
+
+### Upgrade notes
+
+- Migration `0021_comment_length.sql` widens the comment length check. It rescans every comment
+  under a table lock while it runs (quick at small scale); it is forward-only: once longer comments
+  exist, going back to the 20,000 check fails.
+- Existing plain-text descriptions and comments render as Markdown with their line breaks kept; no
+  data changes.
+
+## [0.15.0] - 2026-10-18
+
+> Colorful labels and a roomier issue panel: every label keeps its own color everywhere, and the Details panel breathes.
+
+### Added
+
+- **Labels:** each label gets one of eight colors from its name (D51), the same on board cards,
+  backlog rows, the issue picker, the label menu and the board's label filter. Every color pair
+  reads at AA contrast in light and dark themes.
+
+### Changed
+
+- **Issue details:** fields sit in four groups (status and assignee; priority, type, points and
+  labels; sprint and epic; reporter and dates) with dividers, values line up with their names,
+  long sprint and epic names show in full on hover, and the panel is wider from 1024 px (the
+  dialog grows to 1080 px from 1280 px).
+
+### Fixed
+
+- **Board:** a card whose meta line was full pushed the assignee avatar out of the card; labels now
+  shorten instead.
+
+## [0.14.1] - 2026-10-18
+
+> Imports from trackers set in Portuguese, Spanish, French or German keep tasks and subtasks as tasks and subtasks.
+
+### Fixed
+
+- **Import:** issue types exported in the site's language (Tarefa, Subtarefa, Tarea, Subtarea,
+  Tâche, Sous-tâche, Aufgabe, Unteraufgabe, Épico, Épica, Épopée, Erro, Fehler) were suggested as
+  stories, so a CLI import with `--yes` turned every task into a story. They now map to task,
+  subtask, epic and bug.
+
+## [0.14.0] - 2026-10-18
+
+> Create projects from the terminal or an AI agent: `santi projects create` and the `create_project` MCP tool.
+
+### Added
+
+- **CLI:** `santi projects create <KEY> --name <NAME> [--type scrum|kanban]` creates a project
+  (scrum by default), makes you its admin and prints it; `--json` prints the API's answer. A
+  malformed key is refused before any request (exit 2); a key already taken exits 5 with the
+  server's message.
+- **MCP:** `create_project { key, name, board_type? }` does the same for AI agents.
+
+### Changed
+
+- **Board CI:** the board INP end-to-end check retries twice on CI runners only; the budgets did
+  not change.
+
+## [0.13.2] - 2026-10-18
+
+> The MCP server survives a redeploy: tools reconnect on their own instead of failing or hanging.
+
+### Fixed
+
+- **CLI and MCP:** after the server redeployed, a running `santi mcp` kept a dead pooled
+  connection, so every tool answered "cannot reach santi" and some calls hung for minutes until
+  the MCP process restarted. Reads now time out after 30 s, idle connections close after 30 s,
+  connecting gives up after 10 s, and a request is retried once after a network error (any
+  request that never connected; otherwise only reads and deletes, never a create, edit or move
+  that may already have reached the server).
+
 ## [0.13.1] - 2026-10-18
 
 > Pickers scroll again: the mouse wheel and touch scroll option lists opened inside the issue dialog.
@@ -403,7 +502,12 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/emersonjds/santi/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/emersonjds/santi/compare/v0.14.1...v0.15.0
+[0.14.1]: https://github.com/emersonjds/santi/compare/v0.14.0...v0.14.1
+[0.14.0]: https://github.com/emersonjds/santi/compare/v0.13.2...v0.14.0
+[0.13.2]: https://github.com/emersonjds/santi/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/emersonjds/santi/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/emersonjds/santi/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/emersonjds/santi/compare/v0.11.0...v0.12.0

@@ -135,6 +135,12 @@ describe('backlog page', () => {
       .nth(1)
     await expect.element(bug.getByTitle('ui', { exact: true })).toBeVisible()
     await expect.element(bug.getByTitle('docs', { exact: true })).toBeVisible()
+    expect(
+      bug
+        .getByTitle('docs', { exact: true })
+        .element()
+        .closest('[data-slot=label-chip]')
+    ).toHaveClass('bg-label-amber-bg', 'text-label-amber', 'text-xs')
     await expect
       .element(bug.getByText('+1', { exact: true }))
       .toHaveAttribute('title', 'api')

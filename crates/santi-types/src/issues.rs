@@ -44,6 +44,7 @@ pub struct CreateIssue {
     pub summary: String,
     #[serde(default)]
     pub issue_type: IssueType,
+    /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
     #[serde(default)]
     pub description: String,
     #[serde(default)]
@@ -71,6 +72,7 @@ pub struct Issue {
     pub key: String,
     pub number: i64,
     pub summary: String,
+    /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
     pub description: String,
     pub issue_type: IssueType,
     pub priority: Priority,
@@ -99,6 +101,7 @@ pub struct Issue {
 pub struct UpdateIssue {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub summary: Option<String>,
+    /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -223,6 +226,7 @@ pub struct Comment {
     pub id: i64,
     pub author_id: i64,
     pub author_name: String,
+    /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
     pub body: String,
     pub created_at: DateTime<Utc>,
 }
@@ -230,6 +234,7 @@ pub struct Comment {
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CreateComment {
+    /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
     pub body: String,
 }
 

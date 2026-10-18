@@ -7,7 +7,7 @@
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
     },
-    "version": "0.13.1"
+    "version": "0.16.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -4993,7 +4993,8 @@
             "type": "string"
           },
           "body": {
-            "type": "string"
+            "type": "string",
+            "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
           },
           "created_at": {
             "type": "string",
@@ -5047,7 +5048,8 @@
         ],
         "properties": {
           "body": {
-            "type": "string"
+            "type": "string",
+            "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
           }
         },
         "additionalProperties": false
@@ -5078,7 +5080,8 @@
             "format": "int64"
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
           },
           "issue_type": {
             "$ref": "#/components/schemas/IssueType"
@@ -5664,7 +5667,8 @@
             "format": "date-time"
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
           },
           "done_at": {
             "type": [
@@ -6140,7 +6144,8 @@
                   "type": "string"
                 },
                 "body": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
                 },
                 "created_at": {
                   "type": "string",
@@ -6276,7 +6281,8 @@
                   "format": "date-time"
                 },
                 "description": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
                 },
                 "done_at": {
                   "type": [
@@ -7246,7 +7252,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
           },
           "issue_type": {
             "oneOf": [

@@ -1,25 +1,34 @@
-import { type FormEvent, type ReactNode, Suspense, lazy, useState } from 'react'
+import {
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+  Suspense,
+  lazy,
+  useState,
+} from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Link2 } from 'lucide-react'
+import {
+  MarkdownReady,
+  MarkdownView,
+} from '@/features/rich-text/lazy-markdown-view'
+import { RichTextField } from '@/features/rich-text/rich-text-field'
 import { useRecordView } from '@/entities/home/record-visit'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
-import { projectQuery } from '@/entities/project/project-queries'
-import {
-  ARCHIVED_NOTE,
-  useProjectWritable,
-} from '@/entities/project/writable'
+import { membersQuery, projectQuery } from '@/entities/project/project-queries'
+import { ARCHIVED_NOTE, useProjectWritable } from '@/entities/project/writable'
 import { WriteLock } from '@/entities/project/write-lock'
 import { sessionQuery } from '@/entities/session/session-query'
-import { type Issue, fieldMessage } from '@/shared/api/client'
+import { type Issue, type Member, fieldMessage } from '@/shared/api/client'
+import { useReadOnly } from '@/shared/lib/read-only'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { Textarea } from '@/shared/ui/textarea'
 import { IssueComments } from './issue-comments'
 import { IssueFields } from './issue-fields'
 import { IssueSubtasks } from './issue-subtasks'
@@ -104,17 +113,42 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
   )
 }
 
-/** Plain text, one paragraph per line: no editor bundle for v1 (D39). */
+/** Q7: the mention picker lists the assignee, then the reporter, first. */
+const peopleOf = ({ assignee_id, reporter_id }: Issue) =>
+  assignee_id == null ? [reporter_id] : [assignee_id, reporter_id]
+
+const NO_MEMBERS: Member[] = []
+
 const Description = ({ issue, projectKey }: IssueProps) => {
   const edit = useEditIssue(projectKey, issue)
+  const { data: members = NO_MEMBERS } = useQuery(membersQuery(projectKey))
+  const locked = Boolean(useReadOnly())
   const [draft, setDraft] = useState<string | null>(null)
 
-  const save = (event: FormEvent) => {
-    event.preventDefault()
-    const description = draft ?? ''
-    if (description !== issue.description)
-      edit.mutate({ change: { description }, shown: { description } })
-    setDraft(null)
+  const save = (event?: FormEvent) => {
+    event?.preventDefault()
+    if (draft === null || edit.isPending) return
+    if (draft === issue.description) return setDraft(null)
+    edit.mutate(
+      { change: { description: draft }, shown: { description: draft } },
+      { onSuccess: () => setDraft(null) }
+    )
+  }
+
+  const cancel = () => {
+    if (!edit.isPending) setDraft(null)
+  }
+
+  // Q6: a click on the text opens the editor, except on a link, a chip or a text selection.
+  const openFromText = (event: MouseEvent) => {
+    if (
+      locked ||
+      (event.target instanceof Element &&
+        event.target.closest('a, [data-mention]')) ||
+      getSelection()?.toString()
+    )
+      return
+    setDraft(issue.description)
   }
 
   return (
@@ -124,15 +158,13 @@ const Description = ({ issue, projectKey }: IssueProps) => {
       </h3>
       {draft === null ? (
         <>
-          <div className='grid text-sm break-words'>
+          <div onClick={openFromText}>
             {issue.description ? (
-              issue.description.split('\n').map((line, index) => (
-                <p key={index} className='min-h-[1lh] whitespace-pre-wrap'>
-                  {line}
-                </p>
-              ))
+              <MarkdownView source={issue.description} members={members} />
             ) : (
-              <p className='text-subtle-foreground'>No description yet.</p>
+              <p className='text-sm text-subtle-foreground'>
+                No description yet.
+              </p>
             )}
           </div>
           <Button
@@ -145,20 +177,31 @@ const Description = ({ issue, projectKey }: IssueProps) => {
         </>
       ) : (
         <form onSubmit={save} className='grid gap-2'>
-          <Textarea
-            aria-label='Description'
+          <RichTextField
+            label='Description'
+            placeholder='Add a description…'
             autoFocus
-            className='min-h-32'
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={setDraft}
+            onSubmit={save}
+            onCancel={cancel}
+            readOnly={edit.isPending}
+            members={members}
+            firstIds={peopleOf(issue)}
           />
           <div className='flex gap-2'>
-            <Button className='h-11 md:h-8'>Save</Button>
+            <Button
+              className='h-11 md:h-8'
+              disabled={edit.isPending}
+              aria-busy={edit.isPending}
+            >
+              Save
+            </Button>
             <Button
               type='button'
               variant='ghost'
               className='h-11 md:h-8'
-              onClick={() => setDraft(null)}
+              onClick={cancel}
             >
               Cancel
             </Button>
@@ -213,57 +256,65 @@ export const IssueDetail = ({
   if (!issue) return <DetailSkeleton />
 
   return (
-    <div
-      data-issue-view
-      className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem]'
-    >
-      <div className='grid min-w-0 content-start gap-6'>
-        <div className='grid gap-2'>
-          <Heading
-            issue={issue}
-            projectKey={projectKey}
-            actions={
-              <>
-                {actions}
-                {mayDelete(project, me, issue.reporter_id) && (
-                  <Suspense
-                    fallback={<span className='block size-11 md:size-8' />}
-                  >
-                    <IssueMenu
-                      note={writable ? undefined : ARCHIVED_NOTE}
-                      onDelete={() => setDeleting(true)}
-                    />
-                  </Suspense>
-                )}
-              </>
-            }
-          />
+    <Suspense fallback={<DetailSkeleton />}>
+      <MarkdownReady>
+        <div
+          data-issue-view
+          className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem] lg:grid-cols-[minmax(0,1fr)_22rem]'
+        >
+          <div className='grid min-w-0 content-start gap-6'>
+            <div className='grid gap-2'>
+              <Heading
+                issue={issue}
+                projectKey={projectKey}
+                actions={
+                  <>
+                    {actions}
+                    {mayDelete(project, me, issue.reporter_id) && (
+                      <Suspense
+                        fallback={<span className='block size-11 md:size-8' />}
+                      >
+                        <IssueMenu
+                          note={writable ? undefined : ARCHIVED_NOTE}
+                          onDelete={() => setDeleting(true)}
+                        />
+                      </Suspense>
+                    )}
+                  </>
+                }
+              />
+              <WriteLock projectKey={projectKey}>
+                <Summary issue={issue} projectKey={projectKey} />
+              </WriteLock>
+            </div>
+            <WriteLock key={issue.key} projectKey={projectKey}>
+              <Description issue={issue} projectKey={projectKey} />
+              {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
+                <IssueSubtasks issue={issue} projectKey={projectKey} />
+              )}
+              <IssueComments
+                projectKey={projectKey}
+                number={number}
+                firstIds={peopleOf(issue)}
+              />
+            </WriteLock>
+          </div>
           <WriteLock projectKey={projectKey}>
-            <Summary issue={issue} projectKey={projectKey} />
+            <IssueFields issue={issue} projectKey={projectKey} />
           </WriteLock>
-        </div>
-        <WriteLock projectKey={projectKey}>
-          <Description issue={issue} projectKey={projectKey} />
-          {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
-            <IssueSubtasks issue={issue} projectKey={projectKey} />
+          {deleting && (
+            <Suspense fallback={null}>
+              <DeleteIssueDialog
+                projectKey={projectKey}
+                issueKey={issue.key}
+                issueType={issue.issue_type}
+                onClose={() => setDeleting(false)}
+                onDeleted={onDeleted}
+              />
+            </Suspense>
           )}
-          <IssueComments projectKey={projectKey} number={number} />
-        </WriteLock>
-      </div>
-      <WriteLock projectKey={projectKey}>
-        <IssueFields issue={issue} projectKey={projectKey} />
-      </WriteLock>
-      {deleting && (
-        <Suspense fallback={null}>
-          <DeleteIssueDialog
-            projectKey={projectKey}
-            issueKey={issue.key}
-            issueType={issue.issue_type}
-            onClose={() => setDeleting(false)}
-            onDeleted={onDeleted}
-          />
-        </Suspense>
-      )}
-    </div>
+        </div>
+      </MarkdownReady>
+    </Suspense>
   )
 }

@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, NaiveTime};
 use clap::{Args, Parser, Subcommand};
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueType, Priority};
-use santi_types::projects::ProjectState;
+use santi_types::projects::{BoardType, ProjectState};
 use santi_types::sprints::{OpenIssuesDestination, SprintLength};
 
 use crate::client::{IssueKey, ProjectKey};
@@ -45,6 +45,8 @@ pub enum Command {
     Board { project: ProjectKey },
     /// Show a project's backlog: sprints first, then the backlog
     Backlog { project: ProjectKey },
+    /// List a project's members: user id (for `--assignee` and mentions), name, email and role
+    Members { project: ProjectKey },
     #[command(subcommand)]
     Sprints(SprintsCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
@@ -79,6 +81,15 @@ pub enum Command {
 
 #[derive(Debug, Subcommand)]
 pub enum ProjectsCommand {
+    /// Create a project; you become its admin
+    Create {
+        project: ProjectKey,
+        #[arg(long)]
+        name: String,
+        /// scrum or kanban
+        #[arg(long = "type", default_value = "scrum", value_parser = enum_value::<BoardType>)]
+        board_type: BoardType,
+    },
     /// List the projects you belong to
     List {
         /// active, archived or trashed; archived and trashed list only projects you administer
@@ -435,6 +446,14 @@ mod tests {
             panic!("not issues comments");
         };
         assert_eq!(issue.to_string(), "WEB-1");
+    }
+
+    #[test]
+    fn members_takes_a_project_key() {
+        let Command::Members { project } = parse(&["santi", "members", "web"]) else {
+            panic!("not members");
+        };
+        assert_eq!(project.as_str(), "WEB");
     }
 
     #[test]
