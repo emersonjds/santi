@@ -2,6 +2,7 @@ import { type ReactNode, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Check, Plus } from 'lucide-react'
 import { labelsQuery } from '@/entities/issue/board-query'
+import { LabelChip } from '@/entities/issue/label-chip'
 import { cn } from '@/shared/lib/utils'
 import {
   Command,
@@ -90,7 +91,7 @@ export const LabelsMenu = ({
                   aria-hidden='true'
                   className={cn(!hasLabel(value, label) && 'invisible')}
                 />
-                <span className='truncate'>{label}</span>
+                <LabelChip name={label} />
                 {hasLabel(value, label) && (
                   <span className='sr-only'> (added)</span>
                 )}
