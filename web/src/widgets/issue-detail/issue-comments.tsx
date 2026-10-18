@@ -20,7 +20,7 @@ import { sessionQuery } from '@/entities/session/session-query'
 import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
 import { type Comment, type Member, fieldMessage } from '@/shared/api/client'
 import { quickRepliesOn } from '@/shared/config/quick-replies'
-import { useReadOnly } from '@/shared/lib/read-only'
+import { LOCKED, lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { toast } from '@/shared/lib/toast'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
@@ -46,6 +46,8 @@ const QUICK_REPLIES = [
 const NO_MEMBERS: Member[] = []
 
 const HIGHLIGHT_MS = 3000
+
+const MENU_SLOT = <span className='-my-3 block size-11 md:-my-1.5 md:size-8' />
 
 const commentLink = (projectKey: string, number: number, id: number) =>
   new URL(`/p/${projectKey}/issues/${number}#comment-${id}`, location.origin)
@@ -81,7 +83,8 @@ const Composer = ({
   members,
   firstIds,
   quickReplies,
-}: ThreadProps & { quickReplies: boolean }) => {
+  note,
+}: ThreadProps & { quickReplies: boolean; note: string | undefined }) => {
   const { data: me } = useQuery(sessionQuery)
   const add = useAddComment(
     projectKey,
@@ -155,8 +158,12 @@ const Composer = ({
           ref={trigger}
           type='button'
           aria-keyshortcuts='m'
-          className='flex h-11 w-full items-center rounded-md border border-input bg-transparent px-3 text-start text-base text-muted-foreground shadow-xs outline-none hover:bg-hover focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:h-9 md:text-sm dark:bg-input/30'
+          className={cn(
+            'flex h-11 w-full items-center rounded-md border border-input bg-transparent px-3 text-start text-base text-muted-foreground shadow-xs outline-none hover:bg-hover focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:h-9 md:text-sm dark:bg-input/30',
+            LOCKED
+          )}
           onClick={() => setOpen(true)}
+          {...lockedButton(note)}
         >
           Add a comment…
           <kbd
@@ -177,8 +184,12 @@ const Composer = ({
             <button
               key={text}
               type='button'
-              className='h-11 shrink-0 rounded-full border px-3 text-sm whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring md:h-8'
+              className={cn(
+                'h-11 shrink-0 rounded-full border px-3 text-sm whitespace-nowrap outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring md:h-8',
+                LOCKED
+              )}
               onClick={() => fill(text)}
+              {...lockedButton(note)}
             >
               {text}
             </button>
@@ -193,6 +204,7 @@ type CommentItemProps = ThreadProps & {
   comment: Comment
   nameOf: (userId: number) => string | undefined
   writable: boolean
+  note: string | undefined
   editing: boolean
   onEditing: (editing: boolean) => void
   highlighted: boolean
@@ -206,6 +218,7 @@ const CommentItem = ({
   comment,
   nameOf,
   writable,
+  note,
   editing,
   onEditing,
   highlighted,
@@ -213,6 +226,7 @@ const CommentItem = ({
   const edit = useEditComment(projectKey, number)
   const [draft, setDraft] = useState(comment.body)
   const [deleting, setDeleting] = useState(false)
+  const item = useRef<HTMLLIElement>(null)
   const menu = useRef<HTMLButtonElement>(null)
   const armMenu = useFocusOnClose(menu, !editing)
   const author = nameOf(comment.author_id) ?? 'Former member'
@@ -248,8 +262,22 @@ const CommentItem = ({
         () => toast.error("Couldn't copy the link")
       )
 
+  const nextFocus = () => {
+    const actions = (element: Element | null | undefined) =>
+      element?.querySelector<HTMLElement>('[aria-label="Comment actions"]')
+    return (
+      actions(item.current?.nextElementSibling) ??
+      actions(item.current?.previousElementSibling) ??
+      item.current
+        ?.closest('section')
+        ?.querySelector<HTMLElement>('[aria-keyshortcuts="m"]') ??
+      null
+    )
+  }
+
   return (
     <li
+      ref={item}
       id={`comment-${comment.id}`}
       className={cn(
         'group -mx-2 rounded-md px-2 motion-safe:transition-colors motion-safe:duration-500',
@@ -285,22 +313,23 @@ const CommentItem = ({
                 </>
               )}
             </p>
-            <Suspense
-              fallback={
-                <span className='-my-3 block size-11 md:-my-1.5 md:size-8' />
-              }
-            >
-              <span className='-my-3 md:-my-1.5'>
-                <CommentMenu
-                  ref={menu}
-                  hidden={editing}
-                  writable={writable}
-                  onEdit={open}
-                  onCopy={() => void copy()}
-                  onDelete={() => setDeleting(true)}
-                />
-              </span>
-            </Suspense>
+            {comment.id < 0 ? (
+              MENU_SLOT
+            ) : (
+              <Suspense fallback={MENU_SLOT}>
+                <span className='-my-3 md:-my-1.5'>
+                  <CommentMenu
+                    ref={menu}
+                    hidden={editing}
+                    writable={writable}
+                    note={note}
+                    onEdit={open}
+                    onCopy={() => void copy()}
+                    onDelete={() => setDeleting(true)}
+                  />
+                </span>
+              </Suspense>
+            )}
           </div>
           {editing ? (
             <form onSubmit={save} className='grid gap-2'>
@@ -352,6 +381,7 @@ const CommentItem = ({
             projectKey={projectKey}
             number={number}
             commentId={comment.id}
+            nextFocus={nextFocus}
             onClose={() => setDeleting(false)}
           />
         </Suspense>
@@ -373,7 +403,8 @@ const useArrival = (comments: Comment[] | undefined) => {
     const target = document.getElementById(hash)
     if (!target) return
     const shown = new ResizeObserver(() => {
-      if (!target.checkVisibility()) return
+      if (!(target.checkVisibility?.() ?? target.offsetParent !== null))
+        return
       shown.disconnect()
       arrived.current = hash
       target.scrollIntoView({ block: 'center' })
@@ -407,8 +438,11 @@ export const IssueComments = ({
   const { data: members = NO_MEMBERS } = useQuery(membersQuery(projectKey))
   const { data: project } = useQuery(projectQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
-  const locked = Boolean(useReadOnly())
+  const note = useReadOnly()
   const [editing, setEditing] = useState<number | null>(null)
+  const editingId = comments?.some((comment) => comment.id === editing)
+    ? editing
+    : null
   const highlighted = useArrival(comments)
   const nameOf = (userId: number) =>
     members.find((member) => member.user_id === userId)?.display_name
@@ -430,20 +464,20 @@ export const IssueComments = ({
               {...thread}
               comment={comment}
               nameOf={nameOf}
-              writable={!locked && mayDelete(project, me, comment.author_id)}
-              editing={editing === comment.id}
+              writable={mayDelete(project, me, comment.author_id)}
+              note={note}
+              editing={editingId === comment.id}
               onEditing={(on) => setEditing(on ? comment.id : null)}
               highlighted={highlighted === `comment-${comment.id}`}
             />
           ))}
         </ol>
       )}
-      {!locked && (
-        <Composer
-          {...thread}
-          quickReplies={editing === null && quickRepliesOn(import.meta.env)}
-        />
-      )}
+      <Composer
+        {...thread}
+        note={note}
+        quickReplies={editingId === null && quickRepliesOn(import.meta.env)}
+      />
     </section>
   )
 }

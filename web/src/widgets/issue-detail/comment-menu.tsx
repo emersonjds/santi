@@ -1,5 +1,6 @@
 import { type Ref, useRef } from 'react'
 import { Ellipsis, Link2, Pencil, Trash2 } from 'lucide-react'
+import { LOCKED, lockedButton } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 import {
   DropdownMenu,
@@ -11,8 +12,10 @@ import {
 type CommentMenuProps = {
   ref?: Ref<HTMLButtonElement>
   hidden?: boolean
-  /** Author or admin, in a writable project; else Copy link only. */
+  /** Author or admin; else Copy link only. */
   writable: boolean
+  /** Set in an archived project: Edit and Delete stay, locked. */
+  note?: string
   onEdit: () => void
   onCopy: () => void
   onDelete: () => void
@@ -23,6 +26,7 @@ export const CommentMenu = ({
   ref,
   hidden,
   writable,
+  note,
   onEdit,
   onCopy,
   onDelete,
@@ -52,28 +56,30 @@ export const CommentMenu = ({
           onEdit()
         }}
       >
-        {writable && (
-          <DropdownMenuItem
-            className='max-md:min-h-11'
-            onSelect={() => (editAfterClose.current = true)}
-          >
-            <Pencil />
-            Edit
-          </DropdownMenuItem>
-        )}
         <DropdownMenuItem className='max-md:min-h-11' onSelect={onCopy}>
           <Link2 />
           Copy link
         </DropdownMenuItem>
         {writable && (
-          <DropdownMenuItem
-            className='max-md:min-h-11'
-            variant='destructive'
-            onSelect={onDelete}
-          >
-            <Trash2 />
-            Delete
-          </DropdownMenuItem>
+          <>
+            <DropdownMenuItem
+              className={cn('max-md:min-h-11', LOCKED)}
+              onSelect={() => (editAfterClose.current = true)}
+              {...lockedButton(note)}
+            >
+              <Pencil />
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className={cn('max-md:min-h-11', LOCKED)}
+              variant='destructive'
+              onSelect={onDelete}
+              {...lockedButton(note)}
+            >
+              <Trash2 />
+              Delete
+            </DropdownMenuItem>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

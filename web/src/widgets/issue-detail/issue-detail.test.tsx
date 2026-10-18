@@ -1098,11 +1098,24 @@ describe('comment thread', () => {
     body: 'First pass done.',
     created_at: new Date(Date.now() - 3_600_000).toISOString(),
   }
+  const LAST: Comment = { ...OWN, id: 6, body: 'Second pass done.' }
   const thread = (items: Comment[], replies = {}) =>
     inProjects({
       [LIST]: { status: 200, body: { items, next_cursor: null } },
       ...replies,
     })
+  /** Answers the first list only: the refetch after a write stays pending, so the thread shows what the client did. */
+  const heldThread = (items: Comment[], replies = {}) => {
+    let calls = 0
+    return thread(items, {
+      [LIST]: {
+        status: 200,
+        body: { items, next_cursor: null },
+        until: () => (calls++ === 0 ? undefined : new Promise(() => {})),
+      },
+      ...replies,
+    })
+  }
   const notes = (count: number) =>
     Array.from({ length: count }, (_, index) => ({
       ...WEB_COMMENTS[0],
@@ -1126,6 +1139,15 @@ describe('comment thread', () => {
       .map((item) => item.textContent)
   }
   const settled = () => new Promise((resolve) => setTimeout(resolve, 150))
+  const deleteAt = async (screen: RenderResult, index: number) => {
+    const confirm = screen.getByRole('alertdialog', {
+      name: 'Delete this comment?',
+    })
+    await actionsOf(screen, index).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await confirm.getByRole('button', { name: 'Delete' }).click()
+    await expect.element(confirm).not.toBeInTheDocument()
+  }
   const editorReady = (screen: RenderResult) =>
     expect
       .element(commentsOf(screen).getByRole('toolbar', { name: 'Formatting' }))
@@ -1271,7 +1293,7 @@ describe('comment thread', () => {
     const field = comments.getByRole('textbox', { name: 'Edit comment' })
 
     await actionsOf(screen, 1).click()
-    expect(await menuItems()).toEqual(['Edit', 'Copy link', 'Delete'])
+    expect(await menuItems()).toEqual(['Copy link', 'Edit', 'Delete'])
     await page.getByRole('menuitem', { name: 'Edit' }).click()
     await editorReady(screen)
     await expect.element(field).toHaveFocus()
@@ -1336,7 +1358,7 @@ describe('comment thread', () => {
     const until = new Promise<void>((resolve) => {
       answer = resolve
     })
-    thread([...WEB_COMMENTS, OWN], {
+    heldThread([...WEB_COMMENTS, OWN], {
       [DELETE]: {
         status: 500,
         body: problem(500, 'The database is away.'),
@@ -1371,6 +1393,111 @@ describe('comment thread', () => {
     await expect.element(articles.nth(1)).toHaveTextContent('First pass done.')
   })
 
+  it('puts back only the refused one of two quick deletes, in its place', async () => {
+    let answer = () => {}
+    const until = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    heldThread([...WEB_COMMENTS, OWN, LAST], {
+      [DELETE]: {
+        status: 500,
+        body: problem(500, 'The database is away.'),
+        until,
+      },
+      'DELETE /api/projects/WEB/issues/1/comments/6': { status: 204 },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const articles = commentsOf(screen).getByRole('article')
+
+    await deleteAt(screen, 1)
+    await deleteAt(screen, 1)
+    await expect.poll(() => articles.elements().length).toBe(1)
+    answer()
+
+    await expect
+      .element(screen.getByText("Couldn't delete the comment"))
+      .toBeVisible()
+    await expect
+      .poll(() => articles.elements().map((article) => article.textContent))
+      .toEqual([
+        expect.stringContaining('Draft is in the shared doc.'),
+        expect.stringContaining('First pass done.'),
+      ])
+  })
+
+  it('gives the focus after a delete to the next comment, else the one before, else the composer', async () => {
+    heldThread([...WEB_COMMENTS, OWN, LAST], {
+      [DELETE]: { status: 204 },
+      'DELETE /api/projects/WEB/issues/1/comments/6': { status: 204 },
+      'DELETE /api/projects/WEB/issues/1/comments/1': { status: 204 },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const articles = commentsOf(screen).getByRole('article')
+
+    await deleteAt(screen, 1)
+    await expect.element(articles.nth(1)).toHaveTextContent('Second pass done.')
+    await expect.element(actionsOf(screen, 1)).toHaveFocus()
+    await deleteAt(screen, 1)
+    await expect.element(actionsOf(screen, 0)).toHaveFocus()
+    await deleteAt(screen, 0)
+    await expect.element(triggerOf(screen)).toHaveFocus()
+  })
+
+  it('offers no actions on a comment the server has not taken yet', async () => {
+    inProjects({ [COMMENT]: pending })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const articles = commentsOf(screen).getByRole('article')
+    await expect.element(actionsOf(screen, 0)).toBeInTheDocument()
+
+    await triggerOf(screen).click()
+    await editorReady(screen)
+    await userEvent.keyboard('Ship it on Friday.')
+    await commentsOf(screen).getByRole('button', { name: 'Save' }).click()
+
+    await expect.element(articles.nth(1)).toHaveTextContent('Ship it on Friday.')
+    expect(
+      articles
+        .nth(1)
+        .getByRole('button', { name: 'Comment actions' })
+        .elements()
+    ).toEqual([])
+  })
+
+  it('brings the quick replies back once the comment being edited is gone', async () => {
+    let gone = false
+    inProjects({
+      [LIST]: {
+        status: 200,
+        body: () => ({
+          items: gone ? WEB_COMMENTS : [...WEB_COMMENTS, OWN],
+          next_cursor: null,
+        }),
+      },
+      [EDIT]: {
+        status: 404,
+        body: () => {
+          gone = true
+          return problem(404, 'No such comment.')
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = commentsOf(screen)
+    const chips = comments.getByRole('group', { name: 'Quick replies' })
+
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await editorReady(screen)
+    await expect.element(chips).not.toBeInTheDocument()
+    await userEvent.keyboard(' More')
+    await comments.getByRole('button', { name: 'Save' }).click()
+
+    await expect
+      .poll(() => comments.getByRole('article').elements().length)
+      .toBe(1)
+    await expect.element(chips).toBeVisible()
+  })
+
   it('gives a member only Copy link on a comment someone else wrote', async () => {
     inProjects({
       'GET /api/projects/WEB': {
@@ -1389,7 +1516,7 @@ describe('comment thread', () => {
     const { screen } = await renderApp('/p/WEB/issues/1')
 
     await actionsOf(screen, 0).click()
-    expect(await menuItems()).toEqual(['Edit', 'Copy link', 'Delete'])
+    expect(await menuItems()).toEqual(['Copy link', 'Edit', 'Delete'])
   })
 
   it('copies the link to the comment on the issue page', async () => {
@@ -1467,6 +1594,40 @@ describe('comment thread', () => {
       })
       .toBe(true)
     await expect.element(target, { timeout: 4000 }).not.toHaveClass(/bg-muted/)
+  })
+
+  it('opens the issue with no message when the comment in the URL is gone', async () => {
+    thread(notes(3))
+    const { screen } = await renderApp('/p/WEB/issues/1#comment-99')
+    const items = commentsOf(screen).getByRole('listitem')
+
+    await expect.element(items.nth(2)).toHaveTextContent('Note 3')
+    await settled()
+    expect(
+      items.elements().filter((item) => item.classList.contains('bg-muted'))
+    ).toEqual([])
+    expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(0)
+  })
+
+  it('finds the comment in the URL in a browser without checkVisibility', async () => {
+    // Safari before 17.4 has no Element.checkVisibility.
+    Object.defineProperty(HTMLLIElement.prototype, 'checkVisibility', {
+      value: undefined,
+      configurable: true,
+    })
+    try {
+      thread(notes(3))
+      await renderApp('/p/WEB/issues/1#comment-2')
+
+      // Plain DOM: the locators call checkVisibility on a list item themselves.
+      await vi.waitFor(() =>
+        expect(document.getElementById('comment-2')?.className).toMatch(
+          /bg-muted/
+        )
+      )
+    } finally {
+      Reflect.deleteProperty(HTMLLIElement.prototype, 'checkVisibility')
+    }
   })
 
   it('keeps the composer, chips and comment actions at 44px at 375 with no sideways scroll', async () => {
