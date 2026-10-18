@@ -287,10 +287,10 @@ const CommentItem = ({
             </p>
             <Suspense
               fallback={
-                <span className='block size-11 max-md:-my-2 md:size-8' />
+                <span className='-my-3 block size-11 md:-my-1.5 md:size-8' />
               }
             >
-              <span className='max-md:-my-2'>
+              <span className='-my-3 md:-my-1.5'>
                 <CommentMenu
                   ref={menu}
                   hidden={editing}
