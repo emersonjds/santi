@@ -8,7 +8,7 @@ use santi_types::issues::{
     Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
     UpdateIssue,
 };
-use santi_types::projects::{Project, ProjectState};
+use santi_types::projects::{CreateProject, Project, ProjectState};
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -70,6 +70,18 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
 
 async fn projects(client: &Client, command: ProjectsCommand, json: bool) -> Result<(), Error> {
     let (project, action, done) = match command {
+        ProjectsCommand::Create {
+            project,
+            name,
+            board_type,
+        } => {
+            let project = CreateProject {
+                key: project.to_string(),
+                name,
+                board_type,
+            };
+            return show(json, &client.create_project(&project).await?, project_line);
+        }
         ProjectsCommand::List { state } => {
             let projects = client.projects(state).await?;
             return show(json, &projects, |projects| lines(projects, project_line));
