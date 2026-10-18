@@ -20,6 +20,11 @@ UI moves to its own repository.
   filters, members and the sprint picker) now scrolls with the mouse wheel, the trackpad and touch;
   before, only dragging the scrollbar worked.
 
+### Documentation
+
+- **README:** centered logo, CI, release and license badges, quick links, and a feature list that
+  matches what ships today (reports, sidebar, For you, project lifecycle, data export).
+
 ## [0.13.0] - 2026-10-17
 
 > A sidebar that gets you back to your work: Recent and Starred panels, starred and recent projects, More projects and a resizable width.
