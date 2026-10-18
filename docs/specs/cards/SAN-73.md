@@ -90,6 +90,39 @@ Gate: `/api/me/recent` and `/api/me/starred` at 2 statements in `perf_budget.rs`
 
 Slice 4 is the split point if the card runs long: it ships alone as a follow-up without touching slices 1–3.
 
+## Screenshot review (ux)
+
+A. Copy: matches the brief verbatim across recent-flyout.tsx, starred-flyout.tsx, more-projects-flyout.tsx, project-sections.tsx, project-actions-button.tsx. "Most recent project" reads fine inside the View submenu, next to "Recent and starred" / "Starred only" — each name states what rows show. No fix.
+
+B. Flyout search input: `sidebar-flyout.tsx:117` has `text-base` on the `Input` (16px), both widths. Compliant.
+
+C. Desktop flyout: confirmed in screenshots (recent-open-1440-light/dark, starred-open-1440-light/dark) — no `DialogPrimitive.Overlay` in `sidebar-flyout.tsx`, flyout sits over breadcrumbs/title/tabs on plain canvas, reads like a layout break rather than an intentional panel. Blocker: add a scrim so it reads as a layer, not a glitch.
+
+D. Filled star at rest on desktop: confirmed bug. `project-sections.tsx:134` passes `md:opacity-0` unconditionally to `StarProjectButton`, so a starred project's filled star also hides until hover/focus — contradicts SAN-72's "starred stays filled" (always visible). 375px is correct (`starred-open-375-light.png` shows the filled star without hover). Blocker.
+
+E. "Starred only" view with an unstarred current project: confirmed. `sidebar-projects.ts:19-25` puts the current project alone in `recent` so it doesn't disappear from the sidebar, but `project-sections.tsx:251` renders it under the literal label "Recent" — misleading (it isn't recent) and contradicts Acceptance's "hides the recent sublist" by letter. Keeping the current project in view is the right call; the label is wrong. Fix: suppress/relabel the sublist when `view === 'starred'` (e.g. no header text for a lone current-project row).
+
+F. Projects header `max-md:h-11` (`app-sidebar.tsx:113`): 44px only below `md`, default height at desktop (pointer). Matches the touch-target rule, not a bug. No fix.
+
+G. 375 drawer "For you" accent on open: confirmed (rest-375-light/dark) — "For you" shows the active/current styling while the open page is a project's Board (breadcrumb/content behind the drawer is the Board empty state, and the Board row in the project sublist is correctly highlighted too, so two rows read "current" at once). `app-sidebar.tsx:94-96` already sets `activeOptions={{ exact: true }}` on the `/` Link, so the fix isn't "add exact" — the aria-current is firing anyway; trace the router match (basepath, trailing slash, or a stale match during the drawer's open transition) before touching the class. Blocker (wrong current-location signal), diagnosis needs one more look before the fix.
+
+H. 1440 wide sidebar (`wide-recent-1440-light.png`): keys sit far right with a wide gap from short names — inherent to flex-1 name + trailing key layout, gets more visible as the sidebar widens toward 500px. Cosmetic, not blocking. Later.
+
+I. Filled star color light (brownish, `#B45309`-ish) vs dark (yellow, `#FBBF24`): this is the D36 `warning` token, tuned for contrast on each theme's own surface — not a contrast bug, by design. Real smell: reusing the "warning" semantic color for a star is a meaning mismatch (star ≠ caution). Later: give star its own token (e.g. reuse `avatar`-style accent or a dedicated `star` token) instead of `text-warning`; not urgent, both values pass contrast.
+
+J. 375 "…" menu, disabled "Leave project" with two-line reason: confirmed tall menu (`project-menu-375-light.png`), but it still fits the 375×812 viewport with no scroll/clip. Not a blocker. Later: a tooltip/popover on a disabled item instead of inline paragraph would read better, but it's more code than the current approach — not cheap, defer.
+
+Fix now (blockers and cheap majors):
+- C: add a dimmed backdrop to the desktop flyout so it reads as a layer over the page, not a broken layout — `web/src/widgets/app-shell/sidebar-flyout.tsx` (add `DialogPrimitive.Overlay`, scope to `md:` so the mobile full-screen layer is unaffected).
+- D: stop hiding the filled star at rest — `web/src/widgets/app-shell/project-sections.tsx:134`, make `md:opacity-0` conditional on `!project.starred` (or drop the className override when starred).
+- E: don't label the lone current-project row "Recent" in Starred-only view — `web/src/widgets/app-shell/project-sections.tsx:245-251` (pass no label / a different label when `view === 'starred'`).
+- G: "For you" row takes the active/current styling while a project page is open — `web/src/widgets/app-shell/app-sidebar.tsx:94-96` (exact already set; find why aria-current still matches before changing the class).
+
+Later (noted, not blocking):
+- H: wide-sidebar key/name gap — cosmetic spacing at resize widths ≥ ~400px.
+- I: star reuses the `warning` token — give it a dedicated token when touched next; contrast is fine today.
+- J: disabled "Leave project" two-line reason makes the row menu tall — fits the viewport; revisit if it ever clips on a shorter phone.
+
 ## Follow-up cards
 
 - For you Viewed tab lists project rows with the UI-58 context line (view-all target parity).
