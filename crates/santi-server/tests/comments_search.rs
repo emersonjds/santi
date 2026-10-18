@@ -26,12 +26,12 @@ async fn comments_are_added_and_listed_in_order(pool: PgPool) {
     ana.create_issue("SANTI", json!({ "summary": "x" })).await;
     let url = "/api/projects/SANTI/issues/1/comments";
 
-    let (created, comment) = ana.post(url, json!({ "body": " first " })).await;
+    let (created, comment) = ana.post(url, json!({ "body": "\n first \n" })).await;
     ana.post(url, json!({ "body": "second" })).await;
     let (_, page) = ana.get(url).await;
 
     assert_eq!(created, StatusCode::CREATED);
-    assert_eq!(comment["body"], "first");
+    assert_eq!(comment["body"], " first");
     assert_eq!(comment["author_id"], ana.user_id);
     assert_eq!(comment["author_name"], "ana@example.com");
     assert_eq!(page["items"][0]["author_name"], "ana@example.com");
@@ -80,8 +80,7 @@ async fn comment_body_is_capped_at_65536_characters(pool: PgPool) {
 #[sqlx::test]
 async fn markdown_bodies_round_trip_byte_for_byte(pool: PgPool) {
     let ana = project(pool).await;
-    let markdown =
-        "**hi** <script>alert(1)</script>\n[x](javascript:alert(1)) [@Ana \\[QA\\]](mention:1)";
+    let markdown = "    let x = 1\n\n**hi** <script>alert(1)</script>\n[x](javascript:alert(1)) [@Ana \\[QA\\]](mention:1)";
     ana.create_issue("SANTI", json!({ "summary": "x", "description": markdown }))
         .await;
     let url = "/api/projects/SANTI/issues/1/comments";
