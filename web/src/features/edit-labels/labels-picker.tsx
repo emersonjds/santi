@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from 'react'
 import { Plus, X } from 'lucide-react'
 import { LabelChip } from '@/entities/issue/label-chip'
-import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
+import { LOCKED, lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 import { buttonVariants } from '@/shared/ui/button'
 import { hasLabel } from './labels'
@@ -14,8 +14,6 @@ const TRIGGER = cn(
   buttonVariants({ variant: 'ghost' }),
   'h-11 px-2 text-muted-foreground md:h-7'
 )
-
-const LOCKED = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
 
 type LabelsPickerProps = {
   projectKey: string

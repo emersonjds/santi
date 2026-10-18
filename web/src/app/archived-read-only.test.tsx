@@ -204,22 +204,40 @@ describe('an archived project (SAN-70 Q3)', () => {
     await expect
       .element(screen.getByText('Draft is in the shared doc.'))
       .toBeVisible()
+    const composer = screen.getByRole('button', { name: 'Add a comment…' })
+    await expectLocked(composer)
+    await composer.click(FORCE)
+    const chips = screen
+      .getByRole('group', { name: 'Quick replies' })
+      .getByRole('button')
+    await expectLocked(chips.first())
     expect(
-      screen.getByRole('button', { name: 'Add a comment…' }).elements()
-    ).toEqual([])
+      chips.elements().map((chip) => chip.getAttribute('aria-disabled'))
+    ).toEqual(['true', 'true', 'true', 'true'])
+    await chips.first().click(FORCE)
+    await settle()
     expect(
-      screen.getByRole('group', { name: 'Quick replies' }).elements()
+      screen.getByRole('textbox', { name: 'Add a comment' }).elements()
     ).toEqual([])
     await screen.getByRole('button', { name: 'Comment actions' }).click()
     await expect
       .element(screen.getByRole('menuitem', { name: 'Copy link' }))
-      .toBeVisible()
+      .not.toHaveAttribute('aria-disabled')
     expect(
       screen
         .getByRole('menuitem')
         .elements()
         .map((item) => item.textContent)
-    ).toEqual(['Copy link'])
+    ).toEqual(['Copy link', 'Edit', 'Delete'])
+    await expectLocked(screen.getByRole('menuitem', { name: 'Edit' }))
+    await expectLocked(screen.getByRole('menuitem', { name: 'Delete' }))
+    await screen.getByRole('menuitem', { name: 'Delete' }).click(FORCE)
+    await screen.getByRole('menuitem', { name: 'Edit' }).click(FORCE)
+    await settle()
+    expect(screen.getByRole('alertdialog').elements()).toEqual([])
+    expect(
+      screen.getByRole('textbox', { name: 'Edit comment' }).elements()
+    ).toEqual([])
     await userEvent.keyboard('{Escape}')
     await expect
       .element(screen.getByRole('button', { name: 'Copy link' }))

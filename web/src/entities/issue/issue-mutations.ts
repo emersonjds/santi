@@ -323,7 +323,6 @@ export const useAddComment = (
       ),
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey })
-      const before = queryClient.getQueryData(queryKey)
       const draft: Comment = {
         id: -Date.now(),
         author_id: authorId,
@@ -332,10 +331,12 @@ export const useAddComment = (
         created_at: new Date().toISOString(),
       }
       queryClient.setQueryData(queryKey, (old = []) => [...old, draft])
-      return before
+      return draft.id
     },
-    onError: (error, _body, before) => {
-      queryClient.setQueryData(queryKey, before)
+    onError: (error, _body, draftId) => {
+      queryClient.setQueryData(queryKey, (old) =>
+        old?.filter((comment) => comment.id !== draftId)
+      )
       toast.error("Couldn't add the comment", { description: error.message })
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
@@ -375,14 +376,21 @@ export const useDeleteComment = (projectKey: string, number: number) => {
       ),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey })
-      const before = queryClient.getQueryData(queryKey)
+      const before = queryClient.getQueryData(queryKey) ?? []
+      const index = before.findIndex((comment) => comment.id === id)
       queryClient.setQueryData(queryKey, (old) =>
         old?.filter((comment) => comment.id !== id)
       )
-      return before
+      return { removed: before.find((comment) => comment.id === id), index }
     },
-    onError: (error, _id, before) => {
-      queryClient.setQueryData(queryKey, before)
+    onError: (error, id, taken) => {
+      // Only this comment comes back: another write may have changed the list since.
+      const removed = taken?.removed
+      queryClient.setQueryData(queryKey, (old) =>
+        old && removed && !old.some((comment) => comment.id === id)
+          ? [...old.slice(0, taken.index), removed, ...old.slice(taken.index)]
+          : old
+      )
       toast.error("Couldn't delete the comment", {
         description: error.message,
       })

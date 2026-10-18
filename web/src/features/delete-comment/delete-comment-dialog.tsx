@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useDeleteComment } from '@/entities/issue/issue-mutations'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import {
@@ -15,6 +16,8 @@ type DeleteCommentDialogProps = {
   projectKey: string
   number: number
   commentId: number
+  /** Where the focus goes once the comment, and the control that opened this, are gone. */
+  nextFocus: () => HTMLElement | null
   onClose: () => void
 }
 
@@ -23,19 +26,28 @@ export const DeleteCommentDialog = ({
   projectKey,
   number,
   commentId,
+  nextFocus,
   onClose,
 }: DeleteCommentDialogProps) => {
   const remove = useDeleteComment(projectKey, number)
   const returnFocus = useReturnFocus()
+  const after = useRef<HTMLElement | null>(null)
 
   const confirm = () => {
+    after.current = nextFocus()
     remove.mutate(commentId)
     onClose()
   }
 
   return (
     <AlertDialog open onOpenChange={(open) => open || onClose()}>
-      <AlertDialogContent onCloseAutoFocus={returnFocus}>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          if (!after.current) return returnFocus(event)
+          event.preventDefault()
+          after.current.focus()
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>Delete this comment?</AlertDialogTitle>
           <AlertDialogDescription>
