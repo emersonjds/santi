@@ -127,4 +127,7 @@ pub struct ExportedComment {
     pub author_id: i64,
     pub body: String,
     pub created_at: DateTime<Utc>,
+    /// Last change of the text; null until a save changes it (D52).
+    pub edited_at: Option<DateTime<Utc>>,
+    pub edited_by_id: Option<i64>,
 }

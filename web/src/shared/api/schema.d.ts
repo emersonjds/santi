@@ -1094,6 +1094,13 @@ export interface components {
             body: string;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description Last change of the text; null until a save changes it (D52).
+             */
+            edited_at?: string | null;
+            /** Format: int64 */
+            edited_by_id?: number | null;
             issue_key: string;
         };
         FieldError: {
