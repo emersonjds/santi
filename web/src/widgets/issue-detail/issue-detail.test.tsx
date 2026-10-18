@@ -5,6 +5,8 @@ import { renderApp } from '@/test/render-app'
 import {
   MEMBERS,
   WEB,
+  WEB_COMMENTS,
+  WEB_ISSUE,
   inProjects,
   issue,
   problem,
@@ -113,6 +115,45 @@ describe('issue detail', () => {
     await expect
       .element(comment)
       .toHaveTextContent('Draft is in the shared doc.')
+  })
+
+  it('renders the description and comments as Markdown with mention chips', async () => {
+    inProjects({
+      'GET /api/projects/WEB/issues/1': {
+        status: 200,
+        body: {
+          ...WEB_ISSUE,
+          description: '**Ship** it\nwith [@Bobby](mention:2)',
+        },
+      },
+      'GET /api/projects/WEB/issues/1/comments': {
+        status: 200,
+        body: {
+          items: [
+            { ...WEB_COMMENTS[0], body: 'Ping [@Al](mention:1) on _Friday_' },
+          ],
+          next_cursor: null,
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    const description = screen.getByRole('region', { name: 'Description' })
+    await expect.element(description.getByText('Ship')).toBeVisible()
+    expect(description.getByText('Ship').element().tagName).toBe('STRONG')
+    await expect
+      .element(description.getByText('Bob Stone', { exact: true }))
+      .toBeVisible()
+    const comment = screen
+      .getByRole('region', { name: 'Comments' })
+      .getByRole('article')
+    await expect
+      .element(comment.getByText('Alice', { exact: true }))
+      .toBeVisible()
+    expect(comment.getByText('Friday').element().tagName).toBe('EM')
+    await expect
+      .element(screen.getByLabelText('Add a comment'))
+      .toHaveAttribute('maxlength', '65536')
   })
 
   it('shows people by first and last name, the full name on hover', async () => {

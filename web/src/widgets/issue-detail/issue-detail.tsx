@@ -2,16 +2,17 @@ import { type FormEvent, type ReactNode, Suspense, lazy, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Link2 } from 'lucide-react'
+import {
+  MarkdownReady,
+  MarkdownView,
+} from '@/features/rich-text/lazy-markdown-view'
 import { useRecordView } from '@/entities/home/record-visit'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
-import { projectQuery } from '@/entities/project/project-queries'
-import {
-  ARCHIVED_NOTE,
-  useProjectWritable,
-} from '@/entities/project/writable'
+import { membersQuery, projectQuery } from '@/entities/project/project-queries'
+import { ARCHIVED_NOTE, useProjectWritable } from '@/entities/project/writable'
 import { WriteLock } from '@/entities/project/write-lock'
 import { sessionQuery } from '@/entities/session/session-query'
 import { type Issue, fieldMessage } from '@/shared/api/client'
@@ -104,9 +105,9 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
   )
 }
 
-/** Plain text, one paragraph per line: no editor bundle for v1 (D39). */
 const Description = ({ issue, projectKey }: IssueProps) => {
   const edit = useEditIssue(projectKey, issue)
+  const { data: members = [] } = useQuery(membersQuery(projectKey))
   const [draft, setDraft] = useState<string | null>(null)
 
   const save = (event: FormEvent) => {
@@ -124,17 +125,13 @@ const Description = ({ issue, projectKey }: IssueProps) => {
       </h3>
       {draft === null ? (
         <>
-          <div className='grid text-sm break-words'>
-            {issue.description ? (
-              issue.description.split('\n').map((line, index) => (
-                <p key={index} className='min-h-[1lh] whitespace-pre-wrap'>
-                  {line}
-                </p>
-              ))
-            ) : (
-              <p className='text-subtle-foreground'>No description yet.</p>
-            )}
-          </div>
+          {issue.description ? (
+            <MarkdownView source={issue.description} members={members} />
+          ) : (
+            <p className='text-sm text-subtle-foreground'>
+              No description yet.
+            </p>
+          )}
           <Button
             variant='outline'
             className='h-11 justify-self-start md:h-8'
@@ -213,57 +210,61 @@ export const IssueDetail = ({
   if (!issue) return <DetailSkeleton />
 
   return (
-    <div
-      data-issue-view
-      className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem]'
-    >
-      <div className='grid min-w-0 content-start gap-6'>
-        <div className='grid gap-2'>
-          <Heading
-            issue={issue}
-            projectKey={projectKey}
-            actions={
-              <>
-                {actions}
-                {mayDelete(project, me, issue.reporter_id) && (
-                  <Suspense
-                    fallback={<span className='block size-11 md:size-8' />}
-                  >
-                    <IssueMenu
-                      note={writable ? undefined : ARCHIVED_NOTE}
-                      onDelete={() => setDeleting(true)}
-                    />
-                  </Suspense>
-                )}
-              </>
-            }
-          />
+    <Suspense fallback={<DetailSkeleton />}>
+      <MarkdownReady>
+        <div
+          data-issue-view
+          className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem]'
+        >
+          <div className='grid min-w-0 content-start gap-6'>
+            <div className='grid gap-2'>
+              <Heading
+                issue={issue}
+                projectKey={projectKey}
+                actions={
+                  <>
+                    {actions}
+                    {mayDelete(project, me, issue.reporter_id) && (
+                      <Suspense
+                        fallback={<span className='block size-11 md:size-8' />}
+                      >
+                        <IssueMenu
+                          note={writable ? undefined : ARCHIVED_NOTE}
+                          onDelete={() => setDeleting(true)}
+                        />
+                      </Suspense>
+                    )}
+                  </>
+                }
+              />
+              <WriteLock projectKey={projectKey}>
+                <Summary issue={issue} projectKey={projectKey} />
+              </WriteLock>
+            </div>
+            <WriteLock projectKey={projectKey}>
+              <Description issue={issue} projectKey={projectKey} />
+              {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
+                <IssueSubtasks issue={issue} projectKey={projectKey} />
+              )}
+              <IssueComments projectKey={projectKey} number={number} />
+            </WriteLock>
+          </div>
           <WriteLock projectKey={projectKey}>
-            <Summary issue={issue} projectKey={projectKey} />
+            <IssueFields issue={issue} projectKey={projectKey} />
           </WriteLock>
-        </div>
-        <WriteLock projectKey={projectKey}>
-          <Description issue={issue} projectKey={projectKey} />
-          {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
-            <IssueSubtasks issue={issue} projectKey={projectKey} />
+          {deleting && (
+            <Suspense fallback={null}>
+              <DeleteIssueDialog
+                projectKey={projectKey}
+                issueKey={issue.key}
+                issueType={issue.issue_type}
+                onClose={() => setDeleting(false)}
+                onDeleted={onDeleted}
+              />
+            </Suspense>
           )}
-          <IssueComments projectKey={projectKey} number={number} />
-        </WriteLock>
-      </div>
-      <WriteLock projectKey={projectKey}>
-        <IssueFields issue={issue} projectKey={projectKey} />
-      </WriteLock>
-      {deleting && (
-        <Suspense fallback={null}>
-          <DeleteIssueDialog
-            projectKey={projectKey}
-            issueKey={issue.key}
-            issueType={issue.issue_type}
-            onClose={() => setDeleting(false)}
-            onDeleted={onDeleted}
-          />
-        </Suspense>
-      )}
-    </div>
+        </div>
+      </MarkdownReady>
+    </Suspense>
   )
 }

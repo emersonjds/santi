@@ -1,5 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { MarkdownView } from '@/features/rich-text/lazy-markdown-view'
+import { MAX_RICH_TEXT } from '@/features/rich-text/mention'
 import { useAddComment } from '@/entities/issue/issue-mutations'
 import { commentsQuery } from '@/entities/issue/issue-queries'
 import { timeAgo } from '@/entities/issue/time-ago'
@@ -57,9 +59,7 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
                     {timeAgo(comment.created_at)}
                   </time>
                 </p>
-                <p className='text-sm break-words whitespace-pre-wrap'>
-                  {comment.body}
-                </p>
+                <MarkdownView source={comment.body} members={members} />
               </div>
             </article>
           </li>
@@ -70,7 +70,7 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
           aria-label='Add a comment'
           aria-keyshortcuts='m'
           placeholder='Add a comment…'
-          maxLength={20_000}
+          maxLength={MAX_RICH_TEXT}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
         />
