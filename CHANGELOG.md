@@ -10,6 +10,28 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-18
+
+> Colorful labels and a roomier issue panel: every label keeps its own color everywhere, and the Details panel breathes.
+
+### Added
+
+- **Labels:** each label gets one of eight colors from its name (D51), the same on board cards,
+  backlog rows, the issue picker, the label menu and the board's label filter. Every color pair
+  reads at AA contrast in light and dark themes.
+
+### Changed
+
+- **Issue details:** fields sit in four groups (status and assignee; priority, type, points and
+  labels; sprint and epic; reporter and dates) with dividers, values line up with their names,
+  long sprint and epic names show in full on hover, and the panel is wider from 1024 px (the
+  dialog grows to 1080 px from 1280 px).
+
+### Fixed
+
+- **Board:** a card whose meta line was full pushed the assignee avatar out of the card; labels now
+  shorten instead.
+
 ## [0.14.1] - 2026-10-18
 
 > Imports from trackers set in Portuguese, Spanish, French or German keep tasks and subtasks as tasks and subtasks.
@@ -444,7 +466,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/emersonjds/santi/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/emersonjds/santi/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/emersonjds/santi/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/emersonjds/santi/compare/v0.13.1...v0.13.2
