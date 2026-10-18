@@ -1,5 +1,6 @@
 import { Suspense, lazy, useState } from 'react'
 import { Plus, X } from 'lucide-react'
+import { LabelChip } from '@/entities/issue/label-chip'
 import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 import { buttonVariants } from '@/shared/ui/button'
@@ -51,13 +52,7 @@ export const LabelsPicker = ({
   return (
     <div className='flex min-w-0 flex-wrap items-center gap-1'>
       {value.map((label) => (
-        <span
-          key={label}
-          className='inline-flex max-w-full min-w-0 items-center rounded-md bg-muted ps-2 text-sm text-muted-foreground'
-        >
-          <span title={label} className='max-w-48 truncate'>
-            {label}
-          </span>
+        <LabelChip key={label} name={label} className='pe-0'>
           <button
             type='button'
             aria-label={`Remove label ${label}`}
@@ -70,7 +65,7 @@ export const LabelsPicker = ({
           >
             <X className='size-3.5' aria-hidden='true' />
           </button>
-        </span>
+        </LabelChip>
       ))}
       {note ? (
         <button

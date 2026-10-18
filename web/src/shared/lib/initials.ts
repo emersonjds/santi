@@ -1,3 +1,5 @@
+import { pickByName } from './by-name'
+
 const words = (name: string) => name.split(/\s+/).filter(Boolean)
 
 /** SAN-100: title case only when the whole name is in capitals; the stored name never changes. */
@@ -32,8 +34,4 @@ const TONES = [
 ]
 
 /** D36 amendment: one of six avatar tones, fixed per name. */
-export const avatarTone = (name: string) => {
-  let hash = 0
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) % 9973
-  return TONES[hash % TONES.length]
-}
+export const avatarTone = (name: string) => pickByName(name, TONES)
