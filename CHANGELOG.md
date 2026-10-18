@@ -10,6 +10,34 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-10-18
+
+> Imports from trackers set in Portuguese, Spanish, French or German keep tasks and subtasks as tasks and subtasks.
+
+### Fixed
+
+- **Import:** issue types exported in the site's language (Tarefa, Subtarefa, Tarea, Subtarea,
+  Tâche, Sous-tâche, Aufgabe, Unteraufgabe, Épico, Épica, Épopée, Erro, Fehler) were suggested as
+  stories, so a CLI import with `--yes` turned every task into a story. They now map to task,
+  subtask, epic and bug.
+
+## [0.14.0] - 2026-10-18
+
+> Create projects from the terminal or an AI agent: `santi projects create` and the `create_project` MCP tool.
+
+### Added
+
+- **CLI:** `santi projects create <KEY> --name <NAME> [--type scrum|kanban]` creates a project
+  (scrum by default), makes you its admin and prints it; `--json` prints the API's answer. A
+  malformed key is refused before any request (exit 2); a key already taken exits 5 with the
+  server's message.
+- **MCP:** `create_project { key, name, board_type? }` does the same for AI agents.
+
+### Changed
+
+- **Board CI:** the board INP end-to-end check retries twice on CI runners only; the budgets did
+  not change.
+
 ## [0.13.2] - 2026-10-18
 
 > The MCP server survives a redeploy: tools reconnect on their own instead of failing or hanging.
@@ -416,7 +444,9 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.13.2...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/emersonjds/santi/compare/v0.14.0...v0.14.1
+[0.14.0]: https://github.com/emersonjds/santi/compare/v0.13.2...v0.14.0
 [0.13.2]: https://github.com/emersonjds/santi/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/emersonjds/santi/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/emersonjds/santi/compare/v0.12.0...v0.13.0
