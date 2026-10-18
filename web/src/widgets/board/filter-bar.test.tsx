@@ -132,6 +132,27 @@ describe('board filter bar', () => {
       .toContain('?type=bug&type=task&label=ui&parent=none')
   })
 
+  it('lists each label as its coloured chip, still picked by typing its name', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Label' }).click()
+    const ui = screen.getByRole('menuitemcheckbox', { name: 'ui' })
+    await expect.element(ui).toBeVisible()
+    expect(ui.element().querySelector('[data-slot=label-chip]')).toHaveClass(
+      'bg-label-sky-bg',
+      'text-label-sky'
+    )
+    await userEvent.keyboard('u')
+    await expect.element(ui).toHaveFocus()
+    await userEvent.keyboard('{Enter}')
+
+    await expect
+      .poll(() => router.state.location.search)
+      .toEqual({ label: ['ui'] })
+    await expect.element(ui).toHaveAttribute('aria-checked', 'true')
+  })
+
   it('drops a filter once its last option is unchecked', async () => {
     inProjects()
     const { screen, router } = await renderApp(

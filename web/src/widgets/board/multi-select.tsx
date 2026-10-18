@@ -9,7 +9,7 @@ import {
 type MultiSelectProps = {
   trigger: ReactNode
   className: string
-  options: { value: string; label: string }[]
+  options: { value: string; label: ReactNode }[]
   selected: string[]
   onChange: (selected: string[] | undefined) => void
 }

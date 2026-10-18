@@ -43,9 +43,11 @@ const INPUT = cn(
   'md:read-only:hover:border-transparent md:read-only:hover:bg-transparent'
 )
 const ROW =
-  'grid gap-1.5 md:min-h-8 md:grid-cols-[5.5rem_minmax(0,1fr)] md:items-center md:gap-x-2 md:gap-y-0.5'
+  'grid gap-1.5 md:min-h-8 md:grid-cols-[5.5rem_minmax(0,1fr)] md:items-start md:gap-x-2 md:gap-y-0.5'
 const LABEL =
-  'text-xs font-medium text-muted-foreground md:text-sm md:font-normal'
+  'text-xs font-medium text-muted-foreground md:text-sm md:leading-8 md:font-normal'
+const GROUP =
+  'grid gap-4 border-t pt-3 first-of-type:border-t-0 first-of-type:pt-0 md:gap-1.5'
 
 type Save = (change: IssueChange['change'], shown: IssueChange['shown']) => void
 
@@ -78,7 +80,7 @@ const Field = ({ label, issue, projectKey, children }: FieldProps) => {
 const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className={ROW}>
     <span className={LABEL}>{label}</span>
-    <span className='truncate text-sm md:px-2.25'>{children}</span>
+    <span className='truncate text-sm md:px-2.25 md:leading-8'>{children}</span>
   </div>
 )
 
@@ -194,6 +196,10 @@ const SprintField = ({ issue, projectKey }: IssueFieldsProps) => {
         <NativeSelect
           id={id}
           className={SELECT}
+          title={
+            choices.find((sprint) => sprint.id === issue.sprint_id)?.name ??
+            'Backlog'
+          }
           value={issue.sprint_id ?? ''}
           onChange={(event) => {
             const sprint_id = Number(event.target.value) || null
@@ -216,13 +222,14 @@ const SprintField = ({ issue, projectKey }: IssueFieldsProps) => {
 const EpicField = ({ issue, projectKey }: IssueFieldsProps) => {
   const { data: epics = [] } = useQuery(epicsQuery(projectKey))
   const parent = issue.parent_key ?? ''
-  const unlisted = parent && !epics.some((epic) => epic.key === parent)
+  const shown = epics.find((epic) => epic.key === parent)
   return (
     <Field label='Epic' issue={issue} projectKey={projectKey}>
       {(save, id) => (
         <NativeSelect
           id={id}
           className={SELECT}
+          title={shown ? `${shown.key} ${shown.summary}` : parent || 'No epic'}
           value={parent}
           onChange={(event) => {
             const picked = event.target.value || null
@@ -230,7 +237,7 @@ const EpicField = ({ issue, projectKey }: IssueFieldsProps) => {
           }}
         >
           <option value=''>No epic</option>
-          {unlisted && <option value={parent}>{parent}</option>}
+          {parent && !shown && <option value={parent}>{parent}</option>}
           {epics.map((epic) => (
             <option key={epic.key} value={epic.key}>
               {epic.key} {epic.summary}
@@ -254,102 +261,115 @@ export const IssueFields = ({ issue, projectKey }: IssueFieldsProps) => {
     (member) => member.user_id === issue.reporter_id
   )
   const field = { issue, projectKey }
+  const scrum = project?.board_type === 'scrum'
+  const epicChild = EPIC_CHILDREN.has(issue.issue_type)
 
   return (
     <section
       aria-labelledby='issue-details'
-      className='grid content-start gap-4 md:gap-1 md:border-s md:ps-6'
+      className='grid content-start gap-4 md:gap-1.5 md:border-s md:ps-6'
     >
       <h3 id='issue-details' className='text-sm font-semibold md:mb-2'>
         Details
       </h3>
-      <StatusField {...field} />
-      <AssigneeField {...field} />
-      <Fact label='Reporter'>
-        {reporter ? (
-          <PersonName name={reporter.display_name} />
-        ) : (
-          'Former member'
-        )}
-      </Fact>
-      <Field label='Priority' {...field}>
-        {(save, id) => (
-          <span className='relative min-w-0'>
-            <span className='pointer-events-none absolute start-2 top-1/2 z-10 flex -translate-y-1/2 md:-start-5'>
-              <PriorityGlyph priority={issue.priority} />
+      <div className={GROUP}>
+        <StatusField {...field} />
+        <AssigneeField {...field} />
+      </div>
+      <div className={GROUP}>
+        <Field label='Priority' {...field}>
+          {(save, id) => (
+            <span className='relative min-w-0'>
+              <span className='pointer-events-none absolute start-2 top-1/2 z-10 flex -translate-y-1/2 md:-start-5'>
+                <PriorityGlyph priority={issue.priority} />
+              </span>
+              <NativeSelect
+                id={id}
+                className={cn(SELECT, 'min-w-0 ps-8 md:ps-2')}
+                value={issue.priority}
+                onChange={(event) => {
+                  const priority = event.target.value
+                  if (isPriority(priority)) save({ priority }, { priority })
+                }}
+              >
+                {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </NativeSelect>
             </span>
+          )}
+        </Field>
+        <Field label='Type' {...field}>
+          {(save, id) => (
             <NativeSelect
               id={id}
-              className={cn(SELECT, 'min-w-0 ps-8 md:ps-2')}
-              value={issue.priority}
+              className={SELECT}
+              value={issue.issue_type}
               onChange={(event) => {
-                const priority = event.target.value
-                if (isPriority(priority)) save({ priority }, { priority })
+                const issue_type = event.target.value
+                if (isIssueType(issue_type))
+                  save({ issue_type }, { issue_type })
               }}
             >
-              {Object.entries(PRIORITY_LABEL).map(([value, label]) => (
+              {Object.entries(TYPE_LABEL).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
                 </option>
               ))}
             </NativeSelect>
-          </span>
-        )}
-      </Field>
-      <Field label='Type' {...field}>
-        {(save, id) => (
-          <NativeSelect
-            id={id}
-            className={SELECT}
-            value={issue.issue_type}
-            onChange={(event) => {
-              const issue_type = event.target.value
-              if (isIssueType(issue_type)) save({ issue_type }, { issue_type })
-            }}
-          >
-            {Object.entries(TYPE_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </NativeSelect>
-        )}
-      </Field>
-      <Field label='Points' {...field}>
-        {(save, id) => (
-          <CommitInput
-            id={id}
-            type='number'
-            min={0}
-            step='any'
-            inputMode='decimal'
-            className={INPUT}
-            value={issue.points == null ? '' : String(issue.points)}
-            onCommit={(text) => {
-              const points = pointsOf(text)
-              save({ points }, { points })
-            }}
-          />
-        )}
-      </Field>
-      {project?.board_type === 'scrum' && <SprintField {...field} />}
-      <Field label='Labels' {...field}>
-        {(save, id) => (
-          <LabelsPicker
-            id={id}
-            projectKey={projectKey}
-            value={issue.labels}
-            onChange={(labels) => save({ labels }, { labels })}
-          />
-        )}
-      </Field>
-      {EPIC_CHILDREN.has(issue.issue_type) && <EpicField {...field} />}
-      <Fact label='Created'>
-        <When iso={issue.created_at} />
-      </Fact>
-      <Fact label='Updated'>
-        <When iso={issue.updated_at} />
-      </Fact>
+          )}
+        </Field>
+        <Field label='Points' {...field}>
+          {(save, id) => (
+            <CommitInput
+              id={id}
+              type='number'
+              min={0}
+              step='any'
+              inputMode='decimal'
+              className={INPUT}
+              value={issue.points == null ? '' : String(issue.points)}
+              onCommit={(text) => {
+                const points = pointsOf(text)
+                save({ points }, { points })
+              }}
+            />
+          )}
+        </Field>
+        <Field label='Labels' {...field}>
+          {(save, id) => (
+            <LabelsPicker
+              id={id}
+              projectKey={projectKey}
+              value={issue.labels}
+              onChange={(labels) => save({ labels }, { labels })}
+            />
+          )}
+        </Field>
+      </div>
+      {(scrum || epicChild) && (
+        <div className={GROUP}>
+          {scrum && <SprintField {...field} />}
+          {epicChild && <EpicField {...field} />}
+        </div>
+      )}
+      <div className={GROUP}>
+        <Fact label='Reporter'>
+          {reporter ? (
+            <PersonName name={reporter.display_name} />
+          ) : (
+            'Former member'
+          )}
+        </Fact>
+        <Fact label='Created'>
+          <When iso={issue.created_at} />
+        </Fact>
+        <Fact label='Updated'>
+          <When iso={issue.updated_at} />
+        </Fact>
+      </div>
     </section>
   )
 }

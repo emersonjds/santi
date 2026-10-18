@@ -602,3 +602,13 @@ dropping Radix from the toolbar menus (a second menu implementation). Descriptio
 the server (Save busy, editor read-only, draft kept with the message on error) instead of closing
 optimistically: a lost rich-text draft costs more than one round trip under the 30 ms p95 budget.
 
+## D51 — Label colors from the name, eight label tokens (SAN-151; amends D36)
+Context: label chips are all gray (`bg-muted`); labels are plain strings per issue, label entities with a chosen color are SAN-103.
+Options: A) hue hashed from the name over new label tokens B) reuse the six avatar tones C) wait for SAN-103
+UX vote: B — tokens already exist in both themes. UI and IA votes: A — 8–10 hues, tinted background + strong text.
+Architecture vote: A — avatar tones hold the progress purple (`avatar-1`) and the To Do gray (`avatar-5`), leaving four hues, and a chip would match a person's avatar; C leaves the owner's complaint open for a backlog card.
+Winner: A — accepted: 13 standard labels share 8 hues; the name stays the identity, SAN-103 lets the owner pick.
+- Tokens `--label-{hue}` (text) on `--label-{hue}-bg`, as `bg-label-{hue}-bg text-label-{hue}`, `font-medium`, no dot or border. Light / dark, text on background:
+  red #B42318/#FEE2E2 5.38:1, #F87171/#450A0A 5.84:1 · orange #9A3412/#FFEDD5 6.38:1, #FB923C/#431407 6.92:1 · amber #92400E/#FEF3C7 6.37:1, #FBBF24/#3A2A0A 8.30:1 · lime #3F6212/#ECFCCB 6.52:1, #BEF264/#1A2E05 11.19:1 · sky #075985/#E0F2FE 6.59:1, #38BDF8/#082F49 6.48:1 · blue #1D4ED8/#DBEAFE 5.49:1, #93C5FD/#172554 8.15:1 · fuchsia #86198F/#FAE8FF 7.08:1, #E879F9/#4A044E 6.02:1 · pink #9D174D/#FCE7F3 6.71:1, #F9A8D4/#500724 8.29:1.
+- Excluded: violet/indigo (primary, In Progress, points), gray (To Do, empty), teal and cyan (Done and success).
+- Mapping: `labelTone(name)` hashes the lowercased name with the avatar hash (`pickByName`) into a fixed hue order; reordering the list recolors every label. It is the only color source, so SAN-103 replaces its body (stored hue, hash as fallback) without touching call sites.

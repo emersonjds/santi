@@ -66,6 +66,23 @@
   --avatar-5-foreground: #3d4354;
   --avatar-6: #fce7f3;
   --avatar-6-foreground: #9d174d;
+  /* D51: label chips, hue picked from the name. */
+  --label-red: #b42318;
+  --label-red-bg: #fee2e2;
+  --label-orange: #9a3412;
+  --label-orange-bg: #ffedd5;
+  --label-amber: #92400e;
+  --label-amber-bg: #fef3c7;
+  --label-lime: #3f6212;
+  --label-lime-bg: #ecfccb;
+  --label-sky: #075985;
+  --label-sky-bg: #e0f2fe;
+  --label-blue: #1d4ed8;
+  --label-blue-bg: #dbeafe;
+  --label-fuchsia: #86198f;
+  --label-fuchsia-bg: #fae8ff;
+  --label-pink: #9d174d;
+  --label-pink-bg: #fce7f3;
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235E6475' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
@@ -133,6 +150,22 @@
   --avatar-5-foreground: #d6d3d1;
   --avatar-6: #500724;
   --avatar-6-foreground: #f9a8d4;
+  --label-red: #f87171;
+  --label-red-bg: #450a0a;
+  --label-orange: #fb923c;
+  --label-orange-bg: #431407;
+  --label-amber: #fbbf24;
+  --label-amber-bg: #3a2a0a;
+  --label-lime: #bef264;
+  --label-lime-bg: #1a2e05;
+  --label-sky: #38bdf8;
+  --label-sky-bg: #082f49;
+  --label-blue: #93c5fd;
+  --label-blue-bg: #172554;
+  --label-fuchsia: #e879f9;
+  --label-fuchsia-bg: #4a044e;
+  --label-pink: #f9a8d4;
+  --label-pink-bg: #500724;
   --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A8A29E' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
@@ -202,4 +235,20 @@
   --color-avatar-5-foreground: var(--avatar-5-foreground);
   --color-avatar-6: var(--avatar-6);
   --color-avatar-6-foreground: var(--avatar-6-foreground);
+  --color-label-red: var(--label-red);
+  --color-label-red-bg: var(--label-red-bg);
+  --color-label-orange: var(--label-orange);
+  --color-label-orange-bg: var(--label-orange-bg);
+  --color-label-amber: var(--label-amber);
+  --color-label-amber-bg: var(--label-amber-bg);
+  --color-label-lime: var(--label-lime);
+  --color-label-lime-bg: var(--label-lime-bg);
+  --color-label-sky: var(--label-sky);
+  --color-label-sky-bg: var(--label-sky-bg);
+  --color-label-blue: var(--label-blue);
+  --color-label-blue-bg: var(--label-blue-bg);
+  --color-label-fuchsia: var(--label-fuchsia);
+  --color-label-fuchsia-bg: var(--label-fuchsia-bg);
+  --color-label-pink: var(--label-pink);
+  --color-label-pink-bg: var(--label-pink-bg);
 }

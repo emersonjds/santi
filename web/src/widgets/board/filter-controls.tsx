@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { type ReactNode, Suspense, lazy, useEffect, useState } from 'react'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
@@ -6,6 +6,7 @@ import {
   epicsQuery,
   labelsQuery,
 } from '@/entities/issue/board-query'
+import { LabelChip } from '@/entities/issue/label-chip'
 import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
@@ -137,7 +138,7 @@ const MultiSelect = lazy(() =>
 
 type LazyMultiSelectProps = {
   label: string
-  options: { value: string; label: string }[]
+  options: { value: string; label: ReactNode }[]
   selected: string[]
   onChange: (selected: string[] | undefined) => void
 }
@@ -192,7 +193,10 @@ export const LabelFilter = ({ projectKey, search }: FilterProps) => {
   return (
     <LazyMultiSelect
       label='Label'
-      options={options.map((label) => ({ value: label, label }))}
+      options={options.map((label) => ({
+        value: label,
+        label: <LabelChip name={label} />,
+      }))}
       selected={selected}
       onChange={(label) =>
         void navigate({ ...HERE, search: (prev) => ({ ...prev, label }) })

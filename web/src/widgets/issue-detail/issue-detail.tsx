@@ -260,7 +260,7 @@ export const IssueDetail = ({
       <MarkdownReady>
         <div
           data-issue-view
-          className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem]'
+          className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem] lg:grid-cols-[minmax(0,1fr)_22rem]'
         >
           <div className='grid min-w-0 content-start gap-6'>
             <div className='grid gap-2'>
