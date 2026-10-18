@@ -17,14 +17,10 @@ look (logo, icons, colors, type, copy) is santi's own.
 `use-keyboard-shortcuts.txt`, [P] `navigate-jira-with-your-keyboard.txt`, [F]
 `configure-field-layout-in-the-work-item.txt`, [SB] `docs/specs/behavior/scrum-board.md`.
 Sidebar (SAN-73): `observed` [S] sidebar text on project, board and directory pages in three
-sessions (`research/organizations/page-projects-dir.txt`, `page-url-prm-board-c.txt`,
-`research/project-lifecycle/page-san-board.txt`), [Y] disclosure states in
-`research/ui-layout/for-you-a11y.json`. `documented` (all in `research/sidebar/`): [R]
-`find-recent-work-items`, [V] `navigate-to-your-work` (older navigation), [FD] `manage-filters`
-and `search-for-an-existing-or-shared-dashboard`, [FY] `what-is-the-for-you-page`, [L]
-design-system layout examples (`ads-layout_examples.txt`). `observed` [Z] live session on an issue
-page at 1280px and 375px, flyouts, menus and customize opened by click and key
-(`research/sidebar/scn-*.json`, `page-desktop.json`, `customize-notes.txt`).
+sessions, [Y] disclosure states on the home hub, [Z] live session on an issue page at 1280px and
+375px with flyouts, menus and customize opened by click and key. `documented`: [R] recent work
+items, [V] older navigation, [FD] filters and dashboards, [FY] home hub, [L] design-system layout
+examples. Captures stay in the git-ignored research folder.
 
 ## Rules
 
