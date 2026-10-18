@@ -4,7 +4,7 @@ use chrono::{DateTime, Local, NaiveTime};
 use clap::{Args, Parser, Subcommand};
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueType, Priority};
-use santi_types::projects::ProjectState;
+use santi_types::projects::{BoardType, ProjectState};
 use santi_types::sprints::{OpenIssuesDestination, SprintLength};
 
 use crate::client::{IssueKey, ProjectKey};
@@ -79,6 +79,15 @@ pub enum Command {
 
 #[derive(Debug, Subcommand)]
 pub enum ProjectsCommand {
+    /// Create a project; you become its admin
+    Create {
+        project: ProjectKey,
+        #[arg(long)]
+        name: String,
+        /// scrum or kanban
+        #[arg(long = "type", default_value = "scrum", value_parser = enum_value::<BoardType>)]
+        board_type: BoardType,
+    },
     /// List the projects you belong to
     List {
         /// active, archived or trashed; archived and trashed list only projects you administer

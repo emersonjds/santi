@@ -613,9 +613,26 @@ fn import_previews_then_asks_before_writing() {
 fn project_lifecycle_from_archive_to_purge() {
     let santi = Santi::new();
     let token = server().user();
-    server().project(&token, "LIFE", "scrum");
     let run = |args: &[&str]| santi.with(&token).args(args).assert();
 
+    run(&["projects", "create", "life", "--name", "Life cycle"])
+        .success()
+        .stdout(contains("LIFE").and(contains("Life cycle (scrum, admin)")));
+    let kanban = json(santi.with(&token).args([
+        "projects", "create", "FLOW", "--name", "Flow", "--type", "kanban",
+    ]));
+    assert_eq!(kanban["key"], "FLOW");
+    assert_eq!(kanban["board_type"], "kanban");
+    run(&["projects", "create", "LIFE", "--name", "Again"])
+        .code(5)
+        .stderr(contains("already exists"));
+    run(&["projects", "create", "../x", "--name", "Bad"])
+        .code(2)
+        .stderr(contains("project key"));
+    run(&[
+        "projects", "create", "FLAW", "--name", "Bad", "--type", "list",
+    ])
+    .code(2);
     run(&["projects", "archive", "LIFE"])
         .success()
         .stdout(contains("Archived LIFE"));
