@@ -192,12 +192,10 @@ test('the sidebar reaches recent, starred and every project, and keeps its width
   }
   await chooseView('Starred only')
   await expect(starredRows).toContainText(bravo)
+  await expect(recentRows).toHaveCount(0)
   await expect(
-    recentRows.getByRole('button', { name: /^Toggle / })
-  ).toHaveCount(1)
-  await expect(
-    recentRows.getByRole('button', { name: /^Toggle / })
-  ).toHaveAttribute('aria-label', `Toggle ${alpha}`)
+    nav.getByRole('button', { name: `Toggle ${alpha}` })
+  ).toBeVisible()
   await chooseView('Recent and starred')
   await expect(
     recentRows.getByRole('button', { name: /^Toggle / })
