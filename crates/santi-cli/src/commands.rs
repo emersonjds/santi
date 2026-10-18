@@ -620,6 +620,7 @@ fn mention(text: &str) -> Option<(String, usize)> {
                 letter => name.extend(['\\', letter]),
             },
             (index, ']') => break index,
+            (_, '[') => return None,
             (_, letter) => name.push(letter),
         }
     };
@@ -926,6 +927,14 @@ mod tests {
         ] {
             assert_eq!(plain_mentions(stored), shown, "{stored:?}");
         }
+    }
+
+    #[test]
+    fn plain_mentions_reads_an_unclosed_mention_run_in_linear_time() {
+        let text = "[@".repeat(65_536);
+        let start = std::time::Instant::now();
+        assert_eq!(plain_mentions(&text), text);
+        assert!(start.elapsed() < std::time::Duration::from_secs(1));
     }
 
     #[test]
