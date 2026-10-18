@@ -51,6 +51,37 @@ describe('board page', () => {
       .toHaveTextContent('Drop issues here')
   })
 
+  it('keeps the avatar inside a card whose meta line is full', async () => {
+    inProjects({
+      'GET /api/projects/WEB/board': {
+        status: 200,
+        body: {
+          ...WEB_BOARD,
+          columns: WEB_BOARD.columns.map((column) => ({
+            ...column,
+            cards: column.cards.map((each) =>
+              each.key === 'WEB-2'
+                ? { ...each, labels: ['documentation', 'performance', 'ux'] }
+                : each
+            ),
+          })),
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const bug = screen
+      .getByRole('region', { name: 'To do' })
+      .getByRole('article')
+      .nth(1)
+    const avatar = bug.getByTitle('Assigned to Bob Stone')
+    await expect.element(avatar).toBeVisible()
+    const card = bug.element().getBoundingClientRect()
+    expect(avatar.element().getBoundingClientRect().right).toBeLessThanOrEqual(
+      card.right
+    )
+  })
+
   it('shows two labels on a card, then how many more, on its one meta line', async () => {
     inProjects({
       'GET /api/projects/WEB/board': {
