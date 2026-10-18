@@ -22,7 +22,7 @@ use rmcp::{RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_route
 use santi_types::issues::{
     CreateIssue, IssueFilter, IssueType, MoveIssue, PageParams, StatusFilter, UpdateIssue,
 };
-use santi_types::projects::ProjectState;
+use santi_types::projects::{BoardType, CreateProject, ProjectState};
 use santi_types::sprints::{CompleteSprint, CreateSprint, OpenIssuesDestination, StartSprint};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -52,6 +52,17 @@ pub struct Santi {
 pub struct ProjectArgs {
     /// Project key, e.g. `WEB`.
     project: String,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct CreateProjectArgs {
+    /// Project key, e.g. `WEB`.
+    key: String,
+    /// Project name.
+    name: String,
+    /// `scrum` (default) or `kanban`.
+    #[serde(default)]
+    board_type: Option<BoardType>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -263,6 +274,29 @@ impl Santi {
         context: RequestContext<RoleServer>,
     ) -> Reply {
         self.reply(self.client(&context).projects(args.state).await)
+    }
+
+    #[tool(
+        description = "Create a project; you become its admin. `board_type` is `scrum` (default) or `kanban`. Requires `key` and `name`.",
+        annotations(read_only_hint = false, destructive_hint = false)
+    )]
+    async fn create_project(
+        &self,
+        Parameters(args): Parameters<CreateProjectArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        let client = self.client(&context);
+        self.reply(
+            async {
+                let project = CreateProject {
+                    key: project(&args.key)?.to_string(),
+                    name: args.name,
+                    board_type: args.board_type.unwrap_or(BoardType::Scrum),
+                };
+                client.create_project(&project).await
+            }
+            .await,
+        )
     }
 
     #[tool(

@@ -64,6 +64,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `plan_issue` | into a sprint, or `null` for the backlog (`sprint_id` required) | idempotent |
 | `add_comment` | comment on an issue | additive |
 | `create_sprint` | new future sprint | additive |
+| `create_project` | new project (`key`, `name`, `board_type` `scrum` by default); you become its admin | additive |
 | `start_sprint` | start a future sprint (`starts_at`, `ends_at`, `length`) | |
 | `complete_sprint` | close the active sprint, open work to the backlog by default | |
 | `delete_issue` | delete with subtasks and comments | destructive |

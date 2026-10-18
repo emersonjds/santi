@@ -8,6 +8,7 @@ use utoipa::{IntoParams, ToSchema};
     derive(sqlx::Encode, sqlx::Decode),
     sqlx(rename_all = "snake_case")
 )]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum BoardType {
     Scrum,

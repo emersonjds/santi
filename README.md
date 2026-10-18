@@ -179,7 +179,7 @@ santi issues edit WEB-12 --sprint none          # back to the backlog; --sprint 
 santi issues comments WEB-12                    # every comment, oldest first
 ```
 
-Commands: `login`, `whoami`, `projects list [--state archived|trashed]|archive|unarchive|trash|restore|purge`,
+Commands: `login`, `whoami`, `projects create <KEY> --name <NAME> [--type scrum|kanban]|list [--state archived|trashed]|archive|unarchive|trash|restore|purge`,
 `issues list|show|create|edit|move|delete|plan|comment|comments`, `board`, `backlog`,
 `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`, `search`, `comment`,
 `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `issues plan` and `issues comment` are
