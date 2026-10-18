@@ -5,10 +5,12 @@ import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
 import { issueNumber } from './board-query'
 import { PriorityGlyph, TypeGlyph } from './issue-glyphs'
+import { LabelChip } from './label-chip'
 import { timeAgo } from './time-ago'
 
 /** The list a column draws its cards in; the drag layer reuses it so nothing shifts when it loads. */
-export const CARD_LIST = 'grid min-h-16 grid-cols-1 content-start gap-2 px-2 pb-2'
+export const CARD_LIST =
+  'grid min-h-16 grid-cols-1 content-start gap-2 px-2 pb-2'
 
 export const EmptySlot = () => (
   <li className='rounded-md border border-dashed border-input px-3 py-4 text-center text-sm text-subtle-foreground'>
@@ -35,13 +37,7 @@ export const LabelChips = ({ labels }: { labels: string[] }) => {
   return (
     <span className='flex min-w-0 items-center gap-1'>
       {labels.slice(0, 2).map((label) => (
-        <span
-          key={label}
-          title={label}
-          className='max-w-20 min-w-0 truncate rounded-sm bg-muted px-1.5 text-xs text-muted-foreground'
-        >
-          {label}
-        </span>
+        <LabelChip key={label} size='compact' name={label} />
       ))}
       {rest.length > 0 && (
         <span
