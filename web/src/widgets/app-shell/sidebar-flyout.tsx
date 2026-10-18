@@ -21,6 +21,9 @@ const ROW_HEIGHT = 'h-12'
 
 export const SEARCH_DELAY = 250
 
+const VIEW_ALL =
+  'flex min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring md:min-h-9'
+
 type FlyoutSearch = {
   label: string
   value: string
@@ -31,7 +34,7 @@ type SidebarFlyoutProps = {
   title: string
   search?: FlyoutSearch
   tools?: ReactNode
-  viewAll: 'viewed' | 'starred'
+  viewAll: 'viewed' | 'starred' | 'projects'
   onNavigate: () => void
   children: ReactNode
 }
@@ -107,14 +110,20 @@ export const SidebarFlyout = ({
         )}
         <div className='min-h-0 flex-1 overflow-y-auto p-2'>{children}</div>
         <div className='border-t p-2'>
-          <Link
-            to='/'
-            search={{ tab: viewAll }}
-            onClick={onNavigate}
-            className='flex min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring md:min-h-9'
-          >
-            See everything in For you
-          </Link>
+          {viewAll === 'projects' ? (
+            <Link to='/projects' onClick={onNavigate} className={VIEW_ALL}>
+              See all projects
+            </Link>
+          ) : (
+            <Link
+              to='/'
+              search={{ tab: viewAll }}
+              onClick={onNavigate}
+              className={VIEW_ALL}
+            >
+              See everything in For you
+            </Link>
+          )}
         </div>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
@@ -131,7 +140,7 @@ const context = (item: MyItem) =>
 const ROW_LINK =
   'flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 outline-none hover:bg-hover focus-visible:ring-2 focus-visible:ring-ring'
 
-/** One project or issue: icon, name, context line, and the time or a trailing action. */
+/** One project or issue: icon, name, context line, and the time (when it has one) or a trailing action. */
 export const FlyoutRow = ({
   item,
   onNavigate,
@@ -154,7 +163,7 @@ export const FlyoutRow = ({
           {context(item)}
         </span>
       </span>
-      {!action && (
+      {!action && item.at && (
         <time
           dateTime={item.at}
           className='shrink-0 text-xs text-subtle-foreground'

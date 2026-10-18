@@ -43,13 +43,19 @@ const useStarIssue = () =>
     failure,
   })
 
-const useStarProject = () =>
+export const useStarProject = () =>
   useOptimisticWrite<MyProject[], Toggle>({
     queryKey: myProjectsQuery.queryKey,
     write: writeStar,
     change: (projects, { key, starred }) =>
       projects.map((project) =>
-        project.key === key ? { ...project, starred } : project
+        project.key === key
+          ? {
+              ...project,
+              starred,
+              starred_at: starred ? new Date().toISOString() : null,
+            }
+          : project
       ),
     failure,
   })

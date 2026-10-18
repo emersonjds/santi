@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
-import type { MyItem } from '@/shared/api/client'
+import type { MyItem, MyProject } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { inProjects, problem, routeOf } from '@/test/stub-api'
+import { MY_OPS, inProjects, problem, routeOf, signedIn } from '@/test/stub-api'
 
 const sidebar = (screen: RenderResult) =>
   screen.getByRole('navigation', { name: 'Projects and pages' })
@@ -448,5 +448,135 @@ describe('starred flyout', () => {
       .toHaveTextContent(/Starred items did not load/)
     await dialog.getByRole('button', { name: 'Retry' }).click()
     await expect.element(dialog.getByText('Fix the login page')).toBeVisible()
+  })
+})
+
+const project = (name: string, fields: Partial<MyProject> = {}): MyProject => ({
+  ...MY_OPS,
+  key: name.slice(0, 3).toUpperCase(),
+  name,
+  starred: false,
+  ...fields,
+})
+
+const visited = (name: string) =>
+  project(name, { visited_at: '2026-10-16T10:00:00Z' })
+
+// The sidebar keeps the first five; Fig is recent but left out, the rest were never visited.
+const MANY = [
+  visited('Apple'),
+  visited('Berry'),
+  visited('Cherry'),
+  visited('Date'),
+  visited('Elder'),
+  visited('Fig'),
+  project('zeta'),
+  project('Grape'),
+  project('alpha'),
+]
+
+const openMore = async (screen: RenderResult) => {
+  await sidebar(screen).getByRole('button', { name: 'More projects' }).click()
+  const dialog = screen.getByRole('dialog', { name: 'More projects' })
+  await expect.element(dialog).toBeVisible()
+  return dialog
+}
+
+const names = (region: ReturnType<RenderResult['getByRole']>) =>
+  region
+    .getByRole('link')
+    .elements()
+    .map((link) => link.getAttribute('title'))
+
+describe('more projects flyout', () => {
+  beforeEach(() => page.viewport(1280, 800))
+
+  it('lists what the sidebar leaves out: recent first, then the rest by name', async () => {
+    const requests = signedIn({
+      'GET /api/me/projects': { status: 200, body: MANY },
+    })
+    const { screen } = await renderApp('/')
+
+    const trigger = sidebar(screen).getByRole('button', {
+      name: 'More projects',
+    })
+    await expect.element(trigger).toHaveAttribute('aria-expanded', 'false')
+    const before = requests.length
+    const dialog = await openMore(screen)
+
+    expect(names(dialog.getByRole('region', { name: 'Recent' }))).toEqual([
+      'Fig',
+    ])
+    expect(names(dialog.getByRole('region', { name: 'Other' }))).toEqual([
+      'alpha',
+      'Grape',
+      'zeta',
+    ])
+    await expect
+      .element(dialog.getByRole('link', { name: /Grape/ }))
+      .toHaveAttribute('href', '/p/GRA')
+    await expect
+      .element(dialog.getByRole('link', { name: 'See all projects' }))
+      .toHaveAttribute('href', '/projects')
+    expect(requests.slice(before).map(routeOf)).not.toContain(
+      'GET /api/me/projects'
+    )
+  })
+
+  it('searches the cached list by name or key', async () => {
+    signedIn({ 'GET /api/me/projects': { status: 200, body: MANY } })
+    const { screen } = await renderApp('/')
+
+    const dialog = await openMore(screen)
+    const search = dialog.getByRole('searchbox', { name: 'Search projects' })
+    await expect.element(search).toHaveFocus()
+    await search.fill('ZET')
+    await expect
+      .element(dialog.getByRole('link', { name: /Fig/ }))
+      .not.toBeInTheDocument()
+    expect(names(dialog.getByRole('region', { name: 'Other' }))).toEqual([
+      'zeta',
+    ])
+
+    await search.fill('apple')
+    await expect
+      .element(dialog.getByRole('heading', { name: 'No matches' }))
+      .toBeVisible()
+    await expect
+      .element(dialog.getByRole('link', { name: 'See all projects' }))
+      .toBeVisible()
+  })
+
+  it('says when every project is already in the sidebar', async () => {
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    const dialog = await openMore(screen)
+
+    await expect
+      .element(
+        dialog.getByRole('heading', {
+          name: 'All your projects are in the sidebar',
+        })
+      )
+      .toBeVisible()
+    expect(dialog.getByRole('searchbox').elements()).toHaveLength(0)
+  })
+
+  it('closes on a project link and on Esc, giving focus back', async () => {
+    signedIn({ 'GET /api/me/projects': { status: 200, body: MANY } })
+    const { screen, router } = await renderApp('/')
+
+    let dialog = await openMore(screen)
+    await userEvent.keyboard('{Escape}')
+    await expect.element(dialog).not.toBeInTheDocument()
+    await expect
+      .element(sidebar(screen).getByRole('button', { name: 'More projects' }))
+      .toHaveFocus()
+
+    dialog = await openMore(screen)
+    await dialog.getByRole('link', { name: 'See all projects' }).click()
+    await expect.element(dialog).not.toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/projects')
   })
 })

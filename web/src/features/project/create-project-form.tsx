@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
+import { myProjectsQuery } from '@/entities/home/home-queries'
 import { projectQuery, projectsQuery } from '@/entities/project/project-queries'
 import { api } from '@/shared/api/client'
 import { showProblem } from '@/shared/lib/show-problem'
@@ -64,7 +65,11 @@ export const CreateProjectForm = () => {
       })
     if (error) return showProblem(form.setError, FIELDS, error)
     queryClient.setQueryData(projectQuery(data.key).queryKey, data)
-    await queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey })
+    await Promise.all(
+      [projectsQuery.queryKey, myProjectsQuery.queryKey].map((queryKey) =>
+        queryClient.invalidateQueries({ queryKey })
+      )
+    )
     await navigate({
       to: data.board_type === 'scrum' ? '/p/$key/backlog' : '/p/$key/board',
       params: { key: data.key },
