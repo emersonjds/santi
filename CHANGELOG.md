@@ -10,6 +10,19 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-10-18
+
+> The MCP server survives a redeploy: tools reconnect on their own instead of failing or hanging.
+
+### Fixed
+
+- **CLI and MCP:** after the server redeployed, a running `santi mcp` kept a dead pooled
+  connection, so every tool answered "cannot reach santi" and some calls hung for minutes until
+  the MCP process restarted. Reads now time out after 30 s, idle connections close after 30 s,
+  connecting gives up after 10 s, and a request is retried once after a network error (any
+  request that never connected; otherwise only reads and deletes, never a create, edit or move
+  that may already have reached the server).
+
 ## [0.13.1] - 2026-10-18
 
 > Pickers scroll again: the mouse wheel and touch scroll option lists opened inside the issue dialog.
@@ -403,7 +416,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.13.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.13.2...HEAD
+[0.13.2]: https://github.com/emersonjds/santi/compare/v0.13.1...v0.13.2
 [0.13.1]: https://github.com/emersonjds/santi/compare/v0.13.0...v0.13.1
 [0.13.0]: https://github.com/emersonjds/santi/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/emersonjds/santi/compare/v0.11.0...v0.12.0
