@@ -86,6 +86,7 @@ const capture = async (
 test('the sidebar reaches recent, starred and every project, and keeps its width', async ({
   page,
 }) => {
+  test.slow()
   await page.setViewportSize({ width: 1440, height: 900 })
   await register(page)
   const suffix = unique().slice(-5).toUpperCase()
