@@ -10,6 +10,34 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-17
+
+> A sidebar that gets you back to your work: Recent and Starred panels, starred and recent projects, More projects and a resizable width.
+
+### Added
+
+- **Sidebar:** Recent and Starred panels. Recent lists the projects and issues you opened, grouped
+  by day, with search and 15 more at a time; Starred filters by projects or issues and lets you
+  unstar in place. Both link to the matching For you tab.
+- **Sidebar:** the Projects section lists your starred projects above the 5 you used last, with a
+  View option (recent and starred, starred only, most recent) and a Manage projects link. The open
+  project shows Board, Backlog and Reports (scrum), and Settings.
+- **Sidebar:** More projects opens a searchable panel with every project not already listed.
+- **Sidebar:** project row menu gains Star/Unstar, Add people (admins) and the project type.
+- **Sidebar:** drag the edge, or use the arrow keys on it, to set the width from 200 to 500 px;
+  double-click collapses it. The width is kept in this browser.
+- **API:** `GET /api/me/recent` and `GET /api/me/starred` (`kind=project|issue`), both paged with
+  `q` search; `MyProject` gains `starred_at` and `visited_at`.
+
+### Changed
+
+- **Sidebar:** hovering a row uses the neutral hover color; the purple fill marks the current page
+  only. A hand-opened project row closes again on reload.
+
+### Fixed
+
+- **Stars:** a failed star or unstar of a project no longer breaks the sidebar.
+
 ## [0.12.0] - 2026-10-17
 
 > Sprints with a clock: start and end times, presets from 4 hours to a month, and a countdown to the minute.
