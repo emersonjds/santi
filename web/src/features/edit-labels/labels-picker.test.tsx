@@ -214,4 +214,43 @@ describe('labels picker', () => {
     expect(popover.left).toBeGreaterThanOrEqual(16)
     expect(popover.right).toBeLessThanOrEqual(375 - 16)
   })
+
+  it('scrolls a long list with the wheel inside the issue dialog', async () => {
+    const many = Array.from({ length: 30 }, (_, at) => `label-${at + 10}`)
+    inProjects({
+      'GET /api/projects/WEB/labels': { status: 200, body: many },
+    })
+    const { screen } = await renderApp('/p/WEB/board?issue=1')
+    await screen.getByRole('button', { name: 'Add label' }).click()
+    const list = screen.getByRole('listbox')
+    await expect.element(list).toBeVisible()
+
+    await userEvent.wheel(list, { delta: { y: 200 } })
+
+    await expect.poll(() => list.element().scrollTop).toBeGreaterThan(0)
+  })
+
+  it('leaves a touch drag on the list to the browser on a phone', async () => {
+    await page.viewport(375, 800)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board?issue=1')
+    await screen.getByRole('button', { name: 'Add label' }).click()
+    const list = screen.getByRole('listbox').element()
+    const touch = (y: number) => [
+      new Touch({ identifier: 1, target: list, clientX: 100, clientY: y }),
+    ]
+    const drag = (type: string, y: number) =>
+      list.dispatchEvent(
+        new TouchEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          touches: touch(y),
+          changedTouches: touch(y),
+        })
+      )
+
+    drag('touchstart', 300)
+
+    expect(drag('touchmove', 200)).toBe(true)
+  })
 })
