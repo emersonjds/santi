@@ -619,10 +619,12 @@ fn category_from_name(name: &str) -> StatusCategory {
 
 fn type_from_name(name: &str) -> IssueType {
     match name.to_lowercase().as_str() {
-        "epic" => IssueType::Epic,
-        "task" => IssueType::Task,
-        "bug" | "defect" => IssueType::Bug,
-        "sub-task" | "subtask" | "sub-issue" | "sub-bug" => IssueType::Subtask,
+        "epic" | "épico" | "épica" | "épopée" => IssueType::Epic,
+        "task" | "tarefa" | "tarea" | "tâche" | "aufgabe" => IssueType::Task,
+        "bug" | "defect" | "erro" | "error" | "fehler" => IssueType::Bug,
+        "sub-task" | "subtask" | "sub-issue" | "sub-bug" | "subtarefa" | "sub-tarefa"
+        | "subtarea" | "sous-tâche" | "unteraufgabe" => IssueType::Subtask,
+        // Story, História, Historia, Histoire, and any type santi has no kind for.
         _ => IssueType::Story,
     }
 }
@@ -1135,6 +1137,32 @@ mod tests {
         );
         assert_eq!(parse_date("2026-09-14"), Some(at(2026, 9, 14, 0, 0)));
         assert_eq!(parse_date("not a date"), None);
+    }
+
+    #[test]
+    fn issue_types_named_in_the_site_language_keep_their_kind() {
+        let cases = [
+            ("Tarefa", IssueType::Task),
+            ("Tarea", IssueType::Task),
+            ("Tâche", IssueType::Task),
+            ("Aufgabe", IssueType::Task),
+            ("Subtarefa", IssueType::Subtask),
+            ("Sub-tarefa", IssueType::Subtask),
+            ("Subtarea", IssueType::Subtask),
+            ("Sous-tâche", IssueType::Subtask),
+            ("Unteraufgabe", IssueType::Subtask),
+            ("História", IssueType::Story),
+            ("Historia", IssueType::Story),
+            ("Épico", IssueType::Epic),
+            ("Épica", IssueType::Epic),
+            ("Épopée", IssueType::Epic),
+            ("Erro", IssueType::Bug),
+            ("Fehler", IssueType::Bug),
+            ("Something else", IssueType::Story),
+        ];
+        for (name, kind) in cases {
+            assert_eq!(type_from_name(name), kind, "{name}");
+        }
     }
 
     #[test]
