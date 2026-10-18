@@ -353,6 +353,28 @@ describe('rich text editor', () => {
     await value().toBe('> Plan\n\n---\n1. [link](url)')
   })
 
+  it('shows the name once the members arrive after the editor', async () => {
+    const initial = 'Ask [@Bobby](mention:2)'
+    const { screen } = await editor({ initial, members: [] })
+    await expect
+      .element(screen.getByText('@Bobby'))
+      .toHaveClass(/text-muted-foreground/)
+
+    await screen.rerender(<Harness initial={initial} members={PEOPLE} />)
+
+    await expect.element(screen.getByText('@Bob Stone')).toBeVisible()
+  })
+
+  it('leaves the text alone on a formatting key while read-only', async () => {
+    await editor({ initial: 'ship it', readOnly: true })
+
+    await userEvent.keyboard(mod('a'))
+    await userEvent.keyboard(mod('b'))
+    await settled()
+
+    expect(latest).toBe('ship it')
+  })
+
   it('is read-only while saving', async () => {
     const { screen, field } = await editor({ initial: 'Plan', readOnly: true })
 

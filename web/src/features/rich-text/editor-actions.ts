@@ -45,6 +45,7 @@ export type Action = {
 export const applyEdit =
   (command: (text: string, range: Range) => Edit | null): Command =>
   (view) => {
+    if (view.state.readOnly) return false
     const { from, to } = view.state.selection.main
     const edit = command(view.state.doc.toString(), { from, to })
     if (!edit) return false
