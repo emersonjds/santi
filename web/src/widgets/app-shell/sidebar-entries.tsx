@@ -1,5 +1,4 @@
-import { type ReactNode, Suspense } from 'react'
-import * as DialogPrimitive from '@radix-ui/react-dialog'
+import { type ReactNode, Suspense, useRef } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   SidebarMenu,
@@ -7,6 +6,7 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
 } from '@/shared/ui/sidebar'
+import { FlyoutControl } from './flyout-control'
 
 export type Flyout = 'Recent' | 'Starred' | 'More projects'
 
@@ -15,7 +15,7 @@ export type FlyoutState = {
   setOpen: (update: (current: Flyout | null) => Flyout | null) => void
 }
 
-/** UI-56: one flyout open at a time; Radix gives `aria-expanded` and the focus back to the trigger. */
+/** UI-56: one flyout open at a time; the dialog itself lives in the lazy flyout body. */
 export const FlyoutEntry = ({
   name,
   icon: Icon,
@@ -28,24 +28,29 @@ export const FlyoutEntry = ({
   children: ReactNode
 }) => {
   const open = flyouts.open === name
+  const trigger = useRef<HTMLButtonElement>(null)
+  const close = () =>
+    flyouts.setOpen((current) => (current === name ? null : current))
   return (
     <SidebarMenuItem>
-      <DialogPrimitive.Root
-        open={open}
-        onOpenChange={(next) =>
-          flyouts.setOpen((current) =>
-            next ? name : current === name ? null : current
-          )
+      <SidebarMenuButton
+        ref={trigger}
+        data-flyout-trigger=''
+        aria-haspopup='dialog'
+        aria-expanded={open}
+        onClick={() =>
+          flyouts.setOpen((current) => (current === name ? null : name))
         }
+        className='pointer-events-auto h-10'
       >
-        <SidebarMenuButton asChild className='pointer-events-auto h-10'>
-          <DialogPrimitive.Trigger data-flyout-trigger=''>
-            <Icon />
-            <span>{name}</span>
-          </DialogPrimitive.Trigger>
-        </SidebarMenuButton>
-        {open && <Suspense>{children}</Suspense>}
-      </DialogPrimitive.Root>
+        <Icon />
+        <span>{name}</span>
+      </SidebarMenuButton>
+      {open && (
+        <FlyoutControl value={{ close, trigger }}>
+          <Suspense>{children}</Suspense>
+        </FlyoutControl>
+      )}
     </SidebarMenuItem>
   )
 }

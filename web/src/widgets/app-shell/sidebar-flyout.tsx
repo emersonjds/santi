@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect, useRef } from 'react'
+import { type ReactNode, use, useEffect, useRef } from 'react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
+import type { UseInfiniteQueryResult } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Search, X } from 'lucide-react'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
@@ -9,8 +10,10 @@ import { BOARD_TYPE_LABEL } from '@/entities/project/labels'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import type { MyItem } from '@/shared/api/client'
 import { Input } from '@/shared/ui/input'
+import { LoadFailed } from '@/shared/ui/load-failed'
 import { useSidebar } from '@/shared/ui/sidebar'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { FlyoutControl } from './flyout-control'
 
 const ICON_BUTTON =
   'grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8'
@@ -40,7 +43,12 @@ type SidebarFlyoutProps = {
   children: ReactNode
 }
 
-/** UI-56/57/67: beside the sidebar from `md`, the whole screen below; the Dialog root and its trigger live in the sidebar. */
+const beside = (start: number) => ({
+  insetInlineStart: start,
+  width: `min(24rem, calc(100vw - ${start}px))`,
+})
+
+/** UI-56/57/67: beside the sidebar from `md`, the whole screen below; the trigger lives in the sidebar. */
 export const SidebarFlyout = ({
   title,
   search,
@@ -51,89 +59,98 @@ export const SidebarFlyout = ({
 }: SidebarFlyoutProps) => {
   const input = useRef<HTMLInputElement>(null)
   const sidebar = useSidebar()
+  const control = use(FlyoutControl)
   return (
-    <DialogPrimitive.Portal>
-      <DialogPrimitive.Content
-        aria-describedby={undefined}
-        onOpenAutoFocus={(event) => {
-          if (!input.current) return
-          event.preventDefault()
-          input.current.focus()
-        }}
-        // Another flyout's trigger switches flyouts on its own click.
-        onPointerDownOutside={(event) => {
-          if (
-            event.target instanceof Element &&
-            event.target.closest(`[${FLYOUT_TRIGGER}]`)
-          )
+    <DialogPrimitive.Root open onOpenChange={(open) => open || control.close()}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          // The next flyout, opened by its own trigger, keeps the focus it took.
+          onCloseAutoFocus={(event) => {
             event.preventDefault()
-        }}
-        style={
-          sidebar.isMobile
-            ? undefined
-            : { insetInlineStart: sidebar.open ? sidebar.width : 0 }
-        }
-        className='fixed inset-0 z-50 flex flex-col bg-popover text-popover-foreground outline-none md:inset-e-auto md:w-96 md:border-e md:shadow-lg'
-      >
-        <div className='flex items-center gap-1 border-b py-1 ps-4 pe-1'>
-          <DialogPrimitive.Title className='flex-1 text-base font-semibold'>
-            {title}
-          </DialogPrimitive.Title>
-          {tools}
-          <DialogPrimitive.Close className={ICON_BUTTON}>
-            <X className='size-4' aria-hidden />
-            <span className='sr-only'>Close</span>
-          </DialogPrimitive.Close>
-        </div>
-        {search && (
-          <div className='relative p-2'>
-            <Search
-              aria-hidden
-              className='pointer-events-none absolute start-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground'
-            />
-            <Input
-              ref={input}
-              type='search'
-              aria-label={search.label}
-              placeholder={search.label}
-              value={search.value}
-              onChange={(event) => search.onChange(event.target.value)}
-              className='h-11 ps-9 pe-12 text-base md:h-9 md:pe-10 [&::-webkit-search-cancel-button]:hidden'
-            />
-            {search.value && (
-              <button
-                type='button'
-                aria-label='Clear search'
-                onClick={() => {
-                  search.onChange('')
-                  input.current?.focus()
-                }}
-                className={`${ICON_BUTTON} absolute inset-e-2 top-1/2 -translate-y-1/2`}
+            if (!document.activeElement?.closest('[role=dialog]'))
+              control.trigger.current?.focus()
+          }}
+          onOpenAutoFocus={(event) => {
+            if (!input.current) return
+            event.preventDefault()
+            input.current.focus()
+          }}
+          // Another flyout's trigger switches flyouts on its own click.
+          onPointerDownOutside={(event) => {
+            if (
+              event.target instanceof Element &&
+              event.target.closest(`[${FLYOUT_TRIGGER}]`)
+            )
+              event.preventDefault()
+          }}
+          style={
+            sidebar.isMobile
+              ? undefined
+              : beside(sidebar.open ? sidebar.width : 0)
+          }
+          className='fixed inset-0 z-50 flex flex-col bg-popover text-popover-foreground outline-none md:inset-e-auto md:border-e md:shadow-lg'
+        >
+          <div className='flex items-center gap-1 border-b py-1 ps-4 pe-1'>
+            <DialogPrimitive.Title className='flex-1 text-base font-semibold'>
+              {title}
+            </DialogPrimitive.Title>
+            {tools}
+            <DialogPrimitive.Close className={ICON_BUTTON}>
+              <X className='size-4' aria-hidden />
+              <span className='sr-only'>Close</span>
+            </DialogPrimitive.Close>
+          </div>
+          {search && (
+            <div className='relative p-2'>
+              <Search
+                aria-hidden
+                className='pointer-events-none absolute start-5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground'
+              />
+              <Input
+                ref={input}
+                type='search'
+                aria-label={search.label}
+                placeholder={search.label}
+                value={search.value}
+                onChange={(event) => search.onChange(event.target.value)}
+                className='h-11 ps-9 pe-12 text-base md:h-9 md:pe-10 [&::-webkit-search-cancel-button]:hidden'
+              />
+              {search.value && (
+                <button
+                  type='button'
+                  aria-label='Clear search'
+                  onClick={() => {
+                    search.onChange('')
+                    input.current?.focus()
+                  }}
+                  className={`${ICON_BUTTON} absolute inset-e-2 top-1/2 -translate-y-1/2`}
+                >
+                  <X className='size-4' aria-hidden />
+                </button>
+              )}
+            </div>
+          )}
+          <div className='min-h-0 flex-1 overflow-y-auto p-2'>{children}</div>
+          <div className='border-t p-2'>
+            {viewAll === 'projects' ? (
+              <Link to='/projects' onClick={onNavigate} className={VIEW_ALL}>
+                See all projects
+              </Link>
+            ) : (
+              <Link
+                to='/'
+                search={{ tab: viewAll }}
+                onClick={onNavigate}
+                className={VIEW_ALL}
               >
-                <X className='size-4' aria-hidden />
-              </button>
+                See everything in For you
+              </Link>
             )}
           </div>
-        )}
-        <div className='min-h-0 flex-1 overflow-y-auto p-2'>{children}</div>
-        <div className='border-t p-2'>
-          {viewAll === 'projects' ? (
-            <Link to='/projects' onClick={onNavigate} className={VIEW_ALL}>
-              See all projects
-            </Link>
-          ) : (
-            <Link
-              to='/'
-              search={{ tab: viewAll }}
-              onClick={onNavigate}
-              className={VIEW_ALL}
-            >
-              See everything in For you
-            </Link>
-          )}
-        </div>
-      </DialogPrimitive.Content>
-    </DialogPrimitive.Portal>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   )
 }
 
@@ -229,17 +246,20 @@ export const FlyoutNote = ({
   </div>
 )
 
-/** UI-58: the next 15 load once the end scrolls into view. */
-export const LoadMore = ({
-  hasMore,
-  loading,
-  onMore,
-}: {
-  hasMore: boolean
-  loading: boolean
-  onMore: () => unknown
-}) => {
+type Pages = Pick<
+  UseInfiniteQueryResult,
+  | 'hasNextPage'
+  | 'isFetchingNextPage'
+  | 'isFetchNextPageError'
+  | 'fetchNextPage'
+>
+
+/** UI-58: the next 15 load once the end scrolls into view; a failed page waits for Retry. */
+export const LoadMore = ({ list }: { list: Pages }) => {
   const end = useRef<HTMLDivElement>(null)
+  const hasMore = list.hasNextPage && !list.isFetchNextPageError
+  const loading = list.isFetchingNextPage
+  const onMore = list.fetchNextPage
   useEffect(() => {
     const node = end.current
     if (!node) return
@@ -249,6 +269,13 @@ export const LoadMore = ({
     observer.observe(node)
     return () => observer.disconnect()
   }, [hasMore, loading, onMore])
+  if (list.isFetchNextPageError && !loading)
+    return (
+      <LoadFailed
+        message='More items did not load.'
+        onRetry={() => void onMore()}
+      />
+    )
   if (loading)
     return (
       <div role='status' aria-label='Loading more'>
