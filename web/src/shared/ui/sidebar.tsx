@@ -2,6 +2,12 @@ import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { VariantProps, cva } from 'class-variance-authority'
 import { PanelLeftIcon } from 'lucide-react'
+import {
+  SIDEBAR_WIDTH,
+  clampSidebarWidth,
+  storeSidebarWidth,
+  storedSidebarWidth,
+} from '@/shared/lib/sidebar-prefs'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
@@ -18,7 +24,6 @@ const SidebarSheet = React.lazy(() =>
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state'
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH = '16rem'
 const SIDEBAR_WIDTH_MOBILE = '18rem'
 const SIDEBAR_WIDTH_ICON = '3rem'
 const SIDEBAR_KEYBOARD_SHORTCUT = 'b'
@@ -31,6 +36,8 @@ type SidebarContextProps = {
   setOpenMobile: (open: boolean) => void
   isMobile: boolean
   toggleSidebar: () => void
+  width: number
+  setWidth: (width: number) => void
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
@@ -59,6 +66,12 @@ function SidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const [width, setStateWidth] = React.useState(storedSidebarWidth)
+  const setWidth = React.useCallback((next: number) => {
+    const clamped = clampSidebarWidth(next)
+    storeSidebarWidth(clamped)
+    setStateWidth(clamped)
+  }, [])
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -113,8 +126,20 @@ function SidebarProvider({
       openMobile,
       setOpenMobile,
       toggleSidebar,
+      width,
+      setWidth,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+    [
+      state,
+      open,
+      setOpen,
+      isMobile,
+      openMobile,
+      setOpenMobile,
+      toggleSidebar,
+      width,
+      setWidth,
+    ]
   )
 
   return (
@@ -123,7 +148,7 @@ function SidebarProvider({
         data-slot='sidebar-wrapper'
         style={
           {
-            '--sidebar-width': SIDEBAR_WIDTH,
+            '--sidebar-width': `${width}px`,
             '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
             ...style,
           } as React.CSSProperties
@@ -197,7 +222,7 @@ function Sidebar({
       <div
         data-slot='sidebar-gap'
         className={cn(
-          'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear',
+          'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear group-has-data-resizing:transition-none',
           'group-data-[collapsible=offcanvas]:w-0',
           'group-data-[side=right]:rotate-180',
           variant === 'floating' || variant === 'inset'
@@ -208,7 +233,7 @@ function Sidebar({
       <div
         data-slot='sidebar-container'
         className={cn(
-          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[inset-inline,width] duration-200 ease-linear md:flex',
+          'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[inset-inline,width] duration-200 ease-linear group-has-data-resizing:transition-none md:flex',
           side === 'left'
             ? 'inset-s-0 group-data-[collapsible=offcanvas]:-inset-s-[calc(var(--sidebar-width))]'
             : 'inset-e-0 group-data-[collapsible=offcanvas]:-inset-e-[calc(var(--sidebar-width))]',
@@ -227,8 +252,52 @@ function Sidebar({
         >
           {children}
         </div>
+        <SidebarResizer />
       </div>
     </div>
+  )
+}
+
+/** UI-52: drag, arrow keys or a double-click to collapse; `pointer-events-auto` lets a drag start, and dismiss, over an open flyout. */
+function SidebarResizer() {
+  const { width, setWidth, setOpen } = useSidebar()
+  const [resizing, setResizing] = React.useState(false)
+
+  return (
+    <div
+      role='separator'
+      aria-label='Resize the sidebar'
+      aria-orientation='vertical'
+      aria-valuemin={SIDEBAR_WIDTH.min}
+      aria-valuemax={SIDEBAR_WIDTH.max}
+      aria-valuenow={width}
+      tabIndex={0}
+      data-resizing={resizing || undefined}
+      onPointerDown={(event) => {
+        if (event.button !== 0) return
+        event.preventDefault()
+        event.currentTarget.setPointerCapture(event.pointerId)
+        setResizing(true)
+        const move = (moved: PointerEvent) => setWidth(moved.clientX)
+        const ends = ['pointerup', 'pointercancel', 'lostpointercapture']
+        const stop = () => {
+          setResizing(false)
+          window.removeEventListener('pointermove', move)
+          for (const type of ends) window.removeEventListener(type, stop)
+        }
+        window.addEventListener('pointermove', move)
+        for (const type of ends) window.addEventListener(type, stop)
+      }}
+      onDoubleClick={() => setOpen(false)}
+      onKeyDown={(event) => {
+        const step =
+          event.key === 'ArrowRight' ? 20 : event.key === 'ArrowLeft' ? -20 : 0
+        if (!step) return
+        event.preventDefault()
+        setWidth(width + step)
+      }}
+      className='pointer-events-auto absolute inset-y-0 -inset-e-3 z-20 w-6 cursor-col-resize touch-none outline-none after:absolute after:inset-y-0 after:start-1/2 after:w-0.5 after:-translate-x-1/2 hover:after:bg-sidebar-border focus-visible:after:bg-ring data-resizing:after:bg-ring'
+    />
   )
 }
 
@@ -255,36 +324,6 @@ function SidebarTrigger({
       <PanelLeftIcon />
       <span className='sr-only'>Toggle Sidebar</span>
     </Button>
-  )
-}
-
-function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
-  const { toggleSidebar } = useSidebar()
-
-  return (
-    <button
-      data-sidebar='rail'
-      data-slot='sidebar-rail'
-      aria-label='Toggle Sidebar'
-      tabIndex={-1}
-      onClick={toggleSidebar}
-      title='Toggle Sidebar'
-      className={cn(
-        'absolute inset-y-0 z-20 hidden w-4 -translate-x-1/2 transition-all ease-linear group-data-[side=left]:-inset-e-4 group-data-[side=right]:inset-s-0 after:absolute after:inset-y-0 after:inset-s-1/2 after:w-0.5 hover:after:bg-sidebar-border sm:flex',
-        'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
-        '[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize',
-        'group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:start-full hover:group-data-[collapsible=offcanvas]:bg-sidebar',
-        '[[data-side=left][data-collapsible=offcanvas]_&]:-inset-e-2',
-        '[[data-side=right][data-collapsible=offcanvas]_&]:-inset-s-2',
-
-        // RTL support
-        'rtl:translate-x-1/2',
-        'rtl:in-data-[side=left]:cursor-e-resize rtl:in-data-[side=right]:cursor-w-resize',
-        'rtl:[[data-side=left][data-state=collapsed]_&]:cursor-w-resize rtl:[[data-side=right][data-state=collapsed]_&]:cursor-e-resize',
-        className
-      )}
-      {...props}
-    />
   )
 }
 
@@ -410,7 +449,7 @@ function SidebarGroupAction({
       data-slot='sidebar-group-action'
       data-sidebar='group-action'
       className={cn(
-        'absolute inset-e-3 top-3.5 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
+        'absolute inset-e-3 top-3.5 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform hover:bg-hover focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
         // Increases the hit area of the button on mobile.
         'after:absolute after:-inset-2 md:after:hidden',
         'group-data-[collapsible=icon]:hidden',
@@ -458,13 +497,13 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<'li'>) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-start text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pe-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
+  'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-start text-sm outline-hidden ring-sidebar-ring transition-[width,height,padding] hover:bg-hover focus-visible:ring-2 active:bg-hover disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pe-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-hover group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2! [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0',
   {
     variants: {
       variant: {
-        default: 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+        default: 'hover:bg-hover',
         outline:
-          'bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]',
+          'bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-hover hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]',
       },
       size: {
         default: 'h-8 text-sm',
@@ -520,7 +559,7 @@ function SidebarMenuAction({
       data-slot='sidebar-menu-action'
       data-sidebar='menu-action'
       className={cn(
-        'absolute inset-e-1 top-1.5 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform peer-hover/menu-button:text-sidebar-accent-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
+        'absolute inset-e-1 top-1.5 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform hover:bg-hover focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
         // Increases the hit area of the button on mobile.
         'after:absolute after:-inset-2 md:after:hidden',
         'peer-data-[size=sm]/menu-button:top-1',
@@ -546,7 +585,7 @@ function SidebarMenuBadge({
       data-sidebar='menu-badge'
       className={cn(
         'pointer-events-none absolute inset-e-1 flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-xs font-medium text-sidebar-foreground tabular-nums select-none',
-        'peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[active=true]/menu-button:text-sidebar-accent-foreground',
+        'peer-data-[active=true]/menu-button:text-sidebar-accent-foreground',
         'peer-data-[size=sm]/menu-button:top-1',
         'peer-data-[size=default]/menu-button:top-1.5',
         'peer-data-[size=lg]/menu-button:top-2.5',
@@ -645,7 +684,7 @@ function SidebarMenuSubButton({
       data-size={size}
       data-active={isActive}
       className={cn(
-        'flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-inherit',
+        'flex h-7 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-md px-2 text-sidebar-foreground ring-sidebar-ring outline-hidden hover:bg-hover focus-visible:ring-2 active:bg-hover disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-inherit',
         'data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground',
         size === 'sm' && 'text-xs',
         size === 'md' && 'text-sm',
@@ -678,7 +717,6 @@ export {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
   SidebarProvider,
-  SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
   useSidebar,
