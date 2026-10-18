@@ -342,6 +342,55 @@ export const useAddComment = (
   })
 }
 
+/** SAN-136: the edit waits for the server (D50 amendment); the editor stays open on an error. */
+export const useEditComment = (projectKey: string, number: number) => {
+  const queryClient = useQueryClient()
+  const { queryKey } = commentsQuery(projectKey, number)
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: number; body: string }) =>
+      dataOrThrow(
+        await api.PATCH('/api/projects/{key}/issues/{number}/comments/{id}', {
+          params: { path: { key: projectKey, number, id } },
+          body: { body },
+        })
+      ),
+    onSuccess: (saved) =>
+      queryClient.setQueryData(queryKey, (old) =>
+        old?.map((comment) => (comment.id === saved.id ? saved : comment))
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  })
+}
+
+/** Takes the comment out at once; puts it back if the server refuses. */
+export const useDeleteComment = (projectKey: string, number: number) => {
+  const queryClient = useQueryClient()
+  const { queryKey } = commentsQuery(projectKey, number)
+  return useMutation({
+    mutationFn: async (id: number) =>
+      okOrThrow(
+        await api.DELETE('/api/projects/{key}/issues/{number}/comments/{id}', {
+          params: { path: { key: projectKey, number, id } },
+        })
+      ),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey })
+      const before = queryClient.getQueryData(queryKey)
+      queryClient.setQueryData(queryKey, (old) =>
+        old?.filter((comment) => comment.id !== id)
+      )
+      return before
+    },
+    onError: (error, _id, before) => {
+      queryClient.setQueryData(queryKey, before)
+      toast.error("Couldn't delete the comment", {
+        description: error.message,
+      })
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  })
+}
+
 export const useCreateIssue = (projectKey: string) => {
   const queryClient = useQueryClient()
   return useMutation({
