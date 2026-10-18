@@ -590,3 +590,167 @@ describe('issue detail', () => {
     expect(router.state.location.pathname).toBe('/p/WEB/board')
   })
 })
+
+const REM = 16
+
+/** Each Details group, as the names of its rows; whether a line sits above it. */
+const groupsOf = (screen: RenderResult) => {
+  const details = screen.getByRole('region', { name: 'Details' }).element()
+  return [...details.children].slice(1).map((group) => ({
+    rows: [...group.children].map((row) => row.firstElementChild?.textContent),
+    divider: getComputedStyle(group).borderTopWidth,
+  }))
+}
+
+const SCRUM_GROUPS = [
+  { rows: ['Status', 'Assignee'], divider: '0px' },
+  { rows: ['Priority', 'Type', 'Points', 'Labels'], divider: '1px' },
+  { rows: ['Sprint', 'Epic'], divider: '1px' },
+  { rows: ['Reporter', 'Created', 'Updated'], divider: '1px' },
+]
+
+const widthOf = (screen: RenderResult) =>
+  screen
+    .getByRole('region', { name: 'Details' })
+    .element()
+    .getBoundingClientRect().width
+
+const LONG_EPIC = 'Checkout revamp across every storefront and the mobile app'
+
+const withEpicAndLabels = (labels: string[]) => ({
+  'GET /api/projects/WEB/issues/1': {
+    status: 200,
+    body: {
+      ...issue({ key: 'WEB-1', summary: 'Write the release notes' }),
+      labels,
+      parent_key: 'WEB-9',
+    },
+  },
+  'GET /api/projects/WEB/issues': {
+    status: 200,
+    body: {
+      items: [issue({ key: 'WEB-9', summary: LONG_EPIC, issue_type: 'epic' })],
+      next_cursor: null,
+    },
+  },
+})
+
+describe('issue details layout', () => {
+  it('gives Details a 22rem column at 1280, grouped, chips wrapping inside the value column', async () => {
+    await page.viewport(1280, 800)
+    inProjects(
+      withEpicAndLabels(['documentation', 'good-first-issue', 'help-wanted'])
+    )
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const epic = screen.getByLabelText('Epic')
+    await expect.element(epic).toHaveValue('WEB-9')
+
+    expect(widthOf(screen)).toBe(22 * REM)
+    expect(groupsOf(screen)).toEqual(SCRUM_GROUPS)
+    await expect
+      .element(screen.getByLabelText('Sprint'))
+      .toHaveAttribute('title', 'Sprint 4')
+    await expect.element(epic).toHaveAttribute('title', `WEB-9 ${LONG_EPIC}`)
+    const removes = screen
+      .getByRole('button', { name: /^Remove label/ })
+      .elements()
+    expect(removes).toHaveLength(3)
+    const column = removes[0].closest('[data-slot=label-chip]')?.parentElement
+    if (!column) throw new Error('no value column')
+    const right = column.getBoundingClientRect().right
+    const tops = new Set(
+      removes.map((remove) => {
+        const chip = remove.closest('[data-slot=label-chip]')
+        expect(chip?.getBoundingClientRect().right).toBeLessThanOrEqual(right)
+        return chip?.getBoundingClientRect().top
+      })
+    )
+    expect(tops.size).toBeGreaterThan(1)
+  })
+
+  it('widens the dialog to 1080px on a wide screen', async () => {
+    await page.viewport(1440, 900)
+    const { dialog } = await openFromBoard()
+
+    await expect
+      .poll(() => dialog.element().getBoundingClientRect().width)
+      .toBe(1080)
+    expect(
+      dialog
+        .getByRole('region', { name: 'Details' })
+        .element()
+        .getBoundingClientRect().width
+    ).toBe(22 * REM)
+  })
+
+  it('keeps a 19rem column at 800 in the same order', async () => {
+    await page.viewport(800, 800)
+    inProjects(withEpicAndLabels(['docs']))
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    await expect.element(screen.getByLabelText('Epic')).toHaveValue('WEB-9')
+
+    expect(widthOf(screen)).toBe(19 * REM)
+    expect(groupsOf(screen)).toEqual(SCRUM_GROUPS)
+  })
+
+  it('leaves out a group with nothing to show: an epic on a kanban board', async () => {
+    await page.viewport(800, 800)
+    inProjects({
+      'GET /api/projects/OPS/issues/7': {
+        status: 200,
+        body: issue({
+          key: 'OPS-7',
+          summary: 'Rework the alerts',
+          issue_type: 'epic',
+          sprint_id: null,
+          sprint_name: null,
+        }),
+      },
+      'GET /api/projects/OPS/issues/7/comments': {
+        status: 200,
+        body: { items: [], next_cursor: null },
+      },
+    })
+    const { screen } = await renderApp('/p/OPS/issues/7')
+    await expect
+      .element(screen.getByLabelText('Summary'))
+      .toHaveValue('Rework the alerts')
+
+    expect(groupsOf(screen)).toEqual([
+      { rows: ['Status', 'Assignee'], divider: '0px' },
+      { rows: ['Priority', 'Type', 'Points', 'Labels'], divider: '1px' },
+      { rows: ['Reporter', 'Created', 'Updated'], divider: '1px' },
+    ])
+  })
+
+  it('stacks at 375 with 44px controls, 16px text and no sideways scroll', async () => {
+    await page.viewport(375, 800)
+    inProjects(
+      withEpicAndLabels(['documentation', 'good-first-issue', 'help-wanted'])
+    )
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    await expect.element(screen.getByLabelText('Epic')).toHaveValue('WEB-9')
+
+    const details = screen.getByRole('region', { name: 'Details' }).element()
+    const view = details.closest('[data-issue-view]')
+    expect(details.getBoundingClientRect().width).toBe(
+      view?.getBoundingClientRect().width
+    )
+    expect(groupsOf(screen).map((group) => group.rows)).toEqual(
+      SCRUM_GROUPS.map((group) => group.rows)
+    )
+    const controls = [
+      ...details.querySelectorAll<HTMLElement>('button, select, input'),
+    ]
+    expect(controls.length).toBeGreaterThan(8)
+    for (const control of controls) {
+      const box = control.getBoundingClientRect()
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44)
+    }
+    for (const field of details.querySelectorAll('select, input'))
+      expect(getComputedStyle(field).fontSize).toBe('16px')
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth
+    )
+  })
+})
