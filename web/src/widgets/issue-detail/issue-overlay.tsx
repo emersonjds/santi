@@ -1,10 +1,14 @@
 import { Suspense, lazy } from 'react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
+import { preloadMarkdownView } from '@/features/rich-text/load-markdown-view'
 
 // Lazy: the board and backlog first visits have no initial JS to spare (D39).
-const IssueDialog = lazy(() =>
-  import('./issue-dialog').then((module) => ({ default: module.IssueDialog }))
-)
+const IssueDialog = lazy(() => {
+  void preloadMarkdownView()
+  return import('./issue-dialog').then((module) => ({
+    default: module.IssueDialog,
+  }))
+})
 
 type IssueOverlayProps = { projectKey: string; issue?: number }
 

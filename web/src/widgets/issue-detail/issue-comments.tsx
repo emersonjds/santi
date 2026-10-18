@@ -1,19 +1,32 @@
 import { type FormEvent, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { MarkdownView } from '@/features/rich-text/lazy-markdown-view'
+import { RichTextField } from '@/features/rich-text/rich-text-field'
 import { useAddComment } from '@/entities/issue/issue-mutations'
 import { commentsQuery } from '@/entities/issue/issue-queries'
 import { timeAgo } from '@/entities/issue/time-ago'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
+import type { Member } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
-import { Textarea } from '@/shared/ui/textarea'
 
-type IssueCommentsProps = { projectKey: string; number: number }
+const NO_MEMBERS: Member[] = []
 
-export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
+type IssueCommentsProps = {
+  projectKey: string
+  number: number
+  /** Listed first in the mention picker. */
+  firstIds: number[]
+}
+
+export const IssueComments = ({
+  projectKey,
+  number,
+  firstIds,
+}: IssueCommentsProps) => {
   const { data: comments = [] } = useQuery(commentsQuery(projectKey, number))
-  const { data: members = [] } = useQuery(membersQuery(projectKey))
+  const { data: members = NO_MEMBERS } = useQuery(membersQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
   const add = useAddComment(
     projectKey,
@@ -26,10 +39,10 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
     members.find((member) => member.user_id === userId)?.display_name ??
     'Former member'
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    const body = draft.trim()
-    if (!body) return
+  const submit = (event?: FormEvent) => {
+    event?.preventDefault()
+    const body = draft.trimEnd()
+    if (!body.trim()) return
     setDraft('')
     add.mutate(body, { onError: () => setDraft(body) })
   }
@@ -57,22 +70,22 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
                     {timeAgo(comment.created_at)}
                   </time>
                 </p>
-                <p className='text-sm break-words whitespace-pre-wrap'>
-                  {comment.body}
-                </p>
+                <MarkdownView source={comment.body} members={members} />
               </div>
             </article>
           </li>
         ))}
       </ol>
       <form onSubmit={submit} className='grid gap-2'>
-        <Textarea
-          aria-label='Add a comment'
-          aria-keyshortcuts='m'
+        <RichTextField
+          label='Add a comment'
+          keyShortcut='m'
           placeholder='Add a comment…'
-          maxLength={20_000}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={setDraft}
+          onSubmit={submit}
+          members={members}
+          firstIds={firstIds}
         />
         <Button className='h-11 justify-self-start md:h-9'>Comment</Button>
       </form>

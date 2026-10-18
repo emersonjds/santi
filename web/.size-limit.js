@@ -22,6 +22,14 @@ const firstVisit = (...routes) => {
   return [...keys].map((key) => `dist/${manifest[key].file}`)
 }
 
+// A lazy chunk with whatever it pulls in beyond the first visit of `routes`.
+const lazyChunk = (source, ...routes) => {
+  const initial = new Set(firstVisit(...routes))
+  return [...withImports(source)]
+    .map((key) => `dist/${manifest[key].file}`)
+    .filter((file) => !initial.has(file))
+}
+
 const split = (route) => `src/app/routes/${route}?tsr-split=component`
 const SHELL = split('_authenticated/route.tsx')
 
@@ -83,6 +91,29 @@ export default [
       split('_authenticated/p/$key/issues/$number.tsx')
     ),
     limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'markdown view chunk (issue page)',
+    path: lazyChunk(
+      'src/features/rich-text/markdown-view.tsx',
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/issues/$number.tsx')
+    ),
+    limit: '50 KB',
+    gzip: true,
+  },
+  {
+    // D50: loaded on idle, never part of the first visit; counts the Radix menu code it may pull in.
+    name: 'rich text editor chunk (issue page)',
+    path: lazyChunk(
+      'src/features/rich-text/rich-text-editor.tsx',
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/issues/$number.tsx')
+    ),
+    limit: '150 KB',
     gzip: true,
   },
   {
