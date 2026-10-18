@@ -1,16 +1,26 @@
 import { useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Archive, Link2, LogOut, Settings, Trash2 } from 'lucide-react'
+import {
+  Archive,
+  Link2,
+  LogOut,
+  Settings,
+  Star,
+  Trash2,
+  UserPlus,
+} from 'lucide-react'
 import {
   ArchiveProjectButton,
   TrashProjectButton,
 } from '@/features/project-lifecycle/lifecycle-dialogs'
 import { LeaveProjectButton } from '@/features/project/member-controls'
+import { useStarProject } from '@/features/star/use-star'
+import { BOARD_TYPE_LABEL } from '@/entities/project/labels'
 import { LAST_ADMIN, leaveRules } from '@/entities/project/leave-rules'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
-import type { Project } from '@/shared/api/client'
+import type { MyProject } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
 import {
   DropdownMenu,
@@ -31,13 +41,15 @@ const copyLink = (key: string) =>
     () => toast.error(`Couldn't copy the link to ${key}`)
   )
 
-/** SAN-91: the sidebar row's "…" (lazy chunk); the dialogs are the danger zone's (SAN-70). */
+/** SAN-91, UI-63: the sidebar row's "…" (lazy chunk); the dialogs are the danger zone's (SAN-70). */
 export const ProjectActions = ({
   project,
   onNavigate,
+  onStar,
 }: {
-  project: Project
+  project: MyProject
   onNavigate: () => void
+  onStar?: () => void
 }) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialog, setDialog] = useState<Dialog | null>(null)
@@ -48,6 +60,7 @@ export const ProjectActions = ({
   })
   const { data: me } = useQuery(sessionQuery)
   const { own, lastAdmin } = leaveRules(project.role, members, me?.id)
+  const star = useStarProject()
   const admin = project.role === 'admin'
   const reasonId = `leave-reason-${project.key}`
   const state = {
@@ -70,11 +83,33 @@ export const ProjectActions = ({
         <DropdownMenuContent align='start' className='w-60'>
           <DropdownMenuItem
             className={ROW}
+            onSelect={() => {
+              onStar?.()
+              star.mutate({ key: project.key, starred: !project.starred })
+            }}
+          >
+            <Star />
+            {project.starred ? 'Unstar project' : 'Star project'}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className={ROW}
             onSelect={() => void copyLink(project.key)}
           >
             <Link2 />
             Copy link
           </DropdownMenuItem>
+          {admin && (
+            <DropdownMenuItem asChild className={ROW}>
+              <Link
+                to='/p/$key/settings/members'
+                params={{ key: project.key }}
+                onClick={onNavigate}
+              >
+                <UserPlus />
+                Add people
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild className={ROW}>
             <Link
               to='/p/$key/settings'
@@ -86,7 +121,7 @@ export const ProjectActions = ({
             </Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {admin && project.state !== 'archived' && (
+          {admin && (
             <DropdownMenuItem
               className={ROW}
               onSelect={() => setDialog('archive')}
@@ -122,6 +157,10 @@ export const ProjectActions = ({
               {LAST_ADMIN}
             </p>
           )}
+          <DropdownMenuSeparator />
+          <p className='px-2 py-1.5 text-xs text-muted-foreground'>
+            {BOARD_TYPE_LABEL[project.board_type]} project
+          </p>
         </DropdownMenuContent>
       </DropdownMenu>
       {dialog === 'archive' && <ArchiveProjectButton {...state} />}

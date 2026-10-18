@@ -299,7 +299,9 @@ describe('home', () => {
     })
     const { screen } = await renderApp('/')
 
-    const ops = screen.getByRole('button', { name: 'Star Operations' })
+    const ops = screen
+      .getByRole('main')
+      .getByRole('button', { name: 'Star Operations' })
     await expect.element(ops).toHaveAttribute('aria-pressed', 'false')
     await ops.click()
 
@@ -359,7 +361,7 @@ describe('home', () => {
     const { screen } = await renderApp('/')
 
     for (const name of ['Star Operations', 'Star WEB-1']) {
-      const star = screen.getByRole('button', { name })
+      const star = screen.getByRole('main').getByRole('button', { name })
       await expect.element(star).toHaveAttribute('aria-pressed', 'false')
       expect(getComputedStyle(star.element()).opacity).toBe('1')
     }
@@ -492,7 +494,7 @@ describe('home', () => {
     const { screen } = await renderApp('/')
 
     await expect
-      .element(screen.getByRole('alert'))
+      .element(screen.getByRole('main').getByRole('alert'))
       .toHaveTextContent('Your projects did not load.')
     signedIn()
     await screen.getByRole('button', { name: 'Try again' }).click()

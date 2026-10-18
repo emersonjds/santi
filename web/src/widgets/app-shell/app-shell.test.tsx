@@ -1,11 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
+import type { MyProject } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { OPS, WEB, inProjects, routeOf, signedIn } from '@/test/stub-api'
+import {
+  MY_OPS,
+  MY_WEB,
+  inProjects,
+  problem,
+  routeOf,
+  signedIn,
+} from '@/test/stub-api'
 
 const sidebar = (screen: RenderResult) =>
   screen.getByRole('navigation', { name: 'Projects and pages' })
+
+type Locator = ReturnType<RenderResult['getByRole']>
+
+const pageNames = (nav: Locator, key: string) =>
+  [...nav.element().querySelectorAll(`#sidebar-pages-${key} a`)].map(
+    (link) => link.textContent
+  )
 
 describe('app shell', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -18,15 +33,21 @@ describe('app shell', () => {
     await expect
       .element(nav.getByRole('link', { name: 'Backlog' }))
       .toHaveAttribute('aria-current', 'page')
+    expect(pageNames(nav, 'WEB')).toEqual([
+      'Board',
+      'Backlog',
+      'Reports',
+      'Settings',
+    ])
+    await expect
+      .element(nav.getByRole('link', { name: 'Reports' }))
+      .toHaveAttribute('href', '/p/WEB/reports')
     await expect
       .element(nav.getByRole('link', { name: 'Board' }))
       .not.toHaveAttribute('aria-current')
     await expect
       .element(nav.getByRole('link', { name: /Operations/ }))
       .toBeVisible()
-    await expect
-      .element(nav.getByRole('link', { name: 'Settings' }))
-      .not.toHaveAttribute('aria-current')
   })
 
   it('keeps the top bar above backlog rows that scroll under it', async () => {
@@ -67,9 +88,7 @@ describe('app shell', () => {
     await expect
       .element(nav.getByRole('link', { name: 'Board' }))
       .toHaveAttribute('aria-current', 'page')
-    expect(nav.getByRole('link', { name: 'Backlog' }).elements()).toHaveLength(
-      0
-    )
+    expect(pageNames(nav, 'OPS')).toEqual(['Board', 'Settings'])
   })
 
   it('marks For you as the open page on home', async () => {
@@ -85,7 +104,7 @@ describe('app shell', () => {
     signedIn()
     const { screen, router } = await renderApp('/')
 
-    await screen.getByRole('link', { name: 'Create' }).click()
+    await screen.getByRole('link', { name: 'Create', exact: true }).click()
 
     await expect
       .element(screen.getByRole('heading', { name: 'New project' }))
@@ -165,6 +184,24 @@ describe('app shell', () => {
       .toBeVisible()
   })
 
+  it('tells a hovered row from the open page in the phone drawer', async () => {
+    await page.viewport(375, 800)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Toggle Sidebar' }).click()
+    const drawer = screen.getByRole('dialog')
+    const home = drawer.getByRole('link', { name: 'For you' })
+    const board = drawer.getByRole('link', { name: 'Board' })
+    await home.hover()
+
+    await expect.element(board).toHaveAttribute('aria-current', 'page')
+    await expect.element(home).not.toHaveAttribute('aria-current')
+    expect(getComputedStyle(home.element()).backgroundColor).not.toBe(
+      getComputedStyle(board.element()).backgroundColor
+    )
+  })
+
   it('opens the sidebar as a drawer on a phone and closes it on navigation', async () => {
     await page.viewport(375, 800)
     inProjects()
@@ -182,6 +219,39 @@ describe('app shell', () => {
 const LAST_ADMIN =
   'You are the last admin: make another member admin first, or delete the project.'
 
+const VIEW_KEY = 'sidebar-projects-view'
+
+const mine = (name: string, fields: Partial<MyProject> = {}): MyProject => ({
+  ...MY_OPS,
+  key: name.slice(0, 3).toUpperCase(),
+  name,
+  starred: false,
+  ...fields,
+})
+
+// The /api/me/projects order: the most recent visit first.
+const MANY = [
+  mine('Apple'),
+  mine('Kiwi', { starred: true, starred_at: '2026-10-01T10:00:00Z' }),
+  mine('Berry'),
+  mine('Cherry'),
+  mine('Lime', { starred: true, starred_at: '2026-10-02T10:00:00Z' }),
+  mine('Date'),
+  mine('Elder'),
+  mine('Fig'),
+]
+
+const rows = (list: Locator) =>
+  list
+    .getByRole('button', { name: /^Toggle / })
+    .elements()
+    .map((button) => button.getAttribute('aria-label')?.slice(7))
+
+const sublist = (screen: RenderResult, name: 'Starred' | 'Recent') =>
+  sidebar(screen).getByRole('list', { name })
+
+const pending = new Promise(() => {})
+
 const openActions = async (screen: RenderResult, name: string) => {
   await sidebar(screen)
     .getByRole('button', { name: `Actions for ${name}` })
@@ -189,11 +259,324 @@ const openActions = async (screen: RenderResult, name: string) => {
   return screen.getByRole('menu')
 }
 
-const itemNames = (menu: ReturnType<RenderResult['getByRole']>) =>
+const itemNames = (menu: Locator) =>
   menu
     .getByRole('menuitem')
     .elements()
     .map((item) => item.textContent)
+
+describe('sidebar projects', () => {
+  beforeEach(() => page.viewport(1280, 800))
+  afterEach(() => {
+    localStorage.clear()
+    vi.restoreAllMocks()
+  })
+
+  it('lists starred projects above five recent ones, each once', async () => {
+    signedIn({ 'GET /api/me/projects': { status: 200, body: MANY } })
+    const { screen } = await renderApp('/')
+
+    await expect.element(sublist(screen, 'Starred')).toBeVisible()
+    expect(rows(sublist(screen, 'Starred'))).toEqual(['Lime', 'Kiwi'])
+    expect(rows(sublist(screen, 'Recent'))).toEqual([
+      'Apple',
+      'Berry',
+      'Cherry',
+      'Date',
+      'Elder',
+    ])
+  })
+
+  it('moves a project to starred at once and refills recent to five', async () => {
+    signedIn({
+      'GET /api/me/projects': { status: 200, body: MANY },
+      'POST /api/me/stars': { status: 204, until: pending },
+    })
+    const { screen } = await renderApp('/')
+
+    const star = sidebar(screen).getByRole('button', { name: 'Star Berry' })
+    await expect.element(star).toHaveAttribute('aria-pressed', 'false')
+    await star.click()
+
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Berry', 'Lime', 'Kiwi'])
+    expect(rows(sublist(screen, 'Recent'))).toEqual([
+      'Apple',
+      'Cherry',
+      'Date',
+      'Elder',
+      'Fig',
+    ])
+  })
+
+  it('returns an unstarred project to recent at once', async () => {
+    signedIn({
+      'GET /api/me/projects': { status: 200, body: MANY },
+      'DELETE /api/me/stars/LIM': { status: 204, until: pending },
+    })
+    const { screen } = await renderApp('/')
+
+    await sidebar(screen).getByRole('button', { name: 'Star Lime' }).click()
+
+    await expect
+      .poll(() => rows(sublist(screen, 'Recent')))
+      .toEqual(['Apple', 'Berry', 'Cherry', 'Lime', 'Date'])
+    expect(rows(sublist(screen, 'Starred'))).toEqual(['Kiwi'])
+  })
+
+  it('keeps the focus on the star of a row that moves', async () => {
+    signedIn({
+      'GET /api/me/projects': { status: 200, body: MANY },
+      'POST /api/me/stars': { status: 204, until: pending },
+      'DELETE /api/me/stars/LIM': { status: 204, until: pending },
+    })
+    const { screen } = await renderApp('/')
+    const star = (name: string) =>
+      sidebar(screen).getByRole('button', { name: `Star ${name}` })
+
+    await star('Berry').click()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Berry', 'Lime', 'Kiwi'])
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(star('Berry').element())
+
+    await star('Lime').click()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Berry', 'Kiwi'])
+    await expect.poll(() => document.activeElement).toBe(star('Lime').element())
+  })
+
+  it('puts a star back and says so when the write fails', async () => {
+    signedIn({
+      'GET /api/me/projects': { status: 200, body: MANY },
+      'POST /api/me/stars': { status: 500, body: problem(500, 'down') },
+      'DELETE /api/me/stars/LIM': { status: 500, body: problem(500, 'down') },
+    })
+    const { screen } = await renderApp('/')
+    const star = (name: string) =>
+      sidebar(screen).getByRole('button', { name: `Star ${name}` })
+
+    await star('Berry').click()
+    await expect.element(screen.getByText('BER was not starred')).toBeVisible()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Lime', 'Kiwi'])
+    await expect.element(star('Berry')).toHaveAttribute('aria-pressed', 'false')
+
+    await star('Lime').click()
+    await expect
+      .element(screen.getByText('LIM was not unstarred'))
+      .toBeVisible()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Lime', 'Kiwi'])
+    await expect.element(star('Lime')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('changes the view from the header menu and keeps it after a reload', async () => {
+    signedIn({ 'GET /api/me/projects': { status: 200, body: MANY } })
+    const { screen } = await renderApp('/')
+
+    await sidebar(screen)
+      .getByRole('button', { name: 'Projects options' })
+      .click()
+    await screen.getByRole('menuitem', { name: 'View' }).click()
+    await screen.getByRole('menuitemradio', { name: 'Starred only' }).click()
+
+    await expect.element(sublist(screen, 'Recent')).not.toBeInTheDocument()
+    // The closing menu keeps the sidebar hidden from the accessibility tree for a moment.
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Lime', 'Kiwi'])
+    expect(localStorage.getItem(VIEW_KEY)).toBe('starred')
+
+    // A second app in the same page, as after a reload.
+    const again = sidebar((await renderApp('/')).screen).last()
+    await expect
+      .element(again.getByRole('list', { name: 'Starred' }))
+      .toBeVisible()
+    expect(again.getByRole('list', { name: 'Recent' }).elements()).toEqual([])
+
+    localStorage.setItem(VIEW_KEY, 'latest')
+    const latest = sidebar((await renderApp('/')).screen).last()
+    await expect
+      .element(latest.getByRole('list', { name: 'Recent' }))
+      .toBeVisible()
+    expect(rows(latest.getByRole('list', { name: 'Recent' }))).toEqual([
+      'Apple',
+    ])
+    expect(latest.getByRole('list', { name: 'Starred' }).elements()).toEqual([])
+  })
+
+  it('keeps an unstarred open project in Starred only without calling it recent', async () => {
+    localStorage.setItem(VIEW_KEY, 'starred')
+    inProjects()
+    const { screen } = await renderApp('/p/OPS/board')
+
+    await expect
+      .element(sidebar(screen).getByRole('button', { name: 'Toggle Operations' }))
+      .toBeVisible()
+    expect(rows(sublist(screen, 'Starred'))).toEqual(['Website'])
+    expect(sublist(screen, 'Recent').elements()).toEqual([])
+  })
+
+  it('shows a filled star at rest and hides an empty one until hover', async () => {
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    const star = (name: string) =>
+      getComputedStyle(
+        sidebar(screen).getByRole('button', { name: `Star ${name}` }).element()
+      ).opacity
+    await expect
+      .element(sidebar(screen).getByRole('button', { name: 'Star Website' }))
+      .toBeInTheDocument()
+    expect(star('Website')).toBe('1')
+    expect(star('Operations')).toBe('0')
+  })
+
+  it('falls back to recent and starred when the stored view is unreadable', async () => {
+    localStorage.setItem(VIEW_KEY, 'everything')
+    signedIn({ 'GET /api/me/projects': { status: 200, body: MANY } })
+    const { screen } = await renderApp('/')
+
+    await expect.element(sublist(screen, 'Recent')).toBeVisible()
+    await expect.element(sublist(screen, 'Starred')).toBeVisible()
+  })
+
+  it('keeps a chosen view until the reload when storage is blocked', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked')
+    })
+    signedIn({ 'GET /api/me/projects': { status: 200, body: MANY } })
+    const { screen } = await renderApp('/')
+
+    await expect.element(sublist(screen, 'Recent')).toBeVisible()
+    await sidebar(screen)
+      .getByRole('button', { name: 'Projects options' })
+      .click()
+    await screen.getByRole('menuitem', { name: 'View' }).click()
+    await screen
+      .getByRole('menuitemradio', { name: 'Most recent project' })
+      .click()
+
+    await expect.element(sublist(screen, 'Starred')).not.toBeInTheDocument()
+    await expect.poll(() => rows(sublist(screen, 'Recent'))).toEqual(['Apple'])
+  })
+
+  it('links the header menu to the project directory', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/')
+
+    await sidebar(screen)
+      .getByRole('button', { name: 'Projects options' })
+      .click()
+    await screen.getByRole('menuitem', { name: 'Manage projects' }).click()
+
+    await expect.poll(() => router.state.location.pathname).toBe('/projects')
+  })
+
+  it('shows three placeholder rows while loading, the header still working', async () => {
+    signedIn({ 'GET /api/me/projects': { status: 200, until: pending } })
+    const { screen, router } = await renderApp('/projects/new')
+
+    const nav = sidebar(screen)
+    await expect
+      .element(nav.getByRole('link', { name: 'New project' }))
+      .toBeVisible()
+    expect(
+      nav.element().querySelectorAll('[data-sidebar=menu-skeleton]')
+    ).toHaveLength(3)
+    await nav.getByRole('button', { name: 'Projects options' }).click()
+    await screen.getByRole('menuitem', { name: 'Manage projects' }).click()
+    await expect.poll(() => router.state.location.pathname).toBe('/projects')
+  })
+
+  it('offers to create a project while there is none', async () => {
+    signedIn()
+    const { screen } = await renderApp('/')
+
+    const nav = sidebar(screen)
+    await expect.element(nav.getByText('No projects yet')).toBeVisible()
+    await expect
+      .element(nav.getByRole('link', { name: 'Create project' }))
+      .toHaveAttribute('href', '/projects/new')
+    expect(
+      nav.getByRole('button', { name: /^Toggle / }).elements()
+    ).toHaveLength(0)
+    expect(
+      nav.getByRole('button', { name: 'More projects' }).elements()
+    ).toHaveLength(0)
+  })
+
+  it('says when projects did not load and keeps the rows it had', async () => {
+    let fail = true
+    signedIn({
+      'GET /api/me/projects': {
+        status: 200,
+        body: () => {
+          if (fail) throw new Error('down')
+          return [MY_WEB, MY_OPS]
+        },
+      },
+    })
+    const { screen, queryClient } = await renderApp('/projects/new')
+
+    const nav = sidebar(screen)
+    await expect
+      .element(nav.getByRole('alert'))
+      .toHaveTextContent('Projects did not load.')
+    fail = false
+    await nav.getByRole('button', { name: 'Retry' }).click()
+    await expect
+      .element(nav.getByRole('button', { name: 'Toggle Website' }))
+      .toBeVisible()
+    await expect.element(nav.getByRole('alert')).not.toBeInTheDocument()
+
+    fail = true
+    await queryClient.refetchQueries({ queryKey: ['home', 'projects'] })
+    await expect.element(nav.getByRole('alert')).toBeVisible()
+    await expect
+      .element(nav.getByRole('button', { name: 'Toggle Website' }))
+      .toBeVisible()
+  })
+
+  it('gives a long name in full to the title', async () => {
+    const name = 'A project name far too long to fit in the sidebar width'
+    signedIn({ 'GET /api/me/projects': { status: 200, body: [mine(name)] } })
+    const { screen } = await renderApp('/')
+
+    await expect
+      .element(sidebar(screen).getByRole('link', { name: new RegExp(name) }))
+      .toHaveAttribute('title', name)
+  })
+
+  it('refreshes the rows after a project visit', async () => {
+    const requests = inProjects()
+    const { screen, router } = await renderApp('/')
+    await expect
+      .element(sidebar(screen).getByRole('button', { name: 'Toggle Website' }))
+      .toBeVisible()
+
+    await router.navigate({ to: '/p/$key/board', params: { key: 'OPS' } })
+
+    await expect
+      .poll(() => {
+        const routes = requests.map(routeOf)
+        return routes
+          .slice(routes.indexOf('POST /api/projects/OPS/visit'))
+          .includes('GET /api/me/projects')
+      })
+      .toBe(true)
+  })
+})
 
 describe('sidebar project row', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -202,7 +585,7 @@ describe('sidebar project row', () => {
     vi.restoreAllMocks()
   })
 
-  it('opens the current project by default and keeps another one open once toggled', async () => {
+  it('opens the current project, and a row opened by hand closes on reload', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/board')
     const nav = sidebar(screen)
@@ -219,24 +602,22 @@ describe('sidebar project row', () => {
     await expect
       .element(nav.getByRole('link', { name: 'Board' }).nth(1))
       .toHaveAttribute('href', '/p/OPS/board')
+    expect(
+      Object.keys(localStorage).filter((key) =>
+        key.startsWith('sidebar-expanded:')
+      )
+    ).toEqual([])
 
-    // A second app in the same page, as after a reload; the first stays mounted.
-    const again = sidebar((await renderApp('/')).screen).last()
-    await expect
-      .element(again.getByRole('button', { name: 'Toggle Operations' }))
-      .toHaveAttribute('aria-expanded', 'true')
+    const again = sidebar((await renderApp('/p/WEB/board')).screen).last()
     await expect
       .element(again.getByRole('button', { name: 'Toggle Website' }))
+      .toHaveAttribute('aria-expanded', 'true')
+    await expect
+      .element(again.getByRole('button', { name: 'Toggle Operations' }))
       .toHaveAttribute('aria-expanded', 'false')
   })
 
-  it('collapses the current project and falls back to defaults without storage', async () => {
-    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new Error('blocked')
-    })
+  it('collapses the current project', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/board')
     const nav = sidebar(screen)
@@ -248,7 +629,7 @@ describe('sidebar project row', () => {
     expect(nav.getByRole('link', { name: 'Board' }).elements()).toHaveLength(0)
   })
 
-  it('tabs from the chevron to the name to the actions', async () => {
+  it('tabs from the chevron to the name to the star to the actions', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/board')
     const nav = sidebar(screen)
@@ -265,28 +646,35 @@ describe('sidebar project row', () => {
       .toHaveFocus()
     await userEvent.keyboard('{Tab}')
     await expect
+      .element(nav.getByRole('button', { name: 'Star Website' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{Tab}')
+    await expect
       .element(nav.getByRole('button', { name: 'Actions for Website' }))
       .toHaveFocus()
   })
 
-  it('gives an admin archive and delete, and keeps the last admin from leaving', async () => {
+  it('gives an admin star, add people, archive and delete, and keeps the last admin from leaving', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/board')
 
     const menu = await openActions(screen, 'Website')
     expect(itemNames(menu)).toEqual([
+      'Unstar project',
       'Copy link',
+      'Add people',
       'Settings',
       'Archive project',
       'Delete project',
       'Leave project',
     ])
+    await expect.element(menu.getByText('Scrum project')).toBeVisible()
     const leave = menu.getByRole('menuitem', { name: 'Leave project' })
     await expect.element(leave).toHaveAttribute('aria-disabled', 'true')
     await expect.element(leave).toHaveAccessibleDescription(LAST_ADMIN)
   })
 
-  it('gives a member copy link, settings and leave', async () => {
+  it('gives a member star, copy link, settings and leave', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/board')
 
@@ -294,25 +682,44 @@ describe('sidebar project row', () => {
     await expect
       .element(menu.getByRole('menuitem', { name: 'Leave project' }))
       .toBeEnabled()
-    expect(itemNames(menu)).toEqual(['Copy link', 'Settings', 'Leave project'])
+    expect(itemNames(menu)).toEqual([
+      'Star project',
+      'Copy link',
+      'Settings',
+      'Leave project',
+    ])
+    await expect.element(menu.getByText('Kanban project')).toBeVisible()
   })
 
-  it('offers no archive on an archived project', async () => {
-    inProjects({
-      'GET /api/projects': {
-        status: 200,
-        body: [{ ...WEB, state: 'archived' }, OPS],
-      },
-    })
+  it('stars a project from the menu', async () => {
+    inProjects({ 'POST /api/me/stars': { status: 204, until: pending } })
     const { screen } = await renderApp('/')
 
-    const menu = await openActions(screen, 'Website')
+    const menu = await openActions(screen, 'Operations')
+    await menu.getByRole('menuitem', { name: 'Star project' }).click()
+
     await expect
-      .element(menu.getByRole('menuitem', { name: 'Delete project' }))
-      .toBeVisible()
-    expect(
-      menu.getByRole('menuitem', { name: 'Archive project' }).elements()
-    ).toEqual([])
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Operations', 'Website'])
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(
+        sidebar(screen)
+          .getByRole('button', { name: 'Star Operations' })
+          .element()
+      )
+  })
+
+  it('sends an admin to the members page to add people', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/')
+
+    const menu = await openActions(screen, 'Website')
+    await menu.getByRole('menuitem', { name: 'Add people' }).click()
+
+    await expect
+      .poll(() => router.state.location.pathname)
+      .toBe('/p/WEB/settings/members')
   })
 
   it('copies the project link', async () => {
@@ -375,9 +782,19 @@ describe('sidebar project row', () => {
     expect(requests.map(routeOf)).toContain('POST /api/projects/WEB/trash')
   })
 
-  it('leaves a project from the menu', async () => {
+  it('leaves a project from the menu and drops its row', async () => {
+    let left = false
     const requests = inProjects({
-      'DELETE /api/projects/OPS/members/1': { status: 204 },
+      'GET /api/me/projects': {
+        status: 200,
+        body: () => (left ? [MY_WEB] : [MY_WEB, MY_OPS]),
+      },
+      'DELETE /api/projects/OPS/members/1': {
+        status: 204,
+        body: () => {
+          left = true
+        },
+      },
     })
     const { screen, router } = await renderApp('/p/WEB/board')
 
@@ -393,9 +810,14 @@ describe('sidebar project row', () => {
     expect(requests.map(routeOf)).toContain(
       'DELETE /api/projects/OPS/members/1'
     )
+    await expect
+      .element(
+        sidebar(screen).getByRole('button', { name: 'Toggle Operations' })
+      )
+      .not.toBeInTheDocument()
   })
 
-  it('gives the phone 44px targets and hides the key', async () => {
+  it('gives the phone 44px targets, a visible star and no key', async () => {
     await page.viewport(375, 800)
     inProjects()
     const { screen } = await renderApp('/')
@@ -405,9 +827,18 @@ describe('sidebar project row', () => {
     await expect
       .element(drawer.getByRole('button', { name: 'Toggle Website' }))
       .toBeVisible()
-    for (const name of ['Toggle Website', 'Actions for Website']) {
+    await expect
+      .element(drawer.getByRole('button', { name: 'Star Website' }))
+      .toBeVisible()
+    for (const name of [
+      'Toggle Website',
+      'Star Website',
+      'Actions for Website',
+      'Projects options',
+      'New project',
+    ]) {
       const box = drawer
-        .getByRole('button', { name })
+        .getByRole(name === 'New project' ? 'link' : 'button', { name })
         .element()
         .getBoundingClientRect()
       expect(box.height).toBeGreaterThanOrEqual(44)
@@ -416,5 +847,6 @@ describe('sidebar project row', () => {
     await expect
       .element(drawer.getByText('WEB', { exact: true }))
       .not.toBeVisible()
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(375)
   })
 })

@@ -180,6 +180,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["my_recent"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/starred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["my_starred"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/stars": {
         parameters: {
             query?: never;
@@ -1196,6 +1228,8 @@ export interface components {
         };
         /** @enum {string} */
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
+        /** @enum {string} */
+        ItemKind: "project" | "issue";
         /** @description One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`. */
         LegalAcceptance: {
             /** Format: date-time */
@@ -1247,6 +1281,23 @@ export interface components {
              */
             status_id?: number | null;
         };
+        /** @description A project or an issue in the sidebar's Recent and Starred lists. */
+        MyItem: {
+            /**
+             * Format: date-time
+             * @description Last visit, view or work (recent), or the star time (starred).
+             */
+            at: string;
+            board_type: components["schemas"]["BoardType"];
+            issue_type?: components["schemas"]["IssueType"] | null;
+            /** @description `WEB` or `WEB-12`. */
+            key: string;
+            kind: components["schemas"]["ItemKind"];
+            /** @description The project name or the issue summary. */
+            name: string;
+            project_key: string;
+            project_name: string;
+        };
         /** @description A project on the caller's home: recently visited or worked first, then starred, then by key. */
         MyProject: {
             board_type: components["schemas"]["BoardType"];
@@ -1261,6 +1312,13 @@ export interface components {
             open_assigned: number;
             role: components["schemas"]["MemberRole"];
             starred: boolean;
+            /** Format: date-time */
+            starred_at?: string | null;
+            /**
+             * Format: date-time
+             * @description The caller's last visit or newest view or work on its issues.
+             */
+            visited_at?: string | null;
         };
         /** @description Where every unfinished issue goes when the sprint closes (D13). */
         OpenIssuesDestination: {
@@ -1348,6 +1406,27 @@ export interface components {
                  * @description Last change a viewer can see: a field edit, a move, sprint planning, a comment or a child.
                  */
                 updated_at: string;
+            }[];
+            /** Format: int64 */
+            next_cursor?: number | null;
+        };
+        /** @description One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page. */
+        Page_MyItem: {
+            items: {
+                /**
+                 * Format: date-time
+                 * @description Last visit, view or work (recent), or the star time (starred).
+                 */
+                at: string;
+                board_type: components["schemas"]["BoardType"];
+                issue_type?: components["schemas"]["IssueType"] | null;
+                /** @description `WEB` or `WEB-12`. */
+                key: string;
+                kind: components["schemas"]["ItemKind"];
+                /** @description The project name or the issue summary. */
+                name: string;
+                project_key: string;
+                project_name: string;
             }[];
             /** Format: int64 */
             next_cursor?: number | null;
@@ -2201,6 +2280,103 @@ export interface operations {
                 };
             };
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    my_recent: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive text in the name or the key. */
+                q?: string;
+                /** @description 1 to 200, default 50. */
+                limit?: number;
+                cursor?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projects and issues the caller visited, viewed or worked on, newest first; `cursor` is an offset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_MyItem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Limit out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    my_starred: {
+        parameters: {
+            query?: {
+                /** @description Only projects or only issues; both when absent. */
+                kind?: "project" | "issue";
+                /** @description Case-insensitive text in the name or the key. */
+                q?: string;
+                /** @description 1 to 200, default 50. */
+                limit?: number;
+                cursor?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projects and issues the caller starred, newest star first; `cursor` is an offset */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_MyItem"];
+                };
+            };
+            /** @description Unknown kind */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Limit out of range */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

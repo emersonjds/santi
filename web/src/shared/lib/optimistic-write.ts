@@ -41,7 +41,10 @@ export const useOptimisticWrite = <View, Variables>({
     onError: (error, variables, snapshot) => {
       // A fresh object: the drag layer drops its pending order once the view it was made for changes.
       for (const [key, view] of snapshot ?? [])
-        queryClient.setQueryData(key, view && { ...view })
+        queryClient.setQueryData(
+          key,
+          Array.isArray(view) ? [...view] : view && { ...view }
+        )
       toast.error(failure(variables), { description: error.message })
     },
     onSettled: () =>

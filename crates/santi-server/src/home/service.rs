@@ -1,4 +1,4 @@
-use santi_types::home::{HomeExport, HomeIssue, HomeView, MyProject};
+use santi_types::home::{HomeExport, HomeIssue, HomeView, ItemKind, MyItem, MyProject};
 use santi_types::issues::{Page, PageParams};
 use sqlx::PgPool;
 
@@ -6,6 +6,7 @@ use super::domain::{self, StarTarget};
 use super::repo;
 use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
+use crate::issues::domain::like_pattern;
 use crate::members::Member;
 use crate::pagination;
 
@@ -20,8 +21,7 @@ pub async fn my_issues(
     view: HomeView,
     page: PageParams,
 ) -> Result<Page<HomeIssue>, AppError> {
-    let limit = pagination::page_limit(page.limit)?;
-    let offset = page.cursor.unwrap_or(0).max(0);
+    let (offset, limit) = offset_limit(&page)?;
     let view = match view {
         HomeView::Recommended => "recommended",
         HomeView::Assigned => "assigned",
@@ -30,11 +30,60 @@ pub async fn my_issues(
         HomeView::Viewed => "viewed",
     };
     let mut conn = pool.acquire().await?;
-    let mut items = repo::my_issues(&mut conn, user.id, view, offset, limit + 1).await?;
+    let items = repo::my_issues(&mut conn, user.id, view, offset, limit + 1).await?;
+    Ok(offset_page(items, offset, limit))
+}
+
+pub async fn my_recent(
+    pool: &PgPool,
+    user: &CurrentUser,
+    q: Option<&str>,
+    page: PageParams,
+) -> Result<Page<MyItem>, AppError> {
+    let (offset, limit) = offset_limit(&page)?;
+    let pattern = like_pattern(q);
+    let mut conn = pool.acquire().await?;
+    let items = repo::my_recent(&mut conn, user.id, pattern.as_deref(), offset, limit + 1).await?;
+    Ok(offset_page(items, offset, limit))
+}
+
+pub async fn my_starred(
+    pool: &PgPool,
+    user: &CurrentUser,
+    kind: Option<ItemKind>,
+    q: Option<&str>,
+    page: PageParams,
+) -> Result<Page<MyItem>, AppError> {
+    let (offset, limit) = offset_limit(&page)?;
+    let kind = kind.map(|kind| match kind {
+        ItemKind::Project => "project",
+        ItemKind::Issue => "issue",
+    });
+    let pattern = like_pattern(q);
+    let mut conn = pool.acquire().await?;
+    let items = repo::my_starred(
+        &mut conn,
+        user.id,
+        kind,
+        pattern.as_deref(),
+        offset,
+        limit + 1,
+    )
+    .await?;
+    Ok(offset_page(items, offset, limit))
+}
+
+fn offset_limit(page: &PageParams) -> Result<(i64, i64), AppError> {
+    let limit = pagination::page_limit(page.limit)?;
+    Ok((page.cursor.unwrap_or(0).max(0), limit))
+}
+
+/// `items` holds up to `limit + 1` rows; `cursor` is the offset of the next page.
+fn offset_page<T>(mut items: Vec<T>, offset: i64, limit: i64) -> Page<T> {
     let has_more = items.len() > limit as usize;
     items.truncate(limit as usize);
     let next_cursor = has_more.then_some(offset + limit);
-    Ok(Page { items, next_cursor })
+    Page { items, next_cursor }
 }
 
 pub async fn set_star(

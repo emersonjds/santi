@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { Loader2, Sparkles } from 'lucide-react'
+import { myProjectsQuery } from '@/entities/home/home-queries'
 import { projectQuery, projectsQuery } from '@/entities/project/project-queries'
 import { api, dataOrThrow } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
@@ -14,7 +15,11 @@ export const SampleProjectButton = () => {
     mutationFn: async () => dataOrThrow(await api.POST('/api/sample-project')),
     onSuccess: async (project) => {
       queryClient.setQueryData(projectQuery(project.key).queryKey, project)
-      await queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey })
+      await Promise.all(
+        [projectsQuery.queryKey, myProjectsQuery.queryKey].map((queryKey) =>
+          queryClient.invalidateQueries({ queryKey })
+        )
+      )
       await navigate({ to: '/p/$key/board', params: { key: project.key } })
     },
     onError: (error) => toast.error(error.message),
