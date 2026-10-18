@@ -36,6 +36,7 @@ macro_rules! text_type {
 #[cfg(feature = "sqlx")]
 text_type!(
     boards::StatusCategory,
+    home::ItemKind,
     issues::IssueType,
     issues::Priority,
     projects::BoardType,

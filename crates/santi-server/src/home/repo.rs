@@ -1,5 +1,5 @@
 use santi_types::boards::StatusCategory;
-use santi_types::home::{HomeIssue, IssueActivity, MyProject, ProjectActivity};
+use santi_types::home::{HomeIssue, IssueActivity, ItemKind, MyItem, MyProject, ProjectActivity};
 use santi_types::issues::IssueType;
 use santi_types::projects::{BoardType, MemberRole};
 use sqlx::PgConnection;
@@ -22,7 +22,8 @@ pub async fn my_projects(
                    ORDER BY l.user_id LIMIT 1) AS "lead_name?",
                   m.starred_at IS NOT NULL AS "starred!",
                   (SELECT count(*) FROM issue i JOIN status s ON s.id = i.status_id
-                   WHERE i.project_id = p.id AND i.assignee_id = $1 AND s.category <> 'done') AS "open_assigned!"
+                   WHERE i.project_id = p.id AND i.assignee_id = $1 AND s.category <> 'done') AS "open_assigned!",
+                  m.starred_at, greatest(m.visited_at, r.at) AS "visited_at?"
            FROM member m
            JOIN project p ON p.id = m.project_id
            JOIN board b ON b.project_id = p.id
@@ -75,6 +76,100 @@ pub async fn my_issues(
            LIMIT $4 OFFSET $3"#,
         user_id,
         view,
+        offset,
+        limit
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// A project's time is `greatest(visited_at, newest touch of its issues)`, as in `my_projects`.
+pub async fn my_recent(
+    conn: &mut PgConnection,
+    user_id: i64,
+    pattern: Option<&str>,
+    offset: i64,
+    limit: i64,
+) -> Result<Vec<MyItem>, sqlx::Error> {
+    sqlx::query_as!(
+        MyItem,
+        r#"WITH touched AS (
+             SELECT a.issue_id, greatest(a.viewed_at, a.worked_at) AS at
+             FROM issue_activity a WHERE a.user_id = $1),
+           recent AS (
+             SELECT i.project_id, max(t.at) AS at
+             FROM touched t JOIN issue i ON i.id = t.issue_id
+             GROUP BY i.project_id),
+           items AS (
+             SELECT 'project' AS kind, p.key, p.name, p.id AS project_id, NULL::text AS issue_type,
+                    greatest(m.visited_at, r.at) AS at
+             FROM member m
+             JOIN project p ON p.id = m.project_id
+             LEFT JOIN recent r ON r.project_id = p.id
+             WHERE m.user_id = $1
+             UNION ALL
+             SELECT 'issue', p.key || '-' || i.number, i.summary, p.id, i.issue_type, t.at
+             FROM touched t
+             JOIN issue i ON i.id = t.issue_id
+             JOIN project p ON p.id = i.project_id)
+           SELECT x.kind AS "kind!: ItemKind", x.key AS "key!", x.name AS "name!",
+                  p.key AS project_key, p.name AS project_name,
+                  b.board_type AS "board_type: BoardType", x.issue_type AS "issue_type?: IssueType",
+                  x.at AS "at!"
+           FROM items x
+           JOIN member m ON m.project_id = x.project_id AND m.user_id = $1
+           JOIN project p ON p.id = x.project_id
+           JOIN board b ON b.project_id = p.id
+           WHERE x.at IS NOT NULL AND p.archived_at IS NULL AND p.trashed_at IS NULL
+             AND ($2::text IS NULL OR x.name ILIKE $2 OR x.key ILIKE $2)
+           ORDER BY x.at DESC, x.key
+           LIMIT $4 OFFSET $3"#,
+        user_id,
+        pattern,
+        offset,
+        limit
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// `kind` is `project`, `issue` or none for both.
+pub async fn my_starred(
+    conn: &mut PgConnection,
+    user_id: i64,
+    kind: Option<&str>,
+    pattern: Option<&str>,
+    offset: i64,
+    limit: i64,
+) -> Result<Vec<MyItem>, sqlx::Error> {
+    sqlx::query_as!(
+        MyItem,
+        r#"WITH items AS (
+             SELECT 'project' AS kind, p.key, p.name, p.id AS project_id, NULL::text AS issue_type,
+                    m.starred_at AS at
+             FROM member m JOIN project p ON p.id = m.project_id
+             WHERE m.user_id = $1 AND m.starred_at IS NOT NULL AND $2::text IS DISTINCT FROM 'issue'
+             UNION ALL
+             SELECT 'issue', p.key || '-' || i.number, i.summary, p.id, i.issue_type, st.created_at
+             FROM issue_star st
+             JOIN issue i ON i.id = st.issue_id
+             JOIN project p ON p.id = i.project_id
+             WHERE st.user_id = $1 AND $2::text IS DISTINCT FROM 'project')
+           SELECT x.kind AS "kind!: ItemKind", x.key AS "key!", x.name AS "name!",
+                  p.key AS project_key, p.name AS project_name,
+                  b.board_type AS "board_type: BoardType", x.issue_type AS "issue_type?: IssueType",
+                  x.at AS "at!"
+           FROM items x
+           JOIN member m ON m.project_id = x.project_id AND m.user_id = $1
+           JOIN project p ON p.id = x.project_id
+           JOIN board b ON b.project_id = p.id
+           WHERE p.archived_at IS NULL AND p.trashed_at IS NULL
+             AND ($3::text IS NULL OR x.name ILIKE $3 OR x.key ILIKE $3)
+           ORDER BY x.at DESC, x.key
+           LIMIT $5 OFFSET $4"#,
+        user_id,
+        kind,
+        pattern,
         offset,
         limit
     )
