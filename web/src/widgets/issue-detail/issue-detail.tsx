@@ -23,7 +23,7 @@ import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { ARCHIVED_NOTE, useProjectWritable } from '@/entities/project/writable'
 import { WriteLock } from '@/entities/project/write-lock'
 import { sessionQuery } from '@/entities/session/session-query'
-import { type Issue, fieldMessage } from '@/shared/api/client'
+import { type Issue, type Member, fieldMessage } from '@/shared/api/client'
 import { useReadOnly } from '@/shared/lib/read-only'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
@@ -117,9 +117,11 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
 const peopleOf = ({ assignee_id, reporter_id }: Issue) =>
   assignee_id == null ? [reporter_id] : [assignee_id, reporter_id]
 
+const NO_MEMBERS: Member[] = []
+
 const Description = ({ issue, projectKey }: IssueProps) => {
   const edit = useEditIssue(projectKey, issue)
-  const { data: members = [] } = useQuery(membersQuery(projectKey))
+  const { data: members = NO_MEMBERS } = useQuery(membersQuery(projectKey))
   const locked = Boolean(useReadOnly())
   const [draft, setDraft] = useState<string | null>(null)
 
@@ -131,6 +133,10 @@ const Description = ({ issue, projectKey }: IssueProps) => {
       { change: { description: draft }, shown: { description: draft } },
       { onSuccess: () => setDraft(null) }
     )
+  }
+
+  const cancel = () => {
+    if (!edit.isPending) setDraft(null)
   }
 
   // Q6: a click on the text opens the editor, except on a link, a chip or a text selection.
@@ -178,7 +184,7 @@ const Description = ({ issue, projectKey }: IssueProps) => {
             value={draft}
             onChange={setDraft}
             onSubmit={save}
-            onCancel={() => setDraft(null)}
+            onCancel={cancel}
             readOnly={edit.isPending}
             members={members}
             firstIds={peopleOf(issue)}
@@ -195,7 +201,7 @@ const Description = ({ issue, projectKey }: IssueProps) => {
               type='button'
               variant='ghost'
               className='h-11 md:h-8'
-              onClick={() => setDraft(null)}
+              onClick={cancel}
             >
               Cancel
             </Button>
@@ -281,7 +287,7 @@ export const IssueDetail = ({
                 <Summary issue={issue} projectKey={projectKey} />
               </WriteLock>
             </div>
-            <WriteLock projectKey={projectKey}>
+            <WriteLock key={issue.key} projectKey={projectKey}>
               <Description issue={issue} projectKey={projectKey} />
               {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
                 <IssueSubtasks issue={issue} projectKey={projectKey} />

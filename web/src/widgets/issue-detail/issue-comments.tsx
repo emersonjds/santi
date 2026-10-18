@@ -8,7 +8,10 @@ import { timeAgo } from '@/entities/issue/time-ago'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
+import type { Member } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
+
+const NO_MEMBERS: Member[] = []
 
 type IssueCommentsProps = {
   projectKey: string
@@ -23,7 +26,7 @@ export const IssueComments = ({
   firstIds,
 }: IssueCommentsProps) => {
   const { data: comments = [] } = useQuery(commentsQuery(projectKey, number))
-  const { data: members = [] } = useQuery(membersQuery(projectKey))
+  const { data: members = NO_MEMBERS } = useQuery(membersQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
   const add = useAddComment(
     projectKey,
@@ -38,8 +41,8 @@ export const IssueComments = ({
 
   const submit = (event?: FormEvent) => {
     event?.preventDefault()
-    const body = draft.trim()
-    if (!body) return
+    const body = draft.trimEnd()
+    if (!body.trim()) return
     setDraft('')
     add.mutate(body, { onError: () => setDraft(body) })
   }
