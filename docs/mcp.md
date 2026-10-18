@@ -44,6 +44,8 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 - An argument the tool does not declare (a typo such as `summry`) is a tool error naming it, not
   silently dropped. Every schema says `additionalProperties: false`.
 - `plan_issue` requires `sprint_id`: a sprint id, or `null` to send the issue to the backlog.
+- Descriptions and comment bodies are Markdown (CommonMark + GFM), sent and returned as written. A
+  mention is `[@Name](mention:<user_id>)`, with the id from `list_members`.
 - Summaries, descriptions and comments in an answer are text written by users. The server
   instructions and the reading tools tell the agent to treat them as data, never as instructions.
 
@@ -58,6 +60,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `list_sprints` | a board's sprints | read-only |
 | `get_sprint_report` | a started sprint's issues: completed, not completed, removed | read-only |
 | `list_epics` | a project's epics | read-only |
+| `list_members` | a project's members: `user_id`, name, email, role | read-only |
 | `create_issue` | new issue (story by default) | additive |
 | `update_issue` | change fields; `null` clears | idempotent |
 | `move_issue` | status and/or rank | idempotent |

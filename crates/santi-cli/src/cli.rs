@@ -45,6 +45,8 @@ pub enum Command {
     Board { project: ProjectKey },
     /// Show a project's backlog: sprints first, then the backlog
     Backlog { project: ProjectKey },
+    /// List a project's members: user id (for `--assignee` and mentions), name, email and role
+    Members { project: ProjectKey },
     #[command(subcommand)]
     Sprints(SprintsCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
@@ -444,6 +446,14 @@ mod tests {
             panic!("not issues comments");
         };
         assert_eq!(issue.to_string(), "WEB-1");
+    }
+
+    #[test]
+    fn members_takes_a_project_key() {
+        let Command::Members { project } = parse(&["santi", "members", "web"]) else {
+            panic!("not members");
+        };
+        assert_eq!(project.as_str(), "WEB");
     }
 
     #[test]

@@ -8,7 +8,7 @@ use santi_types::issues::{
     Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
     UpdateIssue,
 };
-use santi_types::projects::{CreateProject, Project, ProjectState};
+use santi_types::projects::{CreateProject, MemberInfo, Project, ProjectState};
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -48,6 +48,10 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
         Command::Issues(command) => issues(&client, command, json).await,
         Command::Board { project } => show(json, &client.board(&project).await?, board_text),
         Command::Backlog { project } => show(json, &client.backlog(&project).await?, backlog_text),
+        Command::Members { project } => {
+            let members = client.members(&project).await?;
+            show(json, &members, |members| lines(members, member_line))
+        }
         Command::Sprints(command) => sprints(&client, command, json).await,
         Command::Plan(args) => plan(&client, args, json).await,
         Command::Search {
@@ -550,7 +554,7 @@ fn issue_text(issue: &Issue) -> String {
     }
     if !issue.description.is_empty() {
         text.push_str("\n\n");
-        text.push_str(&issue.description);
+        text.push_str(&plain_mentions(&issue.description));
     }
     text
 }
@@ -564,10 +568,67 @@ fn comments_text(comments: &[Comment], now: DateTime<Utc>) -> String {
         .map(|comment| {
             let author = short_name(&comment.author_name);
             let age = ago(comment.created_at, now);
-            format!("{author} · {age}\n{}", comment.body)
+            format!("{author} · {age}\n{}", plain_mentions(&comment.body))
         })
         .collect::<Vec<_>>()
         .join("\n\n")
+}
+
+fn member_line(member: &MemberInfo) -> String {
+    format!(
+        "{:<6} {} <{}> ({})",
+        member.user_id,
+        member.display_name,
+        member.email,
+        name(&member.role)
+    )
+}
+
+/// D50: a `[@Name](mention:<user_id>)` token reads `@Name`; everything else stays as written.
+fn plain_mentions(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(['[', '\\']) {
+        plain.push_str(&rest[..at]);
+        rest = &rest[at..];
+        if let Some((name, length)) = mention(rest) {
+            plain.push('@');
+            plain.push_str(&name);
+            rest = &rest[length..];
+            continue;
+        }
+        let length = match rest.strip_prefix('\\') {
+            Some(escaped) => 1 + escaped.chars().next().map_or(0, char::len_utf8),
+            None => 1,
+        };
+        plain.push_str(&rest[..length]);
+        rest = &rest[length..];
+    }
+    plain.push_str(rest);
+    plain
+}
+
+/// The unescaped name and byte length of a mention token at the start of `text`.
+fn mention(text: &str) -> Option<(String, usize)> {
+    let label = text.strip_prefix("[@")?;
+    let mut name = String::new();
+    let mut letters = label.char_indices();
+    let close = loop {
+        match letters.next()? {
+            (_, '\\') => match letters.next()?.1 {
+                letter if letter.is_ascii_punctuation() => name.push(letter),
+                letter => name.extend(['\\', letter]),
+            },
+            (index, ']') => break index,
+            (_, letter) => name.push(letter),
+        }
+    };
+    let id = label[close + 1..].strip_prefix("(mention:")?;
+    let end = id.find(')')?;
+    if end == 0 || !id[..end].bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    Some((name, text.len() - id.len() + end + 1))
 }
 
 /// Whole units, rounded down; a month is 30 days. A time ahead of the clock shows its date.
@@ -761,6 +822,8 @@ fn problem_lines(problems: &[santi_types::imports::RowProblem]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    use santi_types::projects::MemberRole;
+
     use super::*;
 
     #[test]
@@ -831,6 +894,72 @@ mod tests {
              Labels:   dogfood, cli\n\
              \n\
              Make it so."
+        );
+    }
+
+    #[test]
+    fn plain_mentions_reads_tokens_as_names_and_keeps_other_markdown() {
+        for (stored, shown) in [
+            ("[@Ana Souza](mention:42)", "@Ana Souza"),
+            (
+                "Ask [@Ana Souza](mention:42) and [@Bo](mention:7).",
+                "Ask @Ana Souza and @Bo.",
+            ),
+            (r"[@Ana \[QA\]](mention:42)", "@Ana [QA]"),
+            (r"[@C:\\temp](mention:3)", r"@C:\temp"),
+            (r"[@Ana \d](mention:3)", r"@Ana \d"),
+            (
+                "**bold** [docs](https://x.dev) [@x](https://x.dev)",
+                "**bold** [docs](https://x.dev) [@x](https://x.dev)",
+            ),
+            ("[Ana](mention:42)", "[Ana](mention:42)"),
+            ("[@Ana](mention:abc)", "[@Ana](mention:abc)"),
+            ("[@Ana](mention:)", "[@Ana](mention:)"),
+            ("[@Ana](mention:42", "[@Ana](mention:42"),
+            ("[@Ana", "[@Ana"),
+            (r"[@Ana\", r"[@Ana\"),
+            (r"\[@Ana](mention:42)", r"\[@Ana](mention:42)"),
+            (r"a\\[@Ana](mention:42)", r"a\\@Ana"),
+            ("trailing \\", "trailing \\"),
+            ("[[@Zé](mention:9)]", "[@Zé]"),
+            ("", ""),
+        ] {
+            assert_eq!(plain_mentions(stored), shown, "{stored:?}");
+        }
+    }
+
+    #[test]
+    fn issue_and_comment_text_show_mentions_by_name() {
+        let mentioned = Issue {
+            description: "Ask [@Ana Souza](mention:42).".into(),
+            ..issue()
+        };
+        assert!(issue_text(&mentioned).ends_with("\n\nAsk @Ana Souza."));
+        let comment = Comment {
+            id: 1,
+            author_id: 1,
+            author_name: "Bo".into(),
+            body: "[@Ana Souza](mention:42) please".into(),
+            created_at: "2026-10-16T12:00:00Z".parse().unwrap(),
+        };
+        let now = comment.created_at;
+        assert_eq!(
+            comments_text(&[comment], now),
+            "Bo · just now\n@Ana Souza please"
+        );
+    }
+
+    #[test]
+    fn member_line_shows_id_name_email_and_role() {
+        let member = MemberInfo {
+            user_id: 42,
+            email: "ana@example.com".into(),
+            display_name: "Ana Souza".into(),
+            role: MemberRole::Admin,
+        };
+        assert_eq!(
+            member_line(&member),
+            "42     Ana Souza <ana@example.com> (admin)"
         );
     }
 
