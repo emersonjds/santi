@@ -76,16 +76,25 @@ describe('markdown view', () => {
   })
 
   it('renders an image as a link to it', async () => {
-    const screen = await view('![logo](https://example.com/logo.png)')
+    const screen = await view(
+      '![logo](https://example.com/logo.png) ![](https://example.com/chart.png)'
+    )
 
     await expect
       .element(screen.getByRole('link', { name: 'logo' }))
       .toHaveAttribute('href', 'https://example.com/logo.png')
+    await expect
+      .element(
+        screen.getByRole('link', { name: 'https://example.com/chart.png' })
+      )
+      .toBeVisible()
     expect(screen.container.querySelector('img')).toBeNull()
   })
 
   it('renders headings one tier below the section heading', async () => {
-    const screen = await view('# Goal\n\n## Scope\n\n### Notes\n\n#### Aside')
+    const screen = await view(
+      '# Goal\n\n## Scope\n\n### Notes\n\n#### Aside\n\n##### Five\n\n###### Six'
+    )
 
     await expect
       .element(screen.getByRole('heading', { level: 4, name: 'Goal' }))
@@ -99,6 +108,7 @@ describe('markdown view', () => {
     await expect
       .element(screen.getByRole('heading', { level: 6, name: 'Aside' }))
       .toBeVisible()
+    expect(screen.getByRole('heading', { level: 6 }).elements()).toHaveLength(4)
   })
 
   it('keeps the line breaks of old plain text', async () => {
