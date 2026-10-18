@@ -7,6 +7,7 @@ import type {
   Comment,
   HomeIssue,
   Issue,
+  Member,
   MyProject,
   ReportGroup,
   ReportIssue,
@@ -171,7 +172,7 @@ export const homeIssue = (
   ...fields,
 })
 
-export const MEMBERS = [
+export const MEMBERS: Member[] = [
   {
     user_id: 1,
     email: 'alice@example.com',
