@@ -9,6 +9,7 @@ import { BOARD_TYPE_LABEL } from '@/entities/project/labels'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import type { MyItem } from '@/shared/api/client'
 import { Input } from '@/shared/ui/input'
+import { useSidebar } from '@/shared/ui/sidebar'
 import { Skeleton } from '@/shared/ui/skeleton'
 
 const ICON_BUTTON =
@@ -49,6 +50,7 @@ export const SidebarFlyout = ({
   children,
 }: SidebarFlyoutProps) => {
   const input = useRef<HTMLInputElement>(null)
+  const sidebar = useSidebar()
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Content
@@ -66,7 +68,12 @@ export const SidebarFlyout = ({
           )
             event.preventDefault()
         }}
-        className='fixed inset-0 z-50 flex flex-col bg-popover text-popover-foreground outline-none md:start-64 md:inset-e-auto md:w-96 md:border-e md:shadow-lg'
+        style={
+          sidebar.isMobile
+            ? undefined
+            : { insetInlineStart: sidebar.open ? sidebar.width : 0 }
+        }
+        className='fixed inset-0 z-50 flex flex-col bg-popover text-popover-foreground outline-none md:inset-e-auto md:w-96 md:border-e md:shadow-lg'
       >
         <div className='flex items-center gap-1 border-b py-1 ps-4 pe-1'>
           <DialogPrimitive.Title className='flex-1 text-base font-semibold'>

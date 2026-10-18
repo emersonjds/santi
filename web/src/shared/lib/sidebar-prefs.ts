@@ -24,3 +24,29 @@ export const storeProjectsView = (view: ProjectsView) => {
     // the choice lasts until the reload
   }
 }
+
+const WIDTH = 'sidebar-width'
+
+export const SIDEBAR_WIDTH = { min: 200, max: 500, initial: 320 } as const
+
+export const clampSidebarWidth = (width: number) =>
+  Math.min(SIDEBAR_WIDTH.max, Math.max(SIDEBAR_WIDTH.min, width))
+
+export const storedSidebarWidth = (): number => {
+  try {
+    const width = Number(localStorage.getItem(WIDTH))
+    return width >= SIDEBAR_WIDTH.min && width <= SIDEBAR_WIDTH.max
+      ? width
+      : SIDEBAR_WIDTH.initial
+  } catch {
+    return SIDEBAR_WIDTH.initial
+  }
+}
+
+export const storeSidebarWidth = (width: number) => {
+  try {
+    localStorage.setItem(WIDTH, String(width))
+  } catch {
+    // the width lasts until the reload
+  }
+}
