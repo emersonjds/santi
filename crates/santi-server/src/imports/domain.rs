@@ -862,7 +862,7 @@ pub fn plan_import(
         let description: String = row
             .description
             .chars()
-            .take(issues::domain::MAX_DESCRIPTION)
+            .take(issues::domain::MAX_RICH_TEXT)
             .collect();
         if description.len() < row.description.len() {
             problem("description cut to 65536 characters".into());
@@ -904,7 +904,11 @@ pub fn plan_import(
                 .iter()
                 .filter(|comment| !comment.body.is_empty())
                 .map(|comment| {
-                    let body: String = comment.body.chars().take(20_000).collect();
+                    let body: String = comment
+                        .body
+                        .chars()
+                        .take(issues::domain::MAX_RICH_TEXT)
+                        .collect();
                     (body, comment.created.unwrap_or(created).min(now))
                 })
                 .collect(),
@@ -1466,7 +1470,7 @@ mod tests {
     fn plan_cuts_long_descriptions() {
         let csv = format!(
             "Issue key,Summary,Status,Description\nA-1,Long,Done,{}\n",
-            "x".repeat(issues::domain::MAX_DESCRIPTION + 5)
+            "x".repeat(issues::domain::MAX_RICH_TEXT + 5)
         );
         let export = read_export(&csv).unwrap();
 
@@ -1481,13 +1485,33 @@ mod tests {
 
         assert_eq!(
             plan.issues[0].description.chars().count(),
-            issues::domain::MAX_DESCRIPTION
+            issues::domain::MAX_RICH_TEXT
         );
         assert!(
             plan.problems
                 .iter()
                 .any(|problem| problem.message == "description cut to 65536 characters")
         );
+    }
+
+    #[test]
+    fn plan_cuts_long_comments() {
+        let csv = format!(
+            "Issue key,Summary,Status,Comment\nA-1,Long,Done,2026-01-01 10:00;x;{}\n",
+            "x".repeat(65_541)
+        );
+        let export = read_export(&csv).unwrap();
+
+        let plan = plan_import(
+            &export,
+            &jira_mapping(),
+            &categories(),
+            &HashMap::new(),
+            1,
+            Utc::now(),
+        );
+
+        assert_eq!(plan.issues[0].comments[0].0.chars().count(), 65_536);
     }
 
     #[test]
