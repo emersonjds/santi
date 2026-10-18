@@ -234,7 +234,10 @@ describe('recent flyout', () => {
         status: 200,
         body: (request: Request) =>
           query(request, 'cursor') === '15'
-            ? pageOf([item({ key: 'WEB-99', name: 'The very last one' })])
+            ? pageOf([
+                first[14],
+                item({ key: 'WEB-99', name: 'The very last one' }),
+              ])
             : pageOf(first, 15),
       },
     })
@@ -250,6 +253,45 @@ describe('recent flyout', () => {
     expect(
       requests.filter((request) => query(request, 'cursor') === '15')
     ).toHaveLength(1)
+    // Offset paging repeats a row that moved between the two requests.
+    expect(dialog.getByText('Old issue 24').elements()).toHaveLength(1)
+  })
+
+  it('stops loading more after a failed page and offers a retry', async () => {
+    await page.viewport(1280, 500)
+    const first = Array.from({ length: 15 }, (_, index) =>
+      item({ key: `WEB-${index + 10}`, name: `Old issue ${index + 10}` })
+    )
+    let fail = true
+    const requests = inProjects({
+      'GET /api/me/recent': {
+        status: 200,
+        body: (request: Request) => {
+          if (query(request, 'cursor') !== '15') return pageOf(first, 15)
+          if (fail) throw new Error('down')
+          return pageOf([item({ key: 'WEB-99', name: 'The very last one' })])
+        },
+      },
+    })
+    const { screen } = await renderApp('/')
+    const nextPages = () =>
+      requests.filter((request) => query(request, 'cursor') === '15')
+
+    const dialog = await openFlyout(screen, 'Recent')
+    await expect.element(dialog.getByText('Old issue 24')).toBeInTheDocument()
+    dialog.getByText('Old issue 24').element().scrollIntoView()
+
+    const retry = dialog.getByRole('button', { name: 'Retry' })
+    await expect.element(retry).toBeVisible()
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(nextPages()).toHaveLength(1)
+
+    fail = false
+    await retry.click()
+    await expect
+      .element(dialog.getByText('The very last one'))
+      .toBeInTheDocument()
+    expect(nextPages()).toHaveLength(2)
   })
 
   it('opens beside the sidebar and closes when Starred opens', async () => {
@@ -269,10 +311,14 @@ describe('recent flyout', () => {
     ).toBeGreaterThanOrEqual(bar.right - 1)
     await userEvent.click(starred)
 
-    await expect
-      .element(screen.getByRole('dialog', { name: 'Starred' }))
-      .toBeVisible()
+    const next = screen.getByRole('dialog', { name: 'Starred' })
+    await expect.element(next).toBeVisible()
     await expect.element(recent).not.toBeInTheDocument()
+    const search = next.getByRole('searchbox', { name: 'Search starred' })
+    await expect.element(search).toHaveFocus()
+    // The closing flyout gives the focus back after a tick; it must not take it from the new one.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(document.activeElement).toBe(search.element())
   })
 
   it('fills a phone screen with 44px rows and no sideways scroll', async () => {

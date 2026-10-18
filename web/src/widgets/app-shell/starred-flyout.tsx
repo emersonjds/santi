@@ -70,9 +70,9 @@ export const StarredFlyout = ({ onNavigate }: { onNavigate: () => void }) => {
   const q = useDebouncedValue(text.trim(), SEARCH_DELAY)
   const filter: StarredKind | undefined = kind === 'all' ? undefined : kind
   const list = useInfiniteQuery(starredQuery(filter, q))
-  const items = list.data?.pages.flatMap((page) => page.items)
+  const items = list.data
   const nothingStarred = items?.length === 0 && !q && !filter
-  const failed = list.isError && (
+  const failed = list.isError && !list.isFetchNextPageError && (
     <LoadFailed
       message='Starred items did not load.'
       onRetry={() => void list.refetch()}
@@ -109,11 +109,7 @@ export const StarredFlyout = ({ onNavigate }: { onNavigate: () => void }) => {
             />
           ))}
         </ul>
-        <LoadMore
-          hasMore={list.hasNextPage}
-          loading={list.isFetchingNextPage}
-          onMore={list.fetchNextPage}
-        />
+        <LoadMore list={list} />
       </div>
     )
   }

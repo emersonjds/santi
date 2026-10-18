@@ -21,8 +21,8 @@ const RecentList = ({
   onNavigate: () => void
 }) => {
   const list = useInfiniteQuery(recentQuery(q))
-  const items = list.data?.pages.flatMap((page) => page.items)
-  const failed = list.isError && (
+  const items = list.data
+  const failed = list.isError && !list.isFetchNextPageError && (
     <LoadFailed
       message='Recent items did not load.'
       onRetry={() => void list.refetch()}
@@ -56,11 +56,7 @@ const RecentList = ({
           </ul>
         </section>
       ))}
-      <LoadMore
-        hasMore={list.hasNextPage}
-        loading={list.isFetchingNextPage}
-        onMore={list.fetchNextPage}
-      />
+      <LoadMore list={list} />
     </div>
   )
 }
