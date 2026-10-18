@@ -66,11 +66,13 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `move_issue` | status and/or rank | idempotent |
 | `plan_issue` | into a sprint, or `null` for the backlog (`sprint_id` required) | idempotent |
 | `add_comment` | comment on an issue | additive |
+| `edit_comment` | change a comment's text (`comment_id` from `list_comments`; author or admin) | idempotent |
 | `create_sprint` | new future sprint | additive |
 | `create_project` | new project (`key`, `name`, `board_type` `scrum` by default); you become its admin | additive |
 | `start_sprint` | start a future sprint (`starts_at`, `ends_at`, `length`) | |
 | `complete_sprint` | close the active sprint, open work to the backlog by default | |
 | `delete_issue` | delete with subtasks and comments | destructive |
+| `delete_comment` | delete one comment (author or admin) | destructive |
 | `archive_project` | read-only and out of every list (admins) | |
 | `unarchive_project` | active again (admins) | |
 | `trash_project` | hidden from everyone, purged after 60 days (admins) | |

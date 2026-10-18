@@ -8,7 +8,7 @@ use santi_types::boards::{Backlog, BoardSettings, BoardView};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult};
 use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
-    StatusFilter, UpdateIssue,
+    StatusFilter, UpdateComment, UpdateIssue,
 };
 use santi_types::projects::{CreateProject, MemberInfo, Project, ProjectState};
 use santi_types::reports::SprintReport;
@@ -134,7 +134,7 @@ impl Client {
     }
 
     pub async fn issue(&self, key: &IssueKey) -> Result<Issue, Error> {
-        self.send(self.issue_request(Method::GET, key, None)).await
+        self.send(self.issue_request(Method::GET, key, &[])).await
     }
 
     pub async fn create_issue(
@@ -151,22 +151,22 @@ impl Client {
         key: &IssueKey,
         changes: &UpdateIssue,
     ) -> Result<Issue, Error> {
-        let request = self.issue_request(Method::PATCH, key, None);
+        let request = self.issue_request(Method::PATCH, key, &[]);
         self.send(request.json(changes)).await
     }
 
     pub async fn move_issue(&self, key: &IssueKey, change: &MoveIssue) -> Result<Issue, Error> {
-        let request = self.issue_request(Method::POST, key, Some("move"));
+        let request = self.issue_request(Method::POST, key, &["move"]);
         self.send(request.json(change)).await
     }
 
     pub async fn delete_issue(&self, key: &IssueKey) -> Result<(), Error> {
-        self.send(self.issue_request(Method::DELETE, key, None))
+        self.send(self.issue_request(Method::DELETE, key, &[]))
             .await
     }
 
     pub async fn comment(&self, key: &IssueKey, body: &str) -> Result<Comment, Error> {
-        let request = self.issue_request(Method::POST, key, Some("comments"));
+        let request = self.issue_request(Method::POST, key, &["comments"]);
         let body = CreateComment { body: body.into() };
         self.send(request.json(&body)).await
     }
@@ -176,8 +176,26 @@ impl Client {
         key: &IssueKey,
         page: &PageParams,
     ) -> Result<Page<Comment>, Error> {
-        let request = self.issue_request(Method::GET, key, Some("comments"));
+        let request = self.issue_request(Method::GET, key, &["comments"]);
         self.send(request.query(&to_query(page))).await
+    }
+
+    pub async fn edit_comment(
+        &self,
+        key: &IssueKey,
+        id: i64,
+        body: &str,
+    ) -> Result<Comment, Error> {
+        let id = id.to_string();
+        let request = self.issue_request(Method::PATCH, key, &["comments", &id]);
+        let body = UpdateComment { body: body.into() };
+        self.send(request.json(&body)).await
+    }
+
+    pub async fn delete_comment(&self, key: &IssueKey, id: i64) -> Result<(), Error> {
+        let id = id.to_string();
+        self.send(self.issue_request(Method::DELETE, key, &["comments", &id]))
+            .await
     }
 
     /// Every comment, oldest first, following the cursor to the last page.
@@ -302,15 +320,10 @@ impl Client {
         self.send(request.multipart(form)).await
     }
 
-    fn issue_request(
-        &self,
-        method: Method,
-        key: &IssueKey,
-        action: Option<&str>,
-    ) -> RequestBuilder {
+    fn issue_request(&self, method: Method, key: &IssueKey, tail: &[&str]) -> RequestBuilder {
         let number = key.number.to_string();
         let mut path = vec!["projects", key.project.as_str(), "issues", &number];
-        path.extend(action);
+        path.extend(tail);
         self.request(method, &path)
     }
 

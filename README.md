@@ -176,11 +176,12 @@ santi sprints start WEB 3 --for 1w             # or 4h, 1d (until 23:59), 2w, 1m
 santi sprints start WEB 3 --end '2026-10-16 22:00'   # local time; sprint lines show the UTC offset
 santi search WEB "login" --status in_progress --json
 santi issues edit WEB-12 --sprint none          # back to the backlog; --sprint <ID> plans it
-santi issues comments WEB-12                    # every comment, oldest first
+santi issues comments WEB-12                    # every comment, oldest first, with its #id
+santi issues comment-edit WEB-12 7 "Fixed in 1.2"   # author or admin; comment-delete asks first
 ```
 
 Commands: `login`, `whoami`, `projects create <KEY> --name <NAME> [--type scrum|kanban]|list [--state archived|trashed]|archive|unarchive|trash|restore|purge`,
-`issues list|show|create|edit|move|delete|plan|comment|comments`, `board`, `backlog`, `members`,
+`issues list|show|create|edit|move|delete|plan|comment|comments|comment-edit|comment-delete`, `board`, `backlog`, `members`,
 `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`, `search`, `comment`,
 `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `issues plan` and `issues comment` are
 the top-level `plan` and `comment` under `issues`. `issues show` names the status, assignee,
