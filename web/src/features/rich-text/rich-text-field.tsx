@@ -17,6 +17,13 @@ const loadEditor = () =>
 const whenIdle = (run: () => void) =>
   'requestIdleCallback' in window ? requestIdleCallback(run) : setTimeout(run)
 
+const codePoints = (text: string) => [...text].length
+
+/** Q12, in characters: input stops at the cap, and a shorter text always goes through. */
+const fits = (next: string, before: string) =>
+  next.length <= MAX_RICH_TEXT ||
+  codePoints(next) <= Math.max(MAX_RICH_TEXT, codePoints(before))
+
 /** Q3: today's textarea until the editor chunk is in and the field is focused; then the editor, same text and caret. */
 export const RichTextField = (
   props: Omit<RichTextEditorProps, 'selection'>
@@ -51,10 +58,11 @@ export const RichTextField = (
       placeholder={props.placeholder}
       autoFocus={props.autoFocus}
       readOnly={props.readOnly}
-      maxLength={MAX_RICH_TEXT}
       className='min-h-24'
       value={value}
-      onChange={(event) => onChange(event.target.value)}
+      onChange={({ target }) => {
+        if (fits(target.value, value)) onChange(target.value)
+      }}
       onFocus={() => {
         setFocused(true)
         setUsed(true)
