@@ -335,6 +335,68 @@ fn issue_lifecycle_from_create_to_delete() {
 }
 
 #[test]
+fn members_list_people_and_text_output_shows_mentions_by_name() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "MEN", "kanban");
+    let me = json(santi.with(&token).arg("whoami"));
+    let (id, name) = (
+        me["id"].as_i64().unwrap(),
+        me["display_name"].as_str().unwrap(),
+    );
+
+    let members = json(santi.with(&token).args(["members", "MEN"]));
+    assert_eq!(members[0]["user_id"], id);
+    assert_eq!(members[0]["role"], "admin");
+    santi
+        .with(&token)
+        .args(["members", "MEN"])
+        .assert()
+        .success()
+        .stdout(contains(format!("{id:<6} {name} <{name}> (admin)")));
+
+    let description = format!("Ask [@{name}](mention:{id}) about **[docs](https://x.dev)**");
+    santi
+        .with(&token)
+        .args([
+            "issues",
+            "create",
+            "MEN",
+            "--summary",
+            "Mention",
+            "--description",
+            &description,
+        ])
+        .assert()
+        .success();
+    santi
+        .with(&token)
+        .args(["issues", "show", "MEN-1"])
+        .assert()
+        .success()
+        .stdout(contains(format!(
+            "\n\nAsk @{name} about **[docs](https://x.dev)**\n"
+        )));
+    let shown = json(santi.with(&token).args(["issues", "show", "MEN-1"]));
+    assert_eq!(shown["description"], description);
+
+    let body = format!("[@{name}](mention:{id}) please look");
+    santi
+        .with(&token)
+        .args(["comment", "MEN-1", &body])
+        .assert()
+        .success();
+    santi
+        .with(&token)
+        .args(["issues", "comments", "MEN-1"])
+        .assert()
+        .success()
+        .stdout(contains(format!("\n@{name} please look\n")));
+    let comments = json(santi.with(&token).args(["issues", "comments", "MEN-1"]));
+    assert_eq!(comments[0]["body"], body);
+}
+
+#[test]
 fn validation_problems_name_the_field() {
     let santi = Santi::new();
     let token = server().user();
@@ -613,9 +675,26 @@ fn import_previews_then_asks_before_writing() {
 fn project_lifecycle_from_archive_to_purge() {
     let santi = Santi::new();
     let token = server().user();
-    server().project(&token, "LIFE", "scrum");
     let run = |args: &[&str]| santi.with(&token).args(args).assert();
 
+    run(&["projects", "create", "life", "--name", "Life cycle"])
+        .success()
+        .stdout(contains("LIFE").and(contains("Life cycle (scrum, admin)")));
+    let kanban = json(santi.with(&token).args([
+        "projects", "create", "FLOW", "--name", "Flow", "--type", "kanban",
+    ]));
+    assert_eq!(kanban["key"], "FLOW");
+    assert_eq!(kanban["board_type"], "kanban");
+    run(&["projects", "create", "LIFE", "--name", "Again"])
+        .code(5)
+        .stderr(contains("already exists"));
+    run(&["projects", "create", "../x", "--name", "Bad"])
+        .code(2)
+        .stderr(contains("project key"));
+    run(&[
+        "projects", "create", "FLAW", "--name", "Bad", "--type", "list",
+    ])
+    .code(2);
     run(&["projects", "archive", "LIFE"])
         .success()
         .stdout(contains("Archived LIFE"));

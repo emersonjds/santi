@@ -64,6 +64,12 @@ describe('labels picker', () => {
       'performance',
       'blocked',
     ])
+    expect(
+      options(screen).nth(1).element().querySelector('[data-slot=label-chip]')
+    ).toHaveClass('bg-label-sky-bg', 'text-label-sky')
+    expect(
+      options(screen).nth(0).element().querySelector('[data-slot=label-chip]')
+    ).toHaveTextContent(/^docs$/)
 
     await userEvent.keyboard('{ArrowDown}{Enter}')
     await expect
@@ -130,7 +136,13 @@ describe('labels picker', () => {
       withLabels(['docs', 'ui'])
     )
 
-    await screen.getByRole('button', { name: 'Remove label docs' }).click()
+    const remove = screen.getByRole('button', { name: 'Remove label docs' })
+    expect(remove.element().closest('[data-slot=label-chip]')).toHaveClass(
+      'bg-label-amber-bg',
+      'text-label-amber',
+      'pe-0'
+    )
+    await remove.click()
     await expect
       .element(screen.getByText('Label docs removed'))
       .toBeInTheDocument()

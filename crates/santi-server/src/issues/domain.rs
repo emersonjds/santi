@@ -142,12 +142,13 @@ pub fn check_summary(summary: &str) -> Result<String, AppError> {
     Ok(summary.to_string())
 }
 
-/// Characters; migration 0013 holds the same limit.
-pub const MAX_DESCRIPTION: usize = 65_536;
+/// Characters (Unicode scalars) of a description or comment body (D50); migrations 0013 and 0021
+/// hold the same limit.
+pub const MAX_RICH_TEXT: usize = 65_536;
 
 pub fn check_description(description: &str) -> Result<String, AppError> {
     reject_nul("description", description)?;
-    if description.chars().count() > MAX_DESCRIPTION {
+    if description.chars().count() > MAX_RICH_TEXT {
         return Err(AppError::invalid(
             "description",
             "must have at most 65536 characters",
@@ -395,9 +396,13 @@ pub fn to_search_query(
 
 pub fn check_comment_body(body: &str) -> Result<String, AppError> {
     reject_nul("body", body)?;
-    let body = body.trim();
-    if body.is_empty() || body.chars().count() > 20_000 {
-        return Err(AppError::invalid("body", "must have 1 to 20000 characters"));
+    let body = body.trim_end();
+    let first = body
+        .find(|letter: char| !letter.is_whitespace())
+        .unwrap_or(0);
+    let body = &body[body[..first].rfind('\n').map_or(0, |at| at + 1)..];
+    if body.is_empty() || body.chars().count() > MAX_RICH_TEXT {
+        return Err(AppError::invalid("body", "must have 1 to 65536 characters"));
     }
     Ok(body.to_string())
 }
@@ -567,10 +572,29 @@ mod tests {
         assert!(check_summary(&"x".repeat(256)).is_err());
     }
 
+    fn invalid_message(error: AppError) -> String {
+        let AppError::Validation(errors) = error else {
+            panic!("expected a validation error");
+        };
+        format!("{}: {}", errors[0].field, errors[0].message)
+    }
+
     #[test]
-    fn description_is_bounded() {
-        assert!(check_description(&"x".repeat(MAX_DESCRIPTION)).is_ok());
-        assert!(check_description(&"x".repeat(MAX_DESCRIPTION + 1)).is_err());
+    fn description_and_comment_share_one_cap_in_unicode_scalars() {
+        assert_eq!(MAX_RICH_TEXT, 65_536);
+        let at_cap = "é".repeat(65_536);
+        let over_cap = "é".repeat(65_537);
+
+        assert!(check_description(&at_cap).is_ok());
+        assert!(check_comment_body(&at_cap).is_ok());
+        assert_eq!(
+            invalid_message(check_description(&over_cap).unwrap_err()),
+            "description: must have at most 65536 characters"
+        );
+        assert_eq!(
+            invalid_message(check_comment_body(&over_cap).unwrap_err()),
+            "body: must have 1 to 65536 characters"
+        );
     }
 
     #[test]
@@ -703,9 +727,14 @@ mod tests {
     }
 
     #[test]
-    fn comment_body_is_trimmed_and_required() {
-        assert_eq!(check_comment_body(" hi ").unwrap(), "hi");
+    fn comment_body_loses_blank_lines_and_trailing_space_and_is_required() {
+        assert_eq!(check_comment_body(" hi ").unwrap(), " hi");
+        assert_eq!(
+            check_comment_body(" \n\n    let x = 1\n  \n").unwrap(),
+            "    let x = 1"
+        );
         assert!(check_comment_body("  ").is_err());
+        assert!(check_comment_body(" \n\t\n ").is_err());
     }
 
     #[test]

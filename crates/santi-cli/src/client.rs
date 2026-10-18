@@ -1,5 +1,6 @@
 use std::fmt;
 use std::str::FromStr;
+use std::time::Duration;
 
 use reqwest::{Method, RequestBuilder, Url};
 use santi_types::auth::User;
@@ -9,7 +10,7 @@ use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
     StatusFilter, UpdateIssue,
 };
-use santi_types::projects::{Project, ProjectState};
+use santi_types::projects::{CreateProject, MemberInfo, Project, ProjectState};
 use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -28,10 +29,23 @@ pub struct Client {
 
 impl Client {
     pub fn new(url: &str, token: Option<String>) -> Result<Client, Error> {
+        Client::with_read_timeout(url, token, Duration::from_secs(30))
+    }
+
+    /// Pooled connections are dropped before the hosting proxy's idle cutoff; a server that
+    /// went away during a redeploy fails the read instead of hanging the long-lived MCP process.
+    fn with_read_timeout(
+        url: &str,
+        token: Option<String>,
+        read_timeout: Duration,
+    ) -> Result<Client, Error> {
         let base = Url::parse(url)
             .map_err(|error| Error::Usage(format!("`{url}` is not a server URL: {error}")))?;
         let http = reqwest::Client::builder()
             .user_agent(concat!("santi-cli/", env!("CARGO_PKG_VERSION")))
+            .connect_timeout(Duration::from_secs(10))
+            .read_timeout(read_timeout)
+            .pool_idle_timeout(Duration::from_secs(30))
             .build()
             .map_err(|error| Error::Other(error.to_string()))?;
         Ok(Client { http, base, token })
@@ -74,6 +88,11 @@ impl Client {
         self.send(request.query(&[("state", state)])).await
     }
 
+    pub async fn create_project(&self, project: &CreateProject) -> Result<Project, Error> {
+        let request = self.request(Method::POST, &["projects"]);
+        self.send(request.json(project)).await
+    }
+
     /// `archive`, `unarchive`, `trash` or `restore`.
     pub async fn change_project(&self, project: &ProjectKey, action: &str) -> Result<(), Error> {
         let request = self.request(Method::POST, &["projects", project.as_str(), action]);
@@ -92,6 +111,11 @@ impl Client {
 
     pub async fn backlog(&self, project: &ProjectKey) -> Result<Backlog, Error> {
         let request = self.request(Method::GET, &["projects", project.as_str(), "backlog"]);
+        self.send(request).await
+    }
+
+    pub async fn members(&self, project: &ProjectKey) -> Result<Vec<MemberInfo>, Error> {
+        let request = self.request(Method::GET, &["projects", project.as_str(), "members"]);
         self.send(request).await
     }
 
@@ -303,6 +327,20 @@ impl Client {
         }
     }
 
+    /// One retry on a network error: always when the request never connected, otherwise only
+    /// for idempotent methods, since a write may already have reached the server.
+    async fn execute(&self, request: RequestBuilder) -> Result<reqwest::Response, reqwest::Error> {
+        let request = request.build()?;
+        let idempotent = request.method().is_idempotent();
+        let retry = request.try_clone();
+        match (self.http.execute(request).await, retry) {
+            (Err(error), Some(retry)) if error.is_connect() || idempotent => {
+                self.http.execute(retry).await
+            }
+            (sent, _) => sent,
+        }
+    }
+
     async fn send<T: DeserializeOwned>(&self, request: RequestBuilder) -> Result<T, Error> {
         let network = |error: reqwest::Error| {
             Error::Network(format!(
@@ -310,7 +348,7 @@ impl Client {
                 self.shown_url()
             ))
         };
-        let response = request.send().await.map_err(network)?;
+        let response = self.execute(request).await.map_err(network)?;
         let status = response.status();
         let body = response.bytes().await.map_err(network)?;
         if !status.is_success() {
@@ -411,6 +449,8 @@ pub fn to_query(value: &impl Serialize) -> Vec<(String, String)> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use santi_types::issues::{IssueFilter, IssueType, PageParams};
 
     use super::*;
@@ -504,5 +544,85 @@ mod tests {
 
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
         assert_eq!(comments.len(), 2);
+    }
+
+    /// Accepts connections; the first `drops` read the request and close without answering
+    /// (a server going away mid-redeploy), the rest answer `{}`.
+    async fn flaky_server(
+        drops: usize,
+    ) -> (String, std::sync::Arc<std::sync::atomic::AtomicUsize>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let accepted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let counter = accepted.clone();
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let seen = counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let mut buffer = [0; 4096];
+                let _ = stream.read(&mut buffer).await;
+                if seen >= drops {
+                    let answer = "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 2\r\nconnection: close\r\n\r\n{}";
+                    let _ = stream.write_all(answer.as_bytes()).await;
+                }
+            }
+        });
+        (format!("http://{address}"), accepted)
+    }
+
+    #[tokio::test]
+    async fn a_read_is_retried_once_after_the_server_drops_the_connection() {
+        let (url, accepted) = flaky_server(1).await;
+        let client = Client::new(&url, None).unwrap();
+
+        let answer: Value = client
+            .send(client.request(Method::GET, &["me"]))
+            .await
+            .unwrap();
+
+        assert_eq!(answer, serde_json::json!({}));
+        assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn a_write_that_reached_the_server_is_not_sent_twice() {
+        let (url, accepted) = flaky_server(1).await;
+        let client = Client::new(&url, None).unwrap();
+
+        let error = client
+            .send::<Value>(client.request(Method::POST, &["projects", "WEB", "archive"]))
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, Error::Network(_)), "{error}");
+        assert_eq!(accepted.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn a_server_that_never_answers_fails_instead_of_hanging() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let mut open = vec![];
+            loop {
+                open.push(listener.accept().await.unwrap());
+            }
+        });
+        let client = Client::with_read_timeout(
+            &format!("http://{address}"),
+            None,
+            Duration::from_millis(200),
+        )
+        .unwrap();
+
+        let sent = tokio::time::timeout(
+            Duration::from_secs(5),
+            client.send::<Value>(client.request(Method::GET, &["me"])),
+        )
+        .await
+        .expect("a silent server must time out");
+
+        assert!(matches!(sent, Err(Error::Network(_))));
     }
 }

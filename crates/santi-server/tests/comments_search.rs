@@ -26,12 +26,12 @@ async fn comments_are_added_and_listed_in_order(pool: PgPool) {
     ana.create_issue("SANTI", json!({ "summary": "x" })).await;
     let url = "/api/projects/SANTI/issues/1/comments";
 
-    let (created, comment) = ana.post(url, json!({ "body": " first " })).await;
+    let (created, comment) = ana.post(url, json!({ "body": "\n first \n" })).await;
     ana.post(url, json!({ "body": "second" })).await;
     let (_, page) = ana.get(url).await;
 
     assert_eq!(created, StatusCode::CREATED);
-    assert_eq!(comment["body"], "first");
+    assert_eq!(comment["body"], " first");
     assert_eq!(comment["author_id"], ana.user_id);
     assert_eq!(comment["author_name"], "ana@example.com");
     assert_eq!(page["items"][0]["author_name"], "ana@example.com");
@@ -61,6 +61,36 @@ async fn comment_rules(pool: PgPool) {
     assert_eq!(empty, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(missing, StatusCode::NOT_FOUND);
     assert_eq!(listing_missing, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
+async fn comment_body_is_capped_at_65536_characters(pool: PgPool) {
+    let ana = project(pool).await;
+    ana.create_issue("SANTI", json!({ "summary": "x" })).await;
+    let url = "/api/projects/SANTI/issues/1/comments";
+
+    let (at_cap, _) = ana.post(url, json!({ "body": "x".repeat(65_536) })).await;
+    let (over_cap, error) = ana.post(url, json!({ "body": "x".repeat(65_537) })).await;
+
+    assert_eq!(at_cap, StatusCode::CREATED);
+    assert_eq!(over_cap, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(error["errors"][0]["field"], "body");
+}
+
+#[sqlx::test]
+async fn markdown_bodies_round_trip_byte_for_byte(pool: PgPool) {
+    let ana = project(pool).await;
+    let markdown = "    let x = 1\n\n**hi** <script>alert(1)</script>\n[x](javascript:alert(1)) [@Ana \\[QA\\]](mention:1)";
+    ana.create_issue("SANTI", json!({ "summary": "x", "description": markdown }))
+        .await;
+    let url = "/api/projects/SANTI/issues/1/comments";
+
+    ana.post(url, json!({ "body": markdown })).await;
+    let (_, issue) = ana.get("/api/projects/SANTI/issues/1").await;
+    let (_, page) = ana.get(url).await;
+
+    assert_eq!(issue["description"], markdown);
+    assert_eq!(page["items"][0]["body"], markdown);
 }
 
 #[sqlx::test]
