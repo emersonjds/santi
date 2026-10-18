@@ -105,6 +105,19 @@ export default [
     gzip: true,
   },
   {
+    // The menus' Radix code (~28 KB) comes with the issue menu; without it, the editor pulls it in.
+    name: 'rich text editor chunk (issue page, beside the issue menu)',
+    path: lazyChunk(
+      'src/features/rich-text/rich-text-editor.tsx',
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/issues/$number.tsx'),
+      'src/widgets/issue-detail/issue-menu.tsx'
+    ),
+    limit: '120 KB',
+    gzip: true,
+  },
+  {
     name: 'initial JS, /p/KEY/backlog (backlog)',
     path: firstVisit(
       SHELL,

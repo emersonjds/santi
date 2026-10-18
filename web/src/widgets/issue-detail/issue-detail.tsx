@@ -1,4 +1,11 @@
-import { type FormEvent, type ReactNode, Suspense, lazy, useState } from 'react'
+import {
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+  Suspense,
+  lazy,
+  useState,
+} from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { Link2 } from 'lucide-react'
@@ -6,6 +13,7 @@ import {
   MarkdownReady,
   MarkdownView,
 } from '@/features/rich-text/lazy-markdown-view'
+import { RichTextField } from '@/features/rich-text/rich-text-field'
 import { useRecordView } from '@/entities/home/record-visit'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
@@ -16,11 +24,11 @@ import { ARCHIVED_NOTE, useProjectWritable } from '@/entities/project/writable'
 import { WriteLock } from '@/entities/project/write-lock'
 import { sessionQuery } from '@/entities/session/session-query'
 import { type Issue, fieldMessage } from '@/shared/api/client'
+import { useReadOnly } from '@/shared/lib/read-only'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { Textarea } from '@/shared/ui/textarea'
 import { IssueComments } from './issue-comments'
 import { IssueFields } from './issue-fields'
 import { IssueSubtasks } from './issue-subtasks'
@@ -105,17 +113,36 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
   )
 }
 
+/** Q7: the mention picker lists the assignee, then the reporter, first. */
+const peopleOf = ({ assignee_id, reporter_id }: Issue) =>
+  assignee_id == null ? [reporter_id] : [assignee_id, reporter_id]
+
 const Description = ({ issue, projectKey }: IssueProps) => {
   const edit = useEditIssue(projectKey, issue)
   const { data: members = [] } = useQuery(membersQuery(projectKey))
+  const locked = Boolean(useReadOnly())
   const [draft, setDraft] = useState<string | null>(null)
 
-  const save = (event: FormEvent) => {
-    event.preventDefault()
-    const description = draft ?? ''
-    if (description !== issue.description)
-      edit.mutate({ change: { description }, shown: { description } })
-    setDraft(null)
+  const save = (event?: FormEvent) => {
+    event?.preventDefault()
+    if (draft === null || edit.isPending) return
+    if (draft === issue.description) return setDraft(null)
+    edit.mutate(
+      { change: { description: draft }, shown: { description: draft } },
+      { onSuccess: () => setDraft(null) }
+    )
+  }
+
+  // Q6: a click on the text opens the editor, except on a link, a chip or a text selection.
+  const openFromText = (event: MouseEvent) => {
+    if (
+      locked ||
+      (event.target instanceof Element &&
+        event.target.closest('a, [data-mention]')) ||
+      getSelection()?.toString()
+    )
+      return
+    setDraft(issue.description)
   }
 
   return (
@@ -125,13 +152,15 @@ const Description = ({ issue, projectKey }: IssueProps) => {
       </h3>
       {draft === null ? (
         <>
-          {issue.description ? (
-            <MarkdownView source={issue.description} members={members} />
-          ) : (
-            <p className='text-sm text-subtle-foreground'>
-              No description yet.
-            </p>
-          )}
+          <div onClick={openFromText}>
+            {issue.description ? (
+              <MarkdownView source={issue.description} members={members} />
+            ) : (
+              <p className='text-sm text-subtle-foreground'>
+                No description yet.
+              </p>
+            )}
+          </div>
           <Button
             variant='outline'
             className='h-11 justify-self-start md:h-8'
@@ -142,15 +171,26 @@ const Description = ({ issue, projectKey }: IssueProps) => {
         </>
       ) : (
         <form onSubmit={save} className='grid gap-2'>
-          <Textarea
-            aria-label='Description'
+          <RichTextField
+            label='Description'
+            placeholder='Add a description…'
             autoFocus
-            className='min-h-32'
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={setDraft}
+            onSubmit={save}
+            onCancel={() => setDraft(null)}
+            readOnly={edit.isPending}
+            members={members}
+            firstIds={peopleOf(issue)}
           />
           <div className='flex gap-2'>
-            <Button className='h-11 md:h-8'>Save</Button>
+            <Button
+              className='h-11 md:h-8'
+              disabled={edit.isPending}
+              aria-busy={edit.isPending}
+            >
+              Save
+            </Button>
             <Button
               type='button'
               variant='ghost'
@@ -246,7 +286,11 @@ export const IssueDetail = ({
               {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
                 <IssueSubtasks issue={issue} projectKey={projectKey} />
               )}
-              <IssueComments projectKey={projectKey} number={number} />
+              <IssueComments
+                projectKey={projectKey}
+                number={number}
+                firstIds={peopleOf(issue)}
+              />
             </WriteLock>
           </div>
           <WriteLock projectKey={projectKey}>

@@ -327,6 +327,9 @@ describe('issue detail', () => {
     await summary.fill('Write the v1 notes')
     await userEvent.keyboard('{Enter}')
     await screen.getByRole('button', { name: 'Edit description' }).click()
+    await expect
+      .element(screen.getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
     await screen
       .getByRole('textbox', { name: 'Description' })
       .fill('Only the board.')
@@ -364,7 +367,11 @@ describe('issue detail', () => {
     const requests = inProjects({ [COMMENT]: pending })
     const { screen } = await renderApp('/p/WEB/issues/1')
 
-    await screen.getByLabelText('Add a comment').fill('Ship it on Friday.')
+    await screen.getByLabelText('Add a comment').click()
+    await expect
+      .element(screen.getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
+    await userEvent.keyboard('Ship it on Friday.')
     await screen.getByRole('button', { name: 'Comment' }).click()
 
     const comments = screen
@@ -374,7 +381,9 @@ describe('issue detail', () => {
     await expect
       .element(comments.nth(1))
       .toHaveTextContent('Ship it on Friday.')
-    await expect.element(screen.getByLabelText('Add a comment')).toHaveValue('')
+    await expect
+      .element(screen.getByLabelText('Add a comment'))
+      .not.toHaveTextContent('Ship it on Friday.')
     await expect
       .poll(() => bodiesOf(requests, COMMENT))
       .toEqual([{ body: 'Ship it on Friday.' }])
@@ -629,5 +638,158 @@ describe('issue detail', () => {
 
     await expect.element(screen.getByText('WEB-1 deleted')).toBeVisible()
     expect(router.state.location.pathname).toBe('/p/WEB/board')
+  })
+})
+
+describe('issue rich text', () => {
+  beforeEach(() => page.viewport(1280, 800))
+
+  const MOD = /Mac|iPhone|iPad/.test(navigator.platform) ? 'Meta' : 'Control'
+  const mod = (keys: string) => `{${MOD}>}${keys}{/${MOD}}`
+  // The picker ignores Enter for 75 ms after its list changes.
+  const settled = () => new Promise((resolve) => setTimeout(resolve, 100))
+
+  const editDescription = async (replies = {}) => {
+    const requests = inProjects(replies)
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    await screen.getByRole('button', { name: 'Edit description' }).click()
+    const description = screen.getByRole('region', { name: 'Description' })
+    await expect
+      .element(description.getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
+    await expect
+      .element(description.getByRole('textbox', { name: 'Description' }))
+      .toHaveFocus()
+    return { requests, screen, description }
+  }
+
+  it('saves the typed Markdown and a picked mention byte for byte with Mod-Enter', async () => {
+    const text =
+      'Cover the board.\nThen the backlog.\n**Ship** with [@Bob Stone](mention:2)'
+    const { requests, description } = await editDescription({
+      [PATCH]: { status: 200, body: { ...WEB_ISSUE, description: text } },
+    })
+
+    await userEvent.keyboard('{Enter}**Ship** with @bo')
+    await expect
+      .element(description.getByRole('option').first())
+      .toHaveTextContent('Bob Stone')
+    await settled()
+    await userEvent.keyboard('{Enter}')
+    await userEvent.keyboard(mod('{Enter}'))
+
+    await expect
+      .poll(() => bodiesOf(requests, PATCH))
+      .toEqual([{ description: text }])
+    await expect
+      .element(description.getByRole('button', { name: 'Edit description' }))
+      .toBeVisible()
+  })
+
+  it('keeps the draft under the error, then Esc drops it', async () => {
+    const { requests, screen, description } = await editDescription({
+      [PATCH]: {
+        status: 422,
+        body: problem(422, 'Check the fields.', [
+          {
+            field: 'description',
+            message: 'must have at most 65536 characters',
+          },
+        ]),
+      },
+    })
+
+    await userEvent.keyboard(' More.')
+    await description.getByRole('button', { name: 'Save' }).click()
+
+    await expect
+      .element(screen.getByText('must have at most 65536 characters'))
+      .toBeVisible()
+    await expect
+      .element(description.getByRole('textbox', { name: 'Description' }))
+      .toHaveTextContent('Then the backlog. More.')
+    await description.getByRole('textbox', { name: 'Description' }).click()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(screen.getByText('Then the backlog.')).toBeVisible()
+    expect(
+      description.getByRole('textbox', { name: 'Description' }).elements()
+    ).toEqual([])
+    expect(await bodiesOf(requests, PATCH)).toEqual([
+      { description: 'Cover the board.\nThen the backlog. More.' },
+    ])
+  })
+
+  it('opens the editor from a click on the text but not on a mention', async () => {
+    inProjects({
+      'GET /api/projects/WEB/issues/1': {
+        status: 200,
+        body: {
+          ...WEB_ISSUE,
+          description: 'Ask [@Bobby](mention:2)\nThen ship.',
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const description = screen.getByRole('region', { name: 'Description' })
+
+    await description.getByText('Bob Stone', { exact: true }).click()
+    expect(description.getByRole('textbox').elements()).toEqual([])
+    await description.getByText('Then ship.').click()
+
+    await expect
+      .element(description.getByRole('textbox', { name: 'Description' }))
+      .toHaveFocus()
+  })
+
+  it('opens the editor from the empty state', async () => {
+    inProjects({
+      'GET /api/projects/WEB/issues/1': {
+        status: 200,
+        body: { ...WEB_ISSUE, description: '' },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await screen.getByText('No description yet.').click()
+
+    const description = screen.getByRole('region', { name: 'Description' })
+    await expect
+      .element(description.getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
+    await expect
+      .element(description.getByRole('textbox', { name: 'Description' }))
+      .toHaveFocus()
+    await expect
+      .element(description.getByText('Add a description…'))
+      .toBeVisible()
+  })
+
+  it('posts a comment with a mention on Mod-Enter and lists it with the chip', async () => {
+    const requests = inProjects({ [COMMENT]: pending })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = screen.getByRole('region', { name: 'Comments' })
+
+    await comments.getByRole('textbox', { name: 'Add a comment' }).click()
+    await expect
+      .element(comments.getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
+    await userEvent.keyboard('Ping @al')
+    await expect
+      .element(comments.getByRole('option').first())
+      .toHaveTextContent('Alice')
+    await settled()
+    await userEvent.keyboard('{Enter}{Enter}Thanks')
+    await userEvent.keyboard(mod('{Enter}'))
+
+    await expect
+      .poll(() => bodiesOf(requests, COMMENT))
+      .toEqual([{ body: 'Ping [@Alice](mention:1)\nThanks' }])
+    const posted = comments.getByRole('article').nth(1)
+    await expect
+      .element(posted.getByText('Alice', { exact: true }).last())
+      .toBeVisible()
+    await expect
+      .element(comments.getByRole('textbox', { name: 'Add a comment' }))
+      .not.toHaveTextContent('Thanks')
   })
 })

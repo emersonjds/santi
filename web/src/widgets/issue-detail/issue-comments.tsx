@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MarkdownView } from '@/features/rich-text/lazy-markdown-view'
-import { MAX_RICH_TEXT } from '@/features/rich-text/mention'
+import { RichTextField } from '@/features/rich-text/rich-text-field'
 import { useAddComment } from '@/entities/issue/issue-mutations'
 import { commentsQuery } from '@/entities/issue/issue-queries'
 import { timeAgo } from '@/entities/issue/time-ago'
@@ -9,11 +9,19 @@ import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
 import { Button } from '@/shared/ui/button'
-import { Textarea } from '@/shared/ui/textarea'
 
-type IssueCommentsProps = { projectKey: string; number: number }
+type IssueCommentsProps = {
+  projectKey: string
+  number: number
+  /** Listed first in the mention picker. */
+  firstIds: number[]
+}
 
-export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
+export const IssueComments = ({
+  projectKey,
+  number,
+  firstIds,
+}: IssueCommentsProps) => {
   const { data: comments = [] } = useQuery(commentsQuery(projectKey, number))
   const { data: members = [] } = useQuery(membersQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
@@ -28,8 +36,8 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
     members.find((member) => member.user_id === userId)?.display_name ??
     'Former member'
 
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
+  const submit = (event?: FormEvent) => {
+    event?.preventDefault()
     const body = draft.trim()
     if (!body) return
     setDraft('')
@@ -66,13 +74,15 @@ export const IssueComments = ({ projectKey, number }: IssueCommentsProps) => {
         ))}
       </ol>
       <form onSubmit={submit} className='grid gap-2'>
-        <Textarea
-          aria-label='Add a comment'
-          aria-keyshortcuts='m'
+        <RichTextField
+          label='Add a comment'
+          keyShortcut='m'
           placeholder='Add a comment…'
-          maxLength={MAX_RICH_TEXT}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={setDraft}
+          onSubmit={submit}
+          members={members}
+          firstIds={firstIds}
         />
         <Button className='h-11 justify-self-start md:h-9'>Comment</Button>
       </form>
