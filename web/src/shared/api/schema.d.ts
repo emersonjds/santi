@@ -975,6 +975,7 @@ export interface components {
             /** Format: int64 */
             author_id: number;
             author_name: string;
+            /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
             body: string;
             /** Format: date-time */
             created_at: string;
@@ -989,6 +990,7 @@ export interface components {
             new_status?: components["schemas"]["StatusCategory"] | null;
         };
         CreateComment: {
+            /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
             body: string;
         };
         CreateInvite: {
@@ -997,6 +999,7 @@ export interface components {
         CreateIssue: {
             /** Format: int64 */
             assignee_id?: number | null;
+            /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
             description?: string;
             issue_type?: components["schemas"]["IssueType"];
             labels?: string[];
@@ -1183,6 +1186,7 @@ export interface components {
             assignee_name?: string | null;
             /** Format: date-time */
             created_at: string;
+            /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
             description: string;
             /** Format: date-time */
             done_at?: string | null;
@@ -1339,6 +1343,7 @@ export interface components {
                 /** Format: int64 */
                 author_id: number;
                 author_name: string;
+                /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
                 body: string;
                 /** Format: date-time */
                 created_at: string;
@@ -1376,6 +1381,7 @@ export interface components {
                 assignee_name?: string | null;
                 /** Format: date-time */
                 created_at: string;
+                /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
                 description: string;
                 /** Format: date-time */
                 done_at?: string | null;
@@ -1706,6 +1712,7 @@ export interface components {
         UpdateIssue: {
             /** Format: int64 */
             assignee_id?: number | null;
+            /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
             description?: string | null;
             issue_type?: components["schemas"]["IssueType"] | null;
             labels?: string[] | null;
