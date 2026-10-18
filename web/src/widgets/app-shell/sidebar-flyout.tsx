@@ -60,9 +60,16 @@ export const SidebarFlyout = ({
   const input = useRef<HTMLInputElement>(null)
   const sidebar = useSidebar()
   const control = use(FlyoutControl)
+  const start = sidebar.open ? sidebar.width : 0
   return (
     <DialogPrimitive.Root open onOpenChange={(open) => open || control.close()}>
       <DialogPrimitive.Portal>
+        {!sidebar.isMobile && (
+          <DialogPrimitive.Overlay
+            style={{ insetInlineStart: start }}
+            className='fixed inset-0 z-50 bg-black/40'
+          />
+        )}
         <DialogPrimitive.Content
           aria-describedby={undefined}
           // The next flyout, opened by its own trigger, keeps the focus it took.
@@ -84,11 +91,7 @@ export const SidebarFlyout = ({
             )
               event.preventDefault()
           }}
-          style={
-            sidebar.isMobile
-              ? undefined
-              : beside(sidebar.open ? sidebar.width : 0)
-          }
+          style={sidebar.isMobile ? undefined : beside(start)}
           className='fixed inset-0 z-50 flex flex-col bg-popover text-popover-foreground outline-none md:inset-e-auto md:border-e md:shadow-lg'
         >
           <div className='flex items-center gap-1 border-b py-1 ps-4 pe-1'>
