@@ -86,6 +86,20 @@ describe('label chip', () => {
     )
   })
 
+  it('shrinks with a narrow row, cutting its name short', async () => {
+    const screen = await render(
+      <div className='flex w-10'>
+        <LabelChip size='compact' name='documentation' />
+      </div>
+    )
+
+    const name = screen.getByTitle('documentation').element()
+    expect(
+      name.parentElement?.getBoundingClientRect().width
+    ).toBeLessThanOrEqual(40)
+    expect(name.scrollWidth).toBeGreaterThan(name.clientWidth)
+  })
+
   it('puts its children after the name', async () => {
     const screen = await render(
       <LabelChip name='ui'>
