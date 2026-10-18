@@ -202,12 +202,25 @@ describe('an archived project (SAN-70 Q3)', () => {
       screen.getByRole('textbox', { name: 'Subtask summary' }).elements()
     ).toEqual([])
     await expect
-      .element(screen.getByRole('textbox', { name: 'Add a comment' }))
-      .toHaveAttribute('readonly')
-    await expectLocked(screen.getByRole('button', { name: 'Comment' }))
-    await expect
       .element(screen.getByText('Draft is in the shared doc.'))
       .toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Add a comment…' }).elements()
+    ).toEqual([])
+    expect(
+      screen.getByRole('group', { name: 'Quick replies' }).elements()
+    ).toEqual([])
+    await screen.getByRole('button', { name: 'Comment actions' }).click()
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Copy link' }))
+      .toBeVisible()
+    expect(
+      screen
+        .getByRole('menuitem')
+        .elements()
+        .map((item) => item.textContent)
+    ).toEqual(['Copy link'])
+    await userEvent.keyboard('{Escape}')
     await expect
       .element(screen.getByRole('button', { name: 'Copy link' }))
       .not.toHaveAttribute('aria-disabled')
