@@ -105,7 +105,7 @@ const ProjectItem = ({
           aria-expanded={expanded}
           aria-controls={pagesId}
           onClick={() => setToggled(!expanded)}
-          className='grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:size-8'
+          className='grid size-11 shrink-0 place-items-center rounded-md text-muted-foreground ring-sidebar-ring outline-hidden hover:bg-hover focus-visible:ring-2 md:size-8'
         >
           <ChevronRight
             className={`size-4 transition-transform ${expanded ? 'rotate-90' : ''}`}
@@ -131,7 +131,11 @@ const ProjectItem = ({
         </SidebarMenuButton>
         <StarProjectButton
           project={project}
-          className='group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 md:opacity-0'
+          className={
+            project.starred
+              ? undefined
+              : 'group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 md:opacity-0'
+          }
           onToggle={onStar}
         />
       </div>
@@ -175,7 +179,7 @@ const Sublist = ({
   lastStarredRef,
   onNavigate,
 }: {
-  label: string
+  label?: string
   projects: MyProject[]
   current?: string
   lastStarredRef: RefObject<string | null>
@@ -185,10 +189,12 @@ const Sublist = ({
   if (projects.length === 0) return null
   return (
     <>
-      <p id={id} className={SUBLABEL}>
-        {label}
-      </p>
-      <SidebarMenu aria-labelledby={id}>
+      {label && (
+        <p id={id} className={SUBLABEL}>
+          {label}
+        </p>
+      )}
+      <SidebarMenu aria-labelledby={label && id}>
         {projects.map((project) => (
           <ProjectItem
             key={project.key}
@@ -248,7 +254,11 @@ export const ProjectSections = ({
     <>
       {failed}
       <Sublist label='Starred' projects={starred} {...sublist} />
-      <Sublist label='Recent' projects={recent} {...sublist} />
+      <Sublist
+        label={view === 'starred' ? undefined : 'Recent'}
+        projects={recent}
+        {...sublist}
+      />
       <SidebarMenu>
         <FlyoutEntry name='More projects' icon={Folders} flyouts={flyouts}>
           <MoreProjectsFlyout

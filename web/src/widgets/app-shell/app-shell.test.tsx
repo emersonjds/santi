@@ -184,6 +184,24 @@ describe('app shell', () => {
       .toBeVisible()
   })
 
+  it('tells a hovered row from the open page in the phone drawer', async () => {
+    await page.viewport(375, 800)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Toggle Sidebar' }).click()
+    const drawer = screen.getByRole('dialog')
+    const home = drawer.getByRole('link', { name: 'For you' })
+    const board = drawer.getByRole('link', { name: 'Board' })
+    await home.hover()
+
+    await expect.element(board).toHaveAttribute('aria-current', 'page')
+    await expect.element(home).not.toHaveAttribute('aria-current')
+    expect(getComputedStyle(home.element()).backgroundColor).not.toBe(
+      getComputedStyle(board.element()).backgroundColor
+    )
+  })
+
   it('opens the sidebar as a drawer on a phone and closes it on navigation', async () => {
     await page.viewport(375, 800)
     inProjects()
@@ -392,6 +410,33 @@ describe('sidebar projects', () => {
       'Apple',
     ])
     expect(latest.getByRole('list', { name: 'Starred' }).elements()).toEqual([])
+  })
+
+  it('keeps an unstarred open project in Starred only without calling it recent', async () => {
+    localStorage.setItem(VIEW_KEY, 'starred')
+    inProjects()
+    const { screen } = await renderApp('/p/OPS/board')
+
+    await expect
+      .element(sidebar(screen).getByRole('button', { name: 'Toggle Operations' }))
+      .toBeVisible()
+    expect(rows(sublist(screen, 'Starred'))).toEqual(['Website'])
+    expect(sublist(screen, 'Recent').elements()).toEqual([])
+  })
+
+  it('shows a filled star at rest and hides an empty one until hover', async () => {
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    const star = (name: string) =>
+      getComputedStyle(
+        sidebar(screen).getByRole('button', { name: `Star ${name}` }).element()
+      ).opacity
+    await expect
+      .element(sidebar(screen).getByRole('button', { name: 'Star Website' }))
+      .toBeInTheDocument()
+    expect(star('Website')).toBe('1')
+    expect(star('Operations')).toBe('0')
   })
 
   it('falls back to recent and starred when the stored view is unreadable', async () => {
