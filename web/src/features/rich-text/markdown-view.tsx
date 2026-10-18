@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, memo, useMemo } from 'react'
 import Markdown, { type Components, defaultUrlTransform } from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
@@ -24,8 +24,8 @@ const PROSE = [
 const LINK = 'text-accent-foreground underline underline-offset-2'
 
 // `mention:` links never get an href; the `a` component below turns them into chips.
-const keepMentions = (url: string) =>
-  url.startsWith('mention:') ? url : defaultUrlTransform(url)
+const keepMentions = (url: string, key: string) =>
+  key === 'href' && url.startsWith('mention:') ? url : defaultUrlTransform(url)
 
 const SafeLink = ({
   href,
@@ -34,7 +34,8 @@ const SafeLink = ({
   href: string
   children: ReactNode
 }) => {
-  if (!href) return <span>{children}</span>
+  if (!href || !URL.canParse(href, location.href))
+    return <span>{children}</span>
   if (new URL(href, location.href).origin === location.origin)
     return (
       <a href={href} className={LINK}>
@@ -87,14 +88,17 @@ const componentsFor = (members: Member[]): Components => ({
 })
 
 /** D50: the one HTML renderer of descriptions and comments; React elements only, raw HTML stays text. */
-export const MarkdownView = ({ source, members }: MarkdownViewProps) => (
-  <div className={PROSE}>
-    <Markdown
-      remarkPlugins={PLUGINS}
-      urlTransform={keepMentions}
-      components={componentsFor(members)}
-    >
-      {source}
-    </Markdown>
-  </div>
-)
+export const MarkdownView = memo(({ source, members }: MarkdownViewProps) => {
+  const components = useMemo(() => componentsFor(members), [members])
+  return (
+    <div className={PROSE}>
+      <Markdown
+        remarkPlugins={PLUGINS}
+        urlTransform={keepMentions}
+        components={components}
+      >
+        {source}
+      </Markdown>
+    </div>
+  )
+})

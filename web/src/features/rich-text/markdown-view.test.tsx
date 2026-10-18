@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { render } from 'vitest-browser-react'
 import { MEMBERS } from '@/test/stub-api'
 import { MarkdownView } from './markdown-view'
+import { mentionToken } from './mention'
 
 const view = (source: string) =>
   render(<MarkdownView source={source} members={MEMBERS} />)
@@ -134,5 +135,38 @@ describe('markdown view', () => {
     await expect.element(former).toBeVisible()
     await expect.element(former).toHaveClass('text-muted-foreground')
     expect(screen.getByRole('link').elements()).toHaveLength(0)
+  })
+
+  it('shows a link or an image whose URL does not parse as plain text', async () => {
+    const screen = await view(
+      '[a](http://) [b](https://exa%mple.com) [c](//%) [d](http:) ![e](http://)'
+    )
+
+    for (const name of ['a', 'b', 'c', 'e']) {
+      await expect
+        .element(screen.getByText(name, { exact: true }))
+        .toBeVisible()
+      expect(screen.getByRole('link', { name }).elements()).toHaveLength(0)
+    }
+    await expect.element(screen.getByText('d', { exact: true })).toBeVisible()
+  })
+
+  it('never links an image to a mention', async () => {
+    const screen = await view('![x](mention:2)')
+
+    await expect.element(screen.getByText('x')).toBeVisible()
+    expect(screen.getByRole('link').elements()).toHaveLength(0)
+    expect(screen.container.querySelector('[href^="mention:"]')).toBeNull()
+  })
+
+  it('keeps a mention whole when the name has a backtick', async () => {
+    const screen = await view(
+      `Ask ${mentionToken({ user_id: 2, display_name: 'Bo`b' })} and \`x\``
+    )
+
+    await expect.element(screen.getByText('Bob Stone')).toBeVisible()
+    expect(screen.getByText('x', { exact: true }).element().tagName).toBe(
+      'CODE'
+    )
   })
 })
