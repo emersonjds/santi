@@ -10,7 +10,7 @@ use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
     StatusFilter, UpdateIssue,
 };
-use santi_types::projects::{CreateProject, Project, ProjectState};
+use santi_types::projects::{CreateProject, MemberInfo, Project, ProjectState};
 use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -111,6 +111,11 @@ impl Client {
 
     pub async fn backlog(&self, project: &ProjectKey) -> Result<Backlog, Error> {
         let request = self.request(Method::GET, &["projects", project.as_str(), "backlog"]);
+        self.send(request).await
+    }
+
+    pub async fn members(&self, project: &ProjectKey) -> Result<Vec<MemberInfo>, Error> {
+        let request = self.request(Method::GET, &["projects", project.as_str(), "members"]);
         self.send(request).await
     }
 

@@ -180,11 +180,13 @@ santi issues comments WEB-12                    # every comment, oldest first
 ```
 
 Commands: `login`, `whoami`, `projects create <KEY> --name <NAME> [--type scrum|kanban]|list [--state archived|trashed]|archive|unarchive|trash|restore|purge`,
-`issues list|show|create|edit|move|delete|plan|comment|comments`, `board`, `backlog`,
+`issues list|show|create|edit|move|delete|plan|comment|comments`, `board`, `backlog`, `members`,
 `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`, `search`, `comment`,
 `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `issues plan` and `issues comment` are
 the top-level `plan` and `comment` under `issues`. `issues show` names the status, assignee,
-reporter and sprint. `santi help <command>` has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
+reporter and sprint. Descriptions and comments are Markdown; mention someone with
+`[@Name](mention:<user_id>)` (`santi members <KEY>` lists the ids). Text output shows a mention as
+`@Name`; `--json` keeps the token. `santi help <command>` has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
 `SANTI_URL`/`SANTI_TOKEN`, then the config file. Errors print the server's message; exit codes are
 2 usage, 3 auth, 4 not found, 5 rejected input or conflict, 6 server unreachable, 10 confirmation
 declined (stdout stays empty, so `--json` output is still valid JSON), 1 anything else.
