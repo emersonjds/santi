@@ -13,11 +13,12 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 23] = [
+const TOOLS: [&str; 24] = [
     "add_comment",
     "archive_project",
     "complete_sprint",
     "create_issue",
+    "create_project",
     "create_sprint",
     "delete_issue",
     "get_backlog",
@@ -627,12 +628,41 @@ fn streamable_http_checks_the_host_and_caps_sessions() {
 #[test]
 fn stdio_archives_trashes_restores_and_purges_a_project() {
     let token = server().user();
-    server().project(&token, "GONE", "kanban");
     let config = tempfile::tempdir().unwrap();
     server().block_on(async {
         let mut command = santi(&config);
         command.env("SANTI_TOKEN", &token);
         let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        let created = ok(
+            &client,
+            "create_project",
+            json!({ "key": "gone", "name": "Gone soon", "board_type": "kanban" }),
+        )
+        .await;
+        assert_eq!(created["key"], "GONE");
+        assert_eq!(created["board_type"], "kanban");
+        assert_eq!(created["role"], "admin");
+        let scrum = ok(
+            &client,
+            "create_project",
+            json!({ "key": "GONES", "name": "Scrum by default" }),
+        )
+        .await;
+        assert_eq!(scrum["board_type"], "scrum");
+        let duplicate = rejected(
+            &client,
+            "create_project",
+            json!({ "key": "GONE", "name": "Again" }),
+        )
+        .await;
+        assert!(duplicate.contains("already exists"), "{duplicate}");
+        let malformed = rejected(
+            &client,
+            "create_project",
+            json!({ "key": "../x", "name": "Bad" }),
+        )
+        .await;
+        assert!(malformed.contains("project key"), "{malformed}");
         let project = json!({ "project": "GONE" });
         let keys = |projects: Value| -> Vec<String> {
             projects
@@ -644,7 +674,10 @@ fn stdio_archives_trashes_restores_and_purges_a_project() {
         };
 
         ok(&client, "archive_project", project.clone()).await;
-        assert!(keys(ok(&client, "list_projects", json!({})).await).is_empty());
+        assert_eq!(
+            keys(ok(&client, "list_projects", json!({})).await),
+            ["GONES"]
+        );
         let archived = ok(&client, "list_projects", json!({ "state": "archived" })).await;
         assert_eq!(keys(archived), ["GONE"]);
         let read_only = rejected(
