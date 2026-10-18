@@ -8,7 +8,7 @@ Design: `docs/specs/2026-10-15-santi-v1-design.md`. Plans: `docs/plans/`.
 - Cards live in project `SAN` on https://santi-production-bc0c.up.railway.app (the old tracker is a read-only archive; do not create or move cards there).
 - Read and move cards through the `santi` MCP (local scope) or the CLI (`santi backlog SAN`, `santi issues create SAN …`, `santi issues edit|move SAN-<n> …`); both use the token saved by `santi login`.
 - Card flow: To Do → In Progress when a branch starts → Done after the merge to `developer`. Branches keep `SAN-<n>`.
-- Gaps found while using it become cards in `SAN` (label `dogfood`).
+- Gaps found while using it become cards in `SAN`. Labels come only from the standard set: `frontend`, `backend`, `cli`, `ux`, `documentation`, `testing`, `performance`, `security`, `ci`, `tech-debt`, `community`, `good-first-issue`, `help-wanted`.
 
 ## Card flow (one card at a time)
 
