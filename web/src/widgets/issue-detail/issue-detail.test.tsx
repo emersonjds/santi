@@ -1,3 +1,4 @@
+import Markdown from 'react-markdown'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
@@ -12,6 +13,8 @@ import {
   problem,
   routeOf,
 } from '@/test/stub-api'
+
+vi.mock('react-markdown', { spy: true })
 
 const PATCH = 'PATCH /api/projects/WEB/issues/1'
 const MOVE = 'POST /api/projects/WEB/issues/1/move'
@@ -151,9 +154,6 @@ describe('issue detail', () => {
       .element(comment.getByText('Alice', { exact: true }))
       .toBeVisible()
     expect(comment.getByText('Friday').element().tagName).toBe('EM')
-    await expect
-      .element(screen.getByLabelText('Add a comment'))
-      .toHaveAttribute('maxlength', '65536')
   })
 
   it('shows people by first and last name, the full name on hover', async () => {
@@ -791,5 +791,127 @@ describe('issue rich text', () => {
     await expect
       .element(comments.getByRole('textbox', { name: 'Add a comment' }))
       .not.toHaveTextContent('Thanks')
+  })
+
+  it('keeps the draft through Esc and Cancel while the save is in flight, then under its error', async () => {
+    let answer = () => {}
+    const until = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    const { screen, description } = await editDescription({
+      [PATCH]: {
+        status: 422,
+        body: problem(422, 'Check the fields.', [
+          {
+            field: 'description',
+            message: 'must have at most 65536 characters',
+          },
+        ]),
+        until,
+      },
+    })
+    const field = description.getByRole('textbox', { name: 'Description' })
+
+    await userEvent.keyboard(' More.')
+    await description.getByRole('button', { name: 'Save' }).click()
+    await expect.element(field).toHaveAttribute('aria-readonly', 'true')
+    await field.click()
+    await userEvent.keyboard('{Escape}')
+    await description.getByRole('button', { name: 'Cancel' }).click()
+    answer()
+
+    await expect
+      .element(screen.getByText('must have at most 65536 characters'))
+      .toBeVisible()
+    await expect.element(field).toHaveTextContent('Then the backlog. More.')
+  })
+
+  it('drops the drafts of an issue when the view moves to another one', async () => {
+    inProjects({
+      'GET /api/projects/WEB/issues/3': {
+        status: 200,
+        body: issue({
+          key: 'WEB-3',
+          summary: 'Keep the redirect target',
+          issue_type: 'subtask',
+          parent_key: 'WEB-2',
+          description: 'Child text',
+        }),
+      },
+      'GET /api/projects/WEB/issues/3/comments': {
+        status: 200,
+        body: { items: [], next_cursor: null },
+      },
+      'POST /api/projects/WEB/issues/3/view': { status: 204 },
+      'GET /api/projects/WEB/issues/2': {
+        status: 200,
+        body: issue({
+          key: 'WEB-2',
+          summary: 'Fix the login redirect loop',
+          description: 'Parent text',
+        }),
+      },
+      'GET /api/projects/WEB/issues/2/comments': {
+        status: 200,
+        body: { items: [], next_cursor: null },
+      },
+      'POST /api/projects/WEB/issues/2/view': { status: 204 },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/3')
+    const description = screen.getByRole('region', { name: 'Description' })
+    const comments = screen.getByRole('region', { name: 'Comments' })
+
+    await screen.getByRole('button', { name: 'Edit description' }).click()
+    await expect
+      .element(description.getByRole('textbox', { name: 'Description' }))
+      .toHaveFocus()
+    await userEvent.keyboard(' draft')
+    await comments.getByRole('textbox', { name: 'Add a comment' }).click()
+    await userEvent.keyboard('reply')
+    await screen.getByRole('link', { name: 'WEB-2' }).click()
+
+    await expect.element(description.getByText('Parent text')).toBeVisible()
+    expect(description.getByRole('textbox').elements()).toEqual([])
+    await expect
+      .element(comments.getByRole('textbox', { name: 'Add a comment' }))
+      .not.toHaveTextContent('reply')
+    await expect
+      .element(comments.getByRole('textbox', { name: 'Add a comment' }))
+      .toHaveValue('')
+  })
+
+  it('leaves posted comments alone while a new one is typed', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = screen.getByRole('region', { name: 'Comments' })
+    const field = comments.getByRole('textbox', { name: 'Add a comment' })
+    await expect.element(comments.getByRole('article').first()).toBeVisible()
+    await field.click()
+    await expect
+      .element(comments.getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
+    const renders = vi.mocked(Markdown).mock.calls.length
+
+    await userEvent.keyboard('abc')
+    await expect.element(field).toHaveTextContent('abc')
+
+    expect(vi.mocked(Markdown).mock.calls.length).toBe(renders)
+  })
+
+  it('posts a comment that starts with an indented code block as typed', async () => {
+    const requests = inProjects({ [COMMENT]: pending })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = screen.getByRole('region', { name: 'Comments' })
+
+    await comments.getByRole('textbox', { name: 'Add a comment' }).click()
+    await expect
+      .element(comments.getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
+    await userEvent.keyboard('    let x = 1  ')
+    await userEvent.keyboard(mod('{Enter}'))
+
+    await expect
+      .poll(() => bodiesOf(requests, COMMENT))
+      .toEqual([{ body: '    let x = 1' }])
   })
 })
