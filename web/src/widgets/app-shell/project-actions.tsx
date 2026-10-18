@@ -15,7 +15,7 @@ import {
   TrashProjectButton,
 } from '@/features/project-lifecycle/lifecycle-dialogs'
 import { LeaveProjectButton } from '@/features/project/member-controls'
-import { useStarProject } from '@/features/star/star-button'
+import { useStarProject } from '@/features/star/use-star'
 import { BOARD_TYPE_LABEL } from '@/entities/project/labels'
 import { LAST_ADMIN, leaveRules } from '@/entities/project/leave-rules'
 import { membersQuery } from '@/entities/project/project-queries'
@@ -45,9 +45,11 @@ const copyLink = (key: string) =>
 export const ProjectActions = ({
   project,
   onNavigate,
+  onStar,
 }: {
   project: MyProject
   onNavigate: () => void
+  onStar?: () => void
 }) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dialog, setDialog] = useState<Dialog | null>(null)
@@ -81,9 +83,10 @@ export const ProjectActions = ({
         <DropdownMenuContent align='start' className='w-60'>
           <DropdownMenuItem
             className={ROW}
-            onSelect={() =>
+            onSelect={() => {
+              onStar?.()
               star.mutate({ key: project.key, starred: !project.starred })
-            }
+            }}
           >
             <Star />
             {project.starred ? 'Unstar project' : 'Star project'}

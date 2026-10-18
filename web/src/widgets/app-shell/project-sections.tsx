@@ -1,4 +1,12 @@
-import { Suspense, lazy, useId, useState } from 'react'
+import {
+  type RefObject,
+  Suspense,
+  lazy,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
 import { ChevronRight, Folders, Plus } from 'lucide-react'
@@ -64,12 +72,25 @@ const PageLink = ({
 const ProjectItem = ({
   project,
   current,
+  lastStarredRef,
   onNavigate,
 }: {
   project: MyProject
   current: boolean
+  lastStarredRef: RefObject<string | null>
   onNavigate: () => void
 }) => {
+  const row = useRef<HTMLDivElement>(null)
+  // A star moves the row to the other sublist, a new element: the focus left with the old one.
+  useEffect(() => {
+    if (
+      lastStarredRef.current !== project.key ||
+      document.activeElement !== document.body
+    )
+      return
+    row.current?.querySelector<HTMLElement>('[aria-pressed]')?.focus()
+  }, [lastStarredRef, project.key])
+  const onStar = () => (lastStarredRef.current = project.key)
   const [toggled, setToggled] = useState<boolean | null>(null)
   const expanded = toggled ?? current
   const pagesId = `sidebar-pages-${project.key}`
@@ -77,7 +98,7 @@ const ProjectItem = ({
 
   return (
     <SidebarMenuItem>
-      <div className='flex items-center pe-11 md:pe-9'>
+      <div ref={row} className='flex items-center pe-11 md:pe-9'>
         <button
           type='button'
           aria-label={`Toggle ${project.name}`}
@@ -111,12 +132,17 @@ const ProjectItem = ({
         <StarProjectButton
           project={project}
           className='group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 md:opacity-0'
+          onToggle={onStar}
         />
       </div>
       <Suspense
         fallback={<ProjectActionsButton projectName={project.name} disabled />}
       >
-        <ProjectActions project={project} onNavigate={onNavigate} />
+        <ProjectActions
+          project={project}
+          onNavigate={onNavigate}
+          onStar={onStar}
+        />
       </Suspense>
       <SidebarMenuSub id={pagesId} hidden={!expanded}>
         <PageLink to='/p/$key/board' {...page}>
@@ -145,13 +171,16 @@ const SUBLABEL = 'px-2 pt-2 pb-1 text-xs text-muted-foreground'
 const Sublist = ({
   label,
   projects,
+  current,
+  lastStarredRef,
   onNavigate,
 }: {
   label: string
   projects: MyProject[]
+  current?: string
+  lastStarredRef: RefObject<string | null>
   onNavigate: () => void
 }) => {
-  const { key } = useParams({ strict: false })
   const id = useId()
   if (projects.length === 0) return null
   return (
@@ -164,7 +193,8 @@ const Sublist = ({
           <ProjectItem
             key={project.key}
             project={project}
-            current={project.key === key}
+            current={project.key === current}
+            lastStarredRef={lastStarredRef}
             onNavigate={onNavigate}
           />
         ))}
@@ -188,6 +218,8 @@ export const ProjectSections = ({
   onLeaveFlyout: () => void
 }) => {
   const projects = list.data
+  const { key } = useParams({ strict: false })
+  const lastStarredRef = useRef<string | null>(null)
   const failed = list.isError && (
     <LoadFailed
       message='Projects did not load.'
@@ -210,12 +242,13 @@ export const ProjectSections = ({
         </SidebarMenuItem>
       </SidebarMenu>
     )
-  const { starred, recent } = sidebarProjects(projects, view)
+  const { starred, recent } = sidebarProjects(projects, view, key)
+  const sublist = { current: key, lastStarredRef, onNavigate }
   return (
     <>
       {failed}
-      <Sublist label='Starred' projects={starred} onNavigate={onNavigate} />
-      <Sublist label='Recent' projects={recent} onNavigate={onNavigate} />
+      <Sublist label='Starred' projects={starred} {...sublist} />
+      <Sublist label='Recent' projects={recent} {...sublist} />
       <SidebarMenu>
         <FlyoutEntry name='More projects' icon={Folders} flyouts={flyouts}>
           <MoreProjectsFlyout

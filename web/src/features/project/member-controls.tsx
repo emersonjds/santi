@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { myProjectsQuery } from '@/entities/home/home-queries'
 import { ROLE_LABEL } from '@/entities/project/labels'
 import {
   membersQuery,
@@ -44,16 +43,16 @@ const useMembersWrite = <Variables,>(
   const navigate = useNavigate()
   const { data: me } = useQuery(sessionQuery)
   const refresh = () =>
-    Promise.all(
-      [
+    Promise.all([
+      ...[
         membersQuery(projectKey),
         projectQuery(projectKey),
         projectsQuery,
-        myProjectsQuery,
       ].map(({ queryKey }) =>
         queryClient.invalidateQueries({ queryKey, exact: true })
-      )
-    )
+      ),
+      queryClient.invalidateQueries({ queryKey: ['home'] }),
+    ])
 
   const afterOwnChange = async () => {
     const name =

@@ -6,13 +6,23 @@ const RECENT_ROWS = 5
 const starTime = (project: MyProject) =>
   project.starred_at ? Date.parse(project.starred_at) : 0
 
-/** UI-61/62: `projects` in the /api/me/projects order, the latest visit first. */
-export const sidebarProjects = (projects: MyProject[], view: ProjectsView) => {
+/** UI-61/62: `projects` in the /api/me/projects order, the latest visit first; `current` stays in view. */
+export const sidebarProjects = (
+  projects: MyProject[],
+  view: ProjectsView,
+  current?: string
+) => {
   if (view === 'latest') return { starred: [], recent: projects.slice(0, 1) }
   const starred = projects
     .filter((project) => project.starred)
     .sort((left, right) => starTime(right) - starTime(left))
-  if (view === 'starred') return { starred, recent: [] }
+  if (view === 'starred')
+    return {
+      starred,
+      recent: projects.filter(
+        (project) => project.key === current && !project.starred
+      ),
+    }
   return {
     starred,
     recent: projects
