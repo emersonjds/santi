@@ -5,13 +5,14 @@ export const MAX_RICH_TEXT = 65_536
 
 const TOKEN = /^\[@((?:\\.|[^\\[\]])*)\]\(mention:(\d+)\)$/
 const MENTION_URL = /^mention:(\d+)$/
+const PUNCTUATION = /[!-/:-@[-`{-~]/g
 
-/** D50: `[@Display Name](mention:<user_id>)`, with `[`, `]` and `\` escaped. */
+/** D50: `[@Display Name](mention:<user_id>)`, with every ASCII punctuation mark of the name escaped. */
 export const mentionToken = ({
   user_id,
   display_name,
 }: Pick<Member, 'user_id' | 'display_name'>) =>
-  `[@${display_name.replace(/[\\[\]]/g, '\\$&')}](mention:${user_id})`
+  `[@${display_name.replace(PUNCTUATION, '\\$&')}](mention:${user_id})`
 
 export const parseMention = (token: string) => {
   const match = TOKEN.exec(token)

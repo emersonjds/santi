@@ -7,7 +7,7 @@ describe('mention token', () => {
       '[@Ana \\[QA\\]](mention:42)'
     )
     expect(mentionToken({ user_id: 7, display_name: 'C:\\dev' })).toBe(
-      '[@C:\\\\dev](mention:7)'
+      '[@C\\:\\\\dev](mention:7)'
     )
   })
 
@@ -29,5 +29,13 @@ describe('mention token', () => {
     expect(mentionUserId('mention:42')).toBe(42)
     expect(mentionUserId('mention:4x')).toBeNull()
     expect(mentionUserId('https://example.com/mention:42')).toBeNull()
+  })
+
+  it('escapes every ASCII punctuation mark of the name, so a backtick opens no code span', () => {
+    const name = 'Bo `b` *x* <y>'
+    const token = mentionToken({ user_id: 9, display_name: name })
+
+    expect(token).toBe('[@Bo \\`b\\` \\*x\\* \\<y\\>](mention:9)')
+    expect(parseMention(token)).toEqual({ userId: 9, name })
   })
 })

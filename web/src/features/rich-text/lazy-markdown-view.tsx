@@ -1,4 +1,4 @@
-import { type ReactNode, use } from 'react'
+import { type ReactNode, memo, use } from 'react'
 import { preloadMarkdownView } from './load-markdown-view'
 import type { MarkdownViewProps } from './markdown-view'
 
@@ -8,7 +8,7 @@ export const MarkdownReady = ({ children }: { children: ReactNode }) => {
   return children
 }
 
-export const MarkdownView = (props: MarkdownViewProps) => {
+export const MarkdownView = memo((props: MarkdownViewProps) => {
   const { MarkdownView: View } = use(preloadMarkdownView())
   return <View {...props} />
-}
+})
