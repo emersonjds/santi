@@ -19,9 +19,14 @@ const shown = async (screen: RenderResult) => {
   return handle(screen).element()
 }
 
-const pointer = (type: string, target: EventTarget, clientX: number) =>
+const pointer = (
+  type: string,
+  target: EventTarget,
+  clientX: number,
+  button = 0
+) =>
   target.dispatchEvent(
-    new PointerEvent(type, { bubbles: true, clientX, pointerId: 1 })
+    new PointerEvent(type, { bubbles: true, clientX, pointerId: 1, button })
   )
 
 describe('sidebar width', () => {
@@ -114,6 +119,27 @@ describe('sidebar width', () => {
     await expect.poll(sidebarWidth).toBe(450)
   })
 
+  it('ends a drag the browser cancels, and ignores a right button', async () => {
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    const separator = await shown(screen)
+    expect(getComputedStyle(separator).touchAction).toBe('none')
+    pointer('pointerdown', separator, 320)
+    pointer('pointermove', window, 400)
+    await expect.element(handle(screen)).toHaveAttribute('aria-valuenow', '400')
+    pointer('pointercancel', window, 400)
+    pointer('pointermove', window, 300)
+    await expect.element(handle(screen)).not.toHaveAttribute('data-resizing')
+    expect(separator.getAttribute('aria-valuenow')).toBe('400')
+
+    pointer('pointerdown', separator, 400, 2)
+    pointer('pointermove', window, 250)
+    pointer('pointerup', window, 250)
+    expect(separator.hasAttribute('data-resizing')).toBe(false)
+    await expect.element(handle(screen)).toHaveAttribute('aria-valuenow', '400')
+  })
+
   it('collapses on a double-click and comes back at the same width', async () => {
     localStorage.setItem(WIDTH_KEY, '380')
     inProjects()
@@ -157,6 +183,23 @@ describe('sidebar width', () => {
     await expect.element(flyout).toBeVisible()
 
     expect(flyout.element().getBoundingClientRect().left).toBe(440)
+  })
+
+  it('keeps a flyout inside a narrow window beside a wide sidebar', async () => {
+    await page.viewport(800, 800)
+    localStorage.setItem(WIDTH_KEY, '500')
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    await expect.poll(sidebarWidth).toBe(500)
+    await screen.getByRole('button', { name: 'Recent' }).click()
+    const flyout = screen.getByRole('dialog', { name: 'Recent' })
+    await expect.element(flyout).toBeVisible()
+
+    expect(flyout.element().getBoundingClientRect().right).toBeLessThanOrEqual(
+      800
+    )
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(800)
   })
 
   it('has no handle on a phone', async () => {
