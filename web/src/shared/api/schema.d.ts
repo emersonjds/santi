@@ -484,6 +484,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/issues/{number}/comments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_comment"];
+        options?: never;
+        head?: never;
+        patch: operations["edit_comment"];
+        trace?: never;
+    };
     "/api/projects/{key}/issues/{number}/move": {
         parameters: {
             query?: never;
@@ -979,6 +995,14 @@ export interface components {
             body: string;
             /** Format: date-time */
             created_at: string;
+            /**
+             * Format: date-time
+             * @description Last change of the text; null until a save changes it (D52).
+             */
+            edited_at?: string | null;
+            /** Format: int64 */
+            edited_by_id?: number | null;
+            edited_by_name?: string | null;
             /** Format: int64 */
             id: number;
         };
@@ -1347,6 +1371,14 @@ export interface components {
                 body: string;
                 /** Format: date-time */
                 created_at: string;
+                /**
+                 * Format: date-time
+                 * @description Last change of the text; null until a save changes it (D52).
+                 */
+                edited_at?: string | null;
+                /** Format: int64 */
+                edited_by_id?: number | null;
+                edited_by_name?: string | null;
                 /** Format: int64 */
                 id: number;
             }[];
@@ -1707,6 +1739,10 @@ export interface components {
             name: string;
             /** Format: int32 */
             wip_limit?: number | null;
+        };
+        UpdateComment: {
+            /** @description CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`. */
+            body: string;
         };
         /** @description Absent fields stay as they are; `null` clears a nullable field. */
         UpdateIssue: {
@@ -3742,6 +3778,138 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+                /** @description Comment id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted for good (D52) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Neither an admin nor the author */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    edit_comment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+                /** @description Comment id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateComment"];
+            };
+        };
+        responses: {
+            /** @description Marked edited by the caller; the same text returns the comment untouched (D52) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Neither an admin nor the author */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived` */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
