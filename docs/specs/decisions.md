@@ -592,3 +592,13 @@ Winner: A — accepted: old bodies with Markdown characters now format; screen r
 - Safety lives in the one HTML renderer (web `MarkdownView`: React elements, raw HTML as text, safe URL protocols, images as links); the server does not sanitize, it only refuses NUL and oversize bodies.
 - One cap for description and comment: 65,536 characters (`MAX_RICH_TEXT`).
 - Budgets (D39): editor and renderer are lazy chunks (≤ 120 KB and ≤ 50 KB gzip, `size-limit`); initial JS per route unchanged.
+
+**D50 amendment (build, 2026-10-18):** the editor chunk measures 143.3 KB gzip counted honestly
+(CodeMirror ~110 KB plus the Radix menu code the toolbar's dropdown menus pull in when the issue
+menu has not loaded it). Budget for that lazy chunk is 150 KB; it loads on idle and never counts
+toward the D39 first-visit budget (issue page initial JS 153.2 KB). Rejected: measuring beside the
+issue menu (only admins and reporters load that menu, so it hid ~28 KB from everyone else) and
+dropping Radix from the toolbar menus (a second menu implementation). Description save waits for
+the server (Save busy, editor read-only, draft kept with the message on error) instead of closing
+optimistically: a lost rich-text draft costs more than one round trip under the 30 ms p95 budget.
+
