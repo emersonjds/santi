@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH items AS (\n             SELECT 'project' AS kind, p.key, p.name, p.id AS project_id, NULL::text AS issue_type,\n                    m.starred_at AS at\n             FROM member m JOIN project p ON p.id = m.project_id\n             WHERE m.user_id = $1 AND m.starred_at IS NOT NULL AND $2::text IS DISTINCT FROM 'issue'\n             UNION ALL\n             SELECT 'issue', p.key || '-' || i.number, i.summary, p.id, i.issue_type, st.created_at\n             FROM issue_star st\n             JOIN issue i ON i.id = st.issue_id\n             JOIN project p ON p.id = i.project_id\n             WHERE st.user_id = $1 AND $2::text IS DISTINCT FROM 'project')\n           SELECT x.kind AS \"kind!: ItemKind\", x.key AS \"key!\", x.name AS \"name!\",\n                  p.key AS project_key, p.name AS project_name,\n                  b.board_type AS \"board_type: BoardType\", x.issue_type AS \"issue_type?: IssueType\",\n                  x.at AS \"at!\"\n           FROM items x\n           JOIN member m ON m.project_id = x.project_id AND m.user_id = $1\n           JOIN project p ON p.id = x.project_id\n           JOIN board b ON b.project_id = p.id\n           WHERE p.archived_at IS NULL AND p.trashed_at IS NULL\n             AND ($3::text IS NULL OR x.name ILIKE $3 OR x.key ILIKE $3)\n           ORDER BY x.at DESC, x.key\n           LIMIT $5 OFFSET $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kind!: ItemKind",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "project_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "project_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "board_type: BoardType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "board",
+            "name": "board_type"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "issue_type?: IssueType",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "at!",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      false,
+      false,
+      false,
+      null,
+      null
+    ]
+  },
+  "hash": "32650141cdafb9f7fad4e33659c47d11d3b1b35dd8c5d6dd8073c9790c5f00c5"
+}

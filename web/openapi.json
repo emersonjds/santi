@@ -629,6 +629,167 @@
         }
       }
     },
+    "/api/me/recent": {
+      "get": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "my_recent",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive text in the name or the key.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 200, default 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects and issues the caller visited, viewed or worked on, newest first; `cursor` is an offset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MyItem"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Limit out of range",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/starred": {
+      "get": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "my_starred",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Only projects or only issues; both when absent.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "project",
+                "issue"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive text in the name or the key.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 200, default 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projects and issues the caller starred, newest star first; `cursor` is an offset",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_MyItem"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown kind",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Limit out of range",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/stars": {
       "post": {
         "tags": [
@@ -5631,6 +5792,13 @@
           "subtask"
         ]
       },
+      "ItemKind": {
+        "type": "string",
+        "enum": [
+          "project",
+          "issue"
+        ]
+      },
       "LegalAcceptance": {
         "type": "object",
         "description": "One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`.",
@@ -5786,6 +5954,57 @@
         },
         "additionalProperties": false
       },
+      "MyItem": {
+        "type": "object",
+        "description": "A project or an issue in the sidebar's Recent and Starred lists.",
+        "required": [
+          "kind",
+          "key",
+          "name",
+          "project_key",
+          "project_name",
+          "board_type",
+          "at"
+        ],
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last visit, view or work (recent), or the star time (starred)."
+          },
+          "board_type": {
+            "$ref": "#/components/schemas/BoardType"
+          },
+          "issue_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/IssueType",
+                "description": "Issues only."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "type": "string",
+            "description": "`WEB` or `WEB-12`."
+          },
+          "kind": {
+            "$ref": "#/components/schemas/ItemKind"
+          },
+          "name": {
+            "type": "string",
+            "description": "The project name or the issue summary."
+          },
+          "project_key": {
+            "type": "string"
+          },
+          "project_name": {
+            "type": "string"
+          }
+        }
+      },
       "MyProject": {
         "type": "object",
         "description": "A project on the caller's home: recently visited or worked first, then starred, then by key.",
@@ -5824,6 +6043,21 @@
           },
           "starred": {
             "type": "boolean"
+          },
+          "starred_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "visited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "The caller's last visit or newest view or work on its issues."
           }
         }
       },
@@ -6124,6 +6358,76 @@
                   "type": "string",
                   "format": "date-time",
                   "description": "Last change a viewer can see: a field edit, a move, sprint planning, a comment or a child."
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "Page_MyItem": {
+        "type": "object",
+        "description": "One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "A project or an issue in the sidebar's Recent and Starred lists.",
+              "required": [
+                "kind",
+                "key",
+                "name",
+                "project_key",
+                "project_name",
+                "board_type",
+                "at"
+              ],
+              "properties": {
+                "at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Last visit, view or work (recent), or the star time (starred)."
+                },
+                "board_type": {
+                  "$ref": "#/components/schemas/BoardType"
+                },
+                "issue_type": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/IssueType",
+                      "description": "Issues only."
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "key": {
+                  "type": "string",
+                  "description": "`WEB` or `WEB-12`."
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/ItemKind"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The project name or the issue summary."
+                },
+                "project_key": {
+                  "type": "string"
+                },
+                "project_name": {
+                  "type": "string"
                 }
               }
             }

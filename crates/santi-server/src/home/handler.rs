@@ -2,7 +2,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::{HeaderMap, StatusCode};
 use santi_types::Problem;
-use santi_types::home::{HomeIssue, HomeQuery, MyProject, Star};
+use santi_types::home::{HomeIssue, HomeQuery, MyItem, MyProject, RecentQuery, Star, StarredQuery};
 use santi_types::issues::{Page, PageParams};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -19,6 +19,8 @@ pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(my_projects))
         .routes(routes!(my_issues))
+        .routes(routes!(my_recent))
+        .routes(routes!(my_starred))
         .routes(routes!(star))
         .routes(routes!(unstar))
         .routes(routes!(view_issue))
@@ -51,6 +53,41 @@ pub async fn my_issues(
 ) -> Result<Json<Page<HomeIssue>>, AppError> {
     Ok(Json(
         service::my_issues(&state.pool, &user, query.view, page).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/me/recent", tag = "home",
+    params(RecentQuery, PageParams),
+    responses(
+        (status = 200, body = Page<MyItem>, description = "Projects and issues the caller visited, viewed or worked on, newest first; `cursor` is an offset"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Limit out of range")))]
+pub async fn my_recent(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    QueryParams(query): QueryParams<RecentQuery>,
+    QueryParams(page): QueryParams<PageParams>,
+) -> Result<Json<Page<MyItem>>, AppError> {
+    Ok(Json(
+        service::my_recent(&state.pool, &user, query.q.as_deref(), page).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/me/starred", tag = "home",
+    params(StarredQuery, PageParams),
+    responses(
+        (status = 200, body = Page<MyItem>, description = "Projects and issues the caller starred, newest star first; `cursor` is an offset"),
+        (status = 400, body = Problem, content_type = "application/problem+json", description = "Unknown kind"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Limit out of range")))]
+pub async fn my_starred(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    QueryParams(query): QueryParams<StarredQuery>,
+    QueryParams(page): QueryParams<PageParams>,
+) -> Result<Json<Page<MyItem>>, AppError> {
+    Ok(Json(
+        service::my_starred(&state.pool, &user, query.kind, query.q.as_deref(), page).await?,
     ))
 }
 
