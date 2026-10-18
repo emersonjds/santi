@@ -321,6 +321,22 @@ describe('recent flyout', () => {
     expect(document.activeElement).toBe(search.element())
   })
 
+  it('dims the page behind and closes when the dimmed page is clicked', async () => {
+    inProjects({ 'GET /api/me/recent': { status: 200, body: pageOf([LOGIN]) } })
+    const { screen } = await renderApp('/')
+
+    const recent = await openFlyout(screen, 'Recent')
+    const scrim = document.elementFromPoint(1000, 400)
+    expect(scrim).not.toBeNull()
+    expect(recent.element().contains(scrim)).toBe(false)
+    expect(getComputedStyle(scrim as Element).backgroundColor).not.toBe(
+      'rgba(0, 0, 0, 0)'
+    )
+    await userEvent.click(scrim as Element)
+
+    await expect.element(recent).not.toBeInTheDocument()
+  })
+
   it('fills a phone screen with 44px rows and no sideways scroll', async () => {
     await page.viewport(375, 800)
     inProjects({ 'GET /api/me/recent': { status: 200, body: pageOf([LOGIN]) } })
