@@ -3,7 +3,14 @@ import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
 import type { MyProject } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { MY_OPS, MY_WEB, inProjects, routeOf, signedIn } from '@/test/stub-api'
+import {
+  MY_OPS,
+  MY_WEB,
+  inProjects,
+  problem,
+  routeOf,
+  signedIn,
+} from '@/test/stub-api'
 
 const sidebar = (screen: RenderResult) =>
   screen.getByRole('navigation', { name: 'Projects and pages' })
@@ -298,6 +305,58 @@ describe('sidebar projects', () => {
       .poll(() => rows(sublist(screen, 'Recent')))
       .toEqual(['Apple', 'Berry', 'Cherry', 'Lime', 'Date'])
     expect(rows(sublist(screen, 'Starred'))).toEqual(['Kiwi'])
+  })
+
+  it('keeps the focus on the star of a row that moves', async () => {
+    signedIn({
+      'GET /api/me/projects': { status: 200, body: MANY },
+      'POST /api/me/stars': { status: 204, until: pending },
+      'DELETE /api/me/stars/LIM': { status: 204, until: pending },
+    })
+    const { screen } = await renderApp('/')
+    const star = (name: string) =>
+      sidebar(screen).getByRole('button', { name: `Star ${name}` })
+
+    await star('Berry').click()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Berry', 'Lime', 'Kiwi'])
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(star('Berry').element())
+
+    await star('Lime').click()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Berry', 'Kiwi'])
+    await expect.poll(() => document.activeElement).toBe(star('Lime').element())
+  })
+
+  it('puts a star back and says so when the write fails', async () => {
+    signedIn({
+      'GET /api/me/projects': { status: 200, body: MANY },
+      'POST /api/me/stars': { status: 500, body: problem(500, 'down') },
+      'DELETE /api/me/stars/LIM': { status: 500, body: problem(500, 'down') },
+    })
+    const { screen } = await renderApp('/')
+    const star = (name: string) =>
+      sidebar(screen).getByRole('button', { name: `Star ${name}` })
+
+    await star('Berry').click()
+    await expect.element(screen.getByText('BER was not starred')).toBeVisible()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Lime', 'Kiwi'])
+    await expect.element(star('Berry')).toHaveAttribute('aria-pressed', 'false')
+
+    await star('Lime').click()
+    await expect
+      .element(screen.getByText('LIM was not unstarred'))
+      .toBeVisible()
+    await expect
+      .poll(() => rows(sublist(screen, 'Starred')))
+      .toEqual(['Lime', 'Kiwi'])
+    await expect.element(star('Lime')).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('changes the view from the header menu and keeps it after a reload', async () => {
@@ -597,6 +656,13 @@ describe('sidebar project row', () => {
     await expect
       .poll(() => rows(sublist(screen, 'Starred')))
       .toEqual(['Operations', 'Website'])
+    await expect
+      .poll(() => document.activeElement)
+      .toBe(
+        sidebar(screen)
+          .getByRole('button', { name: 'Star Operations' })
+          .element()
+      )
   })
 
   it('sends an admin to the members page to add people', async () => {

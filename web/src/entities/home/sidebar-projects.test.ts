@@ -43,6 +43,15 @@ describe('sidebar projects', () => {
     })
   })
 
+  it('keeps the current project in view when only starred ones show', () => {
+    expect(sidebarProjects(LIST, 'starred', 'C')).toEqual({
+      starred: [LIST[4], LIST[1]],
+      recent: [LIST[3]],
+    })
+    expect(sidebarProjects(LIST, 'starred', 'S1').recent).toEqual([])
+    expect(sidebarProjects(LIST, 'starred', 'GONE').recent).toEqual([])
+  })
+
   it('ranks a star with no time yet last', () => {
     const list = [project('X', { starred: true }), ...LIST]
 
