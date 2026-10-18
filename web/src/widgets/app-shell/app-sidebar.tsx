@@ -1,7 +1,8 @@
 import { Suspense, lazy, useState } from 'react'
+import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from '@tanstack/react-router'
-import { ChevronRight, House, Plus } from 'lucide-react'
+import { ChevronRight, Clock, House, Plus, Star } from 'lucide-react'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import { projectsQuery } from '@/entities/project/project-queries'
 import {
@@ -33,6 +34,57 @@ const ProjectActions = lazy(() =>
     default: module.ProjectActions,
   }))
 )
+
+const RecentFlyout = lazy(() =>
+  import('./recent-flyout').then((module) => ({
+    default: module.RecentFlyout,
+  }))
+)
+
+const StarredFlyout = lazy(() =>
+  import('./starred-flyout').then((module) => ({
+    default: module.StarredFlyout,
+  }))
+)
+
+const FLYOUTS = {
+  Recent: { icon: Clock, Body: RecentFlyout },
+  Starred: { icon: Star, Body: StarredFlyout },
+} as const
+
+type Flyout = keyof typeof FLYOUTS
+
+/** UI-56: one flyout open at a time; Radix gives `aria-expanded` and the focus back to the trigger. */
+const FlyoutEntry = ({
+  name,
+  open,
+  onOpenChange,
+  onNavigate,
+}: {
+  name: Flyout
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onNavigate: () => void
+}) => {
+  const { icon: Icon, Body } = FLYOUTS[name]
+  return (
+    <SidebarMenuItem>
+      <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+        <SidebarMenuButton asChild className='pointer-events-auto h-10'>
+          <DialogPrimitive.Trigger data-flyout-trigger=''>
+            <Icon />
+            <span>{name}</span>
+          </DialogPrimitive.Trigger>
+        </SidebarMenuButton>
+        {open && (
+          <Suspense>
+            <Body onNavigate={onNavigate} />
+          </Suspense>
+        )}
+      </DialogPrimitive.Root>
+    </SidebarMenuItem>
+  )
+}
 
 const CURRENT =
   'aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-medium aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:shadow-[inset_3px_0_0_var(--color-primary)]'
@@ -169,7 +221,12 @@ const LEGAL = [
 
 export const AppSidebar = () => {
   const { setOpenMobile } = useSidebar()
+  const [flyout, setFlyout] = useState<Flyout | null>(null)
   const closeDrawer = () => setOpenMobile(false)
+  const leaveFlyout = () => {
+    setFlyout(null)
+    closeDrawer()
+  }
   const { data: legal } = useQuery(legalDocumentsQuery)
   const about = [
     ...(useLegalRequired(legal?.required) ? LEGAL : []),
@@ -194,6 +251,19 @@ export const AppSidebar = () => {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {(['Recent', 'Starred'] as const).map((name) => (
+                <FlyoutEntry
+                  key={name}
+                  name={name}
+                  open={flyout === name}
+                  onOpenChange={(open) =>
+                    setFlyout((current) =>
+                      open ? name : current === name ? null : current
+                    )
+                  }
+                  onNavigate={leaveFlyout}
+                />
+              ))}
             </SidebarMenu>
           </SidebarGroup>
           <SidebarGroup>

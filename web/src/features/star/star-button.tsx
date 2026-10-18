@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import type { InfiniteData } from '@tanstack/react-query'
 import { Star } from 'lucide-react'
 import { myIssuesQuery, myProjectsQuery } from '@/entities/home/home-queries'
 import {
   type HomeIssue,
+  type MyItem,
   type MyProject,
   api,
   okOrThrow,
@@ -109,6 +111,27 @@ export const StarProjectButton = ({
       onToggle={() =>
         star.mutate({ key: project.key, starred: !project.starred })
       }
+    />
+  )
+}
+
+/** UI-60: the row keeps its place with the toggle flipped; the other lists change at once. */
+export const StarItemButton = ({ item }: { item: MyItem }) => {
+  const [starred, setStarred] = useState(true)
+  const starIssue = useStarIssue()
+  const starProject = useStarProject()
+  const star = item.kind === 'issue' ? starIssue : starProject
+  return (
+    <StarToggle
+      label={`Star ${item.kind === 'issue' ? item.key : item.name}`}
+      starred={starred}
+      onToggle={() => {
+        setStarred(!starred)
+        star.mutate(
+          { key: item.key, starred: !starred },
+          { onError: () => setStarred(starred) }
+        )
+      }}
     />
   )
 }
