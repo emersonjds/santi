@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 24] = [
+const TOOLS: [&str; 25] = [
     "add_comment",
     "archive_project",
     "complete_sprint",
@@ -27,6 +27,7 @@ const TOOLS: [&str; 24] = [
     "get_sprint_report",
     "list_comments",
     "list_epics",
+    "list_members",
     "list_projects",
     "list_sprints",
     "move_issue",
@@ -149,6 +150,17 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         assert_eq!(story["key"], "MCP-2");
         let epics = ok(&client, "list_epics", json!({ "project": "MCP" })).await;
         assert_eq!(epics["items"][0]["key"], "MCP-1");
+        let members = ok(&client, "list_members", json!({ "project": "MCP" })).await;
+        assert_eq!(members[0]["role"], "admin");
+        assert_eq!(hints("list_members").read_only_hint, Some(true));
+        for name in ["create_issue", "update_issue", "add_comment"] {
+            let description = tool(name).description.as_deref().unwrap();
+            assert!(
+                description.contains("Markdown")
+                    && description.contains("[@Name](mention:<user_id>)"),
+                "{name}: {description}"
+            );
+        }
 
         let edited = ok(
             &client,
@@ -167,7 +179,7 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         ok(
             &client,
             "add_comment",
-            json!({ "issue": "MCP-2", "body": "Needs 3DS" }),
+            json!({ "issue": "MCP-2", "body": "Needs 3DS, [@Ana](mention:1)" }),
         )
         .await;
         let comments = ok(
@@ -176,7 +188,7 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
             json!({ "issue": "MCP-2", "limit": 1 }),
         )
         .await;
-        assert_eq!(comments["items"][0]["body"], "Needs 3DS");
+        assert_eq!(comments["items"][0]["body"], "Needs 3DS, [@Ana](mention:1)");
         assert_eq!(comments["next_cursor"], Value::Null);
 
         let sprint = ok(
@@ -327,6 +339,7 @@ fn stdio_rejects_missing_unknown_and_malformed_arguments() {
             "get_backlog",
             "search_issues",
             "list_epics",
+            "list_members",
         ] {
             let description = tool(name).description.as_deref().unwrap();
             assert!(description.contains("untrusted"), "{name}: {description}");
