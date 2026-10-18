@@ -13,14 +13,16 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 25] = [
+const TOOLS: [&str; 27] = [
     "add_comment",
     "archive_project",
     "complete_sprint",
     "create_issue",
     "create_project",
     "create_sprint",
+    "delete_comment",
     "delete_issue",
+    "edit_comment",
     "get_backlog",
     "get_board",
     "get_issue",
@@ -100,6 +102,8 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         assert_eq!(hints("list_comments").read_only_hint, Some(true));
         assert_eq!(hints("get_sprint_report").read_only_hint, Some(true));
         assert_eq!(hints("delete_issue").destructive_hint, Some(true));
+        assert_eq!(hints("delete_comment").destructive_hint, Some(true));
+        assert_eq!(hints("edit_comment").destructive_hint, Some(false));
         assert_eq!(hints("purge_project").destructive_hint, Some(true));
         assert_eq!(hints("trash_project").destructive_hint, Some(true));
         assert_eq!(hints("archive_project").destructive_hint, Some(false));
@@ -153,7 +157,12 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         let members = ok(&client, "list_members", json!({ "project": "MCP" })).await;
         assert_eq!(members[0]["role"], "admin");
         assert_eq!(hints("list_members").read_only_hint, Some(true));
-        for name in ["create_issue", "update_issue", "add_comment"] {
+        for name in [
+            "create_issue",
+            "update_issue",
+            "add_comment",
+            "edit_comment",
+        ] {
             let description = tool(name).description.as_deref().unwrap();
             assert!(
                 description.contains("Markdown")
@@ -190,6 +199,37 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         .await;
         assert_eq!(comments["items"][0]["body"], "Needs 3DS, [@Ana](mention:1)");
         assert_eq!(comments["next_cursor"], Value::Null);
+        let comment_id = comments["items"][0]["id"].clone();
+        let changed = ok(
+            &client,
+            "edit_comment",
+            json!({ "issue": "MCP-2", "comment_id": comment_id, "body": "Needs 3DS v2" }),
+        )
+        .await;
+        assert_eq!(changed["body"], "Needs 3DS v2");
+        assert!(changed["edited_at"].is_string());
+        let empty = rejected(
+            &client,
+            "edit_comment",
+            json!({ "issue": "MCP-2", "comment_id": comment_id, "body": " " }),
+        )
+        .await;
+        assert!(empty.contains("body"), "{empty}");
+        ok(
+            &client,
+            "delete_comment",
+            json!({ "issue": "MCP-2", "comment_id": comment_id }),
+        )
+        .await;
+        let gone = rejected(
+            &client,
+            "delete_comment",
+            json!({ "issue": "MCP-2", "comment_id": comment_id }),
+        )
+        .await;
+        assert_eq!(gone, "Nothing exists here, or you cannot see it.");
+        let none = ok(&client, "list_comments", json!({ "issue": "MCP-2" })).await;
+        assert_eq!(none["items"], json!([]));
 
         let sprint = ok(
             &client,
