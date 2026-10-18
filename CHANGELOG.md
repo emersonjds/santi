@@ -10,6 +10,42 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-10-18
+
+> Rich text everywhere: Markdown descriptions and comments with a formatting toolbar, live styling, @mentions and emoji.
+
+### Added
+
+- **Descriptions and comments:** written and stored as Markdown (CommonMark + GFM, D50). The
+  editor styles as you type (bold, italic, strikethrough, code, links, headings, lists, task
+  lists, quotes, code blocks, tables), has a toolbar with text style, marks, link, code, lists,
+  emoji and a More menu, undo and redo, and the usual keyboard shortcuts; Cmd/Ctrl+Enter saves or
+  posts, Esc cancels. On a phone the toolbar scrolls inside itself.
+- **@mentions:** type `@` to pick a project member (name or email, assignee and reporter first).
+  A mention is stored as `[@Name](mention:<user_id>)` and shows as a chip with the member's current
+  name; someone no longer in the project shows as plain muted text.
+- **Emoji:** type `:` or use the toolbar to insert one of about 250 emoji.
+- **CLI:** `santi members <KEY>` lists a project's people with their ids; `issues show` and
+  `issues comments` print mentions as `@Name` (`--json` keeps the raw token).
+- **MCP:** `list_members`; the issue and comment tools say bodies are Markdown and how to mention.
+
+### Changed
+
+- **Limits:** descriptions and comments share one cap of 65,536 characters (comments were 20,000);
+  a counter appears near the limit.
+- **Rendering is safe by construction:** raw HTML shows as text, only safe link schemes are
+  clickable, images show as links, links to other sites open in a new tab without access to santi.
+- **Comments keep their leading indentation** (an indented code block stays a code block).
+- **Description save** waits for the server and keeps the draft, with the error, if it fails.
+
+### Upgrade notes
+
+- Migration `0021_comment_length.sql` widens the comment length check. It rescans every comment
+  under a table lock while it runs (quick at small scale); it is forward-only: once longer comments
+  exist, going back to the 20,000 check fails.
+- Existing plain-text descriptions and comments render as Markdown with their line breaks kept; no
+  data changes.
+
 ## [0.15.0] - 2026-10-18
 
 > Colorful labels and a roomier issue panel: every label keeps its own color everywhere, and the Details panel breathes.
@@ -466,7 +502,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/emersonjds/santi/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/emersonjds/santi/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/emersonjds/santi/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/emersonjds/santi/compare/v0.13.2...v0.14.0
