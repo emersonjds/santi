@@ -490,6 +490,227 @@ async fn used_or_expired_invites_preview_as_gone(pool: PgPool) {
     assert_eq!(expired_problem["type"], "urn:santi:error:invite-expired");
 }
 
+async fn new_invite(admin: &TestApp, key: &str, body: serde_json::Value) -> String {
+    let (status, invite) = admin
+        .post(&format!("/api/projects/{key}/invites"), body)
+        .await;
+    assert_eq!(status, StatusCode::CREATED);
+    invite["token"].as_str().unwrap().to_string()
+}
+
+async fn invite_ids(admin: &TestApp, key: &str) -> Vec<i64> {
+    let (_, invites) = admin.get(&format!("/api/projects/{key}/invites")).await;
+    invites
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|invite| invite["id"].as_i64().unwrap())
+        .collect()
+}
+
+#[sqlx::test]
+async fn admin_lists_live_invites_with_spots_and_joiners(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    let carl = ana.another_user("carl@example.com").await;
+    let dora = ana.another_user("dora@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let group = new_invite(&ana, "SANTI", json!({ "role": "member", "max_uses": 3 })).await;
+    for guest in [&bob, &carl] {
+        guest
+            .post(&format!("/api/invites/{group}/accept"), json!(null))
+            .await;
+    }
+    let full = new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    dora.post(&format!("/api/invites/{full}/accept"), json!(null))
+        .await;
+    new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    sqlx::query("UPDATE invite SET expires_at = now() WHERE id = (SELECT max(id) FROM invite)")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let single = new_invite(&ana, "SANTI", json!({ "role": "admin" })).await;
+
+    let (status, invites) = ana.get("/api/projects/SANTI/invites").await;
+
+    assert_eq!(status, StatusCode::OK, "{invites}");
+    let text = invites.to_string();
+    for secret in [group.as_str(), single.as_str(), "token"] {
+        assert!(!text.contains(secret), "{secret} leaked");
+    }
+    let invites = invites.as_array().unwrap();
+    assert_eq!(invites.len(), 2);
+    assert_eq!(invites[0]["role"], "admin");
+    assert_eq!(invites[0]["uses"], 0);
+    assert_eq!(invites[0]["joined"], json!([]));
+    let mut newest = invites[1].clone();
+    let fields = newest.as_object_mut().unwrap();
+    for stamp in ["id", "created_at", "expires_at"] {
+        assert!(fields.remove(stamp).is_some(), "{stamp} missing");
+    }
+    for joiner in fields["joined"].as_array_mut().unwrap() {
+        assert!(
+            joiner
+                .as_object_mut()
+                .unwrap()
+                .remove("joined_at")
+                .unwrap()
+                .is_string()
+        );
+    }
+    assert_eq!(
+        newest,
+        json!({
+            "role": "member",
+            "max_uses": 3,
+            "uses": 2,
+            "created_by_name": "ana@example.com",
+            "joined": [
+                { "user_id": bob.user_id, "name": "bob@example.com", "email": "bob@example.com" },
+                { "user_id": carl.user_id, "name": "carl@example.com", "email": "carl@example.com" },
+            ],
+        })
+    );
+}
+
+#[sqlx::test]
+async fn only_admins_see_and_revoke_invites(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    let eve = ana.another_user("eve@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    ana.post(
+        "/api/projects/SANTI/members",
+        json!({ "email": "bob@example.com", "role": "member" }),
+    )
+    .await;
+    new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    let revoke = format!(
+        "/api/projects/SANTI/invites/{}",
+        invite_ids(&ana, "SANTI").await[0]
+    );
+
+    assert_eq!(
+        bob.get("/api/projects/SANTI/invites").await.0,
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(bob.delete(&revoke).await.0, StatusCode::FORBIDDEN);
+    assert_eq!(
+        eve.get("/api/projects/SANTI/invites").await.0,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(eve.delete(&revoke).await.0, StatusCode::NOT_FOUND);
+    assert_eq!(invite_ids(&ana, "SANTI").await.len(), 1);
+}
+
+#[sqlx::test]
+async fn a_revoked_invite_reads_as_expired_and_joiners_stay(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    let carl = ana.another_user("carl@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let token = new_invite(&ana, "SANTI", json!({ "role": "member", "max_uses": 3 })).await;
+    bob.post(&format!("/api/invites/{token}/accept"), json!(null))
+        .await;
+    let revoke = format!(
+        "/api/projects/SANTI/invites/{}",
+        invite_ids(&ana, "SANTI").await[0]
+    );
+
+    let (revoked, _) = ana.delete(&revoke).await;
+    let (preview, preview_problem) = carl.get(&format!("/api/invites/{token}")).await;
+    let (accept, accept_problem) = carl
+        .post(&format!("/api/invites/{token}/accept"), json!(null))
+        .await;
+
+    assert_eq!(revoked, StatusCode::NO_CONTENT);
+    assert!(invite_ids(&ana, "SANTI").await.is_empty());
+    assert_eq!(preview, StatusCode::GONE);
+    assert_eq!(preview_problem["type"], "urn:santi:error:invite-expired");
+    assert_eq!(accept, StatusCode::GONE);
+    assert_eq!(accept_problem["type"], "urn:santi:error:invite-expired");
+    assert_eq!(bob.get("/api/projects/SANTI").await.0, StatusCode::OK);
+    assert_eq!(ana.delete(&revoke).await.0, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
+async fn an_accept_begun_before_a_revoke_commits_cannot_take_the_link(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let token = new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    let id = invite_ids(&ana, "SANTI").await[0];
+    let mut accept = pool.begin().await.unwrap();
+
+    let (revoked, _) = ana
+        .delete(&format!("/api/projects/SANTI/invites/{id}"))
+        .await;
+    let grant = santi_server::members::repo::take_invite(
+        &mut accept,
+        &santi_server::auth::domain::hash_token(&token),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(revoked, StatusCode::NO_CONTENT);
+    assert!(grant.is_none());
+}
+
+#[sqlx::test]
+async fn an_invite_keeps_its_creation_time(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    let (_, before) = ana.get("/api/projects/SANTI/invites").await;
+    sqlx::query("UPDATE invite SET expires_at = expires_at + interval '1 day'")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let (_, after) = ana.get("/api/projects/SANTI/invites").await;
+
+    assert_ne!(before[0]["expires_at"], after[0]["expires_at"]);
+    assert_eq!(before[0]["created_at"], after[0]["created_at"]);
+}
+
+#[sqlx::test]
+async fn revoke_answers_404_for_another_projects_or_an_ended_invite(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    ana.create_project("OTHER", "kanban").await;
+    new_invite(&ana, "OTHER", json!({ "role": "member" })).await;
+    let other_id = invite_ids(&ana, "OTHER").await[0];
+    let used = new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    let used_id = invite_ids(&ana, "SANTI").await[0];
+    bob.post(&format!("/api/invites/{used}/accept"), json!(null))
+        .await;
+
+    for id in [other_id, used_id, 0] {
+        let (status, _) = ana
+            .delete(&format!("/api/projects/SANTI/invites/{id}"))
+            .await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{id}");
+    }
+    assert_eq!(invite_ids(&ana, "OTHER").await, [other_id]);
+}
+
+#[sqlx::test]
+async fn an_archived_project_lists_invites_but_refuses_revoke(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    let id = invite_ids(&ana, "SANTI").await[0];
+    ana.post("/api/projects/SANTI/archive", json!(null)).await;
+
+    let (status, problem) = ana
+        .delete(&format!("/api/projects/SANTI/invites/{id}"))
+        .await;
+
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(problem["type"], "urn:santi:error:project-archived");
+    assert_eq!(invite_ids(&ana, "SANTI").await, [id]);
+}
+
 #[sqlx::test]
 async fn projects_require_sign_in(pool: PgPool) {
     let anonymous = TestApp::anonymous(pool);
@@ -516,6 +737,7 @@ async fn openapi_lists_project_routes(pool: PgPool) {
         "/api/projects/{key}/members",
         "/api/projects/{key}/members/{user_id}",
         "/api/projects/{key}/invites",
+        "/api/projects/{key}/invites/{id}",
         "/api/invites/{token}",
         "/api/invites/{token}/accept",
     ] {

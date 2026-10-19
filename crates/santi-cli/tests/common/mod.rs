@@ -123,6 +123,21 @@ impl Server {
         });
     }
 
+    pub fn post(&self, token: &str, path: &str, body: Value) -> Value {
+        self.block_on(async {
+            reqwest::Client::new()
+                .post(format!("{}{path}", self.url))
+                .bearer_auth(token)
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap()
+        })
+    }
+
     pub fn get(&self, token: &str, path: &str) -> Value {
         self.block_on(async {
             reqwest::Client::new()

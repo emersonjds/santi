@@ -3,7 +3,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use santi_types::Problem;
 use santi_types::projects::{
-    AddMember, CreateInvite, Invite, InvitePreview, MemberInfo, Project, SetRole,
+    AddMember, CreateInvite, Invite, InviteInfo, InvitePreview, MemberInfo, Project, SetRole,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -19,7 +19,8 @@ pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(list_members, add_member))
         .routes(routes!(set_role, remove_member))
-        .routes(routes!(create_invite))
+        .routes(routes!(list_invites, create_invite))
+        .routes(routes!(revoke_invite))
         .routes(routes!(preview_invite))
         .routes(routes!(accept_invite))
 }
@@ -107,6 +108,39 @@ pub async fn create_invite(
 ) -> Result<(StatusCode, Json<Invite>), AppError> {
     let invite = service::create_invite(&state.pool, &member, input).await?;
     Ok((StatusCode::CREATED, Json(invite)))
+}
+
+#[utoipa::path(get, path = "/api/projects/{key}/invites", tag = "members",
+    params(("key" = String, Path, description = "Project key")),
+    responses(
+        (status = 200, body = Vec<InviteInfo>, description = "Live invites (not full, not expired), newest first; admins only"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json")))]
+pub async fn list_invites(
+    State(state): State<AppState>,
+    member: Member,
+) -> Result<Json<Vec<InviteInfo>>, AppError> {
+    Ok(Json(service::list_invites(&state.pool, &member).await?))
+}
+
+#[utoipa::path(delete, path = "/api/projects/{key}/invites/{id}", tag = "members",
+    params(
+        ("key" = String, Path, description = "Project key"),
+        ("id" = i64, Path, description = "Invite id")),
+    responses(
+        (status = 204, description = "Revoked: the link answers `invite-expired`; who joined with it stays"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "No live invite with this id in the project"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`")))]
+pub async fn revoke_invite(
+    State(state): State<AppState>,
+    member: Member,
+    PathParams((_key, id)): PathParams<(String, i64)>,
+) -> Result<StatusCode, AppError> {
+    service::revoke_invite(&state.pool, &member, id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(post, path = "/api/invites/{token}/accept", tag = "members",
