@@ -69,7 +69,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [Budget; 25] = [
+    let budgets: [Budget; 27] = [
         (
             "board",
             Method::GET,
@@ -127,6 +127,22 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             StatusCode::OK,
         ),
         ("me", Method::GET, "/api/me", None, 2, StatusCode::OK),
+        (
+            "notifications",
+            Method::GET,
+            "/api/notifications",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "unread count",
+            Method::GET,
+            "/api/notifications/unread-count",
+            None,
+            2,
+            StatusCode::OK,
+        ),
         (
             "my projects",
             Method::GET,
@@ -339,7 +355,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     );
 
     // The sample project (SAN-62) runs once per user: its whole seed, then the cheap reopen.
-    for (name, budget, ceiling) in [("sample", 150, CEILING * 4), ("sample again", 3, CEILING)] {
+    for (name, budget, ceiling) in [("sample", 152, CEILING * 4), ("sample again", 3, CEILING)] {
         let mut request = json_request(Method::POST, "/api/sample-project", None, None);
         request
             .headers_mut()

@@ -298,6 +298,7 @@ pub async fn hand_over_admin(conn: &mut PgConnection, user_id: i64) -> Result<()
 /// Removes the person, keeps the row: issues and comments they wrote in shared projects still
 /// point at it, now named "Deleted user" with an address sign-up can never produce (no `@`).
 pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sqlx::Error> {
+    crate::notifications::repo::delete_for_user(conn, user_id).await?;
     sqlx::query!("DELETE FROM member WHERE user_id = $1", user_id)
         .execute(&mut *conn)
         .await?;

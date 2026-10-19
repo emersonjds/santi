@@ -893,6 +893,170 @@
         }
       }
     },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "list_notifications",
+        "parameters": [
+          {
+            "name": "unread",
+            "in": "query",
+            "description": "Only unread notifications.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 200, default 50.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's notifications, newest first, read and unread; `cursor` is the last id of the previous page. Only projects the caller still belongs to and not in the trash. Excerpts and summaries are untrusted user text.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page_Notification"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Limit out of range",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "mark_all_read",
+        "responses": {
+          "204": {
+            "description": "Every visible notification of the caller is read"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "unread_count",
+        "responses": {
+          "200": {
+            "description": "Unread notifications the list would show",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCount"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "operationId": "mark_read",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Notification id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Read (also when it already was)"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not one of the caller's visible notifications",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/password-resets/{token}": {
       "get": {
         "tags": [
@@ -6664,6 +6828,79 @@
           }
         }
       },
+      "Notification": {
+        "type": "object",
+        "description": "One notification of the caller, newest first.",
+        "required": [
+          "id",
+          "kind",
+          "actor_id",
+          "actor_name",
+          "project_key",
+          "issue_key",
+          "issue_summary",
+          "excerpt",
+          "created_at"
+        ],
+        "properties": {
+          "actor_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "actor_name": {
+            "type": "string"
+          },
+          "comment_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The comment it is about, if any."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "excerpt": {
+            "type": "string",
+            "description": "The first 140 characters of the comment, or else of the description; untrusted Markdown."
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "issue_key": {
+            "type": "string",
+            "description": "`WEB-12`."
+          },
+          "issue_summary": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/NotificationKind"
+          },
+          "project_key": {
+            "type": "string"
+          },
+          "read_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "NotificationKind": {
+        "type": "string",
+        "description": "Why the caller is told (SAN-172): one event per person per change, a mention first.",
+        "enum": [
+          "mention",
+          "assigned",
+          "comment"
+        ]
+      },
       "OpenIssuesDestination": {
         "oneOf": [
           {
@@ -7054,6 +7291,89 @@
                 },
                 "project_name": {
                   "type": "string"
+                }
+              }
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "Page_Notification": {
+        "type": "object",
+        "description": "One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page.",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "One notification of the caller, newest first.",
+              "required": [
+                "id",
+                "kind",
+                "actor_id",
+                "actor_name",
+                "project_key",
+                "issue_key",
+                "issue_summary",
+                "excerpt",
+                "created_at"
+              ],
+              "properties": {
+                "actor_id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "actor_name": {
+                  "type": "string"
+                },
+                "comment_id": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "int64",
+                  "description": "The comment it is about, if any."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "excerpt": {
+                  "type": "string",
+                  "description": "The first 140 characters of the comment, or else of the description; untrusted Markdown."
+                },
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "issue_key": {
+                  "type": "string",
+                  "description": "`WEB-12`."
+                },
+                "issue_summary": {
+                  "type": "string"
+                },
+                "kind": {
+                  "$ref": "#/components/schemas/NotificationKind"
+                },
+                "project_key": {
+                  "type": "string"
+                },
+                "read_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time"
                 }
               }
             }
@@ -7850,6 +8170,18 @@
           },
           "suggested": {
             "$ref": "#/components/schemas/IssueType"
+          }
+        }
+      },
+      "UnreadCount": {
+        "type": "object",
+        "required": [
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

@@ -48,6 +48,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Err(error) = santi_server::purge_trash(&purge_pool).await {
                 eprintln!("trash purge failed: {error}");
             }
+            if let Err(error) = santi_server::purge_notifications(&purge_pool).await {
+                eprintln!("notification purge failed: {error}");
+            }
         }
     });
     let listener = tokio::net::TcpListener::bind(address).await?;

@@ -11,7 +11,8 @@ use super::{domain, repo};
 use crate::boards::repo::StatusRef;
 use crate::error::{AppError, not_found_if_parent_gone};
 use crate::members::Member;
-use crate::{boards, members, pagination, projects, sprints};
+use crate::notifications::domain::{added_mentions, mention_ids, recipients};
+use crate::{boards, members, notifications, pagination, projects, sprints};
 
 pub async fn create_issue(
     pool: &PgPool,
@@ -58,6 +59,9 @@ pub async fn create_issue(
     if let Some(sprint_id) = new_issue.sprint_id {
         sprints::repo::record_join(&mut tx, sprint_id, issue_id).await?;
     }
+    let mentioned = mention_ids(&new_issue.description);
+    let told = recipients(member.user_id, &mentioned, new_issue.assignee_id, &[]);
+    notifications::repo::insert(&mut tx, member, issue_id, None, &told).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
 }
@@ -97,6 +101,12 @@ pub async fn update_issue(
         change_sprint(&mut tx, member, &issue, target).await?;
     }
     repo::update_fields(&mut tx, &next, member.user_id).await?;
+    let mentioned = added_mentions(&current.description, &next.description);
+    let assigned = next
+        .assignee_id
+        .filter(|id| current.assignee_id != Some(*id));
+    let told = recipients(member.user_id, &mentioned, assigned, &[]);
+    notifications::repo::insert(&mut tx, member, current.id, None, &told).await?;
     tx.commit().await?;
     get_issue(pool, member, number).await
 }
@@ -270,13 +280,21 @@ pub async fn add_comment(
     input: CreateComment,
 ) -> Result<Comment, AppError> {
     let body = domain::check_comment_body(&input.body)?;
-    let mut conn = pool.acquire().await?;
-    let issue_id = repo::find_id(&mut conn, member.project_id, number)
+    let mut tx = pool.begin().await?;
+    let issue = repo::find_watched(&mut tx, member.project_id, number)
         .await?
         .ok_or(AppError::NotFound)?;
-    repo::insert_comment(&mut conn, issue_id, member.user_id, &body)
+    let comment = repo::insert_comment(&mut tx, issue.id, member.user_id, &body)
         .await
-        .map_err(not_found_if_parent_gone)
+        .map_err(not_found_if_parent_gone)?;
+    let watchers: Vec<i64> = [Some(issue.reporter_id), issue.assignee_id]
+        .into_iter()
+        .flatten()
+        .collect();
+    let told = recipients(member.user_id, &mention_ids(&body), None, &watchers);
+    notifications::repo::insert(&mut tx, member, issue.id, Some(comment.id), &told).await?;
+    tx.commit().await?;
+    Ok(comment)
 }
 
 pub async fn edit_comment(
@@ -286,20 +304,29 @@ pub async fn edit_comment(
     comment_id: i64,
     input: UpdateComment,
 ) -> Result<Comment, AppError> {
-    let mut conn = pool.acquire().await?;
-    let issue_id = repo::find_id(&mut conn, member.project_id, number)
+    let mut tx = pool.begin().await?;
+    let issue_id = repo::find_id(&mut tx, member.project_id, number)
         .await?
         .ok_or(AppError::NotFound)?;
-    let comment = repo::find_comment(&mut conn, issue_id, comment_id)
+    let comment = repo::find_comment(&mut tx, issue_id, comment_id)
         .await?
         .ok_or(AppError::NotFound)?;
     domain::check_delete(member.role, member.user_id, comment.author_id)?;
     let Some(body) = domain::comment_edit(&comment.body, &input.body)? else {
         return Ok(comment);
     };
-    repo::update_comment(&mut conn, issue_id, comment_id, member.user_id, &body)
+    let edited = repo::update_comment(&mut tx, issue_id, comment_id, member.user_id, &body)
         .await?
-        .ok_or(AppError::NotFound)
+        .ok_or(AppError::NotFound)?;
+    let told = recipients(
+        member.user_id,
+        &added_mentions(&comment.body, &body),
+        None,
+        &[],
+    );
+    notifications::repo::insert(&mut tx, member, issue_id, Some(comment_id), &told).await?;
+    tx.commit().await?;
+    Ok(edited)
 }
 
 pub async fn delete_comment(
