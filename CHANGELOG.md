@@ -39,7 +39,7 @@ UI moves to its own repository.
   remove the stored files.
 - **Signing out** clears any upload still listed in the tab.
 - **A file dropped outside a drop zone** no longer replaces the page.
-- **Password inputs and upload buttons** are named by file for screen readers.
+- **Upload buttons** (Retry, Remove, Cancel) are named by file for screen readers.
 
 ### Upgrade notes
 
