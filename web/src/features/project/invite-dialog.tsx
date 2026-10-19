@@ -27,17 +27,25 @@ import { Label } from '@/shared/ui/label'
 import { RootError } from '@/shared/ui/root-error'
 
 const PEOPLE = 'Between 1 and 50.'
+const ADMIN_ALONE = 'A link for more than one person can only add members.'
+const UNREACHABLE =
+  'Could not create the link. Check your connection and try again.'
 
 // Mirrors members/domain.rs; the server stays the authority.
-const schema = z.object({
-  role: z.enum(['member', 'admin']),
-  max_uses: z
-    .string()
-    .refine(
-      (text) => /^\d+$/.test(text) && +text >= 1 && +text <= 50,
-      PEOPLE
-    ),
-})
+const schema = z
+  .object({
+    role: z.enum(['member', 'admin']),
+    max_uses: z
+      .string()
+      .refine(
+        (text) => /^\d+$/.test(text) && +text >= 1 && +text <= 50,
+        PEOPLE
+      ),
+  })
+  .refine((values) => values.role === 'member' || +values.max_uses === 1, {
+    message: ADMIN_ALONE,
+    path: ['max_uses'],
+  })
 
 type NewInvite = z.infer<typeof schema>
 
@@ -88,12 +96,16 @@ export const InviteDialog = ({ projectKey }: { projectKey: string }) => {
   })
 
   const create = async (values: NewInvite) => {
-    const { data, error } = await api.POST('/api/projects/{key}/invites', {
-      params: { path: { key: projectKey } },
-      body: { role: values.role, max_uses: Number(values.max_uses) },
-    })
-    if (error) return showProblem(form.setError, FIELDS, error)
-    setCreated(data)
+    try {
+      const { data, error } = await api.POST('/api/projects/{key}/invites', {
+        params: { path: { key: projectKey } },
+        body: { role: values.role, max_uses: Number(values.max_uses) },
+      })
+      if (error) return showProblem(form.setError, FIELDS, error)
+      setCreated(data)
+    } catch {
+      form.setError('root', { message: UNREACHABLE })
+    }
   }
 
   const close = () => {

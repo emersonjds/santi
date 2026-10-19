@@ -114,7 +114,6 @@ describe('project header', () => {
     const { screen } = await renderApp('/p/WEB/board')
 
     await screen.getByRole('button', { name: 'Invite' }).click()
-    await screen.getByLabelText('Invite as').selectOptions('admin')
     await screen.getByLabelText('How many people').fill('3')
     await screen.getByRole('button', { name: 'Create invite link' }).click()
 
@@ -133,7 +132,46 @@ describe('project header', () => {
     const post = requests.find(
       (request) => routeOf(request) === 'POST /api/projects/WEB/invites'
     )
-    expect(await post?.json()).toEqual({ role: 'admin', max_uses: 3 })
+    expect(await post?.json()).toEqual({ role: 'member', max_uses: 3 })
+  })
+
+  it('keeps an admin link to one person', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Invite' }).click()
+    await screen.getByLabelText('Invite as').selectOptions('admin')
+    const people = screen.getByLabelText('How many people')
+    await people.fill('3')
+    await screen.getByRole('button', { name: 'Create invite link' }).click()
+
+    await expect
+      .element(people)
+      .toHaveAccessibleDescription(
+        'A link for more than one person can only add members.'
+      )
+    expect(requests.map(routeOf)).not.toContain(
+      'POST /api/projects/WEB/invites'
+    )
+  })
+
+  it('says when the invite link could not be created', async () => {
+    inProjects({
+      'POST /api/projects/WEB/invites': {
+        status: 201,
+        until: () => Promise.reject(new TypeError('Failed to fetch')),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Invite' }).click()
+    await screen.getByRole('button', { name: 'Create invite link' }).click()
+
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent(
+        'Could not create the link. Check your connection and try again.'
+      )
   })
 
   it('makes a link for one person by default', async () => {

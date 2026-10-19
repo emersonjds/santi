@@ -885,6 +885,7 @@ export interface components {
             /** Format: date-time */
             exported_at: string;
             home: components["schemas"]["HomeExport"];
+            invite_uses: components["schemas"]["InviteUse"][];
             /** @description Every acceptance of the Terms of Use, the Privacy Policy and the age declaration. */
             legal_acceptances: components["schemas"]["LegalAcceptance"][];
             /** @description Projects the caller is a plain member of: named here, owned by their admins. */
@@ -1036,7 +1037,7 @@ export interface components {
         CreateInvite: {
             /**
              * Format: int32
-             * @description How many people may join with the link, 1 to 50; 1 when absent.
+             * @description How many people may join with the link, 1 to 50; 1 when absent. More than 1 only for members.
              */
             max_uses?: number | null;
             role: components["schemas"]["MemberRole"];
@@ -1237,6 +1238,12 @@ export interface components {
             role: components["schemas"]["MemberRole"];
             /** Format: int32 */
             spots_left: number;
+        };
+        /** @description A project the person joined through an invite link, and when. */
+        InviteUse: {
+            /** Format: date-time */
+            joined_at: string;
+            project_key: string;
         };
         Issue: {
             /** Format: int64 */
@@ -2066,7 +2073,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `terms-not-accepted` (D45) */
+            /** @description Already a member, `invite-already-used-by-you`: a former member reopened a link they joined with, or `terms-not-accepted` (D45) */
             409: {
                 headers: {
                     [name: string]: unknown;
