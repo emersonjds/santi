@@ -21,6 +21,31 @@ describe('app', () => {
     expect(router.state.location.search).toEqual({ redirect: '/' })
   })
 
+  it('keeps the browser from opening a file dropped outside any drop zone', async () => {
+    signedIn()
+    const { screen } = await renderApp('/')
+    await expect
+      .element(screen.getByRole('heading', { name: 'No projects yet' }))
+      .toBeVisible()
+    const drag = (type: string, transfer: DataTransfer) =>
+      document.body.dispatchEvent(
+        new DragEvent(type, {
+          dataTransfer: transfer,
+          bubbles: true,
+          cancelable: true,
+        })
+      )
+    const files = new DataTransfer()
+    files.items.add(new File(['%PDF'], 'report.pdf'))
+    const text = new DataTransfer()
+    text.setData('text/plain', 'hello')
+
+    expect(drag('dragover', files)).toBe(false)
+    expect(drag('drop', files)).toBe(false)
+    expect(drag('dragover', text)).toBe(true)
+    expect(drag('drop', text)).toBe(true)
+  })
+
   it('sends a signed-in user away from sign in and sign up', async () => {
     signedIn()
     const { screen, router } = await renderApp('/login')
