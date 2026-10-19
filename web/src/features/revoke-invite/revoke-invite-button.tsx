@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { invitesQuery } from '@/entities/invite/invite-queries'
 import { api, hasStatus, okOrThrow } from '@/shared/api/client'
@@ -20,6 +21,8 @@ type RevokeInviteButtonProps = {
   inviteId: number
   /** The id of the row's summary, so each Revoke says which link it ends. */
   describedBy: string
+  /** Where the focus goes once the row, and this button, are gone. */
+  nextFocus: () => HTMLElement | null
 }
 
 /** SAN-177: a link that already ended (404) leaves the list like a revoked one. */
@@ -27,8 +30,10 @@ export const RevokeInviteButton = ({
   projectKey,
   inviteId,
   describedBy,
+  nextFocus,
 }: RevokeInviteButtonProps) => {
   const queryClient = useQueryClient()
+  const after = useRef<HTMLElement | null>(null)
   const { queryKey } = invitesQuery(projectKey)
   const revoke = useMutation({
     mutationFn: async () => {
@@ -45,6 +50,7 @@ export const RevokeInviteButton = ({
       }
     },
     onSuccess: (revoked) => {
+      after.current = nextFocus()
       queryClient.setQueryData(queryKey, (invites) =>
         invites?.filter((invite) => invite.id !== inviteId)
       )
@@ -64,7 +70,13 @@ export const RevokeInviteButton = ({
           Revoke
         </Button>
       </AlertDialogTrigger>
-      <AlertDialogContent>
+      <AlertDialogContent
+        onCloseAutoFocus={(event) => {
+          if (!after.current) return
+          event.preventDefault()
+          after.current.focus()
+        }}
+      >
         <AlertDialogHeader>
           <AlertDialogTitle>Revoke this link?</AlertDialogTitle>
           <AlertDialogDescription>
