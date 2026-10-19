@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, UserPlus } from 'lucide-react'
+import { invitesQuery } from '@/entities/invite/invite-queries'
 import { api } from '@/shared/api/client'
 import { showProblem } from '@/shared/lib/show-problem'
 import { Button } from '@/shared/ui/button'
@@ -81,14 +83,15 @@ const InviteLink = ({ invite }: { invite: Invite }) => {
         </Button>
       </div>
       <p className='text-sm text-muted-foreground'>
-        Link for {invite.max_uses}{' '}
-        {invite.max_uses === 1 ? 'person' : 'people'} · valid 7 days
+        Link for {invite.max_uses} {invite.max_uses === 1 ? 'person' : 'people'}{' '}
+        · valid 7 days
       </p>
     </div>
   )
 }
 
 export const InviteDialog = ({ projectKey }: { projectKey: string }) => {
+  const queryClient = useQueryClient()
   const [created, setCreated] = useState<Invite | null>(null)
   const form = useForm<NewInvite>({
     resolver: zodResolver(schema),
@@ -103,6 +106,10 @@ export const InviteDialog = ({ projectKey }: { projectKey: string }) => {
       })
       if (error) return showProblem(form.setError, FIELDS, error)
       setCreated(data)
+      void queryClient.invalidateQueries({
+        queryKey: invitesQuery(projectKey).queryKey,
+        exact: true,
+      })
     } catch {
       form.setError('root', { message: UNREACHABLE })
     }
