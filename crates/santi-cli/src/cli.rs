@@ -90,7 +90,13 @@ pub enum Command {
 #[derive(Debug, Subcommand)]
 pub enum InvitesCommand {
     /// Revoke a live invite link: nobody else can join with it; who joined stays (admins)
-    Revoke { project: ProjectKey, id: i64 },
+    Revoke {
+        project: ProjectKey,
+        id: i64,
+        /// Revoke without asking
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -525,14 +531,19 @@ mod tests {
             panic!("not invites");
         };
         assert_eq!(project.as_str(), "WEB");
-        let Command::Invites {
-            command: Some(InvitesCommand::Revoke { project, id }),
-            ..
-        } = parse(&["santi", "invites", "revoke", "web", "7"])
-        else {
-            panic!("not invites revoke");
-        };
-        assert_eq!((project.as_str(), id), ("WEB", 7));
+        for (args, expected) in [
+            (&["santi", "invites", "revoke", "web", "7"][..], false),
+            (&["santi", "invites", "revoke", "web", "7", "--yes"], true),
+        ] {
+            let Command::Invites {
+                command: Some(InvitesCommand::Revoke { project, id, yes }),
+                ..
+            } = parse(args)
+            else {
+                panic!("not invites revoke");
+            };
+            assert_eq!((project.as_str(), id, yes), ("WEB", 7, expected));
+        }
         for args in [
             &["santi", "invites"][..],
             &["santi", "invites", "revoke", "WEB"],

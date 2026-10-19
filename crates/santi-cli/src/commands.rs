@@ -54,9 +54,12 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
             show(json, &members, |members| lines(members, member_line))
         }
         Command::Invites {
-            command: Some(InvitesCommand::Revoke { project, id }),
+            command: Some(InvitesCommand::Revoke { project, id, yes }),
             ..
         } => {
+            if !yes && !confirm(&format!("Revoke invite {id} in {project}?"))? {
+                return Err(Error::Declined(format!("Kept invite {id}")));
+            }
             client.revoke_invite(&project, id).await?;
             show(json, &(), |()| format!("Revoked invite {id} in {project}"))
         }
