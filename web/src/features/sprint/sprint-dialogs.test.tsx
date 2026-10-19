@@ -413,6 +413,54 @@ describe('sprint dialogs', () => {
       .toBeGreaterThan(1)
   })
 
+  it('counts from fresh data: an old backlog count waits for its refetch', async () => {
+    let release = () => {}
+    const fresh = new Promise<void>((resolve) => (release = resolve))
+    let backlogCalls = 0
+    inProjects({
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: () =>
+          backlogCalls === 1
+            ? {
+                ...WEB_BACKLOG,
+                sections: [
+                  { ...ACTIVE, issue_count: 5 },
+                  ...WEB_BACKLOG.sections.slice(1),
+                ],
+              }
+            : WEB_BACKLOG,
+        until: () => (++backlogCalls > 1 ? fresh : undefined),
+      },
+      'GET /api/projects/WEB/board': {
+        status: 200,
+        body: {
+          ...WEB_BOARD,
+          columns: WEB_BOARD.columns.map((column) =>
+            column.id === 3
+              ? {
+                  ...column,
+                  cards: [
+                    card({ key: 'WEB-8', summary: 'Done', column_id: 3 }),
+                  ],
+                }
+              : column
+          ),
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await section(screen, 'Sprint 4')
+      .getByRole('button', { name: 'Complete sprint' })
+      .click()
+    const dialog = screen.getByRole('dialog', { name: 'Complete Sprint 4' })
+    await expect.element(dialog).toHaveTextContent('Counting issues…')
+    expect(dialog.element().textContent).not.toContain('5 open')
+    release()
+    await expect.element(dialog).toHaveTextContent('1 issue done · 3 open')
+  })
+
   it('skips the destination when every issue is done (D13)', async () => {
     const requests = inProjects({
       'GET /api/projects/WEB/backlog': {
