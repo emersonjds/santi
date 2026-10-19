@@ -286,6 +286,9 @@ describe('invite links (SAN-177)', () => {
     await expect.element(screen.getByText('Link revoked.')).toBeVisible()
     await expect.element(links).not.toHaveTextContent('2 of 3')
     await expect.element(links).toHaveTextContent('0 of 1 spot used')
+    await expect
+      .element(links.getByRole('button', { name: 'Revoke' }))
+      .toHaveFocus()
   })
 
   it('drops a link that already ended when revoked', async () => {
@@ -312,6 +315,9 @@ describe('invite links (SAN-177)', () => {
       .element(screen.getByText('No active invite links.'))
       .toBeVisible()
     expect(screen.getByRole('alertdialog').elements()).toEqual([])
+    await expect
+      .element(screen.getByRole('heading', { name: 'Invite links' }))
+      .toHaveFocus()
   })
 
   it('keeps the row and shows the refusal when the server says no', async () => {
@@ -335,6 +341,9 @@ describe('invite links (SAN-177)', () => {
     await expect
       .element(screen.getByRole('list', { name: 'Invite links' }))
       .toHaveTextContent('2 of 3 spots used')
+    await expect
+      .element(screen.getByRole('button', { name: 'Revoke' }))
+      .toHaveFocus()
   })
 
   it('keeps the links readable but Revoke locked when archived', async () => {

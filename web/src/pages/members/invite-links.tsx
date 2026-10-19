@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { RevokeInviteButton } from '@/features/revoke-invite/revoke-invite-button'
 import { invitesQuery } from '@/entities/invite/invite-queries'
@@ -20,8 +21,18 @@ const InviteRow = ({
   invite: InviteInfo
 }) => {
   const summary = `invite-${invite.id}`
+  const row = useRef<HTMLLIElement>(null)
+  const nextFocus = () => {
+    const revoke = (element: Element | null | undefined) =>
+      element?.querySelector<HTMLElement>('button')
+    return (
+      revoke(row.current?.nextElementSibling) ??
+      revoke(row.current?.previousElementSibling) ??
+      document.getElementById('invite-links')
+    )
+  }
   return (
-    <li className='grid gap-2 bg-card px-3 py-2'>
+    <li ref={row} className='grid gap-2 bg-card px-3 py-2'>
       <div className='flex flex-wrap items-center gap-3'>
         <span
           id={summary}
@@ -40,6 +51,7 @@ const InviteRow = ({
           projectKey={projectKey}
           inviteId={invite.id}
           describedBy={summary}
+          nextFocus={nextFocus}
         />
       </div>
       {invite.joined.length > 0 && (
@@ -70,7 +82,7 @@ export const InviteLinks = ({ projectKey }: { projectKey: string }) => {
 
   return (
     <section aria-labelledby='invite-links' className='grid gap-3'>
-      <h2 id='invite-links' className='text-lg font-semibold'>
+      <h2 id='invite-links' tabIndex={-1} className='text-lg font-semibold'>
         Invite links
       </h2>
       {isError ? (
