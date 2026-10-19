@@ -213,6 +213,7 @@ pub async fn download(
     member: &Member,
     number: i64,
     id: i64,
+    save: bool,
 ) -> Result<Served, AppError> {
     let issue_id = issue_id(pool, member, number).await?;
     let mut conn = pool.acquire().await?;
@@ -220,7 +221,8 @@ pub async fn download(
         .await?
         .ok_or(AppError::NotFound)?;
     drop(conn);
-    let content_disposition = domain::content_disposition(&stored.file_name, &stored.content_type);
+    let content_disposition =
+        domain::content_disposition(&stored.file_name, &stored.content_type, save);
     let download = storage
         .download(
             &stored.storage_key,

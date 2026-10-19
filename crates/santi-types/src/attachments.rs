@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 /// A file on an issue (D53); `comment_id` when it was attached to one of the issue's comments.
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -26,6 +26,14 @@ pub struct AttachmentUpload {
     pub file: Vec<Vec<u8>>,
     /// A comment of the same issue the files belong to.
     pub comment_id: Option<i64>,
+}
+
+/// Query of a download.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct DownloadQuery {
+    /// `1` saves the file even when it is an image, which otherwise opens in the browser.
+    pub download: Option<u8>,
 }
 
 /// The bytes of a downloaded file.
