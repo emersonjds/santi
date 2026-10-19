@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE notification n SET read_at = coalesce(n.read_at, now())\n         FROM member m JOIN project p ON p.id = m.project_id\n         WHERE n.id = $2 AND n.recipient_id = $1\n           AND m.project_id = n.project_id AND m.user_id = n.recipient_id AND p.trashed_at IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d304f539ca45bc6f0fa9f2ee9bc73faa3e446a06858bfa1dae9b8b7d9de8daad"
+}

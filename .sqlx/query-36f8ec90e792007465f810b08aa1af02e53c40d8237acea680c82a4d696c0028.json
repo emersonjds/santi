@@ -1,0 +1,141 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT n.id, n.kind AS \"kind: NotificationKind\", n.actor_id, actor.display_name AS actor_name,\n                  p.key AS project_key, p.key || '-' || i.number AS \"issue_key!\",\n                  i.summary AS issue_summary, n.comment_id,\n                  left(coalesce(c.body, i.description), 140) AS \"excerpt!\", n.created_at, n.read_at\n           FROM notification n\n           JOIN member m ON m.project_id = n.project_id AND m.user_id = n.recipient_id\n           JOIN project p ON p.id = n.project_id\n           JOIN issue i ON i.id = n.issue_id\n           JOIN app_user actor ON actor.id = n.actor_id\n           LEFT JOIN issue_comment c ON c.id = n.comment_id\n           WHERE n.recipient_id = $1 AND p.trashed_at IS NULL\n             AND n.id < $2 AND (NOT $3 OR n.read_at IS NULL)\n           ORDER BY n.id DESC\n           LIMIT $4",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "notification",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind: NotificationKind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "notification",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "actor_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "notification",
+            "name": "actor_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "actor_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "project_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "issue_key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 6,
+        "name": "issue_summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "comment_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "notification",
+            "name": "comment_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "excerpt!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "notification",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "read_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "notification",
+            "name": "read_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Bool",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      null,
+      false,
+      true,
+      null,
+      false,
+      true
+    ]
+  },
+  "hash": "36f8ec90e792007465f810b08aa1af02e53c40d8237acea680c82a4d696c0028"
+}

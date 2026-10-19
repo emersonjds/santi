@@ -123,6 +123,12 @@ pub async fn purge_trash(pool: &PgPool) -> Result<u64, sqlx::Error> {
     Ok(purged)
 }
 
+/// SAN-172: deletes notifications older than 90 days; returns how many.
+pub async fn purge_notifications(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let mut conn = pool.acquire().await?;
+    notifications::repo::purge_older_than_90_days(&mut conn).await
+}
+
 #[derive(OpenApi)]
 #[openapi(
     info(
@@ -145,6 +151,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(reports::handler::router())
         .merge(imports::handler::router())
         .merge(home::handler::router())
+        .merge(notifications::handler::router())
 }
 
 /// The API contract, built without a database; `web/openapi.json` is its committed snapshot (D38).
