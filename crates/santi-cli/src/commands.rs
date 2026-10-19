@@ -8,13 +8,14 @@ use santi_types::issues::{
     Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
     UpdateIssue,
 };
-use santi_types::projects::{CreateProject, MemberInfo, Project, ProjectState};
+use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 
 use crate::cli::{
-    Cli, Command, CommentArgs, Filter, IssuesCommand, PlanArgs, ProjectsCommand, SprintsCommand,
+    Cli, Command, CommentArgs, Filter, InvitesCommand, IssuesCommand, PlanArgs, ProjectsCommand,
+    SprintsCommand,
 };
 use crate::client::{Client, ProjectKey};
 use crate::config::{self, Config};
@@ -51,6 +52,19 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
         Command::Members { project } => {
             let members = client.members(&project).await?;
             show(json, &members, |members| lines(members, member_line))
+        }
+        Command::Invites {
+            command: Some(InvitesCommand::Revoke { project, id }),
+            ..
+        } => {
+            client.revoke_invite(&project, id).await?;
+            show(json, &(), |()| format!("Revoked invite {id} in {project}"))
+        }
+        Command::Invites { project, .. } => {
+            let project =
+                project.ok_or_else(|| Error::Usage("a project key is required".into()))?;
+            let invites = client.invites(&project).await?;
+            show(json, &invites, |invites| lines(invites, invite_text))
         }
         Command::Sprints(command) => sprints(&client, command, json).await,
         Command::Plan(args) => plan(&client, args, json).await,
@@ -606,6 +620,26 @@ fn member_line(member: &MemberInfo) -> String {
     )
 }
 
+fn invite_text(invite: &InviteInfo) -> String {
+    let mut text = format!(
+        "{:<6} {}, {} of {} spots used, expires {}",
+        invite.id,
+        name(&invite.role),
+        invite.uses,
+        invite.max_uses,
+        invite.expires_at.date_naive()
+    );
+    for joiner in &invite.joined {
+        text.push_str(&format!(
+            "\n       {} <{}> joined {}",
+            joiner.name,
+            joiner.email,
+            joiner.joined_at.date_naive()
+        ));
+    }
+    text
+}
+
 /// D50: a `[@Name](mention:<user_id>)` token reads `@Name`; everything else stays as written.
 fn plain_mentions(text: &str) -> String {
     let mut plain = String::with_capacity(text.len());
@@ -845,7 +879,7 @@ fn problem_lines(problems: &[santi_types::imports::RowProblem]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use santi_types::projects::MemberRole;
+    use santi_types::projects::{InviteJoiner, MemberRole};
 
     use super::*;
 
@@ -980,6 +1014,29 @@ mod tests {
         assert_eq!(
             comments_text(&[comment], now),
             "#1 Bo · just now\n@Ana Souza please"
+        );
+    }
+
+    #[test]
+    fn invite_text_shows_spots_expiry_and_who_joined() {
+        let invite = InviteInfo {
+            id: 7,
+            role: MemberRole::Member,
+            max_uses: 3,
+            uses: 1,
+            created_by_name: "Ana".into(),
+            created_at: "2026-10-19T12:00:00Z".parse().unwrap(),
+            expires_at: "2026-10-26T12:00:00Z".parse().unwrap(),
+            joined: vec![InviteJoiner {
+                user_id: 42,
+                name: "Bo Stone".into(),
+                email: "bo@example.com".into(),
+                joined_at: "2026-10-20T09:00:00Z".parse().unwrap(),
+            }],
+        };
+        assert_eq!(
+            invite_text(&invite),
+            "7      member, 1 of 3 spots used, expires 2026-10-26\n       Bo Stone <bo@example.com> joined 2026-10-20"
         );
     }
 

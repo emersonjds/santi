@@ -61,6 +61,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `get_sprint_report` | a started sprint's issues: completed, not completed, removed | read-only |
 | `list_epics` | a project's epics | read-only |
 | `list_members` | a project's members: `user_id`, name, email, role | read-only |
+| `list_invites` | live invite links: `id`, role, spots used, expiry, who joined (admins) | read-only |
 | `create_issue` | new issue (story by default) | additive |
 | `update_issue` | change fields; `null` clears | idempotent |
 | `move_issue` | status and/or rank | idempotent |
@@ -78,6 +79,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `trash_project` | hidden from everyone, purged after 60 days (admins) | |
 | `restore_project` | back from the trash (admins) | |
 | `purge_project` | delete a trashed project for good (admins) | destructive |
+| `revoke_invite` | end a live invite link (`invite_id` from `list_invites`); joiners stay (admins) | destructive |
 
 ## Clients
 
