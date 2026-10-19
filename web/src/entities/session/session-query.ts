@@ -23,4 +23,5 @@ export const passwordResetQuery = (token: string) =>
           params: { path: { token } },
         })
       ),
+    staleTime: Infinity,
   })
