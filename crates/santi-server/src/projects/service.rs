@@ -2,10 +2,12 @@ use santi_types::projects::{CreateProject, MemberRole, Project, ProjectState};
 use sqlx::PgPool;
 
 use super::{domain, repo};
+use crate::attachments;
 use crate::auth::extract::CurrentUser;
 use crate::boards;
 use crate::error::AppError;
 use crate::members::{self, Member};
+use crate::storage::Storage;
 
 pub async fn create_project(
     pool: &PgPool,
@@ -72,11 +74,20 @@ pub async fn restore(pool: &PgPool, user: &CurrentUser, key: &str) -> Result<(),
     restored.then_some(()).ok_or_else(domain::not_trashed)
 }
 
-pub async fn purge(pool: &PgPool, user: &CurrentUser, key: &str) -> Result<(), AppError> {
+/// D53: the stored attachments go once the project is deleted.
+pub async fn purge(
+    pool: &PgPool,
+    storage: &Storage,
+    user: &CurrentUser,
+    key: &str,
+) -> Result<(), AppError> {
     let mut conn = pool.acquire().await?;
     let project_id = trashed_project(&mut conn, user, key).await?;
-    let purged = repo::purge(&mut conn, project_id).await?;
-    purged.then_some(()).ok_or_else(domain::not_trashed)
+    let keys = repo::purge(&mut conn, project_id)
+        .await?
+        .ok_or_else(domain::not_trashed)?;
+    attachments::service::delete_objects(storage, &keys).await;
+    Ok(())
 }
 
 async fn trashed_project(

@@ -128,6 +128,8 @@ the account and every project it administers as JSON, which works as an extra co
 | `SANTI_ADDR` | `127.0.0.1:8080` (`0.0.0.0:8080` in the image) | address the server listens on |
 | `SANTI_WEB_DIR` | `web/dist` (`/srv/santi/web` in the image) | built web UI to serve at `/` |
 | `SANTI_DB_POOL` | twice the cores, 10–50 | database connections |
+| `SANTI_ATTACHMENTS_DIR` | `./data/attachments` (`/data/attachments` in the image, the `santi-attachments` volume in compose) | where attachments are stored when no bucket is set |
+| `SANTI_S3_BUCKET`, `SANTI_S3_ENDPOINT`, `SANTI_S3_REGION`, `SANTI_S3_ACCESS_KEY_ID`, `SANTI_S3_SECRET_ACCESS_KEY` | unset | store attachments in an S3-compatible bucket (S3, R2, MinIO, Railway) with path-style requests; set all five or none, a partial set stops the server at startup. `SANTI_S3_ENDPOINT` is an origin such as `https://storage.example.com`; the web app's image policy allows it. Add a bucket lifecycle rule that aborts incomplete multipart uploads after 1 day (`AbortIncompleteMultipartUpload`) |
 
 Visitors without a session see the landing page at `/` (also at `/about`); signed-in users get the
 app. Its canonical and social links, `robots.txt` and `sitemap.xml` use the public address set at
@@ -178,14 +180,20 @@ santi search WEB "login" --status in_progress --json
 santi issues edit WEB-12 --sprint none          # back to the backlog; --sprint <ID> plans it
 santi issues comments WEB-12                    # every comment, oldest first, with its #id
 santi issues comment-edit WEB-12 7 "Fixed in 1.2"   # author or admin; comment-delete asks first
+santi issues attach WEB-12 shot.png notes.md [--comment 7]   # up to 10 files, 25 MB each
+santi issues attachments WEB-12                 # id, name, size, uploader, date, "in comment N"
+santi issues attachments WEB-12 --download 4 [-o dir/]   # never overwrites without --force
+santi issues attachments WEB-12 --delete 4      # asks first; --yes skips the question
 ```
 
 Commands: `login`, `whoami`, `projects create <KEY> --name <NAME> [--type scrum|kanban]|list [--state archived|trashed]|archive|unarchive|trash|restore|purge`,
-`issues list|show|create|edit|move|delete|plan|comment|comments|comment-edit|comment-delete`, `board`, `backlog`, `members`, `invites [revoke <KEY> <ID>]`,
+`issues list|show|create|edit|move|delete|plan|comment|comments|comment-edit|comment-delete|attach|attachments`, `board`, `backlog`, `members`, `invites [revoke <KEY> <ID>]`,
 `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`, `search`, `comment`,
 `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `issues plan` and `issues comment` are
 the top-level `plan` and `comment` under `issues`. `issues show` names the status, assignee,
-reporter and sprint. Descriptions and comments are Markdown; mention someone with
+reporter and sprint. `issues attach` checks size, type and count before sending anything;
+`--download` follows the storage redirect and saves under the file's own name, without directory
+parts or a leading dot, in the current directory (or `-o`). Descriptions and comments are Markdown; mention someone with
 `[@Name](mention:<user_id>)` (`santi members <KEY>` lists the ids). Text output shows a mention as
 `@Name`; `--json` keeps the token. `santi help <command>` has the flags. `--json` prints the API's JSON. URL and token come from `--url`/`--token`, then
 `SANTI_URL`/`SANTI_TOKEN`, then the config file. Errors print the server's message; exit codes are

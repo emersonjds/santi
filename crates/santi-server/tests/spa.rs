@@ -216,6 +216,33 @@ async fn without_a_build_every_page_is_a_problem_404() {
     }
 }
 
+#[tokio::test]
+async fn images_may_load_from_the_s3_endpoint_when_it_is_configured() {
+    let pool = PgPool::connect_lazy("postgres://localhost/unused").unwrap();
+    let config = santi_server::storage::StorageConfig::S3(santi_server::storage::S3Config {
+        bucket: "santi-files".into(),
+        endpoint: "https://storage.example.test".into(),
+        region: "auto".into(),
+        access_key_id: "key-id".into(),
+        secret_access_key: "secret".into(),
+    });
+    let state = santi_server::AppState {
+        storage: santi_server::storage::Storage::new(&config).unwrap(),
+        ..santi_server::AppState::new(pool)
+    };
+    let app = santi_server::app(state, Some(&built_spa("csp-s3")));
+
+    let response = send(&app, Method::GET, "/p/SAN/board").await;
+
+    assert_eq!(
+        header(&response, "content-security-policy"),
+        Some(&*CSP.replace(
+            "img-src 'self' data:;",
+            "img-src 'self' data: https://storage.example.test;"
+        ))
+    );
+}
+
 const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 fn header<'a>(response: &'a Response, name: &str) -> Option<&'a str> {

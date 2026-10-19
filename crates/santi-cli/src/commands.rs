@@ -2,6 +2,7 @@ use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Local, Utc};
+use santi_types::attachments::Attachment;
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
@@ -17,7 +18,7 @@ use crate::cli::{
     Cli, Command, CommentArgs, Filter, InvitesCommand, IssuesCommand, PlanArgs, ProjectsCommand,
     SprintsCommand,
 };
-use crate::client::{Client, ProjectKey};
+use crate::client::{Client, IssueKey, ProjectKey};
 use crate::config::{self, Config};
 use crate::error::Error;
 use crate::sprint_time::{self, window_text};
@@ -286,7 +287,159 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
             client.delete_comment(&issue, id).await?;
             show(json, &(), |()| format!("Deleted comment {id} on {issue}"))
         }
+        IssuesCommand::Attach {
+            issue,
+            files,
+            comment,
+        } => {
+            let attached = client.attach(&issue, &files, comment).await?;
+            show(json, &attached, |attached| lines(attached, attachment_line))
+        }
+        IssuesCommand::Attachments {
+            issue,
+            download: Some(id),
+            output,
+            force,
+            ..
+        } => download(client, &issue, id, output, force, json).await,
+        IssuesCommand::Attachments {
+            issue,
+            delete: Some(id),
+            yes,
+            ..
+        } => {
+            if !yes && !confirm(&format!("Delete attachment {id} on {issue}?"))? {
+                return Err(Error::Declined(format!("Kept attachment {id}")));
+            }
+            client.delete_attachment(&issue, id).await?;
+            show(json, &(), |()| {
+                format!("Deleted attachment {id} on {issue}")
+            })
+        }
+        IssuesCommand::Attachments { issue, .. } => {
+            let attachments = client.attachments(&issue).await?;
+            show(json, &attachments, |attachments| {
+                lines(attachments, attachment_listing)
+            })
+        }
     }
+}
+
+/// Saves under the attachment's own name unless `output` names a file; never overwrites
+/// without `force`.
+async fn download(
+    client: &Client,
+    issue: &IssueKey,
+    id: i64,
+    output: Option<PathBuf>,
+    force: bool,
+    json: bool,
+) -> Result<(), Error> {
+    let attachments = client.attachments(issue).await?;
+    let mut response = client.download(issue, id).await?;
+    let attachment = attachments
+        .into_iter()
+        .find(|attachment| attachment.id == id)
+        .ok_or_else(|| Error::Other(format!("attachment {id} is no longer on {issue}")))?;
+    let name = safe_name(&attachment.file_name).unwrap_or_else(|| format!("attachment-{id}"));
+    let path = match output {
+        Some(directory) if directory.is_dir() => directory.join(name),
+        Some(path) => path,
+        None => PathBuf::from(name),
+    };
+    if !force && path.exists() {
+        return Err(already_exists(&path));
+    }
+    // Written next to the target, then moved in: a cut download never leaves a partial file.
+    let part = path.with_file_name(format!(".santi-{id}-{}.part", std::process::id()));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&part)
+        .map_err(|error| Error::Other(format!("{}: {error}", part.display())))?;
+    let saved: Result<(), Error> = async {
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| Error::Network(format!("{}: {error}", path.display())))?
+        {
+            file.write_all(&chunk)
+                .map_err(|error| Error::Other(format!("{}: {error}", path.display())))?;
+        }
+        drop(file);
+        let placed = match force {
+            true => std::fs::rename(&part, &path),
+            // A hard link fails when the target exists, so nothing is clobbered even in a race.
+            false => std::fs::hard_link(&part, &path).and_then(|()| std::fs::remove_file(&part)),
+        };
+        placed.map_err(|error| match error.kind() {
+            std::io::ErrorKind::AlreadyExists => already_exists(&path),
+            _ => Error::Other(format!("{}: {error}", path.display())),
+        })
+    }
+    .await;
+    if saved.is_err() {
+        std::fs::remove_file(&part).ok();
+    }
+    saved?;
+    show(json, &attachment, |attachment| {
+        format!(
+            "Saved {} ({})",
+            path.display(),
+            size_text(attachment.size_bytes)
+        )
+    })
+}
+
+/// The base name to save a download as: no directory, no leading dot, no control or
+/// direction-changing character.
+fn already_exists(path: &std::path::Path) -> Error {
+    Error::Usage(format!(
+        "{} already exists; add --force to overwrite it",
+        path.display()
+    ))
+}
+
+fn safe_name(name: &str) -> Option<String> {
+    let base = name.rsplit(['/', '\\']).next()?;
+    let clean: String = base
+        .chars()
+        .filter(|letter| {
+            !letter.is_control()
+                && !matches!(letter, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{feff}')
+        })
+        .collect();
+    let clean = clean.trim().trim_start_matches('.');
+    (!clean.is_empty()).then(|| clean.to_string())
+}
+
+fn size_text(bytes: i64) -> String {
+    match bytes {
+        ..1_024 => format!("{bytes} B"),
+        1_024..1_048_576 => format!("{:.1} KB", bytes as f64 / 1_024.0),
+        _ => format!("{:.1} MB", bytes as f64 / 1_048_576.0),
+    }
+}
+
+fn attachment_line(attachment: &Attachment) -> String {
+    format!(
+        "{:<6} {}  {}",
+        attachment.id,
+        attachment.file_name,
+        size_text(attachment.size_bytes)
+    )
+}
+
+fn attachment_listing(attachment: &Attachment) -> String {
+    let comment = attachment
+        .comment_id
+        .map_or(String::new(), |id| format!("  in comment {id}"));
+    format!(
+        "{}  {}  {}{comment}",
+        attachment_line(attachment),
+        short_name(&attachment.uploader_name),
+        attachment.created_at.date_naive()
+    )
 }
 
 async fn plan(client: &Client, args: PlanArgs, json: bool) -> Result<(), Error> {
@@ -1021,6 +1174,49 @@ mod tests {
     }
 
     #[test]
+    fn saved_names_stay_in_the_target_directory() {
+        for (name, saved) in [
+            ("notes.txt", Some("notes.txt")),
+            ("../../etc/passwd", Some("passwd")),
+            (r"..\..\boot.ini", Some("boot.ini")),
+            (".bashrc", Some("bashrc")),
+            ("..", None),
+            ("dir/", None),
+            ("a\u{0}b\u{202e}.txt", Some("ab.txt")),
+            ("", None),
+        ] {
+            assert_eq!(safe_name(name).as_deref(), saved, "{name:?}");
+        }
+    }
+
+    #[test]
+    fn attachment_lines_show_size_uploader_and_comment() {
+        let attachment = Attachment {
+            id: 12,
+            file_name: "plan.pdf".into(),
+            content_type: "application/pdf".into(),
+            size_bytes: 1_572_864,
+            uploader_id: 3,
+            uploader_name: "ANA MARIA LIMA".into(),
+            comment_id: Some(7),
+            created_at: "2026-10-19T12:00:00Z".parse().unwrap(),
+        };
+        assert_eq!(attachment_line(&attachment), "12     plan.pdf  1.5 MB");
+        assert_eq!(
+            attachment_listing(&attachment),
+            "12     plan.pdf  1.5 MB  Ana Lima  2026-10-19  in comment 7"
+        );
+        for (bytes, shown) in [
+            (0, "0 B"),
+            (1023, "1023 B"),
+            (1024, "1.0 KB"),
+            (26_214_400, "25.0 MB"),
+        ] {
+            assert_eq!(size_text(bytes), shown, "{bytes}");
+        }
+    }
+
+    #[test]
     fn invite_text_shows_spots_expiry_and_who_joined() {
         let invite = InviteInfo {
             id: 7,
@@ -1195,6 +1391,78 @@ mod tests {
                     &Local
                 )
             )
+        );
+    }
+
+    /// Answers the attachment list of WEB-1 (one file, id 5), then a download of it that
+    /// promises 100 bytes, sends 7 and closes.
+    async fn cut_download_server() -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut buffer = [0; 4096];
+                let read = stream.read(&mut buffer).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buffer[..read]).into_owned();
+                let answer = match request
+                    .starts_with("GET /api/projects/WEB/issues/1/attachments/5")
+                {
+                    true => {
+                        "HTTP/1.1 200 OK\r\ncontent-length: 100\r\nconnection: close\r\n\r\npartial"
+                            .to_string()
+                    }
+                    false => {
+                        let body = serde_json::json!([{
+                            "id": 5, "file_name": "report.pdf", "content_type": "application/pdf",
+                            "size_bytes": 100, "uploader_id": 1, "uploader_name": "Ana",
+                            "comment_id": null, "created_at": "2026-10-16T12:00:00Z",
+                        }])
+                        .to_string();
+                        format!(
+                            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                    }
+                };
+                let _ = stream.write_all(answer.as_bytes()).await;
+            }
+        });
+        format!("http://{address}")
+    }
+
+    #[tokio::test]
+    async fn a_download_cut_mid_body_keeps_the_old_file_and_leaves_no_partial_one() {
+        let client = Client::new(&cut_download_server().await, None).unwrap();
+        let issue: IssueKey = "WEB-1".parse().unwrap();
+        let entries = |directory: &std::path::Path| {
+            let mut names: Vec<String> = std::fs::read_dir(directory)
+                .unwrap()
+                .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            names.sort();
+            names
+        };
+
+        let empty = tempfile::tempdir().unwrap();
+        let error = download(&client, &issue, 5, Some(empty.path().into()), false, false)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, Error::Network(_)), "{error}");
+        assert_eq!(error.exit_code(), 6);
+        assert!(entries(empty.path()).is_empty());
+
+        let kept = tempfile::tempdir().unwrap();
+        std::fs::write(kept.path().join("report.pdf"), "mine").unwrap();
+        let error = download(&client, &issue, 5, Some(kept.path().into()), true, false)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, Error::Network(_)), "{error}");
+        assert_eq!(entries(kept.path()), ["report.pdf"]);
+        assert_eq!(
+            std::fs::read(kept.path().join("report.pdf")).unwrap(),
+            b"mine"
         );
     }
 }
