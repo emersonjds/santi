@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT p.key AS project_key, p.name AS project_name, i.role AS \"role: MemberRole\",\n                  i.expires_at, u.display_name AS inviter_name, i.used_at,\n                  p.archived_at IS NOT NULL AS \"archived!\"\n           FROM invite i\n           JOIN project p ON p.id = i.project_id\n           JOIN app_user u ON u.id = i.created_by\n           WHERE i.token_hash = $1 AND p.trashed_at IS NULL",
+  "query": "SELECT p.key AS project_key, p.name AS project_name, i.role AS \"role: MemberRole\",\n                  i.expires_at, u.display_name AS inviter_name, i.used_at, i.max_uses,\n                  i.max_uses - (SELECT count(*) FROM invite_use WHERE invite_id = i.id)::int\n                      AS \"spots_left!\",\n                  p.archived_at IS NOT NULL AS \"archived!\"\n           FROM invite i\n           JOIN project p ON p.id = i.project_id\n           JOIN app_user u ON u.id = i.created_by\n           WHERE i.token_hash = $1 AND p.trashed_at IS NULL",
   "describe": {
     "columns": [
       {
@@ -71,6 +71,23 @@
       },
       {
         "ordinal": 6,
+        "name": "max_uses",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "invite",
+            "name": "max_uses"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "spots_left!",
+        "type_info": "Int4",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 8,
         "name": "archived!",
         "type_info": "Bool",
         "origin": "Expression"
@@ -88,8 +105,10 @@
       false,
       false,
       true,
+      false,
+      null,
       null
     ]
   },
-  "hash": "50244f3c898697ec0c464514fad71370ddc641e51df57e9dde1dbbab473314c1"
+  "hash": "17f768938bad66853e975b32be0691a1d24b6f5006a94f726b089064c2971c7c"
 }

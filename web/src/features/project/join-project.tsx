@@ -95,6 +95,11 @@ export const JoinProject = ({ token }: { token: string }) => {
             })}
           </Row>
         </dl>
+        {invite.max_uses > 1 && (
+          <p className='pt-2 text-sm text-muted-foreground'>
+            {invite.spots_left} of {invite.max_uses} spots left
+          </p>
+        )}
       </section>
       <JoinButton token={token} />
     </div>
