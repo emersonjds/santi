@@ -29,7 +29,8 @@ const EXTENSIONS = [
 /** For the file picker's `accept`. */
 export const ACCEPTED = EXTENSIONS.map((extension) => `.${extension}`).join(',')
 
-const refusalOf = (file: File) => {
+/** Why the file cannot go, found before sending it. */
+export const refusalOf = (file: File) => {
   if (file.size > MAX_BYTES) return 'Larger than 25 MB.'
   const extension = /\.([^.]+)$/.exec(file.name)?.[1].toLowerCase()
   if (!extension || !EXTENSIONS.includes(extension))
