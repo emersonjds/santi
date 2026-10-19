@@ -10,6 +10,39 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-10-19
+
+> One invite link for the whole group: up to 50 people join with it, each one recorded.
+
+### Added
+
+- **Group invite links:** the Invite dialog asks "How many people" (1–50, default 1). Each person
+  who joins takes one spot; the join page shows "N of M spots left". People accepting at the same
+  time never take more spots than the link has. Someone already in the project takes no spot.
+- **Account export** lists the invite links the account joined with (project and date).
+
+### Changed
+
+- **Admin invite links** are for one person only; a link for more people adds members.
+- **Rejoining with the same link** after leaving or being removed is refused with "You already
+  joined with this link. Ask an admin for a new invite."
+- **Account deletion** also forgets which invite links the account joined with.
+- **Invite dialog:** a failed request (network) now shows an error instead of nothing; the
+  description no longer says each link works once.
+- **API:** `CreateInvite.max_uses` (optional, 1–50), `Invite.max_uses`, `InvitePreview.max_uses`
+  and `spots_left`; accept can answer 409 `invite-already-used-by-you`.
+
+### Fixed
+
+- **Tests:** the reset link expiry is stored at the database's microsecond precision, so the
+  0.18.0 check passes on Linux too.
+
+### Upgrade notes
+
+- Migration `0024_group_invites.sql` adds `invite.max_uses` (default 1, so existing links work as
+  before) and the `invite_use` table with its index; it runs on startup.
+- API clients: the new fields are additive; old clients keep creating single-use links.
+
 ## [0.18.0] - 2026-10-19
 
 > A forgotten password is no longer a dead end: the server operator sends a one-time reset link.
@@ -574,7 +607,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.18.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.19.0...HEAD
+[0.19.0]: https://github.com/emersonjds/santi/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/emersonjds/santi/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/emersonjds/santi/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/emersonjds/santi/compare/v0.16.0...v0.17.0
