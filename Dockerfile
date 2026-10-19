@@ -26,8 +26,8 @@ FROM rust:slim-trixie AS server
 WORKDIR /src
 ENV SQLX_OFFLINE=true CARGO_PROFILE_RELEASE_STRIP=true
 COPY . .
-RUN cargo build --release --locked -p santi-server --bin santi-server --bin reset-link \
-    && cp target/release/santi-server target/release/reset-link /
+RUN cargo build --release --locked -p santi-server --bin santi-server \
+    && cp target/release/santi-server /santi-server
 
 # Static busybox gives the distroless image a wget for the healthcheck.
 FROM busybox:1.37-musl AS busybox
@@ -35,7 +35,6 @@ FROM busybox:1.37-musl AS busybox
 FROM gcr.io/distroless/cc-debian13:nonroot
 COPY --from=busybox /bin/busybox /usr/local/bin/wget
 COPY --from=server /santi-server /usr/local/bin/santi-server
-COPY --from=server /reset-link /usr/local/bin/reset-link
 COPY --from=web /web/dist /srv/santi/web
 ENV SANTI_ADDR=0.0.0.0:8080 SANTI_WEB_DIR=/srv/santi/web
 USER nonroot
