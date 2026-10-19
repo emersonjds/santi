@@ -126,6 +126,50 @@ async fn the_export_holds_the_home_stars_visits_and_history(pool: PgPool) {
     assert!(wrote["viewed_at"].is_null());
 }
 
+async fn join_with_a_link(admin: &TestApp, guest: &TestApp, key: &str) {
+    let (_, invite) = admin
+        .post(
+            &format!("/api/projects/{key}/invites"),
+            json!({ "role": "member", "max_uses": 2 }),
+        )
+        .await;
+    let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
+    assert_eq!(guest.post(&accept, json!(null)).await.0, StatusCode::OK);
+}
+
+#[sqlx::test]
+async fn the_export_lists_the_invite_links_the_caller_joined_with(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    bob.create_project("BOB", "kanban").await;
+    join_with_a_link(&bob, &ana, "BOB").await;
+
+    let (status, export) = ana.get("/api/me/export").await;
+
+    assert_eq!(status, StatusCode::OK);
+    let uses = export["invite_uses"].as_array().unwrap();
+    assert_eq!(uses.len(), 1, "{export}");
+    assert_eq!(uses[0]["project_key"], "BOB");
+    assert!(uses[0]["joined_at"].is_string());
+}
+
+#[sqlx::test]
+async fn deleting_forgets_the_invite_links_the_account_joined_with(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    bob.create_project("BOB", "kanban").await;
+    join_with_a_link(&bob, &ana, "BOB").await;
+
+    let (status, _, _) = delete_account(&ana, PASSWORD).await;
+
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let uses: i64 = sqlx::query_scalar("SELECT count(*) FROM invite_use")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(uses, 0);
+}
+
 #[sqlx::test]
 async fn export_and_delete_need_a_signed_in_caller(pool: PgPool) {
     let app = TestApp::anonymous(pool);

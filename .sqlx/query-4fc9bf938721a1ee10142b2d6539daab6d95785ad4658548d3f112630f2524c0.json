@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO invite (project_id, role, token_hash, created_by, expires_at, max_uses)\n         VALUES ($1, $2, $3, $4, $5, $6)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Bytea",
+        "Int8",
+        "Timestamptz",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4fc9bf938721a1ee10142b2d6539daab6d95785ad4658548d3f112630f2524c0"
+}

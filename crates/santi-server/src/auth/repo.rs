@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use santi_types::auth::{ApiToken, LegalAcceptance, PasswordResetPreview, User};
+use santi_types::auth::{ApiToken, InviteUse, LegalAcceptance, PasswordResetPreview, User};
 use sqlx::PgConnection;
 
 use super::domain::{AGE_DECLARATION, PRIVACY_VERSION, TERMS_VERSION};
@@ -317,6 +317,9 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     sqlx::query!("DELETE FROM invite WHERE created_by = $1", user_id)
         .execute(&mut *conn)
         .await?;
+    sqlx::query!("DELETE FROM invite_use WHERE user_id = $1", user_id)
+        .execute(&mut *conn)
+        .await?;
     // Before auth_token: waits for a reset in flight to commit, then deletes the session it made.
     sqlx::query!("DELETE FROM password_reset WHERE user_id = $1", user_id)
         .execute(&mut *conn)
@@ -371,6 +374,23 @@ pub async fn has_current_acceptance(
         PRIVACY_VERSION
     )
     .fetch_one(&mut *conn)
+    .await
+}
+
+pub async fn list_invite_uses(
+    conn: &mut PgConnection,
+    user_id: i64,
+) -> Result<Vec<InviteUse>, sqlx::Error> {
+    sqlx::query_as!(
+        InviteUse,
+        "SELECT p.key AS project_key, u.used_at AS joined_at
+         FROM invite_use u
+         JOIN invite i ON i.id = u.invite_id
+         JOIN project p ON p.id = i.project_id
+         WHERE u.user_id = $1 ORDER BY u.used_at",
+        user_id
+    )
+    .fetch_all(&mut *conn)
     .await
 }
 
