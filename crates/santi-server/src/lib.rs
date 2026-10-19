@@ -6,6 +6,7 @@ pub mod home;
 pub mod imports;
 pub mod issues;
 pub mod members;
+pub mod notifications;
 pub mod pagination;
 pub mod projects;
 pub mod rate_limit;
