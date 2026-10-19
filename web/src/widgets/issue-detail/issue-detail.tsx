@@ -29,6 +29,7 @@ import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { IssueAttachments } from './issue-attachments'
 import { IssueComments } from './issue-comments'
 import { IssueFields } from './issue-fields'
 import { IssueSubtasks } from './issue-subtasks'
@@ -289,6 +290,7 @@ export const IssueDetail = ({
             </div>
             <WriteLock key={issue.key} projectKey={projectKey}>
               <Description issue={issue} projectKey={projectKey} />
+              <IssueAttachments projectKey={projectKey} number={number} />
               {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
                 <IssueSubtasks issue={issue} projectKey={projectKey} />
               )}
