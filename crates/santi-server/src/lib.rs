@@ -20,9 +20,10 @@ use std::sync::Arc;
 
 use axum::extract::{Request, State};
 use axum::http::header::{
-    CACHE_CONTROL, CONTENT_SECURITY_POLICY, REFERRER_POLICY, VARY, X_CONTENT_TYPE_OPTIONS,
+    CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_SECURITY_POLICY, REFERRER_POLICY, VARY,
+    X_CONTENT_TYPE_OPTIONS,
 };
-use axum::http::{HeaderValue, Response};
+use axum::http::{Extensions, HeaderMap, HeaderValue, Response, StatusCode, Version};
 use axum::middleware::Next;
 use axum::response::IntoResponse;
 use axum::routing::{MethodRouter, any, get, get_service};
@@ -32,6 +33,7 @@ use sha2::Digest;
 use sqlx::PgPool;
 use tower::ServiceExt;
 use tower_http::compression::CompressionLayer;
+use tower_http::compression::predicate::{DefaultPredicate, Predicate};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::{SetResponseHeader, SetResponseHeaderLayer};
 use utoipa::OpenApi;
@@ -181,8 +183,13 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
             REFERRER_POLICY,
             HeaderValue::from_static("strict-origin-when-cross-origin"),
         ))
-        .layer(CompressionLayer::new())
+        .layer(CompressionLayer::new().compress_when(DefaultPredicate::new().and(not_a_download)))
         .with_state(state)
+}
+
+/// Downloads keep their bytes and `Content-Length`.
+fn not_a_download(_: StatusCode, _: Version, headers: &HeaderMap, _: &Extensions) -> bool {
+    !headers.contains_key(CONTENT_DISPOSITION)
 }
 
 /// sonner and Radix's scroll lock add `<style>` tags at runtime: styles need `'unsafe-inline'`.

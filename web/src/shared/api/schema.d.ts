@@ -4124,6 +4124,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `comment_id` names a comment by someone else and the caller is not an admin; nothing is kept */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4141,7 +4150,16 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description A type not allowed, over 25 MB, over 10 files per request or 100 per issue, or `comment_id` not of this issue; nothing is kept */
+            /** @description `payload-too-large`: the body passed 10 × 25 MB plus framing; nothing is kept */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A type not allowed, over 25 MB, over 10 files per request or 100 per issue, a broken multipart body, or `comment_id` not a comment of this issue; nothing is kept */
             422: {
                 headers: {
                     [name: string]: unknown;
