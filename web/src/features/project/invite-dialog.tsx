@@ -1,7 +1,10 @@
-import { type FormEvent, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
+import { z } from 'zod'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { Check, Copy, UserPlus } from 'lucide-react'
-import { type MemberRole, api, dataOrThrow } from '@/shared/api/client'
+import { api } from '@/shared/api/client'
+import { showProblem } from '@/shared/lib/show-problem'
 import { Button } from '@/shared/ui/button'
 import {
   Dialog,
@@ -11,11 +14,36 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { RootError } from '@/shared/ui/root-error'
 
-type Invite = { token: string; expires_at: string }
+const PEOPLE = 'Between 1 and 50.'
+
+// Mirrors members/domain.rs; the server stays the authority.
+const schema = z.object({
+  role: z.enum(['member', 'admin']),
+  max_uses: z
+    .string()
+    .refine(
+      (text) => /^\d+$/.test(text) && +text >= 1 && +text <= 50,
+      PEOPLE
+    ),
+})
+
+type NewInvite = z.infer<typeof schema>
+
+const FIELDS = ['max_uses'] as const
+
+type Invite = { token: string; max_uses: number }
 
 const inviteLink = (token: string) =>
   new URL(`/invites/${token}`, location.origin).href
@@ -23,9 +51,6 @@ const inviteLink = (token: string) =>
 const InviteLink = ({ invite }: { invite: Invite }) => {
   const [copied, setCopied] = useState(false)
   const link = inviteLink(invite.token)
-  const expires = new Date(invite.expires_at).toLocaleDateString(undefined, {
-    dateStyle: 'medium',
-  })
 
   // Clipboard needs a secure origin; elsewhere the link stays selectable in the field.
   const copy = () =>
@@ -48,31 +73,36 @@ const InviteLink = ({ invite }: { invite: Invite }) => {
         </Button>
       </div>
       <p className='text-sm text-muted-foreground'>
-        Works once. Expires {expires}.
+        Link for {invite.max_uses}{' '}
+        {invite.max_uses === 1 ? 'person' : 'people'} · valid 7 days
       </p>
     </div>
   )
 }
 
 export const InviteDialog = ({ projectKey }: { projectKey: string }) => {
-  const [role, setRole] = useState<MemberRole>('member')
-  const invite = useMutation({
-    mutationFn: async () =>
-      dataOrThrow(
-        await api.POST('/api/projects/{key}/invites', {
-          params: { path: { key: projectKey } },
-          body: { role },
-        })
-      ),
+  const [created, setCreated] = useState<Invite | null>(null)
+  const form = useForm<NewInvite>({
+    resolver: zodResolver(schema),
+    defaultValues: { role: 'member', max_uses: '1' },
   })
 
-  const create = (event: FormEvent) => {
-    event.preventDefault()
-    invite.mutate()
+  const create = async (values: NewInvite) => {
+    const { data, error } = await api.POST('/api/projects/{key}/invites', {
+      params: { path: { key: projectKey } },
+      body: { role: values.role, max_uses: Number(values.max_uses) },
+    })
+    if (error) return showProblem(form.setError, FIELDS, error)
+    setCreated(data)
+  }
+
+  const close = () => {
+    setCreated(null)
+    form.reset()
   }
 
   return (
-    <Dialog onOpenChange={(open) => open || invite.reset()}>
+    <Dialog onOpenChange={(open) => open || close()}>
       <DialogTrigger asChild>
         <Button variant='outline' className='h-11 md:h-9'>
           <UserPlus />
@@ -82,31 +112,63 @@ export const InviteDialog = ({ projectKey }: { projectKey: string }) => {
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
           <DialogTitle>Invite people</DialogTitle>
-          <DialogDescription>
-            Invite people with a link. Each link works once.
-          </DialogDescription>
+          <DialogDescription>Invite people with a link.</DialogDescription>
         </DialogHeader>
-        {invite.data ? (
-          <InviteLink invite={invite.data} />
+        {created ? (
+          <InviteLink invite={created} />
         ) : (
-          <form onSubmit={create} className='grid gap-3'>
-            <Label htmlFor='invite-role'>Invite as</Label>
-            <select
-              id='invite-role'
-              value={role}
-              onChange={(event) =>
-                setRole(event.target.value === 'admin' ? 'admin' : 'member')
-              }
-              className='h-11 rounded-md border border-input bg-background px-3 text-base md:text-sm'
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(create)}
+              className='grid gap-3'
+              noValidate
             >
-              <option value='member'>Member</option>
-              <option value='admin'>Admin</option>
-            </select>
-            <RootError message={invite.error?.message} />
-            <Button className='h-11' disabled={invite.isPending}>
-              Create invite link
-            </Button>
-          </form>
+              <div className='grid grid-cols-2 items-start gap-3'>
+                <FormField
+                  control={form.control}
+                  name='role'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Invite as</FormLabel>
+                      <FormControl>
+                        <select
+                          {...field}
+                          className='h-11 rounded-md border border-input bg-background px-3 text-base md:text-sm'
+                        >
+                          <option value='member'>Member</option>
+                          <option value='admin'>Admin</option>
+                        </select>
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name='max_uses'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>How many people</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          min={1}
+                          max={50}
+                          inputMode='numeric'
+                          className='h-11 text-base md:text-sm'
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <RootError message={form.formState.errors.root?.message} />
+              <Button className='h-11' disabled={form.formState.isSubmitting}>
+                Create invite link
+              </Button>
+            </form>
+          </Form>
         )}
       </DialogContent>
     </Dialog>
