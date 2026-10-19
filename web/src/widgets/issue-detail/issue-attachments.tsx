@@ -1,6 +1,11 @@
 import { Suspense, lazy, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Paperclip } from 'lucide-react'
+import {
+  ACCEPTED,
+  type UploadQueue,
+} from '@/features/upload-attachments/upload-queue'
+import { UploadRows } from '@/features/upload-attachments/upload-rows'
 import { attachmentsQuery } from '@/entities/attachment/attachments'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { projectQuery } from '@/entities/project/project-queries'
@@ -16,18 +21,24 @@ const DeleteAttachmentDialog = lazy(() =>
   )
 )
 
-type IssueAttachmentsProps = { projectKey: string; number: number }
+type IssueAttachmentsProps = {
+  projectKey: string
+  number: number
+  uploads: UploadQueue
+}
 
 /** SAN-158 decision 1: every file of the issue, comment files included, under the description. */
 export const IssueAttachments = ({
   projectKey,
   number,
+  uploads,
 }: IssueAttachmentsProps) => {
   const list = useQuery(attachmentsQuery(projectKey, number))
   const { data: project } = useQuery(projectQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
   const [deleting, setDeleting] = useState<Attachment | null>(null)
   const attach = useRef<HTMLButtonElement>(null)
+  const picker = useRef<HTMLInputElement>(null)
   const count = list.data?.length ?? 0
 
   return (
@@ -36,10 +47,26 @@ export const IssueAttachments = ({
         <h3 id='issue-attachments' className='text-sm font-semibold'>
           {count ? `Attachments · ${count}` : 'Attachments'}
         </h3>
-        <Button ref={attach} variant='ghost' className='ms-auto h-11 md:h-8'>
+        <Button
+          ref={attach}
+          variant='ghost'
+          className='ms-auto h-11 md:h-8'
+          onClick={() => picker.current?.click()}
+        >
           <Paperclip />
           Attach files
         </Button>
+        <input
+          ref={picker}
+          type='file'
+          multiple
+          hidden
+          accept={ACCEPTED}
+          onChange={(event) => {
+            uploads.add(event.target.files ?? [])
+            event.target.value = ''
+          }}
+        />
       </div>
       {list.error && (
         <LoadFailed
@@ -47,7 +74,8 @@ export const IssueAttachments = ({
           onRetry={() => void list.refetch()}
         />
       )}
-      {list.data?.length === 0 && (
+      <UploadRows queue={uploads} />
+      {list.data?.length === 0 && uploads.uploads.length === 0 && (
         <p className='text-sm text-subtle-foreground'>No attachments yet.</p>
       )}
       {list.data && (

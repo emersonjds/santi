@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
 import type { Attachment } from '@/shared/api/client'
+import { fakeXhr } from '@/test/fake-xhr'
 import { renderApp } from '@/test/render-app'
 import { WEB, inProjects, problem, routeOf } from '@/test/stub-api'
 
@@ -320,5 +321,246 @@ describe('issue attachments', () => {
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth
     )
+  })
+})
+
+const REPORT = file({
+  id: 9,
+  file_name: 'report.pdf',
+  content_type: 'application/pdf',
+  size_bytes: 8,
+  uploader_id: 1,
+  uploader_name: 'Alice',
+})
+
+const filesOf = (...files: File[]) => {
+  const transfer = new DataTransfer()
+  for (const each of files) transfer.items.add(each)
+  return transfer
+}
+
+const issueView = () => {
+  const view = document.querySelector('[data-issue-view]')
+  if (!view) throw new Error('no issue view')
+  return view
+}
+
+const drag = (type: string, transfer: DataTransfer) =>
+  issueView().dispatchEvent(
+    new DragEvent(type, {
+      dataTransfer: transfer,
+      bubbles: true,
+      cancelable: true,
+    })
+  )
+
+const paste = (target: Element, transfer: DataTransfer) =>
+  target.dispatchEvent(
+    new ClipboardEvent('paste', {
+      clipboardData: transfer,
+      bubbles: true,
+      cancelable: true,
+    })
+  )
+
+const pdf = (name: string) =>
+  new File(['%PDF-1.7'], name, { type: 'application/pdf' })
+
+describe('uploading attachments', () => {
+  beforeEach(() => page.viewport(1280, 800))
+
+  it('uploads a picked file with a progress bar, then lists it', async () => {
+    let stored: Attachment[] = []
+    withFiles([], { [LIST]: { status: 200, body: () => stored } })
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const section = sectionOf(screen)
+    await expect.element(section.getByText('No attachments yet.')).toBeVisible()
+
+    const input = document.querySelector<HTMLInputElement>('input[type=file]')
+    if (!input) throw new Error('no file input')
+    expect(input.multiple).toBe(true)
+    await userEvent.upload(input, pdf('report.pdf'))
+
+    const row = section
+      .getByRole('list', { name: 'Uploads' })
+      .getByRole('listitem')
+    await expect.element(row).toHaveTextContent('report.pdf')
+    await expect.element(row).toHaveTextContent('8 B')
+    await expect.poll(() => sent.length).toBe(1)
+    const [xhr] = sent
+    expect(xhr.method).toBe('POST')
+    expect(xhr.url).toBe('/api/projects/WEB/issues/1/attachments')
+    expect(xhr.withCredentials).toBe(true)
+    expect(xhr.fileName).toBe('report.pdf')
+
+    xhr.progress(4, 8)
+    await expect
+      .element(row.getByRole('progressbar', { name: 'Uploading report.pdf' }))
+      .toHaveAttribute('value', '0.5')
+
+    stored = [REPORT]
+    xhr.respond(201, [REPORT])
+    await expect.element(row).not.toBeInTheDocument()
+    await expect
+      .element(section.getByRole('heading', { name: 'Attachments · 1' }))
+      .toBeVisible()
+    await expect
+      .element(section.getByRole('list', { name: 'Files' }))
+      .toHaveTextContent('report.pdf')
+  })
+
+  it('cancels an upload: the request stops and the row goes', async () => {
+    withFiles([])
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const section = sectionOf(screen)
+    await expect.element(section.getByText('No attachments yet.')).toBeVisible()
+
+    drag('drop', filesOf(pdf('report.pdf')))
+    const row = section.getByRole('listitem').filter({ hasText: 'report.pdf' })
+    await row.getByRole('button', { name: 'Cancel' }).click()
+
+    await expect.element(row).not.toBeInTheDocument()
+    expect(sent[0].aborted).toBe(true)
+  })
+
+  it('keeps each refused file with its reason, Retry and Remove', async () => {
+    withFiles([])
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const section = sectionOf(screen)
+    await expect.element(section.getByText('No attachments yet.')).toBeVisible()
+
+    drag(
+      'drop',
+      filesOf(
+        new File([new Uint8Array(25 * 1024 * 1024 + 1)], 'big.zip'),
+        new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' }),
+        new File(['x'], 'notes.txt'),
+        new File(['x'], 'huge.png'),
+        pdf('offline.pdf')
+      )
+    )
+    await expect.poll(() => sent.length).toBe(3)
+    const xhrOf = (name: string) => {
+      const found = [...sent].reverse().find((xhr) => xhr.fileName === name)
+      if (!found) throw new Error(`no upload of ${name}`)
+      return found
+    }
+    xhrOf('notes.txt').respond(
+      422,
+      problem(422, 'Invalid request.', [
+        { field: 'file', message: 'Text files must be UTF-8.' },
+      ])
+    )
+    xhrOf('huge.png').respond(413, problem(413, 'The upload is too large.'))
+    xhrOf('offline.pdf').fail()
+
+    const rowOf = (name: string) =>
+      section.getByRole('listitem').filter({ hasText: name })
+    const reasons = {
+      'big.zip': 'Larger than 25 MB.',
+      'logo.svg': 'This file type is not allowed.',
+      'notes.txt': 'Text files must be UTF-8.',
+      'huge.png': 'The upload is too large.',
+      'offline.pdf': 'Upload failed. Check your connection.',
+    }
+    for (const [name, reason] of Object.entries(reasons)) {
+      await expect.element(rowOf(name)).toHaveTextContent(reason)
+      await expect
+        .element(rowOf(name).getByRole('button', { name: 'Retry' }))
+        .toBeVisible()
+      await expect
+        .element(rowOf(name).getByRole('button', { name: 'Remove' }))
+        .toBeVisible()
+    }
+
+    await rowOf('big.zip').getByRole('button', { name: 'Remove' }).click()
+    await expect.element(rowOf('big.zip')).not.toBeInTheDocument()
+    await rowOf('logo.svg').getByRole('button', { name: 'Retry' }).click()
+    await expect
+      .element(rowOf('logo.svg'))
+      .toHaveTextContent('This file type is not allowed.')
+    expect(sent).toHaveLength(3)
+
+    await rowOf('offline.pdf').getByRole('button', { name: 'Retry' }).click()
+    await expect.poll(() => sent.length).toBe(4)
+    await expect
+      .element(rowOf('offline.pdf').getByRole('progressbar'))
+      .toBeVisible()
+    xhrOf('offline.pdf').respond(201, [REPORT])
+    await expect.element(rowOf('offline.pdf')).not.toBeInTheDocument()
+  })
+
+  it('shows the drop overlay while files are dragged over the issue, and uploads what lands', async () => {
+    withFiles([])
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    await expect.element(screen.getByLabelText('Summary')).toBeVisible()
+    const overlay = screen.getByText('Drop files to attach')
+
+    drag('dragenter', filesOf(pdf('report.pdf')))
+    await expect.element(overlay).toBeVisible()
+    drag('dragleave', filesOf(pdf('report.pdf')))
+    await expect.element(overlay).not.toBeInTheDocument()
+
+    drag('dragenter', filesOf(pdf('report.pdf')))
+    drag('dragover', filesOf(pdf('report.pdf')))
+    drag('drop', filesOf(pdf('report.pdf')))
+    await expect.element(overlay).not.toBeInTheDocument()
+    await expect
+      .poll(() => sent.map((xhr) => xhr.fileName))
+      .toEqual(['report.pdf'])
+
+    drag('dragenter', new DataTransfer())
+    await expect.element(overlay).not.toBeInTheDocument()
+  })
+
+  it('uploads an image pasted outside an editor, and leaves a paste in a field alone', async () => {
+    withFiles([])
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const image = new File(['png'], 'image.png', { type: 'image/png' })
+
+    const copy = screen.getByRole('button', { name: 'Copy link' })
+    await expect.element(copy).toBeVisible()
+    paste(copy.element(), filesOf(image))
+    await expect
+      .poll(() => sent.map((xhr) => xhr.fileName))
+      .toEqual(['image.png'])
+
+    paste(screen.getByLabelText('Summary').element(), filesOf(image))
+    paste(copy.element(), filesOf(pdf('report.pdf')))
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(sent).toHaveLength(1)
+  })
+
+  it('takes no drop or paste in an archived project', async () => {
+    withFiles([], {
+      'GET /api/projects/WEB': {
+        status: 200,
+        body: { ...WEB, state: 'archived' },
+      },
+    })
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const copy = screen.getByRole('button', { name: 'Copy link' })
+    await expect
+      .element(screen.getByText('This project is archived and read-only.'))
+      .toBeVisible()
+
+    drag('dragenter', filesOf(pdf('report.pdf')))
+    drag('drop', filesOf(pdf('report.pdf')))
+    paste(
+      copy.element(),
+      filesOf(new File(['png'], 'image.png', { type: 'image/png' }))
+    )
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    await expect
+      .element(screen.getByText('Drop files to attach'))
+      .not.toBeInTheDocument()
+    expect(sent).toHaveLength(0)
   })
 })
