@@ -10,7 +10,7 @@ use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
     StatusFilter, UpdateComment, UpdateIssue,
 };
-use santi_types::projects::{CreateProject, MemberInfo, Project, ProjectState};
+use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
 use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -117,6 +117,17 @@ impl Client {
     pub async fn members(&self, project: &ProjectKey) -> Result<Vec<MemberInfo>, Error> {
         let request = self.request(Method::GET, &["projects", project.as_str(), "members"]);
         self.send(request).await
+    }
+
+    pub async fn invites(&self, project: &ProjectKey) -> Result<Vec<InviteInfo>, Error> {
+        let request = self.request(Method::GET, &["projects", project.as_str(), "invites"]);
+        self.send(request).await
+    }
+
+    pub async fn revoke_invite(&self, project: &ProjectKey, id: i64) -> Result<(), Error> {
+        let id = id.to_string();
+        let path = ["projects", project.as_str(), "invites", &id];
+        self.send(self.request(Method::DELETE, &path)).await
     }
 
     pub async fn issues(

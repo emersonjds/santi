@@ -6,7 +6,7 @@ use assert_cmd::Command;
 use common::server;
 use predicates::prelude::*;
 use predicates::str::contains;
-use serde_json::Value;
+use serde_json::{Value, json};
 use tempfile::TempDir;
 
 /// `santi` with a throwaway config directory, so the user's real `~/.config/santi` is never read.
@@ -332,6 +332,50 @@ fn issue_lifecycle_from_create_to_delete() {
         .args(["issues", "show", "CLI-1"])
         .assert()
         .code(4);
+}
+
+#[test]
+fn invites_list_live_links_with_joiners_and_revoke_one() {
+    let santi = Santi::new();
+    let admin = server().user();
+    let guest = server().user();
+    server().project(&admin, "INV", "kanban");
+    let created = server().post(
+        &admin,
+        "/api/projects/INV/invites",
+        json!({ "role": "member", "max_uses": 2 }),
+    );
+    let link = created["token"].as_str().unwrap();
+    server().post(&guest, &format!("/api/invites/{link}/accept"), json!(null));
+    let email = server().get(&guest, "/api/me")["email"].clone();
+
+    let invites = json(santi.with(&admin).args(["invites", "INV"]));
+    let id = invites[0]["id"].as_i64().unwrap();
+    assert_eq!(invites[0]["uses"], 1);
+    assert_eq!(invites[0]["joined"][0]["email"], email);
+    santi
+        .with(&admin)
+        .args(["invites", "INV"])
+        .assert()
+        .success()
+        .stdout(
+            contains(format!("{id:<6} member, 1 of 2 spots used, expires "))
+                .and(contains(format!("<{}> joined ", email.as_str().unwrap()))),
+        );
+    let revoke = ["invites", "revoke", "INV", &id.to_string()].map(String::from);
+    santi
+        .with(&admin)
+        .args(&revoke)
+        .assert()
+        .success()
+        .stdout(format!("Revoked invite {id} in INV\n"));
+    santi
+        .with(&admin)
+        .args(["invites", "INV"])
+        .assert()
+        .success()
+        .stdout("(none)\n");
+    santi.with(&admin).args(&revoke).assert().code(4);
 }
 
 #[test]
