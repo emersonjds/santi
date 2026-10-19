@@ -104,6 +104,9 @@ pub struct SetRole {
 #[serde(deny_unknown_fields)]
 pub struct CreateInvite {
     pub role: MemberRole,
+    /// How many people may join with the link, 1 to 50; 1 when absent. More than 1 only for members.
+    #[schema(minimum = 1, maximum = 50)]
+    pub max_uses: Option<i32>,
 }
 
 /// The token is shown once; the invite link is `/invites/{token}`.
@@ -111,6 +114,7 @@ pub struct CreateInvite {
 pub struct Invite {
     pub token: String,
     pub expires_at: DateTime<Utc>,
+    pub max_uses: i32,
 }
 
 /// What an invite link offers, shown before accepting it.
@@ -121,4 +125,6 @@ pub struct InvitePreview {
     pub role: MemberRole,
     pub expires_at: DateTime<Utc>,
     pub inviter_name: String,
+    pub max_uses: i32,
+    pub spots_left: i32,
 }

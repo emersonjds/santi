@@ -91,6 +91,8 @@ pub async fn create_invite(
     input: CreateInvite,
 ) -> Result<Invite, AppError> {
     domain::require_admin(member)?;
+    let max_uses = input.max_uses.unwrap_or(1);
+    domain::check_max_uses(max_uses, input.role)?;
     let token = auth::domain::new_secret();
     let expires_at = Utc::now() + Duration::days(domain::INVITE_DAYS);
     let mut conn = pool.acquire().await?;
@@ -101,9 +103,14 @@ pub async fn create_invite(
         &auth::domain::hash_token(&token),
         member.user_id,
         expires_at,
+        max_uses,
     )
     .await?;
-    Ok(Invite { token, expires_at })
+    Ok(Invite {
+        token,
+        expires_at,
+        max_uses,
+    })
 }
 
 pub async fn accept_invite(
@@ -125,6 +132,16 @@ pub async fn accept_invite(
         });
     };
     repo::insert_member(&mut tx, grant.project_id, user.id, grant.role).await?;
+    // A former member reopening the link: their earlier use is still recorded.
+    repo::record_invite_use(&mut tx, grant.id, user.id)
+        .await
+        .map_err(|error| match error.as_database_error() {
+            Some(database_error) if database_error.is_unique_violation() => AppError::conflict(
+                "invite-already-used-by-you",
+                "You already joined with this link. Ask an admin for a new invite.",
+            ),
+            _ => error.into(),
+        })?;
     let project = projects::repo::find_project(&mut tx, grant.project_id, user.id).await?;
     tx.commit().await?;
     Ok(project)
