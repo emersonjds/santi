@@ -58,7 +58,14 @@ pub fn check_admin_remains(
     Ok(())
 }
 
-/// An invite works once and only until it expires.
+pub fn check_max_uses(max_uses: i32) -> Result<(), AppError> {
+    if !(1..=50).contains(&max_uses) {
+        return Err(AppError::invalid("max_uses", "must be between 1 and 50"));
+    }
+    Ok(())
+}
+
+/// An invite works until its last spot is taken (`used_at`) and only until it expires.
 pub fn check_invite_usable(
     expires_at: DateTime<Utc>,
     used_at: Option<DateTime<Utc>>,
@@ -125,6 +132,18 @@ mod tests {
                 .status,
             410
         );
+    }
+
+    #[test]
+    fn an_invite_has_1_to_50_spots() {
+        assert_eq!(check_max_uses(1), Ok(()));
+        assert_eq!(check_max_uses(50), Ok(()));
+        for spots in [0, 51, -1] {
+            assert_eq!(
+                check_max_uses(spots),
+                Err(AppError::invalid("max_uses", "must be between 1 and 50"))
+            );
+        }
     }
 
     #[test]
