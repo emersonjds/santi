@@ -283,6 +283,38 @@ async fn an_existing_member_takes_no_spot(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn a_removed_member_cannot_rejoin_with_the_same_link(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let (_, invite) = ana
+        .post(
+            "/api/projects/SANTI/invites",
+            json!({ "role": "member", "max_uses": 3 }),
+        )
+        .await;
+    let token = invite["token"].as_str().unwrap();
+    let accept = format!("/api/invites/{token}/accept");
+    bob.post(&accept, json!(null)).await;
+    let (removed, _) = ana
+        .delete(&format!("/api/projects/SANTI/members/{}", bob.user_id))
+        .await;
+
+    let (again, problem) = bob.post(&accept, json!(null)).await;
+    let (_, preview) = bob.get(&format!("/api/invites/{token}")).await;
+
+    assert_eq!(removed, StatusCode::NO_CONTENT);
+    assert_eq!(again, StatusCode::CONFLICT, "{problem}");
+    assert_eq!(problem["type"], "urn:santi:error:invite-already-used-by-you");
+    assert_eq!(
+        problem["detail"],
+        "You already joined with this link. Ask an admin for a new invite."
+    );
+    assert_eq!(preview["spots_left"], 2, "{preview}");
+    assert_eq!(bob.get("/api/projects/SANTI").await.0, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
 async fn concurrent_accepts_never_take_more_spots_than_the_link_has(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     let mut guests = Vec::new();

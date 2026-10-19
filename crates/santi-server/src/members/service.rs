@@ -132,7 +132,16 @@ pub async fn accept_invite(
         });
     };
     repo::insert_member(&mut tx, grant.project_id, user.id, grant.role).await?;
-    repo::record_invite_use(&mut tx, grant.id, user.id).await?;
+    // A former member reopening the link: their earlier use is still recorded.
+    repo::record_invite_use(&mut tx, grant.id, user.id)
+        .await
+        .map_err(|error| match error.as_database_error() {
+            Some(database_error) if database_error.is_unique_violation() => AppError::conflict(
+                "invite-already-used-by-you",
+                "You already joined with this link. Ask an admin for a new invite.",
+            ),
+            _ => error.into(),
+        })?;
     let project = projects::repo::find_project(&mut tx, grant.project_id, user.id).await?;
     tx.commit().await?;
     Ok(project)
