@@ -128,3 +128,25 @@ pub struct InvitePreview {
     pub max_uses: i32,
     pub spots_left: i32,
 }
+
+/// A live invite link as its project's admins see it; never carries the token.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct InviteInfo {
+    pub id: i64,
+    pub role: MemberRole,
+    pub max_uses: i32,
+    pub uses: i32,
+    pub created_by_name: String,
+    pub created_at: DateTime<Utc>,
+    pub expires_at: DateTime<Utc>,
+    /// Who joined with the link, first to join first.
+    pub joined: Vec<InviteJoiner>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct InviteJoiner {
+    pub user_id: i64,
+    pub name: String,
+    pub email: String,
+    pub joined_at: DateTime<Utc>,
+}

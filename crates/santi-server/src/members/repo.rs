@@ -1,8 +1,11 @@
-use chrono::{DateTime, Utc};
-use santi_types::projects::{BoardType, InvitePreview, MemberInfo, MemberRole};
+use chrono::{DateTime, Duration, Utc};
+use santi_types::projects::{
+    BoardType, InviteInfo, InviteJoiner, InvitePreview, MemberInfo, MemberRole,
+};
 use sqlx::PgConnection;
 
 use super::Member;
+use super::domain::INVITE_DAYS;
 
 pub struct InviteGrant {
     pub id: i64,
@@ -288,4 +291,73 @@ pub async fn find_invite(
         used_at: row.used_at,
         archived: row.archived,
     }))
+}
+
+/// Live invites (not full, not expired) newest first, each with who joined with it.
+pub async fn list_live_invites(
+    conn: &mut PgConnection,
+    project_id: i64,
+) -> Result<Vec<InviteInfo>, sqlx::Error> {
+    let rows = sqlx::query!(
+        r#"SELECT i.id, i.role AS "role: MemberRole", i.max_uses, i.expires_at,
+                  u.display_name AS created_by_name,
+                  (SELECT count(*) FROM invite_use WHERE invite_id = i.id)::int AS "uses!"
+           FROM invite i JOIN app_user u ON u.id = i.created_by
+           WHERE i.project_id = $1 AND i.used_at IS NULL AND i.expires_at > now()
+           ORDER BY i.id DESC"#,
+        project_id
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    let ids: Vec<i64> = rows.iter().map(|row| row.id).collect();
+    let joiners = sqlx::query!(
+        r#"SELECT iu.invite_id, u.id AS user_id, u.display_name AS name, u.email,
+                  iu.used_at AS joined_at
+           FROM invite_use iu JOIN app_user u ON u.id = iu.user_id
+           WHERE iu.invite_id = ANY($1)
+           ORDER BY iu.used_at, u.id"#,
+        &ids
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| InviteInfo {
+            id: row.id,
+            role: row.role,
+            max_uses: row.max_uses,
+            uses: row.uses,
+            created_by_name: row.created_by_name,
+            // The table has no creation stamp; every invite expires INVITE_DAYS after it is made.
+            created_at: row.expires_at - Duration::days(INVITE_DAYS),
+            expires_at: row.expires_at,
+            joined: joiners
+                .iter()
+                .filter(|joiner| joiner.invite_id == row.id)
+                .map(|joiner| InviteJoiner {
+                    user_id: joiner.user_id,
+                    name: joiner.name.clone(),
+                    email: joiner.email.clone(),
+                    joined_at: joiner.joined_at,
+                })
+                .collect(),
+        })
+        .collect())
+}
+
+/// Ends a live invite of the project now; false when there is none with this id.
+pub async fn revoke_invite(
+    conn: &mut PgConnection,
+    project_id: i64,
+    invite_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let done = sqlx::query!(
+        "UPDATE invite SET expires_at = now()
+         WHERE id = $1 AND project_id = $2 AND used_at IS NULL AND expires_at > now()",
+        invite_id,
+        project_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(done.rows_affected() == 1)
 }

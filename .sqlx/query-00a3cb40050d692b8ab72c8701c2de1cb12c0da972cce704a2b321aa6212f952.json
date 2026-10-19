@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE invite SET expires_at = now()\n         WHERE id = $1 AND project_id = $2 AND used_at IS NULL AND expires_at > now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "00a3cb40050d692b8ab72c8701c2de1cb12c0da972cce704a2b321aa6212f952"
+}
