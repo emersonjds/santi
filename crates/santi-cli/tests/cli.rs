@@ -366,6 +366,18 @@ fn invites_list_live_links_with_joiners_and_revoke_one() {
     santi
         .with(&admin)
         .args(&revoke)
+        .write_stdin("n\n")
+        .assert()
+        .code(10)
+        .stdout("")
+        .stderr(
+            contains(format!("Revoke invite {id} in INV? [y/N] "))
+                .and(contains(format!("Kept invite {id}"))),
+        );
+    santi
+        .with(&admin)
+        .args(&revoke)
+        .arg("--yes")
         .assert()
         .success()
         .stdout(format!("Revoked invite {id} in INV\n"));
@@ -375,7 +387,12 @@ fn invites_list_live_links_with_joiners_and_revoke_one() {
         .assert()
         .success()
         .stdout("(none)\n");
-    santi.with(&admin).args(&revoke).assert().code(4);
+    santi
+        .with(&admin)
+        .args(&revoke)
+        .arg("--yes")
+        .assert()
+        .code(4);
 }
 
 #[test]
