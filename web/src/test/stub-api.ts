@@ -87,6 +87,7 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
     'GET /api/me/projects': { status: 200, body: [MY_WEB, MY_OPS] },
     'GET /api/projects/WEB': { status: 200, body: WEB },
     'GET /api/projects/WEB/members': { status: 200, body: MEMBERS },
+    'GET /api/projects/WEB/invites': { status: 200, body: [] },
     'GET /api/projects/OPS': { status: 200, body: OPS },
     'GET /api/projects/OPS/members': { status: 200, body: MEMBERS },
     'GET /api/projects/WEB/board': { status: 200, body: WEB_BOARD },

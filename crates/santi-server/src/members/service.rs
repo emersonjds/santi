@@ -1,6 +1,7 @@
 use chrono::{Duration, Utc};
 use santi_types::projects::{
-    AddMember, CreateInvite, Invite, InvitePreview, MemberInfo, Project, ProjectState, SetRole,
+    AddMember, CreateInvite, Invite, InviteInfo, InvitePreview, MemberInfo, Project, ProjectState,
+    SetRole,
 };
 use sqlx::PgPool;
 
@@ -158,4 +159,20 @@ pub async fn preview_invite(pool: &PgPool, token: &str) -> Result<InvitePreview,
         return Err(projects::domain::archived());
     }
     Ok(invite.preview)
+}
+
+pub async fn list_invites(pool: &PgPool, member: &Member) -> Result<Vec<InviteInfo>, AppError> {
+    domain::require_admin(member)?;
+    let mut conn = pool.acquire().await?;
+    Ok(repo::list_live_invites(&mut conn, member.project_id).await?)
+}
+
+/// The link then answers like an expired one; who joined with it stays.
+pub async fn revoke_invite(pool: &PgPool, member: &Member, invite_id: i64) -> Result<(), AppError> {
+    domain::require_admin(member)?;
+    let mut conn = pool.acquire().await?;
+    match repo::revoke_invite(&mut conn, member.project_id, invite_id).await? {
+        true => Ok(()),
+        false => Err(AppError::NotFound),
+    }
 }
