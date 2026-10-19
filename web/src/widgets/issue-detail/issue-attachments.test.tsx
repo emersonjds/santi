@@ -118,7 +118,16 @@ describe('issue attachments', () => {
     await expect.element(rows.nth(1)).toHaveTextContent('in a comment')
     await expect
       .element(section.getByRole('link', { name: 'Download spec.pdf' }))
-      .toHaveAttribute('href', '/api/projects/WEB/issues/1/attachments/3')
+      .toHaveAttribute(
+        'href',
+        '/api/projects/WEB/issues/1/attachments/3?download=1'
+      )
+    await expect
+      .element(section.getByRole('link', { name: 'Download shot.png' }))
+      .toHaveAttribute(
+        'href',
+        '/api/projects/WEB/issues/1/attachments/1?download=1'
+      )
   })
 
   it('says so with a Retry when the list fails', async () => {
@@ -150,7 +159,10 @@ describe('issue attachments', () => {
       .toBeVisible()
     await expect
       .element(viewer.getByRole('link', { name: 'Download' }))
-      .toHaveAttribute('href', '/api/projects/WEB/issues/1/attachments/1')
+      .toHaveAttribute(
+        'href',
+        '/api/projects/WEB/issues/1/attachments/1?download=1'
+      )
 
     await userEvent.keyboard('{ArrowRight}')
     await expect
@@ -425,7 +437,7 @@ describe('uploading attachments', () => {
     expect(sent[0].aborted).toBe(true)
   })
 
-  it('keeps each refused file with its reason, Retry and Remove', async () => {
+  it('keeps each refused file with its reason and Remove, and Retry where sending again can work', async () => {
     withFiles([])
     const sent = fakeXhr()
     const { screen } = await renderApp('/p/WEB/issues/1')
@@ -466,11 +478,13 @@ describe('uploading attachments', () => {
       'huge.png': 'The upload is too large.',
       'offline.pdf': 'Upload failed. Check your connection.',
     }
+    const refusedBeforeSending = ['big.zip', 'logo.svg']
     for (const [name, reason] of Object.entries(reasons)) {
       await expect.element(rowOf(name)).toHaveTextContent(reason)
-      await expect
-        .element(rowOf(name).getByRole('button', { name: 'Retry' }))
-        .toBeVisible()
+      const retry = rowOf(name).getByRole('button', { name: 'Retry' })
+      if (refusedBeforeSending.includes(name))
+        await expect.element(retry).not.toBeInTheDocument()
+      else await expect.element(retry).toBeVisible()
       await expect
         .element(rowOf(name).getByRole('button', { name: 'Remove' }))
         .toBeVisible()
@@ -478,10 +492,6 @@ describe('uploading attachments', () => {
 
     await rowOf('big.zip').getByRole('button', { name: 'Remove' }).click()
     await expect.element(rowOf('big.zip')).not.toBeInTheDocument()
-    await rowOf('logo.svg').getByRole('button', { name: 'Retry' }).click()
-    await expect
-      .element(rowOf('logo.svg'))
-      .toHaveTextContent('This file type is not allowed.')
     expect(sent).toHaveLength(3)
 
     await rowOf('offline.pdf').getByRole('button', { name: 'Retry' }).click()

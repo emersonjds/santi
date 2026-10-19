@@ -84,7 +84,7 @@ export const AttachmentLightbox = ({
             </>
           )}
           <a
-            href={urlOf(image)}
+            href={`${urlOf(image)}?download=1`}
             download={image.file_name}
             className={buttonVariants({
               variant: 'outline',

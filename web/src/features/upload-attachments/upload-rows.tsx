@@ -1,6 +1,6 @@
 import { fileSize } from '@/entities/attachment/attachments'
 import { Button } from '@/shared/ui/button'
-import type { UploadQueue } from './upload-queue'
+import { type UploadQueue, refusalOf } from './upload-queue'
 
 /** SAN-158 "Uploading" and "Failed": one row per file, with its progress or its reason. */
 export const UploadRows = ({ queue }: { queue: UploadQueue }) =>
@@ -17,13 +17,15 @@ export const UploadRows = ({ queue }: { queue: UploadQueue }) =>
             </span>
             {upload.error ? (
               <span className='flex'>
-                <Button
-                  variant='ghost'
-                  className='h-11 md:h-8'
-                  onClick={() => queue.retry(upload)}
-                >
-                  Retry
-                </Button>
+                {!refusalOf(upload.file) && (
+                  <Button
+                    variant='ghost'
+                    className='h-11 md:h-8'
+                    onClick={() => queue.retry(upload)}
+                  >
+                    Retry
+                  </Button>
+                )}
                 <Button
                   variant='ghost'
                   className='h-11 md:h-8'

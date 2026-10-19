@@ -55,7 +55,7 @@ const FileActions = ({
 }: FileActionsProps) => (
   <span className='flex shrink-0 items-center'>
     <a
-      href={url}
+      href={`${url}?download=1`}
       download={attachment.file_name}
       aria-label={`Download ${attachment.file_name}`}
       className={buttonVariants({
