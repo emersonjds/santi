@@ -413,7 +413,7 @@ describe('create issue', () => {
     await expect
       .element(row)
       .toHaveTextContent('Upload failed. Check your connection.')
-    await row.getByRole('button', { name: 'Retry' }).click()
+    await row.getByRole('button', { name: 'Retry trace.pdf' }).click()
     await expect.poll(() => sent.length).toBe(3)
   })
 

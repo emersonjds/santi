@@ -212,7 +212,7 @@ describe('files on comments', () => {
     await expect
       .element(comment)
       .toHaveTextContent('Upload failed. Check your connection.')
-    await comment.getByRole('button', { name: 'Retry' }).click()
+    await comment.getByRole('button', { name: 'Retry report.pdf' }).click()
 
     await expect.poll(() => sent.length).toBe(2)
     expect(
@@ -337,7 +337,7 @@ describe('files on comments', () => {
     await write(screen, 'x')
 
     const box = commentsOf(screen)
-      .getByRole('button', { name: 'Attach files' })
+      .getByRole('button', { name: 'Attach files to the comment' })
       .element()
       .getBoundingClientRect()
     expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44)

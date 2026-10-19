@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
+import { projectQuery } from '@/entities/project/project-queries'
 import type { Attachment } from '@/shared/api/client'
 import { fakeXhr } from '@/test/fake-xhr'
 import { renderApp } from '@/test/render-app'
@@ -8,6 +9,9 @@ import { WEB, inProjects, problem, routeOf } from '@/test/stub-api'
 
 const LIST = 'GET /api/projects/WEB/issues/1/attachments'
 const NOTE = 'archived-note'
+const ARCHIVED = {
+  'GET /api/projects/WEB': { status: 200, body: { ...WEB, state: 'archived' } },
+}
 const ago = (hours: number) =>
   new Date(Date.now() - hours * 3_600_000).toISOString()
 
@@ -305,6 +309,44 @@ describe('issue attachments', () => {
       .not.toHaveAttribute('aria-disabled')
   })
 
+  it('keeps the list Retry live in an archived project', async () => {
+    const requests = inProjects({
+      [LIST]: { status: 500, body: problem(500, 'Down.') },
+      ...ARCHIVED,
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const lists = () =>
+      requests.filter((request) => routeOf(request) === LIST).length
+    const retry = sectionOf(screen).getByRole('button', { name: 'Retry' })
+    await expect.element(retry).toBeVisible()
+    await expect.element(retry).not.toHaveAttribute('aria-disabled')
+    const before = lists()
+    await retry.click()
+    await expect.poll(lists).toBe(before + 1)
+  })
+
+  it('keeps the viewer steps live in an archived project', async () => {
+    withFiles(ALL, ARCHIVED)
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    await sectionOf(screen)
+      .getByRole('button', { name: 'shot.png', exact: true })
+      .click()
+    const next = screen.getByRole('button', { name: 'Next image' })
+    await expect.element(next).not.toHaveAttribute('aria-disabled')
+    await next.click()
+    await expect
+      .element(screen.getByRole('dialog', { name: 'diagram.webp' }))
+      .toBeVisible()
+    const previous = screen.getByRole('button', { name: 'Previous image' })
+    await expect.element(previous).not.toHaveAttribute('aria-disabled')
+    await previous.click()
+    await expect
+      .element(screen.getByRole('dialog', { name: 'shot.png' }))
+      .toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('shows tiles two per row at 375 with 44px controls and no sideways scroll', async () => {
     await page.viewport(375, 800)
     withFiles(ALL)
@@ -431,7 +473,7 @@ describe('uploading attachments', () => {
 
     drag('drop', filesOf(pdf('report.pdf')))
     const row = section.getByRole('listitem').filter({ hasText: 'report.pdf' })
-    await row.getByRole('button', { name: 'Cancel' }).click()
+    await row.getByRole('button', { name: 'Cancel report.pdf' }).click()
 
     await expect.element(row).not.toBeInTheDocument()
     expect(sent[0].aborted).toBe(true)
@@ -481,20 +523,24 @@ describe('uploading attachments', () => {
     const refusedBeforeSending = ['big.zip', 'logo.svg']
     for (const [name, reason] of Object.entries(reasons)) {
       await expect.element(rowOf(name)).toHaveTextContent(reason)
-      const retry = rowOf(name).getByRole('button', { name: 'Retry' })
+      const retry = rowOf(name).getByRole('button', { name: `Retry ${name}` })
       if (refusedBeforeSending.includes(name))
         await expect.element(retry).not.toBeInTheDocument()
       else await expect.element(retry).toBeVisible()
       await expect
-        .element(rowOf(name).getByRole('button', { name: 'Remove' }))
+        .element(rowOf(name).getByRole('button', { name: `Remove ${name}` }))
         .toBeVisible()
     }
 
-    await rowOf('big.zip').getByRole('button', { name: 'Remove' }).click()
+    await rowOf('big.zip')
+      .getByRole('button', { name: 'Remove big.zip' })
+      .click()
     await expect.element(rowOf('big.zip')).not.toBeInTheDocument()
     expect(sent).toHaveLength(3)
 
-    await rowOf('offline.pdf').getByRole('button', { name: 'Retry' }).click()
+    await rowOf('offline.pdf')
+      .getByRole('button', { name: 'Retry offline.pdf' })
+      .click()
     await expect.poll(() => sent.length).toBe(4)
     await expect
       .element(rowOf('offline.pdf').getByRole('progressbar'))
@@ -572,5 +618,36 @@ describe('uploading attachments', () => {
       .element(screen.getByText('Drop files to attach'))
       .not.toBeInTheDocument()
     expect(sent).toHaveLength(0)
+  })
+
+  it('still cancels and removes uploads once the project is archived, and locks Retry', async () => {
+    withFiles([])
+    const sent = fakeXhr()
+    const { screen, queryClient } = await renderApp('/p/WEB/issues/1')
+    const section = sectionOf(screen)
+    await expect.element(screen.getByLabelText('Summary')).toBeVisible()
+    drag('drop', filesOf(pdf('slow.pdf'), pdf('lost.pdf')))
+    await expect.poll(() => sent.length).toBe(2)
+    sent[1].fail()
+    queryClient.setQueryData(projectQuery('WEB').queryKey, {
+      ...WEB,
+      state: 'archived',
+    })
+    await expect
+      .element(screen.getByText('This project is archived and read-only.'))
+      .toBeVisible()
+
+    await expect
+      .element(section.getByRole('button', { name: 'Retry lost.pdf' }))
+      .toHaveAttribute('aria-disabled', 'true')
+    const remove = section.getByRole('button', { name: 'Remove lost.pdf' })
+    await expect.element(remove).not.toHaveAttribute('aria-disabled')
+    await remove.click()
+    await expect.element(section.getByText('lost.pdf')).not.toBeInTheDocument()
+    const cancel = section.getByRole('button', { name: 'Cancel slow.pdf' })
+    await expect.element(cancel).not.toHaveAttribute('aria-disabled')
+    await cancel.click()
+    await expect.element(section.getByText('slow.pdf')).not.toBeInTheDocument()
+    expect(sent[0].aborted).toBe(true)
   })
 })

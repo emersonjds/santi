@@ -9,6 +9,7 @@ import { mayDelete } from '@/entities/issue/may-delete'
 import { projectQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Attachment } from '@/shared/api/client'
+import { ReadOnly } from '@/shared/lib/read-only'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import { AttachmentList } from './attachment-list'
 
@@ -53,10 +54,12 @@ export const IssueAttachments = ({
         </AttachButton>
       </div>
       {list.error && (
-        <LoadFailed
-          message="Couldn't load the attachments."
-          onRetry={() => void list.refetch()}
-        />
+        <ReadOnly value={undefined}>
+          <LoadFailed
+            message="Couldn't load the attachments."
+            onRetry={() => void list.refetch()}
+          />
+        </ReadOnly>
       )}
       <UploadRows queue={uploads} />
       {list.data?.length === 0 && uploads.uploads.length === 0 && (

@@ -201,7 +201,7 @@ const Composer = ({
               <AttachButton
                 size='icon'
                 className='ms-auto size-11 md:size-8'
-                aria-label='Attach files'
+                aria-label='Attach files to the comment'
                 onFiles={attach}
               >
                 <Paperclip />
