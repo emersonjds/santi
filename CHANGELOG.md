@@ -10,6 +10,29 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-10-19
+
+> See every live invite link, who joined with it, and stop a leaked one.
+
+### Added
+
+- **Invite links on the Members page (admins):** each live link shows its role, spots used,
+  when it expires, who made it and who joined with it. Revoke ends a link at once (it then reads
+  as expired); people who already joined stay in the project.
+- **CLI:** `santi invites <KEY>` and `santi invites revoke <KEY> <id> [--yes]` (asks first).
+- **MCP:** `list_invites` and `revoke_invite`.
+- **API:** `GET /api/projects/{key}/invites` and `DELETE /api/projects/{key}/invites/{id}`
+  (admins; another project's or an ended invite is 404).
+
+### Fixed
+
+- **Invites:** an accept that started just before a revoke can no longer use the revoked link.
+
+### Upgrade notes
+
+- Migration `0025_invite_created_at.sql` adds `invite.created_at` (default `now()`) and fills it
+  for existing invites as their expiry minus 7 days; it runs on startup.
+
 ## [0.19.0] - 2026-10-19
 
 > One invite link for the whole group: up to 50 people join with it, each one recorded.
@@ -607,7 +630,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.19.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.20.0...HEAD
+[0.20.0]: https://github.com/emersonjds/santi/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/emersonjds/santi/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/emersonjds/santi/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/emersonjds/santi/compare/v0.17.0...v0.17.1
