@@ -96,6 +96,19 @@ pub struct DeleteAccount {
     pub password: String,
 }
 
+/// The account a live reset link belongs to.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct PasswordResetPreview {
+    pub email: String,
+    pub expires_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResetPassword {
+    pub password: String,
+}
+
 /// Everything santi holds about the caller (D45): the account, its API tokens (names only),
 /// every project the caller administers, in full, and the home's stars and history.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
