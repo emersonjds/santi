@@ -875,16 +875,16 @@ fn stdio_attaches_files_only_from_its_working_directory() {
             outside.path().file_name().unwrap().to_str().unwrap()
         );
         let secret = secret.to_str().unwrap();
-        for (path, message) in [
-            (secret, "outside"),
-            (escape.as_str(), "outside"),
-            ("link.txt", "outside"),
-            ("linked/secret.txt", "outside"),
-            (".env", "hidden"),
-            (".git/notes.txt", "hidden"),
-            ("docs", "not a file"),
-            ("missing.txt", "missing.txt"),
-            ("big.txt", "Larger than 25 MB."),
+        let root = work_path.canonicalize().unwrap();
+        for path in [
+            secret,
+            escape.as_str(),
+            "link.txt",
+            "linked/secret.txt",
+            ".env",
+            ".git/notes.txt",
+            "missing.txt",
+            "/etc/no-such-file",
         ] {
             let refused = rejected(
                 &client,
@@ -892,8 +892,19 @@ fn stdio_attaches_files_only_from_its_working_directory() {
                 json!({ "issue": "ATF-1", "path": path }),
             )
             .await;
+            assert_eq!(
+                refused,
+                format!("`{path}` is not a readable file under {}", root.display())
+            );
+        }
+        for (path, message) in [("docs", "not a file"), ("big.txt", "Larger than 25 MB.")] {
+            let refused = rejected(
+                &client,
+                "add_attachment",
+                json!({ "issue": "ATF-1", "path": path }),
+            )
+            .await;
             assert!(refused.contains(message), "{path}: {refused}");
-            assert!(!refused.contains("secret\n"), "{refused}");
         }
 
         let listed = ok(&client, "list_attachments", json!({ "issue": "ATF-1" })).await;
@@ -917,7 +928,7 @@ fn stdio_attaches_files_only_from_its_working_directory() {
             json!({ "issue": "ATF-1", "path": work_path.join("notes.txt") }),
         )
         .await;
-        assert!(refused.contains("outside"), "{refused}");
+        assert!(refused.contains("is not a readable file under"), "{refused}");
         rooted.cancel().await.unwrap();
 
         let everywhere = ().serve(spawn("/".as_ref(), None)).await.unwrap();
@@ -929,5 +940,75 @@ fn stdio_attaches_files_only_from_its_working_directory() {
         .await;
         assert!(refused.contains("SANTI_MCP_ATTACH_DIR"), "{refused}");
         everywhere.cancel().await.unwrap();
+
+        for home in [work_path.to_path_buf(), work_path.join("docs")] {
+            let mut command = santi(&config);
+            command
+                .env("SANTI_TOKEN", &token)
+                .env("HOME", &home)
+                .env_remove("SANTI_MCP_ATTACH_DIR")
+                .current_dir(work_path);
+            let at_home = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+            let refused = rejected(
+                &at_home,
+                "add_attachment",
+                json!({ "issue": "ATF-1", "path": "notes.txt" }),
+            )
+            .await;
+            assert!(refused.contains("home folder"), "{refused}");
+            assert!(refused.contains("SANTI_MCP_ATTACH_DIR"), "{refused}");
+            at_home.cancel().await.unwrap();
+        }
+        let mut command = santi(&config);
+        command
+            .env("SANTI_TOKEN", &token)
+            .env("HOME", work_path)
+            .env("SANTI_MCP_ATTACH_DIR", work_path)
+            .current_dir(work_path);
+        let chosen = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        ok(
+            &chosen,
+            "add_attachment",
+            json!({ "issue": "ATF-1", "path": "notes.txt" }),
+        )
+        .await;
+        chosen.cancel().await.unwrap();
+    });
+}
+
+#[test]
+fn stdio_get_issue_answers_without_attachments_when_only_they_fail() {
+    let token = server().user();
+    server().project(&token, "AGI", "kanban");
+    server().post(
+        &token,
+        "/api/projects/AGI/issues",
+        json!({ "summary": "Files down" }),
+    );
+    let issue = server().get(&token, "/api/projects/AGI/issues/1");
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let router = axum::Router::new()
+            .route(
+                "/api/projects/AGI/issues/1",
+                axum::routing::get(move || async move { axum::Json(issue) }),
+            )
+            .route(
+                "/api/projects/AGI/issues/{number}/attachments",
+                axum::routing::get(|| async { axum::http::StatusCode::INTERNAL_SERVER_ERROR }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        tokio::spawn(async { axum::serve(listener, router).await });
+        let mut command = santi(&config);
+        command.env("SANTI_TOKEN", &token).env("SANTI_URL", &url);
+        let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+
+        let answer = ok(&client, "get_issue", json!({ "issue": "AGI-1" })).await;
+        assert_eq!(answer["key"], "AGI-1");
+        assert_eq!(answer["attachments"], json!([]));
+        let refused = rejected(&client, "get_issue", json!({ "issue": "AGI-2" })).await;
+        assert!(refused.contains("404"), "{refused}");
+        client.cancel().await.unwrap();
     });
 }
