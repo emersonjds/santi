@@ -443,10 +443,26 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["list_invites"];
         put?: never;
         post: operations["create_invite"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/invites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revoke_invite"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1225,6 +1241,31 @@ export interface components {
             /** Format: int32 */
             max_uses: number;
             token: string;
+        };
+        /** @description A live invite link as its project's admins see it; never carries the token. */
+        InviteInfo: {
+            /** Format: date-time */
+            created_at: string;
+            created_by_name: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: int64 */
+            id: number;
+            /** @description Who joined with the link, first to join first. */
+            joined: components["schemas"]["InviteJoiner"][];
+            /** Format: int32 */
+            max_uses: number;
+            role: components["schemas"]["MemberRole"];
+            /** Format: int32 */
+            uses: number;
+        };
+        InviteJoiner: {
+            email: string;
+            /** Format: date-time */
+            joined_at: string;
+            name: string;
+            /** Format: int64 */
+            user_id: number;
         };
         /** @description What an invite link offers, shown before accepting it. */
         InvitePreview: {
@@ -3511,6 +3552,53 @@ export interface operations {
             };
         };
     };
+    list_invites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live invites (not full, not expired), newest first; admins only */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteInfo"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     create_invite: {
         parameters: {
             query?: never;
@@ -3554,6 +3642,63 @@ export interface operations {
             };
             /** @description `max_uses` outside 1 to 50 */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    revoke_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Invite id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked: the link answers `invite-expired`; who joined with it stays */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No live invite with this id in the project */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived` */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
