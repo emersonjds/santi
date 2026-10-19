@@ -8,6 +8,9 @@ export const useReadOnly = () => use(ReadOnly)
 const describedBy = (note: string, own: string | undefined) =>
   own ? `${own} ${note}` : note
 
+/** The look of a control `lockedButton` locks. */
+export const LOCKED = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-50'
+
 /** A button that stays in place and in the tab order, does nothing, and points at the reason. */
 export const lockedButton = (note: string | undefined, own?: string) =>
   note

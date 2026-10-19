@@ -326,7 +326,9 @@ pub async fn insert_comment(
              INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($2, $1, now())
              ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now())
          SELECT created.id AS "id!", created.author_id AS "author_id!", author.display_name AS author_name,
-                created.body AS "body!", created.created_at AS "created_at!"
+                created.body AS "body!", created.created_at AS "created_at!",
+                NULL::timestamptz AS "edited_at?", NULL::bigint AS "edited_by_id?",
+                NULL::text AS "edited_by_name?"
          FROM created JOIN app_user author ON author.id = created.author_id"#,
         issue_id,
         author_id,
@@ -334,6 +336,78 @@ pub async fn insert_comment(
     )
     .fetch_one(&mut *conn)
     .await
+}
+
+pub async fn find_comment(
+    conn: &mut PgConnection,
+    issue_id: i64,
+    comment_id: i64,
+) -> Result<Option<Comment>, sqlx::Error> {
+    sqlx::query_as!(
+        Comment,
+        r#"SELECT c.id, c.author_id, author.display_name AS author_name, c.body, c.created_at,
+                  c.edited_at, c.edited_by AS edited_by_id, editor.display_name AS "edited_by_name?"
+         FROM issue_comment c JOIN app_user author ON author.id = c.author_id
+         LEFT JOIN app_user editor ON editor.id = c.edited_by
+         WHERE c.issue_id = $1 AND c.id = $2"#,
+        issue_id,
+        comment_id
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// `None` when the comment is gone.
+pub async fn update_comment(
+    conn: &mut PgConnection,
+    issue_id: i64,
+    comment_id: i64,
+    editor_id: i64,
+    body: &str,
+) -> Result<Option<Comment>, sqlx::Error> {
+    sqlx::query_as!(
+        Comment,
+        r#"WITH edited AS (
+             UPDATE issue_comment SET body = $4, edited_at = now(), edited_by = $3
+             WHERE issue_id = $1 AND id = $2
+             RETURNING id, issue_id, author_id, body, created_at, edited_at, edited_by),
+           touched AS (
+             UPDATE issue SET updated_at = now() WHERE id IN (SELECT issue_id FROM edited)),
+           worked AS (
+             INSERT INTO issue_activity (user_id, issue_id, worked_at)
+             SELECT $3, issue_id, now() FROM edited
+             ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now())
+         SELECT edited.id AS "id!", edited.author_id AS "author_id!", author.display_name AS author_name,
+                edited.body AS "body!", edited.created_at AS "created_at!",
+                edited.edited_at AS "edited_at?", edited.edited_by AS "edited_by_id?",
+                editor.display_name AS "edited_by_name?"
+         FROM edited JOIN app_user author ON author.id = edited.author_id
+         LEFT JOIN app_user editor ON editor.id = edited.edited_by"#,
+        issue_id,
+        comment_id,
+        editor_id,
+        body
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// `false` when the comment is gone.
+pub async fn delete_comment(
+    conn: &mut PgConnection,
+    issue_id: i64,
+    comment_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let touched = sqlx::query!(
+        "WITH deleted AS (
+           DELETE FROM issue_comment WHERE issue_id = $1 AND id = $2 RETURNING issue_id)
+         UPDATE issue SET updated_at = now() WHERE id IN (SELECT issue_id FROM deleted)",
+        issue_id,
+        comment_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(touched.rows_affected() == 1)
 }
 
 pub async fn list_comments(
@@ -344,9 +418,11 @@ pub async fn list_comments(
 ) -> Result<Vec<Comment>, sqlx::Error> {
     sqlx::query_as!(
         Comment,
-        "SELECT c.id, c.author_id, author.display_name AS author_name, c.body, c.created_at
+        r#"SELECT c.id, c.author_id, author.display_name AS author_name, c.body, c.created_at,
+                  c.edited_at, c.edited_by AS edited_by_id, editor.display_name AS "edited_by_name?"
          FROM issue_comment c JOIN app_user author ON author.id = c.author_id
-         WHERE c.issue_id = $1 AND c.id > $2 ORDER BY c.id LIMIT $3",
+         LEFT JOIN app_user editor ON editor.id = c.edited_by
+         WHERE c.issue_id = $1 AND c.id > $2 ORDER BY c.id LIMIT $3"#,
         issue_id,
         after_id,
         limit
@@ -362,7 +438,8 @@ pub async fn list_project_comments(
 ) -> Result<Vec<ExportedComment>, sqlx::Error> {
     sqlx::query_as!(
         ExportedComment,
-        r#"SELECT p.key || '-' || i.number AS "issue_key!", c.author_id, c.body, c.created_at
+        r#"SELECT p.key || '-' || i.number AS "issue_key!", c.author_id, c.body, c.created_at,
+                  c.edited_at, c.edited_by AS edited_by_id
            FROM issue_comment c
            JOIN issue i ON i.id = c.issue_id
            JOIN project p ON p.id = i.project_id

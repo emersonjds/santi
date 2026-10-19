@@ -106,6 +106,23 @@ impl Server {
         });
     }
 
+    /// Adds the user behind `member` to project `key` as a plain member.
+    pub fn member(&self, admin: &str, key: &str, member: &str) {
+        let email = self.get(member, "/api/me")["email"].clone();
+        let body = json!({ "email": email, "role": "member" });
+        self.block_on(async {
+            let status = reqwest::Client::new()
+                .post(format!("{}/api/projects/{key}/members", self.url))
+                .bearer_auth(admin)
+                .json(&body)
+                .send()
+                .await
+                .unwrap()
+                .status();
+            assert!(status.is_success(), "{status}");
+        });
+    }
+
     pub fn get(&self, token: &str, path: &str) -> Value {
         self.block_on(async {
             reqwest::Client::new()

@@ -1,0 +1,115 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH edited AS (\n             UPDATE issue_comment SET body = $4, edited_at = now(), edited_by = $3\n             WHERE issue_id = $1 AND id = $2\n             RETURNING id, issue_id, author_id, body, created_at, edited_at, edited_by),\n           touched AS (\n             UPDATE issue SET updated_at = now() WHERE id IN (SELECT issue_id FROM edited)),\n           worked AS (\n             INSERT INTO issue_activity (user_id, issue_id, worked_at)\n             SELECT $3, issue_id, now() FROM edited\n             ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now())\n         SELECT edited.id AS \"id!\", edited.author_id AS \"author_id!\", author.display_name AS author_name,\n                edited.body AS \"body!\", edited.created_at AS \"created_at!\",\n                edited.edited_at AS \"edited_at?\", edited.edited_by AS \"edited_by_id?\",\n                editor.display_name AS \"edited_by_name?\"\n         FROM edited JOIN app_user author ON author.id = edited.author_id\n         LEFT JOIN app_user editor ON editor.id = edited.edited_by",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "author_id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "author_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "author_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "body!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "body"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "created_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "edited_at?",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "edited_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "edited_by_id?",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "edited_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "edited_by_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "9b1f032f590e79d804fa36442a1a30734d66e2416c55fb843061eea48f775e8c"
+}
