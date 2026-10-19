@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { attachmentsQuery } from '@/entities/attachment/attachments'
 import {
   type Backlog,
   type BoardSettings,
@@ -395,6 +396,10 @@ export const useDeleteComment = (projectKey: string, number: number) => {
         description: error.message,
       })
     },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: attachmentsQuery(projectKey, number).queryKey,
+      }),
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   })
 }

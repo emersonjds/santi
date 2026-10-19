@@ -2,10 +2,14 @@ import { type ReactNode, useState } from 'react'
 import { z } from 'zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Paperclip } from 'lucide-react'
 import { LabelsPicker } from '@/features/edit-labels/labels-picker'
+import { AttachButton } from '@/features/upload-attachments/attach-button'
+import { DropZone } from '@/features/upload-attachments/drop-zone'
+import { PendingFiles } from '@/features/upload-attachments/pending-files'
+import { enqueueUploads } from '@/features/upload-attachments/upload-queue'
 import { epicsQuery, parentsQuery } from '@/entities/issue/board-query'
 import { useCreateIssue } from '@/entities/issue/issue-mutations'
 import { PRIORITY_LABEL, TYPE_LABEL } from '@/entities/issue/labels'
@@ -198,7 +202,13 @@ export const CreateIssueDialog = ({
   onClose,
 }: CreateIssueDialogProps) => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [another, setAnother] = useState(false)
+  const [files, setFiles] = useState<File[]>([])
+  const attach = (picked: Iterable<File>) => {
+    const added = [...picked]
+    setFiles((list) => [...list, ...added])
+  }
   const form = useForm<NewIssue>({
     resolver: zodResolver(schema),
     defaultValues: blank(projectKey),
@@ -219,6 +229,12 @@ export const CreateIssueDialog = ({
   const submit = async (values: NewIssue) => {
     try {
       const created = await create.mutateAsync(toBody(values))
+      enqueueUploads(
+        queryClient,
+        { projectKey: values.project, number: created.number },
+        files
+      )
+      setFiles([])
       toast.success(`${created.key} created`, {
         action: {
           label: 'Open',
@@ -257,100 +273,50 @@ export const CreateIssueDialog = ({
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(submit)}
-            className='grid gap-4'
-            noValidate
-          >
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <SelectField
-                form={form}
-                name='project'
-                label='Project'
-                onPick={(key) =>
-                  form.reset({
-                    ...form.getValues(),
-                    project: key,
-                    assignee_id: '',
-                    sprint_id: '',
-                    parent: '',
-                  })
-                }
-                options={projects.map((each) => ({
-                  value: each.key,
-                  label: each.name,
-                }))}
-              />
-              <SelectField
-                form={form}
-                name='issue_type'
-                label='Type'
-                onPick={() => form.setValue('parent', '')}
-                options={entries(TYPE_LABEL)}
-              />
-            </div>
-            <FormField
-              control={form.control}
-              name='summary'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Summary</FormLabel>
-                  <FormControl>
-                    <Input
-                      autoFocus
-                      autoComplete='off'
-                      maxLength={255}
-                      className='h-11 md:h-9'
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='description'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea className='min-h-24' {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <SelectField
-                form={form}
-                name='assignee_id'
-                label='Assignee'
-                options={members.map((member) => ({
-                  value: member.user_id,
-                  label: member.display_name,
-                }))}
-              >
-                <option value=''>Unassigned</option>
-              </SelectField>
-              <SelectField
-                form={form}
-                name='priority'
-                label='Priority'
-                options={entries(PRIORITY_LABEL)}
-              />
+          <DropZone onFiles={attach} disabled={false}>
+            <form
+              onSubmit={form.handleSubmit(submit)}
+              className='grid gap-4'
+              noValidate
+            >
+              <div className='grid gap-4 sm:grid-cols-2'>
+                <SelectField
+                  form={form}
+                  name='project'
+                  label='Project'
+                  onPick={(key) =>
+                    form.reset({
+                      ...form.getValues(),
+                      project: key,
+                      assignee_id: '',
+                      sprint_id: '',
+                      parent: '',
+                    })
+                  }
+                  options={projects.map((each) => ({
+                    value: each.key,
+                    label: each.name,
+                  }))}
+                />
+                <SelectField
+                  form={form}
+                  name='issue_type'
+                  label='Type'
+                  onPick={() => form.setValue('parent', '')}
+                  options={entries(TYPE_LABEL)}
+                />
+              </div>
               <FormField
                 control={form.control}
-                name='points'
+                name='summary'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Points</FormLabel>
+                    <FormLabel>Summary</FormLabel>
                     <FormControl>
                       <Input
-                        type='number'
-                        min={0}
-                        step='any'
-                        inputMode='decimal'
+                        autoFocus
+                        autoComplete='off'
+                        maxLength={255}
                         className='h-11 md:h-9'
                         {...field}
                       />
@@ -359,71 +325,135 @@ export const CreateIssueDialog = ({
                   </FormItem>
                 )}
               />
-              {scrum && (
+              <FormField
+                control={form.control}
+                name='description'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea className='min-h-24' {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className='grid gap-4 sm:grid-cols-2'>
                 <SelectField
                   form={form}
-                  name='sprint_id'
-                  label='Sprint'
-                  options={sprints
-                    .filter((sprint) => sprint.state !== 'closed')
-                    .map((sprint) => ({
-                      value: sprint.id,
-                      label: sprint.name,
-                    }))}
+                  name='assignee_id'
+                  label='Assignee'
+                  options={members.map((member) => ({
+                    value: member.user_id,
+                    label: member.display_name,
+                  }))}
                 >
-                  <option value=''>Backlog</option>
+                  <option value=''>Unassigned</option>
                 </SelectField>
-              )}
-              {issueType !== 'epic' && (
-                <ParentField
+                <SelectField
                   form={form}
-                  project={project}
-                  subtask={issueType === 'subtask'}
+                  name='priority'
+                  label='Priority'
+                  options={entries(PRIORITY_LABEL)}
                 />
-              )}
-            </div>
-            <FormField
-              control={form.control}
-              name='labels'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Labels</FormLabel>
-                  <FormControl>
-                    <LabelsPicker
-                      projectKey={project}
-                      value={field.value}
-                      onChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <RootError message={form.formState.errors.root?.message} />
-            <div className='flex flex-wrap items-center gap-3'>
-              <Label className='me-auto min-h-11 gap-2 md:min-h-0'>
-                <Switch checked={another} onCheckedChange={setAnother} />
-                Create another
-              </Label>
-              <Button
-                type='button'
-                variant='ghost'
-                className='h-11 md:h-9'
-                onClick={onClose}
-              >
-                Cancel
-              </Button>
-              <Button
-                className='h-11 md:h-9'
-                disabled={form.formState.isSubmitting}
-              >
-                {form.formState.isSubmitting && (
-                  <Loader2 className='animate-spin' />
+                <FormField
+                  control={form.control}
+                  name='points'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Points</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          min={0}
+                          step='any'
+                          inputMode='decimal'
+                          className='h-11 md:h-9'
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {scrum && (
+                  <SelectField
+                    form={form}
+                    name='sprint_id'
+                    label='Sprint'
+                    options={sprints
+                      .filter((sprint) => sprint.state !== 'closed')
+                      .map((sprint) => ({
+                        value: sprint.id,
+                        label: sprint.name,
+                      }))}
+                  >
+                    <option value=''>Backlog</option>
+                  </SelectField>
                 )}
-                Create
-              </Button>
-            </div>
-          </form>
+                {issueType !== 'epic' && (
+                  <ParentField
+                    form={form}
+                    project={project}
+                    subtask={issueType === 'subtask'}
+                  />
+                )}
+              </div>
+              <FormField
+                control={form.control}
+                name='labels'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Labels</FormLabel>
+                    <FormControl>
+                      <LabelsPicker
+                        projectKey={project}
+                        value={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className='grid justify-items-start gap-2'>
+                <AttachButton className='h-11 md:h-9' onFiles={attach}>
+                  <Paperclip />
+                  Attach files
+                </AttachButton>
+                <PendingFiles
+                  files={files}
+                  onRemove={(index) =>
+                    setFiles((list) => list.filter((_, at) => at !== index))
+                  }
+                />
+              </div>
+              <RootError message={form.formState.errors.root?.message} />
+              <div className='flex flex-wrap items-center gap-3'>
+                <Label className='me-auto min-h-11 gap-2 md:min-h-0'>
+                  <Switch checked={another} onCheckedChange={setAnother} />
+                  Create another
+                </Label>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  className='h-11 md:h-9'
+                  onClick={onClose}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className='h-11 md:h-9'
+                  disabled={form.formState.isSubmitting}
+                >
+                  {form.formState.isSubmitting && (
+                    <Loader2 className='animate-spin' />
+                  )}
+                  Create
+                </Button>
+              </div>
+            </form>
+          </DropZone>
         </Form>
       </DialogContent>
     </Dialog>

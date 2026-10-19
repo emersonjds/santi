@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useSyncExternalStore } from 'react'
+import { type QueryClient, useQueryClient } from '@tanstack/react-query'
 import { attachmentsQuery } from '@/entities/attachment/attachments'
 import { uploadAttachment } from '@/entities/attachment/upload-attachment'
 import { ApiError, fieldMessage } from '@/shared/api/client'
@@ -42,9 +42,15 @@ const reasonOf = (error: unknown) =>
     ? fieldMessage(error)
     : 'Upload failed. Check your connection.'
 
-export type Upload = {
-  id: number
+type Target = {
+  projectKey: string
   number: number
+  /** A comment of the issue the file belongs to (SAN-175). */
+  commentId?: number
+}
+
+export type Upload = Target & {
+  id: number
   file: File
   /** From 0 to 1. */
   progress: number
@@ -52,76 +58,96 @@ export type Upload = {
   cancel?: () => void
 }
 
+// ponytail: one store per tab, kept across sign-out; key it by QueryClient if that ever matters.
+let uploads: Upload[] = []
 let lastId = 0
+const listeners = new Set<() => void>()
 
-/** Files on their way to an issue, one request each; a finished one leaves the queue for the list. */
+const set = (change: (list: Upload[]) => Upload[]) => {
+  uploads = change(uploads)
+  listeners.forEach((listener) => listener())
+}
+const subscribe = (listener: () => void) => {
+  listeners.add(listener)
+  return () => void listeners.delete(listener)
+}
+const update = (id: number, change: Partial<Upload>) =>
+  set((list) =>
+    list.map((upload) => (upload.id === id ? { ...upload, ...change } : upload))
+  )
+const remove = ({ id }: Pick<Upload, 'id'>) =>
+  set((list) => list.filter((upload) => upload.id !== id))
+
+const start = (queryClient: QueryClient, upload: Upload) => {
+  const { id, projectKey, number, commentId, file } = upload
+  const refusal = refusalOf(file)
+  if (refusal) return update(id, { error: refusal, progress: 0 })
+  const controller = new AbortController()
+  update(id, {
+    error: undefined,
+    progress: 0,
+    cancel: () => controller.abort(),
+  })
+  uploadAttachment({
+    projectKey,
+    number,
+    file,
+    commentId,
+    signal: controller.signal,
+    onProgress: (progress) => update(id, { progress }),
+  }).then(
+    () => {
+      remove({ id })
+      void queryClient.invalidateQueries({
+        queryKey: attachmentsQuery(projectKey, number).queryKey,
+      })
+    },
+    (error: unknown) => {
+      if (!controller.signal.aborted)
+        update(id, { error: reasonOf(error), cancel: undefined })
+    }
+  )
+}
+
+/** Sends each file to the issue, or to one of its comments, one request each. */
+export const enqueueUploads = (
+  queryClient: QueryClient,
+  target: Target,
+  files: Iterable<File>
+) => {
+  const added = [...files].map((file) => ({
+    ...target,
+    id: ++lastId,
+    file,
+    progress: 0,
+  }))
+  set((list) => [...list, ...added])
+  added.forEach((upload) => start(queryClient, upload))
+}
+
+const cancel = (upload: Upload) => {
+  upload.cancel?.()
+  remove(upload)
+}
+
+/** The files on their way to an issue, or to one of its comments; a finished one leaves for the list. */
 export const useUploadQueue = (
   projectKey: string,
   number: number,
   commentId?: number
 ) => {
   const queryClient = useQueryClient()
-  const [uploads, setUploads] = useState<Upload[]>([])
-
-  const update = (id: number, change: Partial<Upload>) =>
-    setUploads((list) =>
-      list.map((upload) =>
-        upload.id === id ? { ...upload, ...change } : upload
-      )
-    )
-  const remove = ({ id }: Pick<Upload, 'id'>) =>
-    setUploads((list) => list.filter((upload) => upload.id !== id))
-
-  const start = ({ id, number: target, file }: Upload) => {
-    const refusal = refusalOf(file)
-    if (refusal) return update(id, { error: refusal, progress: 0 })
-    const controller = new AbortController()
-    update(id, {
-      error: undefined,
-      progress: 0,
-      cancel: () => controller.abort(),
-    })
-    uploadAttachment({
-      projectKey,
-      number: target,
-      file,
-      commentId,
-      signal: controller.signal,
-      onProgress: (progress) => update(id, { progress }),
-    }).then(
-      () => {
-        remove({ id })
-        void queryClient.invalidateQueries({
-          queryKey: attachmentsQuery(projectKey, target).queryKey,
-        })
-      },
-      (error: unknown) => {
-        if (!controller.signal.aborted)
-          update(id, { error: reasonOf(error), cancel: undefined })
-      }
-    )
-  }
-
-  const add = (files: Iterable<File>) => {
-    const added = [...files].map((file) => ({
-      id: ++lastId,
-      number,
-      file,
-      progress: 0,
-    }))
-    setUploads((list) => [...list, ...added])
-    added.forEach(start)
-  }
-
-  const cancel = (upload: Upload) => {
-    upload.cancel?.()
-    remove(upload)
-  }
-
+  const all = useSyncExternalStore(subscribe, () => uploads)
   return {
-    uploads: uploads.filter((upload) => upload.number === number),
-    add,
-    retry: start,
+    uploads: all.filter(
+      (upload) =>
+        upload.projectKey === projectKey &&
+        upload.number === number &&
+        upload.commentId === commentId
+    ),
+    add: (files: Iterable<File>) =>
+      enqueueUploads(queryClient, { projectKey, number, commentId }, files),
+    retry: (upload: Upload) => start(queryClient, upload),
     cancel,
     remove,
   }
