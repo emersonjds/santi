@@ -5396,7 +5396,9 @@
               "null"
             ],
             "format": "int32",
-            "description": "How many people may join with the link, 1 to 50; 1 when absent."
+            "description": "How many people may join with the link, 1 to 50; 1 when absent. More than 1 only for members.",
+            "maximum": 50,
+            "minimum": 1
           },
           "role": {
             "$ref": "#/components/schemas/MemberRole"

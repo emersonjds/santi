@@ -28,3 +28,10 @@ fn every_operation_with_a_body_documents_its_422() {
     }
     assert!(undocumented.is_empty(), "{undocumented:?}");
 }
+
+#[test]
+fn invite_spots_document_their_range() {
+    let spec = serde_json::to_value(santi_server::openapi()).unwrap();
+    let max_uses = &spec["components"]["schemas"]["CreateInvite"]["properties"]["max_uses"];
+    assert_eq!((&max_uses["minimum"], &max_uses["maximum"]), (&1.into(), &50.into()), "{max_uses}");
+}
