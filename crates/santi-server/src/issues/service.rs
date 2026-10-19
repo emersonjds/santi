@@ -318,18 +318,20 @@ pub async fn delete_comment(
     number: i64,
     comment_id: i64,
 ) -> Result<(), AppError> {
-    let mut conn = pool.acquire().await?;
-    let issue_id = repo::find_id(&mut conn, member.project_id, number)
+    let mut tx = pool.begin().await?;
+    let issue_id = repo::find_deletable_for_update(&mut tx, member.project_id, number) // uploads to the comment wait
         .await?
-        .ok_or(AppError::NotFound)?;
-    let comment = repo::find_comment(&mut conn, issue_id, comment_id)
+        .ok_or(AppError::NotFound)?
+        .id;
+    let comment = repo::find_comment(&mut tx, issue_id, comment_id)
         .await?
         .ok_or(AppError::NotFound)?;
     domain::check_delete(member.role, member.user_id, comment.author_id)?;
-    let keys = attachments::repo::keys_of_comment(&mut conn, comment_id).await?;
-    if !repo::delete_comment(&mut conn, issue_id, comment_id).await? {
+    let keys = attachments::repo::keys_of_comment(&mut tx, comment_id).await?;
+    if !repo::delete_comment(&mut tx, issue_id, comment_id).await? {
         return Err(AppError::NotFound);
     }
+    tx.commit().await?;
     attachments::service::delete_objects(storage, &keys).await;
     Ok(())
 }
