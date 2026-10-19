@@ -12,6 +12,7 @@ pub mod rate_limit;
 pub mod reports;
 pub mod seed;
 pub mod sprints;
+pub mod storage;
 
 use std::path::Path;
 use std::sync::Arc;
@@ -45,15 +46,18 @@ pub struct AppState {
     pub pool: PgPool,
     pub limits: Arc<RateLimits>,
     pub legal: Arc<Legal>,
+    pub storage: storage::Storage,
 }
 
 impl AppState {
-    /// Default limits (D44) and required legal documents without text hashes (D45).
+    /// Default limits (D44), required legal documents without text hashes (D45) and in-memory
+    /// attachment storage (D53).
     pub fn new(pool: PgPool) -> Self {
         AppState {
             pool,
             limits: Arc::default(),
             legal: Arc::default(),
+            storage: storage::Storage::memory(),
         }
     }
 }
@@ -157,7 +161,7 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
     let (router, api) = api().split_for_parts();
     let router = router.merge(SwaggerUi::new("/docs").url("/openapi.json", api));
     let router = match web_dir.filter(|dir| dir.join("index.html").is_file()) {
-        Some(dir) => router.merge(spa(dir, state.legal.required)),
+        Some(dir) => router.merge(spa(dir, state.legal.required, state.storage.image_origin())),
         None => router.fallback(not_found),
     };
     router
@@ -176,12 +180,18 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
 
 /// sonner and Radix's scroll lock add `<style>` tags at runtime: styles need `'unsafe-inline'`.
 /// Swagger UI under `/docs` runs inline scripts, so the policy covers the SPA only.
-const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+/// D53: attachment previews load from the bucket when S3 serves them.
+fn csp(image_origin: Option<&str>) -> String {
+    let images = image_origin.map_or(String::new(), |origin| format!(" {origin}"));
+    format!(
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:{images}; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
+}
 
 /// Hashed `/assets/*` are cached for good; pages are revalidated so a deploy shows at once.
 /// `/` is the landing page without a session cookie and the app with one (D37 amendment);
 /// `/about` is always the landing page; `/privacy` and `/terms` are static pages next to it.
-fn spa(dir: &Path, legal_pages: bool) -> Router<AppState> {
+fn spa(dir: &Path, legal_pages: bool, image_origin: Option<&str>) -> Router<AppState> {
     let assets = ServeDir::new(dir.join("assets"));
     let index = ServeFile::new(dir.join("index.html"));
     let landing = ServeFile::new(dir.join("landing.html"));
@@ -226,7 +236,7 @@ fn spa(dir: &Path, legal_pages: bool) -> Router<AppState> {
     };
     router.layer(SetResponseHeaderLayer::overriding(
         CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(CSP),
+        HeaderValue::try_from(csp(image_origin)).expect("origin checked by storage::Storage::new"),
     ))
 }
 

@@ -34,6 +34,9 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "que
 rmcp = { version = "3.5", features = ["transport-io", "transport-streamable-http-server"] }
 schemars = { version = "1", features = ["chrono04"] }
 toml = "1"
+object_store = { version = "0.14", features = ["aws"] }
+futures-util = { version = "0.3", default-features = false }
+uuid = { version = "1", features = ["v4"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
