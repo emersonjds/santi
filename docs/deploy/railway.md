@@ -11,6 +11,9 @@ santi ships as one Docker image (API + web app) plus PostgreSQL. Railway builds 
    - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (reference to the database service; private network)
    - `PORT` = `8080` (the port the image listens on)
    - optional `SANTI_DB_POOL` = `10` (connection pool size; Railway's smaller plans allow few connections)
+   - attachments: add a Storage Bucket and set `SANTI_S3_BUCKET`, `SANTI_S3_ENDPOINT`, `SANTI_S3_REGION`,
+     `SANTI_S3_ACCESS_KEY_ID`, `SANTI_S3_SECRET_ACCESS_KEY` from its credentials (all five, or the server
+     refuses to start). Without them files go to the container's disk and are lost on every deploy.
    - the privacy policy and terms (`/privacy`, `/terms`, D45) need these build variables; a Railway build fails without the first two:
      `VITE_OPERATOR_NAME` (who runs the instance), `VITE_PRIVACY_EMAIL` (privacy and contact address),
      `VITE_HOSTING_REGION` (the Railway region; defaults to `EU West (Railway europe-west4)`), `VITE_LEGAL_VENUE` (city and state for the venue clause).

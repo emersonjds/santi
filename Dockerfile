@@ -27,7 +27,8 @@ WORKDIR /src
 ENV SQLX_OFFLINE=true CARGO_PROFILE_RELEASE_STRIP=true
 COPY . .
 RUN cargo build --release --locked -p santi-server --bin santi-server \
-    && cp target/release/santi-server /santi-server
+    && cp target/release/santi-server /santi-server \
+    && mkdir -p /data/attachments
 
 # Static busybox gives the distroless image a wget for the healthcheck.
 FROM busybox:1.37-musl AS busybox
@@ -36,7 +37,9 @@ FROM gcr.io/distroless/cc-debian13:nonroot
 COPY --from=busybox /bin/busybox /usr/local/bin/wget
 COPY --from=server /santi-server /usr/local/bin/santi-server
 COPY --from=web /web/dist /srv/santi/web
-ENV SANTI_ADDR=0.0.0.0:8080 SANTI_WEB_DIR=/srv/santi/web
+# Attachments on local disk (D53) when no SANTI_S3_* bucket is set; 65532 is distroless's nonroot.
+COPY --from=server --chown=65532:65532 /data /data
+ENV SANTI_ADDR=0.0.0.0:8080 SANTI_WEB_DIR=/srv/santi/web SANTI_ATTACHMENTS_DIR=/data/attachments
 USER nonroot
 EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=3 \
