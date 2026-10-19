@@ -172,6 +172,6 @@ pub async fn purge_project(
     user: CurrentUser,
     PathParams(key): PathParams<String>,
 ) -> Result<StatusCode, AppError> {
-    service::purge(&state.pool, &user, &key).await?;
+    service::purge(&state.pool, &state.storage, &user, &key).await?;
     Ok(StatusCode::NO_CONTENT)
 }

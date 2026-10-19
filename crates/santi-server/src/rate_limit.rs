@@ -29,6 +29,8 @@ pub enum Action {
     CreateProject,
     /// Opening and using a reset link share one bucket.
     PasswordReset,
+    /// Attachment uploads, per account (D53).
+    Upload,
 }
 
 impl Action {
@@ -43,6 +45,7 @@ impl Action {
             Action::Reauthenticate => (5, 60),
             Action::AcceptLegal => (10, 60),
             Action::CreateProject => (20, 180),
+            Action::Upload => (30, 10),
         };
         (burst, Duration::from_secs(seconds))
     }

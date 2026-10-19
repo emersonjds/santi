@@ -215,6 +215,34 @@ pub enum IssuesCommand {
         #[arg(long)]
         yes: bool,
     },
+    /// Attach files to an issue: at most 10 at once, 25 MB each, 100 per issue
+    Attach {
+        issue: IssueKey,
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+        /// Attach to this comment of the issue (id from `issues comments`)
+        #[arg(long)]
+        comment: Option<i64>,
+    },
+    /// List an issue's files, or download or delete one
+    Attachments {
+        issue: IssueKey,
+        /// Save this attachment; refuses to overwrite a file unless --force
+        #[arg(long, value_name = "ID", conflicts_with = "delete")]
+        download: Option<i64>,
+        /// Where to save it [default: its name in the current directory]; a directory keeps the name
+        #[arg(short, long, value_name = "PATH", requires = "download")]
+        output: Option<PathBuf>,
+        /// Overwrite an existing file
+        #[arg(long, requires = "download")]
+        force: bool,
+        /// Delete this attachment (its uploader or a project admin)
+        #[arg(long, value_name = "ID")]
+        delete: Option<i64>,
+        /// Delete without asking
+        #[arg(long, requires = "delete")]
+        yes: bool,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -515,6 +543,108 @@ mod tests {
             &["santi", "issues", "comment-edit", "WEB-1", "seven", "x"][..],
             &["santi", "issues", "comment-edit", "WEB-1", "7"],
             &["santi", "issues", "comment-delete", "WEB-1"],
+        ] {
+            let error = Cli::try_parse_from(args).unwrap_err();
+            assert_eq!(error.exit_code(), 2, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn attach_takes_files_and_attachments_takes_one_action() {
+        let Command::Issues(IssuesCommand::Attach {
+            issue,
+            files,
+            comment,
+        }) = parse(&[
+            "santi",
+            "issues",
+            "attach",
+            "web-1",
+            "a.txt",
+            "b.md",
+            "--comment",
+            "7",
+        ])
+        else {
+            panic!("not issues attach");
+        };
+        assert_eq!(
+            (issue.to_string(), files, comment),
+            (
+                "WEB-1".into(),
+                vec![PathBuf::from("a.txt"), PathBuf::from("b.md")],
+                Some(7)
+            )
+        );
+        let Command::Issues(IssuesCommand::Attachments {
+            issue,
+            download,
+            output,
+            force,
+            delete,
+            yes,
+        }) = parse(&[
+            "santi",
+            "issues",
+            "attachments",
+            "WEB-1",
+            "--download",
+            "3",
+            "-o",
+            "copy.txt",
+            "--force",
+        ])
+        else {
+            panic!("not issues attachments");
+        };
+        assert_eq!(
+            (issue.to_string(), download, output, force, delete, yes),
+            (
+                "WEB-1".into(),
+                Some(3),
+                Some(PathBuf::from("copy.txt")),
+                true,
+                None,
+                false
+            )
+        );
+        let Command::Issues(IssuesCommand::Attachments { delete, yes, .. }) = parse(&[
+            "santi",
+            "issues",
+            "attachments",
+            "WEB-1",
+            "--delete",
+            "4",
+            "--yes",
+        ]) else {
+            panic!("not issues attachments");
+        };
+        assert_eq!((delete, yes), (Some(4), true));
+        for args in [
+            &["santi", "issues", "attach", "WEB-1"][..],
+            &[
+                "santi",
+                "issues",
+                "attach",
+                "WEB-1",
+                "a.txt",
+                "--comment",
+                "x",
+            ],
+            &[
+                "santi",
+                "issues",
+                "attachments",
+                "WEB-1",
+                "--download",
+                "1",
+                "--delete",
+                "1",
+            ],
+            &["santi", "issues", "attachments", "WEB-1", "-o", "x"],
+            &["santi", "issues", "attachments", "WEB-1", "--force"],
+            &["santi", "issues", "attachments", "WEB-1", "--yes"],
+            &["santi", "issues", "attachments", "WEB-1", "--download", "x"],
         ] {
             let error = Cli::try_parse_from(args).unwrap_err();
             assert_eq!(error.exit_code(), 2, "{args:?}");

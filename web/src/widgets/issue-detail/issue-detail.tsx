@@ -14,6 +14,8 @@ import {
   MarkdownView,
 } from '@/features/rich-text/lazy-markdown-view'
 import { RichTextField } from '@/features/rich-text/rich-text-field'
+import { DropZone } from '@/features/upload-attachments/drop-zone'
+import { useUploadQueue } from '@/features/upload-attachments/upload-queue'
 import { useRecordView } from '@/entities/home/record-visit'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { useEditIssue } from '@/entities/issue/issue-mutations'
@@ -29,6 +31,7 @@ import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { CommitInput } from '@/shared/ui/commit-input'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { IssueAttachments } from './issue-attachments'
 import { IssueComments } from './issue-comments'
 import { IssueFields } from './issue-fields'
 import { IssueSubtasks } from './issue-subtasks'
@@ -246,6 +249,7 @@ export const IssueDetail = ({
   const { data: project } = useQuery(projectQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
   const writable = useProjectWritable(projectKey)
+  const uploads = useUploadQueue(projectKey, number)
   const [deleting, setDeleting] = useState(false)
   if (error)
     return (
@@ -258,8 +262,10 @@ export const IssueDetail = ({
   return (
     <Suspense fallback={<DetailSkeleton />}>
       <MarkdownReady>
-        <div
+        <DropZone
           data-issue-view
+          onFiles={uploads.add}
+          disabled={!writable}
           className='grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_19rem] lg:grid-cols-[minmax(0,1fr)_22rem]'
         >
           <div className='grid min-w-0 content-start gap-6'>
@@ -289,6 +295,11 @@ export const IssueDetail = ({
             </div>
             <WriteLock key={issue.key} projectKey={projectKey}>
               <Description issue={issue} projectKey={projectKey} />
+              <IssueAttachments
+                projectKey={projectKey}
+                number={number}
+                uploads={uploads}
+              />
               {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
                 <IssueSubtasks issue={issue} projectKey={projectKey} />
               )}
@@ -313,7 +324,7 @@ export const IssueDetail = ({
               />
             </Suspense>
           )}
-        </div>
+        </DropZone>
       </MarkdownReady>
     </Suspense>
   )

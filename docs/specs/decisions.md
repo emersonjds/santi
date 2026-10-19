@@ -626,3 +626,12 @@ Winner: B — accepted: an admin may rewrite another member's words; the marker 
 - Migration 0022: nullable `edited_at`, `edited_by` (FK `app_user`), CHECK both null or both set.
 - CLI `santi issues comment-edit|comment-delete`, MCP `edit_comment`, `delete_comment`; comment ids show in `santi issues comments`.
 - Later: reactions are a child table with `ON DELETE CASCADE`; replies add a nullable `parent_id` and revisit hard delete.
+
+## D53 — Attachments: one storage port, bytes decide the type, no server drafts (SAN-158)
+Context: issues need files (detail, comments, create form) on a Railway-hosted instance and on self-hosts.
+Options: A) S3-compatible bucket or local disk behind one port, presigned downloads B) files in Postgres C) local volume only
+Winner: A — a Railway bucket is cheaper than a volume and does not pin the service to one replica; local disk keeps dev and small self-hosts simple. Accepted: the CSP `img-src` gains the bucket origin when S3 is on; a delete may leave an orphan object if storage fails after the commit.
+- Type comes from the bytes plus the extension, never the client header; SVG and HTML are refused.
+- Limits: 25 MB per file, 100 per issue, 10 per request. Members attach; uploader or admin deletes.
+- Comment and create-form files upload after the comment or issue exists (`comment_id` on the attachment); no draft storage on the server.
+- Full rules: `docs/specs/cards/SAN-158.md`.

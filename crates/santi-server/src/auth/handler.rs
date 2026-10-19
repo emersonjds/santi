@@ -156,7 +156,7 @@ pub async fn delete_account(
     state
         .limits
         .check(Action::Reauthenticate, None, Some(user.id))?;
-    service::delete_account(&state.pool, &user, input).await?;
+    service::delete_account(&state.pool, &state.storage, &user, input).await?;
     Ok((
         StatusCode::NO_CONTENT,
         [(SET_COOKIE, domain::expired_session_cookie())],
