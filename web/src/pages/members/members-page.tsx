@@ -10,6 +10,7 @@ import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { WriteLock } from '@/entities/project/write-lock'
 import { UserAvatar } from '@/entities/user/user-avatar'
 import { fullName } from '@/shared/lib/initials'
+import { InviteLinks } from './invite-links'
 
 const InviteDialog = lazy(() =>
   import('@/features/project/invite-dialog').then((module) => ({
@@ -79,6 +80,7 @@ export const MembersPage = () => {
             )
           })}
         </ul>
+        <InviteLinks projectKey={key} />
       </div>
     </WriteLock>
   )

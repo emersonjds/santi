@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 27] = [
+const TOOLS: [&str; 29] = [
     "add_comment",
     "archive_project",
     "complete_sprint",
@@ -29,6 +29,7 @@ const TOOLS: [&str; 27] = [
     "get_sprint_report",
     "list_comments",
     "list_epics",
+    "list_invites",
     "list_members",
     "list_projects",
     "list_sprints",
@@ -36,6 +37,7 @@ const TOOLS: [&str; 27] = [
     "plan_issue",
     "purge_project",
     "restore_project",
+    "revoke_invite",
     "search_issues",
     "start_sprint",
     "trash_project",
@@ -84,6 +86,11 @@ async fn ok(client: &Client, tool: &'static str, arguments: Value) -> Value {
 fn stdio_lists_described_tools_and_drives_a_sprint() {
     let token = server().user();
     server().project(&token, "MCP", "scrum");
+    server().post(
+        &token,
+        "/api/projects/MCP/invites",
+        json!({ "role": "member" }),
+    );
     let config = tempfile::tempdir().unwrap();
     server().block_on(async {
         let mut command = santi(&config);
@@ -158,6 +165,19 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         let members = ok(&client, "list_members", json!({ "project": "MCP" })).await;
         assert_eq!(members[0]["role"], "admin");
         assert_eq!(hints("list_members").read_only_hint, Some(true));
+        let invites = ok(&client, "list_invites", json!({ "project": "MCP" })).await;
+        assert_eq!(
+            (&invites[0]["uses"], &invites[0]["max_uses"]),
+            (&json!(0), &json!(1))
+        );
+        let revoke = json!({ "project": "MCP", "invite_id": invites[0]["id"] });
+        ok(&client, "revoke_invite", revoke).await;
+        assert_eq!(
+            ok(&client, "list_invites", json!({ "project": "MCP" })).await,
+            json!([])
+        );
+        assert_eq!(hints("list_invites").read_only_hint, Some(true));
+        assert_eq!(hints("revoke_invite").destructive_hint, Some(true));
         for name in [
             "create_issue",
             "update_issue",
@@ -381,6 +401,7 @@ fn stdio_rejects_missing_unknown_and_malformed_arguments() {
             "search_issues",
             "list_epics",
             "list_members",
+            "list_invites",
         ] {
             let description = tool(name).description.as_deref().unwrap();
             assert!(description.contains("untrusted"), "{name}: {description}");

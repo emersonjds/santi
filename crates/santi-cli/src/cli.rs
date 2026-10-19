@@ -47,6 +47,14 @@ pub enum Command {
     Backlog { project: ProjectKey },
     /// List a project's members: user id (for `--assignee` and mentions), name, email and role
     Members { project: ProjectKey },
+    /// List a project's live invite links: id, role, spots used, expiry and who joined (admins)
+    #[command(args_conflicts_with_subcommands = true, subcommand_negates_reqs = true)]
+    Invites {
+        #[arg(required = true)]
+        project: Option<ProjectKey>,
+        #[command(subcommand)]
+        command: Option<InvitesCommand>,
+    },
     #[command(subcommand)]
     Sprints(SprintsCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
@@ -76,6 +84,18 @@ pub enum Command {
         /// Host header to accept besides localhost (when served behind a domain)
         #[arg(long, requires = "http")]
         allowed_host: Vec<String>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum InvitesCommand {
+    /// Revoke a live invite link: nobody else can join with it; who joined stays (admins)
+    Revoke {
+        project: ProjectKey,
+        id: i64,
+        /// Revoke without asking
+        #[arg(long)]
+        yes: bool,
     },
 }
 
@@ -495,6 +515,39 @@ mod tests {
             &["santi", "issues", "comment-edit", "WEB-1", "seven", "x"][..],
             &["santi", "issues", "comment-edit", "WEB-1", "7"],
             &["santi", "issues", "comment-delete", "WEB-1"],
+        ] {
+            let error = Cli::try_parse_from(args).unwrap_err();
+            assert_eq!(error.exit_code(), 2, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn invites_lists_a_project_or_revokes_one_link() {
+        let Command::Invites {
+            project: Some(project),
+            command: None,
+        } = parse(&["santi", "invites", "web"])
+        else {
+            panic!("not invites");
+        };
+        assert_eq!(project.as_str(), "WEB");
+        for (args, expected) in [
+            (&["santi", "invites", "revoke", "web", "7"][..], false),
+            (&["santi", "invites", "revoke", "web", "7", "--yes"], true),
+        ] {
+            let Command::Invites {
+                command: Some(InvitesCommand::Revoke { project, id, yes }),
+                ..
+            } = parse(args)
+            else {
+                panic!("not invites revoke");
+            };
+            assert_eq!((project.as_str(), id, yes), ("WEB", 7, expected));
+        }
+        for args in [
+            &["santi", "invites"][..],
+            &["santi", "invites", "revoke", "WEB"],
+            &["santi", "invites", "revoke", "WEB", "seven"],
         ] {
             let error = Cli::try_parse_from(args).unwrap_err();
             assert_eq!(error.exit_code(), 2, "{args:?}");

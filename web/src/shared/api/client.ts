@@ -15,6 +15,7 @@ export type HomeView = NonNullable<HomeQuery['view']>
 export type Member = Schemas['MemberInfo']
 export type BoardType = Schemas['BoardType']
 export type MemberRole = Schemas['MemberRole']
+export type InviteInfo = Schemas['InviteInfo']
 export type BoardView = Schemas['BoardView']
 export type BoardColumn = Schemas['BoardColumnView']
 export type BoardSettings = Schemas['BoardSettings']
