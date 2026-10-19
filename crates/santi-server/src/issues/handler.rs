@@ -85,7 +85,7 @@ pub async fn update_issue(
         ("key" = String, Path, description = "Project key"),
         ("number" = i64, Path, description = "Issue number, the N of KEY-N")),
     responses(
-        (status = 204, description = "Deleted with its subtasks and comments; an epic's children stay without an epic; the number is never reused (D40)"),
+        (status = 204, description = "Deleted with its subtasks, comments and attachments; an epic's children stay without an epic; the number is never reused (D40)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Neither an admin nor the reporter"),
         (status = 404, body = Problem, content_type = "application/problem+json")))]
@@ -94,7 +94,7 @@ pub async fn delete_issue(
     member: Member,
     PathParams((_key, number)): PathParams<(String, i64)>,
 ) -> Result<StatusCode, AppError> {
-    service::delete_issue(&state.pool, &member, number).await?;
+    service::delete_issue(&state.pool, &state.storage, &member, number).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -221,7 +221,7 @@ pub async fn edit_comment(
         ("number" = i64, Path, description = "Issue number, the N of KEY-N"),
         ("id" = i64, Path, description = "Comment id")),
     responses(
-        (status = 204, description = "Deleted for good (D52)"),
+        (status = 204, description = "Deleted for good with its attachments (D52, D53)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Neither an admin nor the author"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
@@ -231,6 +231,6 @@ pub async fn delete_comment(
     member: Member,
     PathParams((_key, number, id)): PathParams<(String, i64, i64)>,
 ) -> Result<StatusCode, AppError> {
-    service::delete_comment(&state.pool, &member, number, id).await?;
+    service::delete_comment(&state.pool, &state.storage, &member, number, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

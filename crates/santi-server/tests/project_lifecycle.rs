@@ -428,7 +428,9 @@ async fn the_hourly_purge_removes_projects_trashed_sixty_days_ago(pool: PgPool) 
     .await
     .unwrap();
 
-    let purged = santi_server::purge_trash(&pool).await.unwrap();
+    let purged = santi_server::purge_trash(&pool, &santi_server::storage::Storage::memory())
+        .await
+        .unwrap();
 
     assert_eq!(purged, 1);
     assert_eq!(
@@ -460,7 +462,9 @@ async fn the_hourly_purge_skips_a_project_it_cannot_delete_and_purges_the_rest(p
     .await
     .unwrap();
 
-    let purged = santi_server::purge_trash(&pool).await.unwrap();
+    let purged = santi_server::purge_trash(&pool, &santi_server::storage::Storage::memory())
+        .await
+        .unwrap();
 
     assert_eq!(purged, 1);
     assert_eq!(

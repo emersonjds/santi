@@ -36,8 +36,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // D45
     let legal_pages = std::env::var("SANTI_LEGAL_PAGES").as_deref() != Ok("off");
     let legal = santi_server::Legal::from_web_dir(legal_pages, std::path::Path::new(&web_dir));
+    // D53
+    let storage =
+        santi_server::storage::Storage::new(&santi_server::storage::StorageConfig::from_env()?)?;
     // D45 and OR-58: purge.
     let purge_pool = pool.clone();
+    let purge_storage = storage.clone();
     tokio::spawn(async move {
         let mut hourly = tokio::time::interval(std::time::Duration::from_secs(60 * 60));
         loop {
@@ -45,14 +49,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if let Err(error) = santi_server::purge_expired(&purge_pool).await {
                 eprintln!("purge failed: {error}");
             }
-            if let Err(error) = santi_server::purge_trash(&purge_pool).await {
+            if let Err(error) = santi_server::purge_trash(&purge_pool, &purge_storage).await {
                 eprintln!("trash purge failed: {error}");
             }
         }
     });
-    // D53
-    let storage =
-        santi_server::storage::Storage::new(&santi_server::storage::StorageConfig::from_env()?)?;
     let listener = tokio::net::TcpListener::bind(address).await?;
     axum::serve(
         listener,
