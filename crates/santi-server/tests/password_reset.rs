@@ -9,7 +9,7 @@ use axum::http::{Method, Request, StatusCode, header};
 use axum::response::Response;
 use common::{PASSWORD, TestApp, body_json, json_request, session_cookie};
 use santi_server::AppState;
-use santi_server::auth::service::create_password_reset;
+use santi_server::auth::service::{create_password_reset, reset_link_output};
 use santi_server::rate_limit::RateLimits;
 use serde_json::json;
 use sqlx::PgPool;
@@ -83,6 +83,29 @@ async fn unknown_emails_get_no_link(pool: PgPool) {
         .unwrap();
 
     assert!(created.is_none());
+}
+
+#[sqlx::test]
+async fn the_command_prints_a_working_link_and_its_expiry(pool: PgPool) {
+    let app = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+
+    let output = reset_link_output(&pool, "Ana@Example.com", "https://santi.dev")
+        .await
+        .unwrap();
+
+    let (link, expiry) = output.split_once('\n').unwrap();
+    let token = link.strip_prefix("https://santi.dev/reset/").unwrap();
+    assert!(expiry.starts_with("expires "), "{expiry}");
+    assert!(expiry.ends_with(" UTC"), "{expiry}");
+    let (preview, _) = app.get(&format!("/api/password-resets/{token}")).await;
+    assert_eq!(preview, StatusCode::OK);
+}
+
+#[sqlx::test]
+async fn the_command_refuses_an_unknown_email(pool: PgPool) {
+    let refused = reset_link_output(&pool, "bia@example.com", "https://santi.dev").await;
+
+    assert_eq!(refused, Err("no account with that email".to_string()));
 }
 
 #[sqlx::test]
