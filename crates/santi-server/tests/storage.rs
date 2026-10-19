@@ -20,7 +20,11 @@ async fn read_back(storage: &Storage, key: &str) -> Vec<u8> {
         .await
         .unwrap()
     {
-        Download::Stream(body) => body.collect().await.unwrap().to_bytes().to_vec(),
+        Download::Stream { body, size } => {
+            let bytes = body.collect().await.unwrap().to_bytes().to_vec();
+            assert_eq!(bytes.len() as u64, size);
+            bytes
+        }
         Download::Redirect(url) => panic!("expected a stream, got a redirect to {url}"),
     }
 }
@@ -220,4 +224,55 @@ fn only_s3_storage_exposes_an_image_origin() {
 
     assert_eq!(storage.image_origin(), Some("http://localhost:9000"));
     assert_eq!(Storage::memory().image_origin(), None);
+}
+
+#[test]
+fn debug_output_hides_the_secret_key() {
+    let mut config = s3();
+    config.secret_access_key = "hunter2-do-not-log".into();
+
+    let printed = format!("{:?}", StorageConfig::S3(config));
+
+    assert!(!printed.contains("hunter2"), "{printed}");
+    assert!(printed.contains("santi-files"), "{printed}");
+}
+
+#[test]
+fn startup_warns_about_a_disk_on_railway_and_plain_http_to_a_public_host() {
+    let disk = StorageConfig::Local("/data/attachments".into());
+    let with_endpoint = |endpoint: &str| {
+        let mut config = s3();
+        config.endpoint = endpoint.into();
+        StorageConfig::S3(config)
+    };
+
+    assert_eq!(
+        disk.startup_warnings(true),
+        ["attachments are on the container disk and are lost on redeploy; set SANTI_S3_*"]
+    );
+    assert!(disk.startup_warnings(false).is_empty());
+    assert!(
+        with_endpoint("https://storage.example.test")
+            .startup_warnings(true)
+            .is_empty()
+    );
+    for internal in [
+        "http://localhost:9000",
+        "http://127.0.0.1:9000/",
+        "http://10.0.0.5",
+        "http://192.168.1.20:9000",
+        "http://[::1]:9000",
+        "http://[fd00::5]",
+    ] {
+        assert!(
+            with_endpoint(internal).startup_warnings(false).is_empty(),
+            "{internal}"
+        );
+    }
+    assert_eq!(
+        with_endpoint("http://storage.example.test").startup_warnings(false),
+        [
+            "SANTI_S3_ENDPOINT uses plain http to a public host; attachments and keys travel unencrypted"
+        ]
+    );
 }

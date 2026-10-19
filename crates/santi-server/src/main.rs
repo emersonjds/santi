@@ -37,8 +37,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let legal_pages = std::env::var("SANTI_LEGAL_PAGES").as_deref() != Ok("off");
     let legal = santi_server::Legal::from_web_dir(legal_pages, std::path::Path::new(&web_dir));
     // D53
-    let storage =
-        santi_server::storage::Storage::new(&santi_server::storage::StorageConfig::from_env()?)?;
+    let storage_config = santi_server::storage::StorageConfig::from_env()?;
+    for warning in
+        storage_config.startup_warnings(std::env::var_os("RAILWAY_ENVIRONMENT").is_some())
+    {
+        eprintln!("WARNING: {warning}");
+    }
+    let storage = santi_server::storage::Storage::new(&storage_config)?;
     // D45 and OR-58: purge.
     let purge_pool = pool.clone();
     let purge_storage = storage.clone();

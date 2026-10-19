@@ -1,11 +1,15 @@
-use axum::Json;
+use std::time::Duration;
+
+use axum::body::Body;
 use axum::extract::multipart::{Multipart, MultipartRejection};
-use axum::extract::{DefaultBodyLimit, State};
+use axum::extract::{DefaultBodyLimit, Request, State};
 use axum::http::StatusCode;
 use axum::http::header::{
-    CONTENT_DISPOSITION, CONTENT_SECURITY_POLICY, CONTENT_TYPE, LOCATION, X_CONTENT_TYPE_OPTIONS,
+    CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_SECURITY_POLICY, CONTENT_TYPE, LOCATION,
+    X_CONTENT_TYPE_OPTIONS,
 };
 use axum::response::{IntoResponse, Response};
+use axum::{Json, middleware};
 use santi_types::Problem;
 use santi_types::attachments::{Attachment, AttachmentFile, AttachmentUpload};
 use utoipa_axum::router::OpenApiRouter;
@@ -19,14 +23,22 @@ use crate::extract::PathParams;
 use crate::members::Member;
 use crate::rate_limit::Action;
 use crate::storage::Download;
+use tower_http::timeout::DeadlineBody;
 
 /// Ten full files plus the multipart framing; past it the body is cut.
 const MAX_BODY_BYTES: usize = MAX_PER_REQUEST * MAX_FILE_BYTES as usize + 1024 * 1024;
+/// The whole upload body, however slowly it trickles in.
+const UPLOAD_DEADLINE: Duration = Duration::from_secs(10 * 60);
+
+async fn deadline(request: Request) -> Request {
+    request.map(|body| Body::new(DeadlineBody::new(UPLOAD_DEADLINE, body)))
+}
 
 pub fn router() -> OpenApiRouter<AppState> {
     let uploads = OpenApiRouter::new()
         .routes(routes!(upload_attachments, list_attachments))
-        .layer(DefaultBodyLimit::max(MAX_BODY_BYTES));
+        .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
+        .layer(middleware::map_request(deadline));
     OpenApiRouter::new()
         .routes(routes!(download_attachment, delete_attachment))
         .merge(uploads)
@@ -40,9 +52,11 @@ pub fn router() -> OpenApiRouter<AppState> {
     responses(
         (status = 201, body = Vec<Attachment>, description = "Every file stored, in the order sent; the type is read from the bytes (D53)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json", description = "`comment_id` names a comment by someone else and the caller is not an admin; nothing is kept"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
         (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "A type not allowed, over 25 MB, over 10 files per request or 100 per issue, or `comment_id` not of this issue; nothing is kept"),
+        (status = 413, body = Problem, content_type = "application/problem+json", description = "`payload-too-large`: the body passed 10 × 25 MB plus framing; nothing is kept"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "A type not allowed, over 25 MB, over 10 files per request or 100 per issue, a broken multipart body, or `comment_id` not a comment of this issue; nothing is kept"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn upload_attachments(
     State(state): State<AppState>,
@@ -91,10 +105,11 @@ pub async fn download_attachment(
     let served = service::download(&state.pool, &state.storage, &member, number, id).await?;
     Ok(match served.download {
         Download::Redirect(url) => (StatusCode::FOUND, [(LOCATION, url)]).into_response(),
-        Download::Stream(body) => (
+        Download::Stream { body, size } => (
             [
                 (CONTENT_TYPE, served.content_type),
                 (CONTENT_DISPOSITION, served.content_disposition),
+                (CONTENT_LENGTH, size.to_string()),
             ],
             [
                 (X_CONTENT_TYPE_OPTIONS, "nosniff"),

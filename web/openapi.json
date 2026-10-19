@@ -2941,6 +2941,16 @@
               }
             }
           },
+          "403": {
+            "description": "`comment_id` names a comment by someone else and the caller is not an admin; nothing is kept",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "404": {
             "content": {
               "application/problem+json": {
@@ -2960,8 +2970,18 @@
               }
             }
           },
+          "413": {
+            "description": "`payload-too-large`: the body passed 10 × 25 MB plus framing; nothing is kept",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "A type not allowed, over 25 MB, over 10 files per request or 100 per issue, or `comment_id` not of this issue; nothing is kept",
+            "description": "A type not allowed, over 25 MB, over 10 files per request or 100 per issue, a broken multipart body, or `comment_id` not a comment of this issue; nothing is kept",
             "content": {
               "application/problem+json": {
                 "schema": {

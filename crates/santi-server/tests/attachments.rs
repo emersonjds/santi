@@ -2,7 +2,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use axum::body::Body;
+use axum::body::{Body, Bytes};
 use axum::http::{Method, Request, StatusCode, header};
 use axum::response::Response;
 use common::{TestApp, body_json};
@@ -11,6 +11,7 @@ use santi_server::AppState;
 use santi_server::storage::{S3Config, Storage, StorageConfig};
 use serde_json::{Value, json};
 use sqlx::PgPool;
+use tower::ServiceExt;
 
 const BOUNDARY: &str = "santi-attachment-boundary";
 const PNG: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01";
@@ -39,13 +40,8 @@ fn multipart(files: &[(String, Vec<u8>)], comment_id: Option<i64>) -> Vec<u8> {
     body
 }
 
-async fn upload_to(
-    app: &TestApp,
-    uri: &str,
-    files: &[(String, Vec<u8>)],
-    comment_id: Option<i64>,
-) -> (StatusCode, Value) {
-    let request = Request::builder()
+fn upload_request(app: &TestApp, uri: &str, body: Body) -> Request<Body> {
+    Request::builder()
         .method(Method::POST)
         .uri(uri)
         .header(
@@ -56,20 +52,37 @@ async fn upload_to(
             header::CONTENT_TYPE,
             format!("multipart/form-data; boundary={BOUNDARY}"),
         )
-        .body(Body::from(multipart(files, comment_id)))
-        .unwrap();
-    let response = app.send(request).await;
+        .body(body)
+        .unwrap()
+}
+
+async fn post_body(app: &TestApp, uri: &str, body: Body) -> (StatusCode, Value) {
+    let response = app.send(upload_request(app, uri, body)).await;
     let status = response.status();
     (status, body_json(response).await)
+}
+
+async fn upload_to(
+    app: &TestApp,
+    uri: &str,
+    files: &[(String, Vec<u8>)],
+    comment_id: Option<i64>,
+) -> (StatusCode, Value) {
+    post_body(app, uri, Body::from(multipart(files, comment_id))).await
+}
+
+fn text_part(name: &str, value: &str) -> Vec<u8> {
+    format!("--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n")
+        .into_bytes()
 }
 
 async fn upload(app: &TestApp, files: &[(String, Vec<u8>)]) -> (StatusCode, Value) {
     upload_to(app, FILES, files, None).await
 }
 
-async fn download(app: &TestApp, id: &Value) -> Response {
+async fn get_raw(app: &TestApp, uri: &str) -> Response {
     let request = Request::builder()
-        .uri(format!("{FILES}/{id}"))
+        .uri(uri)
         .header(
             header::AUTHORIZATION,
             format!("Bearer {}", app.token.as_deref().unwrap()),
@@ -77,6 +90,10 @@ async fn download(app: &TestApp, id: &Value) -> Response {
         .body(Body::empty())
         .unwrap();
     app.send(request).await
+}
+
+async fn download(app: &TestApp, id: &Value) -> Response {
+    get_raw(app, &format!("{FILES}/{id}")).await
 }
 
 async fn bytes(response: Response) -> Vec<u8> {
@@ -506,4 +523,267 @@ async fn erasing_an_account_removes_the_files_of_its_solo_projects(pool: PgPool)
     assert_eq!(list(&ana).await.len(), 1);
     assert_eq!(stored_files(&dir), 1);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[sqlx::test]
+async fn a_file_answers_only_under_its_own_issue_and_project(pool: PgPool) {
+    let (ana, _, carl) = team(pool, Storage::memory()).await;
+    ana.create_issue("SANTI", json!({ "summary": "Other" }))
+        .await;
+    carl.create_issue("CARL", json!({ "summary": "Mine" }))
+        .await;
+    let (_, created) = upload_to(
+        &ana,
+        "/api/projects/SANTI/issues/2/attachments",
+        &[png("two.png")],
+        None,
+    )
+    .await;
+    let id = &created[0]["id"];
+    let carl_uri = format!("/api/projects/CARL/issues/1/attachments/{id}");
+
+    let other_issue = download(&ana, id).await.status();
+    let (other_issue_delete, _) = ana.delete(&format!("{FILES}/{id}")).await;
+    let other_project = get_raw(&carl, &carl_uri).await.status();
+    let (other_project_delete, _) = carl.delete(&carl_uri).await;
+
+    assert_eq!(other_issue, StatusCode::NOT_FOUND);
+    assert_eq!(other_issue_delete, StatusCode::NOT_FOUND);
+    assert_eq!(other_project, StatusCode::NOT_FOUND);
+    assert_eq!(other_project_delete, StatusCode::NOT_FOUND);
+    let own = get_raw(
+        &ana,
+        &format!("/api/projects/SANTI/issues/2/attachments/{id}"),
+    )
+    .await;
+    assert_eq!(own.status(), StatusCode::OK);
+}
+
+#[sqlx::test]
+async fn comment_id_must_be_a_short_number(pool: PgPool) {
+    let (storage, dir) = disk("comment-id");
+    let (ana, _, _) = team(pool, storage).await;
+    let (_, comment) = ana
+        .post(
+            "/api/projects/SANTI/issues/1/comments",
+            json!({ "body": "Files below" }),
+        )
+        .await;
+    let padded = format!("{:0>21}", comment["id"].as_i64().unwrap());
+    let with = |value: &str| {
+        Body::from(
+            [
+                text_part("comment_id", value),
+                multipart(&[png("a.png")], None),
+            ]
+            .concat(),
+        )
+    };
+
+    let (word, word_problem) = post_body(&ana, FILES, with("seven")).await;
+    let (long, long_problem) = post_body(&ana, FILES, with(&padded)).await;
+    let (huge, _) = post_body(&ana, FILES, with(&"9".repeat(64 * 1024))).await;
+
+    assert_eq!(word, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(word_problem["errors"][0]["field"], "comment_id");
+    assert_eq!(long, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(long_problem["errors"][0]["field"], "comment_id");
+    assert_eq!(huge, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(list(&ana).await.is_empty());
+    assert_eq!(stored_files(&dir), 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[sqlx::test]
+async fn broken_multipart_is_422(pool: PgPool) {
+    let (ana, _, _) = team(pool, Storage::memory()).await;
+    let mut unfinished = multipart(&[png("a.png")], None);
+    unfinished.truncate(unfinished.len() - BOUNDARY.len() - 6);
+    let no_boundary = Request::builder()
+        .method(Method::POST)
+        .uri(FILES)
+        .header(
+            header::AUTHORIZATION,
+            format!("Bearer {}", ana.token.as_deref().unwrap()),
+        )
+        .header(header::CONTENT_TYPE, "multipart/form-data")
+        .body(Body::from(multipart(&[png("a.png")], None)))
+        .unwrap();
+
+    let (cut, problem) = post_body(&ana, FILES, Body::from(unfinished)).await;
+    let rejected = ana.send(no_boundary).await.status();
+
+    assert_eq!(cut, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(problem["errors"][0]["field"], "file");
+    assert_eq!(rejected, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(list(&ana).await.is_empty());
+}
+
+static MEGABYTE: [u8; 1024 * 1024] = [b'a'; 1024 * 1024];
+
+#[sqlx::test]
+async fn a_body_over_the_limit_is_413(pool: PgPool) {
+    let (ana, _, _) = team(pool, Storage::memory()).await;
+    let head = Bytes::from(format!(
+        "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"padding\"\r\n\r\n"
+    ));
+    let padding = std::iter::repeat_n(Bytes::from_static(&MEGABYTE), 252);
+    let body = futures_util::stream::iter(
+        std::iter::once(head)
+            .chain(padding)
+            .map(Ok::<_, std::io::Error>),
+    );
+
+    let (status, problem) = post_body(&ana, FILES, Body::from_stream(body)).await;
+
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{problem}");
+    assert_eq!(problem["status"], 413);
+}
+
+#[sqlx::test]
+async fn files_cut_short_are_stored_then_refused(pool: PgPool) {
+    let (storage, dir) = disk("cut-short");
+    let (ana, _, _) = team(pool, storage).await;
+
+    let (short_png, png_problem) = upload(&ana, &[("tiny.png".into(), PNG[..6].to_vec())]).await;
+    let (cut_text, text_problem) =
+        upload(&ana, &[("cut.txt".into(), "ação".as_bytes()[..2].to_vec())]).await;
+
+    assert_eq!(short_png, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        png_problem["errors"][0]["message"],
+        "This file type is not allowed."
+    );
+    assert_eq!(cut_text, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(
+        text_problem["errors"][0]["message"],
+        "Text files must be UTF-8."
+    );
+    assert!(list(&ana).await.is_empty());
+    assert_eq!(stored_files(&dir), 0);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[sqlx::test]
+async fn a_storage_failure_keeps_nothing(pool: PgPool) {
+    let (storage, dir) = disk("broken");
+    let (ana, _, _) = team(pool, storage).await;
+    std::fs::remove_dir_all(&dir).unwrap();
+    std::fs::write(&dir, b"not a directory").unwrap();
+
+    let (status, _) = upload(&ana, &[png("a.png")]).await;
+
+    std::fs::remove_file(&dir).unwrap();
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert!(list(&ana).await.is_empty());
+}
+
+/// Holds the upload's closing boundary until `change` ran, so it lands after the request passed
+/// its membership check.
+async fn upload_while(
+    pool: PgPool,
+    name: &str,
+    change: &'static str,
+) -> (StatusCode, Value, usize, i64) {
+    let (storage, dir) = disk(name);
+    let (ana, _, _) = team(pool.clone(), storage).await;
+    let (sender, receiver) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(1);
+    let body = futures_util::stream::unfold(receiver, |mut receiver| async move {
+        receiver.recv().await.map(|chunk| (chunk, receiver))
+    });
+    let request = upload_request(&ana, FILES, Body::from_stream(body));
+    let router = ana.router.clone();
+    let response = tokio::spawn(async move { router.oneshot(request).await.unwrap() });
+    let parts = multipart(&[png("a.png")], None);
+    let (file, closing) = parts.split_at(parts.len() - BOUNDARY.len() - 6);
+
+    sender.send(Ok(Bytes::copy_from_slice(file))).await.unwrap();
+    sender.send(Ok(Bytes::new())).await.unwrap();
+    sqlx::query(change).execute(&pool).await.unwrap();
+    sender
+        .send(Ok(Bytes::copy_from_slice(closing)))
+        .await
+        .unwrap();
+    drop(sender);
+
+    let response = response.await.unwrap();
+    let status = response.status();
+    let problem = body_json(response).await;
+    let rows: i64 = sqlx::query_scalar("SELECT count(*) FROM attachment")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let stored = stored_files(&dir);
+    std::fs::remove_dir_all(dir).unwrap();
+    (status, problem, stored, rows)
+}
+
+#[sqlx::test]
+async fn archiving_during_an_upload_keeps_nothing(pool: PgPool) {
+    let (status, problem, stored, rows) = upload_while(
+        pool,
+        "archive-race",
+        "UPDATE project SET archived_at = now() WHERE key = 'SANTI'",
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::CONFLICT, "{problem}");
+    assert_eq!(problem["type"], "urn:santi:error:project-archived");
+    assert_eq!((stored, rows), (0, 0));
+}
+
+#[sqlx::test]
+async fn trashing_during_an_upload_keeps_nothing(pool: PgPool) {
+    let (status, problem, stored, rows) = upload_while(
+        pool,
+        "trash-race",
+        "UPDATE project SET trashed_at = now() WHERE key = 'SANTI'",
+    )
+    .await;
+
+    assert_eq!(status, StatusCode::NOT_FOUND, "{problem}");
+    assert_eq!((stored, rows), (0, 0));
+}
+
+#[sqlx::test]
+async fn only_the_comment_author_or_an_admin_attaches_to_a_comment(pool: PgPool) {
+    let (storage, dir) = disk("comment-author");
+    let (ana, bob, _) = team(pool, storage).await;
+    let comments = "/api/projects/SANTI/issues/1/comments";
+    let (_, by_ana) = ana.post(comments, json!({ "body": "Ana's" })).await;
+    let (_, by_bob) = bob.post(comments, json!({ "body": "Bob's" })).await;
+
+    let (other, _) = upload_to(&bob, FILES, &[png("x.png")], by_ana["id"].as_i64()).await;
+    let (own, _) = upload_to(&bob, FILES, &[png("own.png")], by_bob["id"].as_i64()).await;
+    let (admin, _) = upload_to(&ana, FILES, &[png("admin.png")], by_bob["id"].as_i64()).await;
+
+    assert_eq!(other, StatusCode::FORBIDDEN);
+    assert_eq!(own, StatusCode::CREATED);
+    assert_eq!(admin, StatusCode::CREATED);
+    assert_eq!(list(&ana).await.len(), 2);
+    assert_eq!(stored_files(&dir), 2);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[sqlx::test]
+async fn local_downloads_carry_their_length_uncompressed(pool: PgPool) {
+    let (ana, _, _) = team(pool, Storage::memory()).await;
+    let text = "santi ".repeat(100);
+    let (_, created) = upload(&ana, &[("notes.txt".into(), text.clone().into_bytes())]).await;
+    let request = Request::builder()
+        .uri(format!("{FILES}/{}", created[0]["id"]))
+        .header(
+            header::AUTHORIZATION,
+            format!("Bearer {}", ana.token.as_deref().unwrap()),
+        )
+        .header(header::ACCEPT_ENCODING, "gzip, br")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = ana.send(request).await;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(response.headers()[header::CONTENT_LENGTH], "600");
+    assert!(!response.headers().contains_key(header::CONTENT_ENCODING));
+    assert_eq!(bytes(response).await, text.as_bytes());
 }

@@ -1,4 +1,5 @@
 use axum::extract::multipart::{Field, Multipart, MultipartError};
+use axum::http::StatusCode;
 use futures_util::StreamExt;
 use santi_types::attachments::Attachment;
 use sqlx::PgPool;
@@ -6,12 +7,31 @@ use sqlx::PgPool;
 use super::repo::NewFile;
 use super::{domain, repo};
 use crate::error::AppError;
-use crate::issues;
 use crate::members::Member;
 use crate::storage::{self, Download, Storage, object_key};
+use crate::{issues, projects};
 
-fn unreadable(_: MultipartError) -> AppError {
+fn unreadable(error: MultipartError) -> AppError {
+    if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+        return AppError::PayloadTooLarge;
+    }
     AppError::invalid("file", "The upload could not be read.")
+}
+
+/// Read in chunks: the longest `i64` is 20 bytes, and anything longer is refused unread.
+async fn comment_id(mut field: Field<'_>) -> Result<i64, AppError> {
+    let invalid = || AppError::invalid("comment_id", "must be a comment id");
+    let mut text = Vec::new();
+    while let Some(chunk) = field.chunk().await.map_err(unreadable)? {
+        text.extend_from_slice(&chunk);
+        if text.len() > 20 {
+            return Err(invalid());
+        }
+    }
+    std::str::from_utf8(&text)
+        .ok()
+        .and_then(|text| text.parse().ok())
+        .ok_or_else(invalid)
 }
 
 fn storage_error(error: storage::Error) -> AppError {
@@ -79,14 +99,7 @@ async fn receive(
                 domain::check_count(existing, files.len() + 1)?;
                 files.push(store(storage, member.project_id, issue_id, field).await?);
             }
-            Some("comment_id") => {
-                let text = field.text().await.map_err(unreadable)?;
-                let id = text
-                    .trim()
-                    .parse()
-                    .map_err(|_| AppError::invalid("comment_id", "must be a comment id"))?;
-                comment_id = Some(id);
-            }
+            Some("comment_id") => comment_id = Some(self::comment_id(field).await?),
             _ => {}
         }
     }
@@ -138,6 +151,11 @@ async fn store(
     })
 }
 
+fn not_a_comment() -> AppError {
+    AppError::invalid("comment_id", "must be a comment on this issue")
+}
+
+/// Only the comment's author or an admin adds files to a comment.
 async fn save(
     pool: &PgPool,
     member: &Member,
@@ -146,18 +164,24 @@ async fn save(
     files: &[NewFile],
 ) -> Result<Vec<Attachment>, AppError> {
     let mut tx = pool.begin().await?;
+    let state = projects::repo::lock_project(&mut tx, member.project_id).await?;
+    projects::domain::check_active(state)?;
     let existing = repo::count_for_update(&mut tx, issue_id)
         .await?
         .ok_or(AppError::NotFound)?;
     domain::check_count(existing, files.len())?;
+    if let Some(comment_id) = comment_id {
+        let comment = issues::repo::find_comment(&mut tx, issue_id, comment_id)
+            .await?
+            .ok_or_else(not_a_comment)?;
+        issues::domain::check_delete(member.role, member.user_id, comment.author_id)?;
+    }
     let mut created = Vec::with_capacity(files.len());
     for file in files {
         let attachment = repo::insert(&mut tx, issue_id, comment_id, member.user_id, file)
             .await
             .map_err(|error| match error.as_database_error() {
-                Some(error) if error.is_foreign_key_violation() => {
-                    AppError::invalid("comment_id", "must be a comment on this issue")
-                }
+                Some(error) if error.is_foreign_key_violation() => not_a_comment(),
                 _ => AppError::from(error),
             })?;
         created.push(attachment);

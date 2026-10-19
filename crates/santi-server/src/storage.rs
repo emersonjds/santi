@@ -1,5 +1,6 @@
 //! Attachment bytes (D53): an S3-compatible bucket or the local disk, picked at startup.
 
+use std::net::IpAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,13 +19,26 @@ pub use object_store::{Error, Result};
 
 const PRESIGNED_FOR: Duration = Duration::from_secs(5 * 60);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct S3Config {
     pub bucket: String,
     pub endpoint: String,
     pub region: String,
     pub access_key_id: String,
     pub secret_access_key: String,
+}
+
+impl std::fmt::Debug for S3Config {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("S3Config")
+            .field("bucket", &self.bucket)
+            .field("endpoint", &self.endpoint)
+            .field("region", &self.region)
+            .field("access_key_id", &self.access_key_id)
+            .field("secret_access_key", &"<redacted>")
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -44,6 +58,19 @@ const S3_VARS: [&str; 5] = [
 impl StorageConfig {
     pub fn from_env() -> Result<Self, String> {
         Self::from_vars(|name| std::env::var(name).ok())
+    }
+
+    /// Printed at startup; `on_railway` when `RAILWAY_ENVIRONMENT` is set.
+    pub fn startup_warnings(&self, on_railway: bool) -> Vec<&'static str> {
+        match self {
+            StorageConfig::Local(_) if on_railway => vec![
+                "attachments are on the container disk and are lost on redeploy; set SANTI_S3_*",
+            ],
+            StorageConfig::S3(config) if public_http(&config.endpoint) => vec![
+                "SANTI_S3_ENDPOINT uses plain http to a public host; attachments and keys travel unencrypted",
+            ],
+            _ => Vec::new(),
+        }
     }
 
     /// Every `SANTI_S3_*` set selects the bucket, none the disk; an empty value counts as unset.
@@ -92,8 +119,8 @@ pub struct Storage {
 pub enum Download {
     /// A presigned GET carrying the disposition and type.
     Redirect(String),
-    /// The bytes; the caller sets the disposition and type.
-    Stream(Body),
+    /// The bytes and their count; the caller sets the disposition and type.
+    Stream { body: Body, size: u64 },
 }
 
 impl Storage {
@@ -208,7 +235,11 @@ impl Storage {
             }
             None => {
                 let object = self.store.get(&path).await?;
-                Ok(Download::Stream(Body::from_stream(object.into_stream())))
+                let size = object.meta.size;
+                Ok(Download::Stream {
+                    body: Body::from_stream(object.into_stream()),
+                    size,
+                })
             }
         }
     }
@@ -228,4 +259,23 @@ fn origin(endpoint: &str) -> Option<String> {
             .chars()
             .all(|char| char.is_ascii_alphanumeric() || ".-:[]".contains(char));
     (matches!(scheme, "http" | "https") && host_ok).then(|| format!("{scheme}://{host}"))
+}
+
+/// `http://` to anything but localhost or a loopback, private or unique-local address.
+fn public_http(endpoint: &str) -> bool {
+    let Some(authority) = endpoint.strip_prefix("http://") else {
+        return false;
+    };
+    let authority = authority.split('/').next().unwrap_or_default();
+    let host = match authority.strip_prefix('[') {
+        Some(bracketed) => bracketed.split(']').next().unwrap_or_default(),
+        None => authority.split(':').next().unwrap_or_default(),
+    };
+    let internal = host.eq_ignore_ascii_case("localhost")
+        || match host.parse::<IpAddr>() {
+            Ok(IpAddr::V4(ip)) => ip.is_loopback() || ip.is_private() || ip.is_link_local(),
+            Ok(IpAddr::V6(ip)) => ip.is_loopback() || ip.is_unique_local(),
+            Err(_) => false,
+        };
+    !internal
 }
