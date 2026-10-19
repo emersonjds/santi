@@ -58,7 +58,6 @@ export type Upload = Target & {
   cancel?: () => void
 }
 
-// ponytail: one store per tab, kept across sign-out; key it by QueryClient if that ever matters.
 let uploads: Upload[] = []
 let lastId = 0
 const listeners = new Set<() => void>()
@@ -128,6 +127,12 @@ export const enqueueUploads = (
 const cancel = (upload: Upload) => {
   upload.cancel?.()
   remove(upload)
+}
+
+/** Stops every upload and forgets them all: the next account must not see them. */
+export const resetUploads = () => {
+  uploads.forEach((upload) => upload.cancel?.())
+  set(() => [])
 }
 
 /** The files on their way to an issue, or to one of its comments; a finished one leaves for the list. */
