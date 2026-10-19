@@ -10,6 +10,18 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.17.1] - 2026-10-19
+
+> Completing a sprint shows the right counts, and the test suite is green again.
+
+### Fixed
+
+- **Complete sprint:** right after moving an issue on the board, the dialog could count it twice
+  (for example "1 issue done · 2 open" for a two-issue sprint), mixing a fresh board with a
+  backlog still being refreshed. It now reads both fresh and says "Counting issues…" meanwhile.
+- **Tests:** the issue Details layout tests waited for the wrong signal and failed on slower CI
+  machines; the shared fixtures now include a slow terms check so timing bugs show locally.
+
 ## [0.17.0] - 2026-10-18
 
 > A comment thread that reads well: roomier comments, a composer that opens with M, quick replies, and edit or delete from each comment.
@@ -532,7 +544,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.17.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.17.1...HEAD
+[0.17.1]: https://github.com/emersonjds/santi/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/emersonjds/santi/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/emersonjds/santi/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/emersonjds/santi/compare/v0.14.1...v0.15.0
