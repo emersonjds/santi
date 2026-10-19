@@ -5,7 +5,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { KeyRound, Loader2 } from 'lucide-react'
-import { forgetSession } from '@/entities/session/require-session'
 import {
   passwordResetQuery,
   sessionQuery,
@@ -88,7 +87,9 @@ export const ResetPasswordForm = ({ token }: { token: string }) => {
     )
     if (response.status === 404) return setDead(true)
     if (error) return showProblem(form.setError, ['password'], error)
-    forgetSession(queryClient)
+    queryClient.removeQueries({
+      predicate: (query) => query.queryKey[0] !== 'password-resets',
+    })
     queryClient.setQueryData(sessionQuery.queryKey, data)
     await navigate({ to: '/', replace: true })
   }

@@ -167,6 +167,9 @@ describe('reset a password from a link', () => {
       'POST /api/password-resets/tok123': { status: 200, body: ALICE },
     })
     const { screen, router, queryClient } = await renderApp('/reset/tok123')
+    await expect.element(screen.getByLabelText('Email')).toBeVisible()
+    window.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new Event('focus'))
 
     await choose(screen, 'correct horse battery', 'correct horse battery')
 
@@ -179,5 +182,10 @@ describe('reset a password from a link', () => {
       (request) => routeOf(request) === 'POST /api/password-resets/tok123'
     )
     expect(await post?.json()).toEqual({ password: 'correct horse battery' })
+    expect(
+      requests.filter(
+        (request) => routeOf(request) === 'GET /api/password-resets/tok123'
+      )
+    ).toHaveLength(1)
   })
 })
