@@ -215,6 +215,23 @@ pub async fn create_password_reset(
     Ok(Some((token, expires_at)))
 }
 
+/// What `reset-link <email>` prints: the link, then when it expires; or why there is none.
+pub async fn reset_link_output(
+    pool: &PgPool,
+    email: &str,
+    base_url: &str,
+) -> Result<String, String> {
+    match create_password_reset(pool, email).await {
+        Ok(Some((token, expires_at))) => Ok(format!(
+            "{}\nexpires {}",
+            domain::reset_url(base_url, &token),
+            expires_at.format("%Y-%m-%d %H:%M UTC")
+        )),
+        Ok(None) => Err("no account with that email".into()),
+        Err(error) => Err(format!("{error:?}")),
+    }
+}
+
 /// Unknown, used and expired links are the same 404.
 pub async fn preview_password_reset(
     pool: &PgPool,
