@@ -1,4 +1,49 @@
 {
   "name": "lagune",
-  "entries": []
+  "entries": [
+    {
+      "name": "Add member by email reveals accounts and adds people without consent",
+      "paths": [
+        "crates/santi-server/src/members/service.rs",
+        "crates/santi-server/src/members/handler.rs"
+      ]
+    },
+    {
+      "name": "No HTTPS-only instruction to browsers",
+      "paths": [
+        "crates/santi-server/src/lib.rs"
+      ]
+    },
+    {
+      "name": "CI workflow runs with default token permissions",
+      "paths": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    {
+      "name": "CI actions pinned to movable tags",
+      "paths": [
+        ".github/workflows/ci.yml"
+      ]
+    },
+    {
+      "name": "Container images pinned to movable tags",
+      "paths": [
+        "Dockerfile"
+      ]
+    },
+    {
+      "name": "Rust dependencies are not checked for known vulnerabilities",
+      "paths": [
+        ".github/workflows/ci.yml",
+        "Cargo.lock"
+      ]
+    },
+    {
+      "name": "Compose publishes the app on every network interface over plain HTTP",
+      "paths": [
+        "compose.yaml"
+      ]
+    }
+  ]
 }
