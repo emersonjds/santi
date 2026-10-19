@@ -1,6 +1,13 @@
-import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query'
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  hashKey,
+} from '@tanstack/react-query'
 import type { RouterHistory } from '@tanstack/react-router'
+import { resetUploads } from '@/features/upload-attachments/upload-queue'
 import { forgetSession } from '@/entities/session/require-session'
+import { sessionQuery } from '@/entities/session/session-query'
 import { ApiError, hasStatus } from '@/shared/api/client'
 import { createAppRouter } from './router'
 
@@ -26,6 +33,15 @@ export const createApp = (history?: RouterHistory) => {
           failures < MAX_RETRIES,
       },
     },
+  })
+  // Every way out (sign-out, account deleted, a 401) goes through forgetSession, which leaves the session null.
+  queryClient.getQueryCache().subscribe(({ type, query }) => {
+    if (
+      type === 'updated' &&
+      query.queryHash === hashKey(sessionQuery.queryKey) &&
+      query.state.data === null
+    )
+      resetUploads()
   })
   const router = createAppRouter(queryClient, history)
   return { queryClient, router }

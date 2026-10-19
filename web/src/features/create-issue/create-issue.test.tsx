@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
+import { fakeXhr } from '@/test/fake-xhr'
 import { renderApp } from '@/test/render-app'
 import {
   OPS_BOARD,
@@ -346,6 +347,104 @@ describe('create issue', () => {
         sprint_id: 5,
       },
     ])
+  })
+
+  it('uploads the files queued in the dialog to the new issue, and shows a failure there with Retry', async () => {
+    inProjects({
+      [CREATE_WEB]: {
+        status: 201,
+        body: issue({ key: 'WEB-9', summary: 'Crash on save' }),
+      },
+      'GET /api/projects/WEB/issues/9': {
+        status: 200,
+        body: issue({ key: 'WEB-9', summary: 'Crash on save' }),
+      },
+      'GET /api/projects/WEB/issues/9/comments': {
+        status: 200,
+        body: { items: [], next_cursor: null },
+      },
+      'GET /api/projects/WEB/issues/9/attachments': { status: 200, body: [] },
+    })
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/board')
+    await screen.getByRole('button', { name: 'Create', exact: true }).click()
+    const dialog = createDialog(screen)
+    await expect.element(dialog).toBeVisible()
+    const zone = dialog.element().querySelector('[data-drop-zone]')
+    const input = zone?.querySelector<HTMLInputElement>('input[type=file]')
+    if (!zone || !input) throw new Error('no drop zone or file input')
+
+    await userEvent.upload(input, new File(['%PDF'], 'trace.pdf'))
+    const transfer = new DataTransfer()
+    transfer.items.add(new File(['png'], 'shot.png', { type: 'image/png' }))
+    zone.dispatchEvent(
+      new DragEvent('drop', {
+        dataTransfer: transfer,
+        bubbles: true,
+        cancelable: true,
+      })
+    )
+    const chips = dialog.getByRole('list', { name: 'Files to attach' })
+    await expect
+      .poll(() => chips.getByRole('listitem').elements().length)
+      .toBe(2)
+    expect(sent).toHaveLength(0)
+
+    await dialog.getByLabelText('Summary').fill('Crash on save')
+    await dialog.getByRole('button', { name: 'Create', exact: true }).click()
+
+    await expect.element(dialog).not.toBeInTheDocument()
+    await expect
+      .poll(() => sent.map((xhr) => xhr.fileName))
+      .toEqual(['trace.pdf', 'shot.png'])
+    for (const xhr of sent) {
+      expect(xhr.url).toBe('/api/projects/WEB/issues/9/attachments')
+      expect(xhr.body instanceof FormData && xhr.body.has('comment_id')).toBe(
+        false
+      )
+    }
+    sent[0].fail()
+    await screen.getByRole('button', { name: 'Open' }).click()
+
+    const row = screen
+      .getByRole('region', { name: /^Attachments/ })
+      .getByRole('listitem')
+      .filter({ hasText: 'trace.pdf' })
+    await expect
+      .element(row)
+      .toHaveTextContent('Upload failed. Check your connection.')
+    await row.getByRole('button', { name: 'Retry trace.pdf' }).click()
+    await expect.poll(() => sent.length).toBe(3)
+  })
+
+  it('discards the queued files on Cancel', async () => {
+    inProjects()
+    const sent = fakeXhr()
+    const { screen } = await renderApp('/p/WEB/board')
+    const open = screen.getByRole('button', { name: 'Create', exact: true })
+    await open.click()
+    const dialog = createDialog(screen)
+    await expect.element(dialog).toBeVisible()
+    const input = dialog
+      .element()
+      .querySelector<HTMLInputElement>('input[type=file]')
+    if (!input) throw new Error('no file input')
+
+    await userEvent.upload(input, new File(['%PDF'], 'trace.pdf'))
+    await expect
+      .element(dialog.getByRole('list', { name: 'Files to attach' }))
+      .toHaveTextContent('trace.pdf')
+    await dialog.getByRole('button', { name: 'Remove trace.pdf' }).click()
+    await userEvent.upload(input, new File(['%PDF'], 'trace.pdf'))
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect.element(dialog).not.toBeInTheDocument()
+
+    await open.click()
+    await expect.element(dialog.getByLabelText('Summary')).toBeVisible()
+    await expect
+      .element(dialog.getByRole('list', { name: 'Files to attach' }))
+      .not.toBeInTheDocument()
+    expect(sent).toHaveLength(0)
   })
 
   it('creates inline at the foot of the first column, in the running sprint', async () => {

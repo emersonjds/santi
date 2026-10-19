@@ -8,6 +8,8 @@ services:
       DATABASE_URL: postgres://santi:santi@postgres:5432/santi
     ports:
       - "${SANTI_PORT:-8080}:8080"
+    volumes:
+      - santi-attachments:/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,3 +34,4 @@ services:
 
 volumes:
   santi-postgres:
+  santi-attachments:
