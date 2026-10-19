@@ -3038,11 +3038,22 @@
               "type": "integer",
               "format": "int64"
             }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "description": "`1` saves the file even when it is an image, which otherwise opens in the browser.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "The file, served by santi: images `inline`, the rest `attachment`, with `nosniff` and `Content-Security-Policy: sandbox`",
+            "description": "The file, served by santi: images `inline` unless `download=1`, the rest `attachment`, with `nosniff` and `Content-Security-Policy: sandbox`",
             "content": {
               "application/octet-stream": {
                 "schema": {

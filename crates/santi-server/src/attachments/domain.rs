@@ -222,9 +222,9 @@ pub fn check_count(existing: i64, in_request: usize) -> Result<(), AppError> {
 }
 
 /// Images open in the browser, everything else downloads; `filename*` per RFC 5987 carries the
-/// exact name, `filename` an ASCII fallback.
-pub fn content_disposition(file_name: &str, content_type: &str) -> String {
-    let kind = match content_type.starts_with("image/") {
+/// exact name, `filename` an ASCII fallback. `save` downloads an image too.
+pub fn content_disposition(file_name: &str, content_type: &str, save: bool) -> String {
+    let kind = match !save && content_type.starts_with("image/") {
         true => "inline",
         false => "attachment",
     };
@@ -412,11 +412,11 @@ mod tests {
     #[test]
     fn images_open_inline_and_the_rest_download_with_an_encoded_name() {
         assert_eq!(
-            content_disposition("shot.png", "image/png"),
+            content_disposition("shot.png", "image/png", false),
             "inline; filename=\"shot.png\"; filename*=UTF-8''shot.png"
         );
         assert_eq!(
-            content_disposition("Relatório \"final\" 100%.pdf", "application/pdf"),
+            content_disposition("Relatório \"final\" 100%.pdf", "application/pdf", false),
             "attachment; filename=\"Relat_rio _final_ 100%.pdf\"; filename*=UTF-8''Relat%C3%B3rio%20%22final%22%20100%25.pdf"
         );
     }

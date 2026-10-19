@@ -203,6 +203,25 @@ async fn an_image_and_a_pdf_upload_list_and_download(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn download_1_saves_an_image_instead_of_opening_it(pool: PgPool) {
+    let (ana, _, _) = team(pool, Storage::memory()).await;
+    let (_, created) = upload(&ana, &[png("shot.png")]).await;
+
+    let saved = get_raw(&ana, &format!("{FILES}/{}?download=1", created[0]["id"])).await;
+
+    assert_eq!(saved.status(), StatusCode::OK);
+    assert_eq!(
+        saved.headers()[header::CONTENT_DISPOSITION],
+        "attachment; filename=\"shot.png\"; filename*=UTF-8''shot.png"
+    );
+    let opened = get_raw(&ana, &format!("{FILES}/{}?download=0", created[0]["id"])).await;
+    assert_eq!(
+        opened.headers()[header::CONTENT_DISPOSITION],
+        "inline; filename=\"shot.png\"; filename*=UTF-8''shot.png"
+    );
+}
+
+#[sqlx::test]
 async fn with_s3_a_download_redirects_to_a_presigned_url(pool: PgPool) {
     let storage = Storage::new(&StorageConfig::S3(S3Config {
         bucket: "santi-files".into(),
@@ -238,6 +257,37 @@ async fn with_s3_a_download_redirects_to_a_presigned_url(pool: PgPool) {
     );
     assert!(
         location.contains("response-content-type=application%2Fpdf"),
+        "{location}"
+    );
+}
+
+#[sqlx::test]
+async fn with_s3_download_1_presigns_an_attachment_for_an_image(pool: PgPool) {
+    let storage = Storage::new(&StorageConfig::S3(S3Config {
+        bucket: "santi-files".into(),
+        endpoint: "https://storage.example.test".into(),
+        region: "auto".into(),
+        access_key_id: "key-id".into(),
+        secret_access_key: "secret".into(),
+    }))
+    .unwrap();
+    let (ana, _, _) = team(pool.clone(), storage).await;
+    let id: i64 = sqlx::query_scalar(
+        "INSERT INTO attachment (issue_id, uploader_id, file_name, content_type, size_bytes, storage_key)
+         SELECT id, $1, 'shot.png', 'image/png', 3, '9/9/png' FROM issue WHERE number = 1
+         RETURNING id",
+    )
+    .bind(ana.user_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    let response = get_raw(&ana, &format!("{FILES}/{id}?download=1")).await;
+
+    assert_eq!(response.status(), StatusCode::FOUND);
+    let location = response.headers()[header::LOCATION].to_str().unwrap();
+    assert!(
+        location.contains("response-content-disposition=attachment%3B%20filename%3D%22shot.png%22"),
         "{location}"
     );
 }

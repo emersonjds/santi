@@ -11,7 +11,7 @@ use axum::http::header::{
 use axum::response::{IntoResponse, Response};
 use axum::{Json, middleware};
 use santi_types::Problem;
-use santi_types::attachments::{Attachment, AttachmentFile, AttachmentUpload};
+use santi_types::attachments::{Attachment, AttachmentFile, AttachmentUpload, DownloadQuery};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -19,7 +19,7 @@ use super::domain::{MAX_FILE_BYTES, MAX_PER_REQUEST};
 use super::service;
 use crate::AppState;
 use crate::error::AppError;
-use crate::extract::PathParams;
+use crate::extract::{PathParams, QueryParams};
 use crate::members::Member;
 use crate::rate_limit::Action;
 use crate::storage::Download;
@@ -91,9 +91,10 @@ pub async fn list_attachments(
     params(
         ("key" = String, Path, description = "Project key"),
         ("number" = i64, Path, description = "Issue number, the N of KEY-N"),
-        ("id" = i64, Path, description = "Attachment id")),
+        ("id" = i64, Path, description = "Attachment id"),
+        DownloadQuery),
     responses(
-        (status = 200, content_type = "application/octet-stream", body = AttachmentFile, description = "The file, served by santi: images `inline`, the rest `attachment`, with `nosniff` and `Content-Security-Policy: sandbox`"),
+        (status = 200, content_type = "application/octet-stream", body = AttachmentFile, description = "The file, served by santi: images `inline` unless `download=1`, the rest `attachment`, with `nosniff` and `Content-Security-Policy: sandbox`"),
         (status = 302, description = "S3 storage: a presigned URL valid 5 minutes in `Location`"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json")))]
@@ -101,8 +102,10 @@ pub async fn download_attachment(
     State(state): State<AppState>,
     member: Member,
     PathParams((_key, number, id)): PathParams<(String, i64, i64)>,
+    QueryParams(query): QueryParams<DownloadQuery>,
 ) -> Result<Response, AppError> {
-    let served = service::download(&state.pool, &state.storage, &member, number, id).await?;
+    let save = query.download == Some(1);
+    let served = service::download(&state.pool, &state.storage, &member, number, id, save).await?;
     Ok(match served.download {
         Download::Redirect(url) => (StatusCode::FOUND, [(LOCATION, url)]).into_response(),
         Download::Stream { body, size } => (

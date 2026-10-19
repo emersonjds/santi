@@ -4181,7 +4181,10 @@ export interface operations {
     };
     download_attachment: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description `1` saves the file even when it is an image, which otherwise opens in the browser. */
+                download?: number;
+            };
             header?: never;
             path: {
                 /** @description Project key */
@@ -4195,7 +4198,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The file, served by santi: images `inline`, the rest `attachment`, with `nosniff` and `Content-Security-Policy: sandbox` */
+            /** @description The file, served by santi: images `inline` unless `download=1`, the rest `attachment`, with `nosniff` and `Content-Security-Policy: sandbox` */
             200: {
                 headers: {
                     [name: string]: unknown;
