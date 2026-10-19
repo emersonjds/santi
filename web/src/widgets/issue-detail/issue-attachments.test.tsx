@@ -493,10 +493,12 @@ describe('uploading attachments', () => {
         new File(['<svg/>'], 'logo.svg', { type: 'image/svg+xml' }),
         new File(['x'], 'notes.txt'),
         new File(['x'], 'huge.png'),
-        pdf('offline.pdf')
+        pdf('offline.pdf'),
+        pdf('gateway.pdf'),
+        pdf('edge.pdf')
       )
     )
-    await expect.poll(() => sent.length).toBe(3)
+    await expect.poll(() => sent.length).toBe(5)
     const xhrOf = (name: string) => {
       const found = [...sent].reverse().find((xhr) => xhr.fileName === name)
       if (!found) throw new Error(`no upload of ${name}`)
@@ -510,6 +512,8 @@ describe('uploading attachments', () => {
     )
     xhrOf('huge.png').respond(413, problem(413, 'The upload is too large.'))
     xhrOf('offline.pdf').fail()
+    xhrOf('gateway.pdf').respond(502, null)
+    xhrOf('edge.pdf').respond(413, null)
 
     const rowOf = (name: string) =>
       section.getByRole('listitem').filter({ hasText: name })
@@ -519,6 +523,8 @@ describe('uploading attachments', () => {
       'notes.txt': 'Text files must be UTF-8.',
       'huge.png': 'The upload is too large.',
       'offline.pdf': 'Upload failed. Check your connection.',
+      'gateway.pdf': 'Upload failed. Check your connection.',
+      'edge.pdf': 'Larger than 25 MB.',
     }
     const refusedBeforeSending = ['big.zip', 'logo.svg']
     for (const [name, reason] of Object.entries(reasons)) {
@@ -536,12 +542,12 @@ describe('uploading attachments', () => {
       .getByRole('button', { name: 'Remove big.zip' })
       .click()
     await expect.element(rowOf('big.zip')).not.toBeInTheDocument()
-    expect(sent).toHaveLength(3)
+    expect(sent).toHaveLength(5)
 
     await rowOf('offline.pdf')
       .getByRole('button', { name: 'Retry offline.pdf' })
       .click()
-    await expect.poll(() => sent.length).toBe(4)
+    await expect.poll(() => sent.length).toBe(6)
     await expect
       .element(rowOf('offline.pdf').getByRole('progressbar'))
       .toBeVisible()
