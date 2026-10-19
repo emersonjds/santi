@@ -61,6 +61,15 @@ const editorOf = (page: Page, label: string) =>
 /** The mention list under the caret; the Assignee select also holds an "Ada" option. */
 const picker = (page: Page) => page.getByRole('listbox')
 
+/** CodeMirror ignores Enter for 75 ms after its list changes; wait it out, then take the option. */
+const pickMention = async (page: Page) => {
+  const option = picker(page).getByRole('option', { name: /^Ada/ })
+  await expect(option).toHaveAttribute('aria-selected', 'true')
+  await page.waitForTimeout(150)
+  await page.keyboard.press('Enter')
+  await expect(picker(page)).toBeHidden()
+}
+
 test('a description written in the editor saves with Mod-Enter and renders as Markdown after a reload', async ({
   page,
 }) => {
@@ -75,8 +84,7 @@ test('a description written in the editor saves with Mod-Enter and renders as Ma
   await page.keyboard.type('fast')
   await page.keyboard.press('End')
   await page.keyboard.type(' for @Ad')
-  await expect(picker(page).getByRole('option', { name: /^Ada/ })).toBeVisible()
-  await page.keyboard.press('Enter')
+  await pickMention(page)
   await page.keyboard.press('Enter')
   await page.keyboard.press('Enter')
   await page.keyboard.type('- one')
@@ -119,8 +127,7 @@ test('a comment mentions a member picked with the keyboard and posts with Mod-En
   const editor = editorOf(page, 'Add a comment')
   await expect(editor).toBeFocused()
   await page.keyboard.type('Over to @ad')
-  await expect(picker(page).getByRole('option', { name: /^Ada/ })).toBeVisible()
-  await page.keyboard.press('Enter')
+  await pickMention(page)
   await page.keyboard.type(' now')
   await page.keyboard.press('ControlOrMeta+Enter')
 
