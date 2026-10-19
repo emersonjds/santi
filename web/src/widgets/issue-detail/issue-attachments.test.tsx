@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
+import { attachmentsQuery } from '@/entities/attachment/attachments'
 import { projectQuery } from '@/entities/project/project-queries'
 import type { Attachment } from '@/shared/api/client'
 import { fakeXhr } from '@/test/fake-xhr'
@@ -253,6 +254,41 @@ describe('issue attachments', () => {
       .element(screen.getByText("Couldn't delete the file"))
       .toBeVisible()
     await expect.element(section.getByText('spec.pdf')).toBeVisible()
+  })
+
+  it('does not put a refused file back twice when a refetch already did', async () => {
+    let answer = () => {}
+    withFiles(ALL, {
+      'DELETE /api/projects/WEB/issues/1/attachments/3': {
+        status: 500,
+        body: problem(500, 'The database is away.'),
+        until: new Promise<void>((resolve) => {
+          answer = resolve
+        }),
+      },
+    })
+    const { screen, queryClient } = await renderApp('/p/WEB/issues/1')
+    const section = sectionOf(screen)
+    const rows = section
+      .getByRole('list', { name: 'Files' })
+      .getByRole('listitem')
+
+    await section.getByRole('button', { name: 'Delete spec.pdf' }).click()
+    await screen
+      .getByRole('alertdialog')
+      .getByRole('button', { name: 'Delete' })
+      .click()
+    await expect.element(section.getByText('spec.pdf')).not.toBeInTheDocument()
+    await queryClient.refetchQueries({
+      queryKey: attachmentsQuery('WEB', 1).queryKey,
+    })
+    await expect.element(section.getByText('spec.pdf')).toBeVisible()
+    answer()
+
+    await expect
+      .element(screen.getByText("Couldn't delete the file"))
+      .toBeVisible()
+    expect(rows.elements()).toHaveLength(2)
   })
 
   it('offers a member Delete only on the files they uploaded', async () => {
@@ -576,6 +612,39 @@ describe('uploading attachments', () => {
       .toEqual(['report.pdf'])
 
     drag('dragenter', new DataTransfer())
+    await expect.element(overlay).not.toBeInTheDocument()
+  })
+
+  it('keeps the overlay through a drag that carries no files, and counts nested enters', async () => {
+    withFiles([])
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const summary = screen.getByLabelText('Summary')
+    await expect.element(summary).toBeVisible()
+    const overlay = screen.getByText('Drop files to attach')
+    const heading = screen.getByRole('heading', { name: 'Attachments' })
+    const words = heading.element().firstChild
+    if (!words) throw new Error('no text in the heading')
+
+    drag('dragenter', filesOf(pdf('report.pdf')))
+    words.dispatchEvent(
+      new DragEvent('dragenter', {
+        dataTransfer: filesOf(pdf('report.pdf')),
+        bubbles: true,
+        cancelable: true,
+      })
+    )
+    drag('dragover', new DataTransfer())
+    drag('dragleave', new DataTransfer())
+    drag('dragleave', filesOf(pdf('report.pdf')))
+    await expect.element(overlay).toBeVisible()
+    drag('dragleave', filesOf(pdf('report.pdf')))
+    await expect.element(overlay).not.toBeInTheDocument()
+    drag('dragleave', filesOf(pdf('report.pdf')))
+    drag('dragenter', filesOf(pdf('report.pdf')))
+    await expect.element(overlay).toBeVisible()
+    drag('drop', new DataTransfer())
+    await expect.element(overlay).toBeVisible()
+    drag('dragleave', filesOf(pdf('report.pdf')))
     await expect.element(overlay).not.toBeInTheDocument()
   })
 
