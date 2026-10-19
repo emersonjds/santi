@@ -210,13 +210,16 @@ pub async fn set_password_hash(
     user_id: i64,
     password_hash: &str,
 ) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "UPDATE app_user SET password_hash = $2 WHERE id = $1",
+    let updated = sqlx::query!(
+        "UPDATE app_user SET password_hash = $2 WHERE id = $1 AND deleted_at IS NULL",
         user_id,
         password_hash
     )
     .execute(&mut *conn)
     .await?;
+    if updated.rows_affected() == 0 {
+        return Err(sqlx::Error::RowNotFound);
+    }
     Ok(())
 }
 
@@ -312,6 +315,10 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     .execute(&mut *conn)
     .await?;
     sqlx::query!("DELETE FROM invite WHERE created_by = $1", user_id)
+        .execute(&mut *conn)
+        .await?;
+    // Before auth_token: waits for a reset in flight to commit, then deletes the session it made.
+    sqlx::query!("DELETE FROM password_reset WHERE user_id = $1", user_id)
         .execute(&mut *conn)
         .await?;
     sqlx::query!("DELETE FROM auth_token WHERE user_id = $1", user_id)
