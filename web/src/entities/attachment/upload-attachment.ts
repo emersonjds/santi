@@ -47,7 +47,12 @@ export const uploadAttachment = ({
       reject(
         isProblem(answer)
           ? new ApiError(xhr.status, answer.detail, answer.errors)
-          : new ApiError(xhr.status, xhr.statusText)
+          : new ApiError(
+              xhr.status,
+              xhr.status === 413
+                ? 'Larger than 25 MB.'
+                : 'Upload failed. Check your connection.'
+            )
       )
     }
     xhr.onerror = () => reject(new TypeError('Network error'))
