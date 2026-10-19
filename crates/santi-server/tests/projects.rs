@@ -634,6 +634,45 @@ async fn a_revoked_invite_reads_as_expired_and_joiners_stay(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn an_accept_begun_before_a_revoke_commits_cannot_take_the_link(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let token = new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    let id = invite_ids(&ana, "SANTI").await[0];
+    let mut accept = pool.begin().await.unwrap();
+
+    let (revoked, _) = ana
+        .delete(&format!("/api/projects/SANTI/invites/{id}"))
+        .await;
+    let grant = santi_server::members::repo::take_invite(
+        &mut accept,
+        &santi_server::auth::domain::hash_token(&token),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(revoked, StatusCode::NO_CONTENT);
+    assert!(grant.is_none());
+}
+
+#[sqlx::test]
+async fn an_invite_keeps_its_creation_time(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
+    let (_, before) = ana.get("/api/projects/SANTI/invites").await;
+    sqlx::query("UPDATE invite SET expires_at = expires_at + interval '1 day'")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let (_, after) = ana.get("/api/projects/SANTI/invites").await;
+
+    assert_ne!(before[0]["expires_at"], after[0]["expires_at"]);
+    assert_eq!(before[0]["created_at"], after[0]["created_at"]);
+}
+
+#[sqlx::test]
 async fn revoke_answers_404_for_another_projects_or_an_ended_invite(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT iu.invite_id, u.id AS user_id, u.display_name AS name, u.email,\n                  iu.used_at AS joined_at\n           FROM invite_use iu JOIN app_user u ON u.id = iu.user_id\n           WHERE iu.invite_id = ANY($1)\n           ORDER BY iu.used_at, u.id",
+  "query": "SELECT iu.invite_id, u.id AS user_id, u.display_name AS name, u.email,\n                  iu.used_at AS joined_at\n           FROM invite_use iu JOIN app_user u ON u.id = iu.user_id\n           WHERE iu.invite_id = ANY($1)\n           ORDER BY iu.invite_id, iu.used_at, u.id",
   "describe": {
     "columns": [
       {
@@ -72,5 +72,5 @@
       false
     ]
   },
-  "hash": "c46938fface51b23e4378ffa96a0e5cde143e48eac6f805527d75c8e339dc2cf"
+  "hash": "154cd9f5e35228215d195cfd16266461f1667774bff780ef5d3e2d9d0f31f680"
 }

@@ -1,11 +1,12 @@
-use chrono::{DateTime, Duration, Utc};
+use std::collections::HashMap;
+
+use chrono::{DateTime, Utc};
 use santi_types::projects::{
     BoardType, InviteInfo, InviteJoiner, InvitePreview, MemberInfo, MemberRole,
 };
 use sqlx::PgConnection;
 
 use super::Member;
-use super::domain::INVITE_DAYS;
 
 pub struct InviteGrant {
     pub id: i64,
@@ -216,6 +217,8 @@ pub async fn insert_invite(
 }
 
 /// Locks a live invite into an active project until the transaction ends and returns its grant.
+/// Expiry is checked against the clock, not the transaction start, so a revoke that commits
+/// while the accept is open still stops it.
 pub async fn take_invite(
     conn: &mut PgConnection,
     token_hash: &[u8],
@@ -226,7 +229,7 @@ pub async fn take_invite(
            FROM invite i
            JOIN project p ON p.id = i.project_id
            WHERE p.archived_at IS NULL AND p.trashed_at IS NULL
-             AND i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > now()
+             AND i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > clock_timestamp()
            FOR UPDATE OF i"#,
         token_hash
     )
@@ -299,7 +302,7 @@ pub async fn list_live_invites(
     project_id: i64,
 ) -> Result<Vec<InviteInfo>, sqlx::Error> {
     let rows = sqlx::query!(
-        r#"SELECT i.id, i.role AS "role: MemberRole", i.max_uses, i.expires_at,
+        r#"SELECT i.id, i.role AS "role: MemberRole", i.max_uses, i.created_at, i.expires_at,
                   u.display_name AS created_by_name,
                   (SELECT count(*) FROM invite_use WHERE invite_id = i.id)::int AS "uses!"
            FROM invite i JOIN app_user u ON u.id = i.created_by
@@ -315,11 +318,23 @@ pub async fn list_live_invites(
                   iu.used_at AS joined_at
            FROM invite_use iu JOIN app_user u ON u.id = iu.user_id
            WHERE iu.invite_id = ANY($1)
-           ORDER BY iu.used_at, u.id"#,
+           ORDER BY iu.invite_id, iu.used_at, u.id"#,
         &ids
     )
     .fetch_all(&mut *conn)
     .await?;
+    let mut joined: HashMap<i64, Vec<InviteJoiner>> = HashMap::new();
+    for joiner in joiners {
+        joined
+            .entry(joiner.invite_id)
+            .or_default()
+            .push(InviteJoiner {
+                user_id: joiner.user_id,
+                name: joiner.name,
+                email: joiner.email,
+                joined_at: joiner.joined_at,
+            });
+    }
     Ok(rows
         .into_iter()
         .map(|row| InviteInfo {
@@ -328,19 +343,9 @@ pub async fn list_live_invites(
             max_uses: row.max_uses,
             uses: row.uses,
             created_by_name: row.created_by_name,
-            // The table has no creation stamp; every invite expires INVITE_DAYS after it is made.
-            created_at: row.expires_at - Duration::days(INVITE_DAYS),
+            created_at: row.created_at,
             expires_at: row.expires_at,
-            joined: joiners
-                .iter()
-                .filter(|joiner| joiner.invite_id == row.id)
-                .map(|joiner| InviteJoiner {
-                    user_id: joiner.user_id,
-                    name: joiner.name.clone(),
-                    email: joiner.email.clone(),
-                    joined_at: joiner.joined_at,
-                })
-                .collect(),
+            joined: joined.remove(&row.id).unwrap_or_default(),
         })
         .collect())
 }
