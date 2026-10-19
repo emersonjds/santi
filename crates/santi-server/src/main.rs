@@ -50,6 +50,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
+    // D53
+    let storage =
+        santi_server::storage::Storage::new(&santi_server::storage::StorageConfig::from_env()?)?;
     let listener = tokio::net::TcpListener::bind(address).await?;
     axum::serve(
         listener,
@@ -58,6 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 pool,
                 limits,
                 legal: std::sync::Arc::new(legal),
+                storage,
             },
             Some(std::path::Path::new(&web_dir)),
         )
