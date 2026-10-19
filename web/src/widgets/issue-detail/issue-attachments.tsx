@@ -1,17 +1,14 @@
 import { Suspense, lazy, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Paperclip } from 'lucide-react'
-import {
-  ACCEPTED,
-  type UploadQueue,
-} from '@/features/upload-attachments/upload-queue'
+import { AttachButton } from '@/features/upload-attachments/attach-button'
+import type { UploadQueue } from '@/features/upload-attachments/upload-queue'
 import { UploadRows } from '@/features/upload-attachments/upload-rows'
 import { attachmentsQuery } from '@/entities/attachment/attachments'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { projectQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { Attachment } from '@/shared/api/client'
-import { Button } from '@/shared/ui/button'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import { AttachmentList } from './attachment-list'
 
@@ -38,7 +35,6 @@ export const IssueAttachments = ({
   const { data: me } = useQuery(sessionQuery)
   const [deleting, setDeleting] = useState<Attachment | null>(null)
   const attach = useRef<HTMLButtonElement>(null)
-  const picker = useRef<HTMLInputElement>(null)
   const count = list.data?.length ?? 0
 
   return (
@@ -47,26 +43,14 @@ export const IssueAttachments = ({
         <h3 id='issue-attachments' className='text-sm font-semibold'>
           {count ? `Attachments · ${count}` : 'Attachments'}
         </h3>
-        <Button
+        <AttachButton
           ref={attach}
-          variant='ghost'
           className='ms-auto h-11 md:h-8'
-          onClick={() => picker.current?.click()}
+          onFiles={uploads.add}
         >
           <Paperclip />
           Attach files
-        </Button>
-        <input
-          ref={picker}
-          type='file'
-          multiple
-          hidden
-          accept={ACCEPTED}
-          onChange={(event) => {
-            uploads.add(event.target.files ?? [])
-            event.target.value = ''
-          }}
-        />
+        </AttachButton>
       </div>
       {list.error && (
         <LoadFailed

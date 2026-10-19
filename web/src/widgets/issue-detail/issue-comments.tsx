@@ -7,10 +7,20 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from '@tanstack/react-router'
+import { Paperclip } from 'lucide-react'
 import { MarkdownView } from '@/features/rich-text/lazy-markdown-view'
 import { RichTextField } from '@/features/rich-text/rich-text-field'
+import { AttachButton } from '@/features/upload-attachments/attach-button'
+import { DropZone } from '@/features/upload-attachments/drop-zone'
+import { PendingFiles } from '@/features/upload-attachments/pending-files'
+import {
+  enqueueUploads,
+  useUploadQueue,
+} from '@/features/upload-attachments/upload-queue'
+import { UploadRows } from '@/features/upload-attachments/upload-rows'
+import { attachmentsQuery } from '@/entities/attachment/attachments'
 import { commentTime, fullDateTime } from '@/entities/issue/comment-time'
 import { useAddComment, useEditComment } from '@/entities/issue/issue-mutations'
 import { commentsQuery } from '@/entities/issue/issue-queries'
@@ -18,12 +28,18 @@ import { mayDelete } from '@/entities/issue/may-delete'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
-import { type Comment, type Member, fieldMessage } from '@/shared/api/client'
+import {
+  type Attachment,
+  type Comment,
+  type Member,
+  fieldMessage,
+} from '@/shared/api/client'
 import { quickRepliesOn } from '@/shared/config/quick-replies'
 import { LOCKED, lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { toast } from '@/shared/lib/toast'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
+import { AttachmentList } from './attachment-list'
 
 // Lazy, like the issue menu: the dropdown and the dialog stay out of the issue page's first load (D39).
 const CommentMenu = lazy(() =>
@@ -36,6 +52,12 @@ const DeleteCommentDialog = lazy(() =>
   }))
 )
 
+const DeleteAttachmentDialog = lazy(() =>
+  import('@/features/delete-attachment/delete-attachment-dialog').then(
+    (module) => ({ default: module.DeleteAttachmentDialog })
+  )
+)
+
 const QUICK_REPLIES = [
   'Looks good to me',
   'Thanks!',
@@ -44,6 +66,8 @@ const QUICK_REPLIES = [
 ]
 
 const NO_MEMBERS: Member[] = []
+
+const NO_FILES: Attachment[] = []
 
 const HIGHLIGHT_MS = 3000
 
@@ -86,6 +110,7 @@ const Composer = ({
   note,
 }: ThreadProps & { quickReplies: boolean; note: string | undefined }) => {
   const { data: me } = useQuery(sessionQuery)
+  const queryClient = useQueryClient()
   const add = useAddComment(
     projectKey,
     number,
@@ -93,6 +118,7 @@ const Composer = ({
     me?.display_name ?? ''
   )
   const [draft, setDraft] = useState('')
+  const [files, setFiles] = useState<File[]>([])
   const [open, setOpen] = useState(false)
   const [round, setRound] = useState(0)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -101,20 +127,34 @@ const Composer = ({
   const collapse = () => {
     armTrigger()
     setDraft('')
+    setFiles([])
     setOpen(false)
+  }
+
+  const attach = (picked: Iterable<File>) => {
+    const added = [...picked]
+    setFiles((list) => [...list, ...added])
   }
 
   const submit = (event?: FormEvent) => {
     event?.preventDefault()
     const body = draft.trimEnd()
     if (!body.trim()) return
+    const attached = files
     collapse()
-    add.mutate(body, {
-      onError: () => {
+    add.mutateAsync(body).then(
+      (saved) =>
+        enqueueUploads(
+          queryClient,
+          { projectKey, number, commentId: saved.id },
+          attached
+        ),
+      () => {
         setDraft(body)
+        setFiles(attached)
         setOpen(true)
-      },
-    })
+      }
+    )
   }
 
   // A chip remounts the field, so it takes the focus with the caret at the end.
@@ -127,32 +167,48 @@ const Composer = ({
   return (
     <div className='grid gap-2'>
       {open ? (
-        <form onSubmit={submit} className='grid gap-2'>
-          <RichTextField
-            key={round}
-            label='Add a comment'
-            keyShortcut='m'
-            placeholder='Add a comment…'
-            autoFocus
-            value={draft}
-            onChange={setDraft}
-            onSubmit={submit}
-            onCancel={collapse}
-            members={members}
-            firstIds={firstIds}
-          />
-          <div className='flex gap-2'>
-            <Button className='h-11 md:h-8'>Save</Button>
-            <Button
-              type='button'
-              variant='ghost'
-              className='h-11 md:h-8'
-              onClick={collapse}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+        <DropZone onFiles={attach} disabled={Boolean(note)} takesFieldPaste>
+          <form onSubmit={submit} className='grid gap-2'>
+            <RichTextField
+              key={round}
+              label='Add a comment'
+              keyShortcut='m'
+              placeholder='Add a comment…'
+              autoFocus
+              value={draft}
+              onChange={setDraft}
+              onSubmit={submit}
+              onCancel={collapse}
+              members={members}
+              firstIds={firstIds}
+            />
+            <PendingFiles
+              files={files}
+              onRemove={(index) =>
+                setFiles((list) => list.filter((_, at) => at !== index))
+              }
+            />
+            <div className='flex gap-2'>
+              <Button className='h-11 md:h-8'>Save</Button>
+              <Button
+                type='button'
+                variant='ghost'
+                className='h-11 md:h-8'
+                onClick={collapse}
+              >
+                Cancel
+              </Button>
+              <AttachButton
+                size='icon'
+                className='ms-auto size-11 md:size-8'
+                aria-label='Attach files'
+                onFiles={attach}
+              >
+                <Paperclip />
+              </AttachButton>
+            </div>
+          </form>
+        </DropZone>
       ) : (
         <button
           ref={trigger}
@@ -200,8 +256,55 @@ const Composer = ({
   )
 }
 
+type CommentFilesProps = {
+  projectKey: string
+  number: number
+  commentId: number
+  files: Attachment[]
+  mayDeleteFile: (attachment: Attachment) => boolean
+  nextFocus: () => HTMLElement | null
+}
+
+/** SAN-175: the comment's own files and uploads, under its text. */
+const CommentFiles = ({
+  projectKey,
+  number,
+  commentId,
+  files,
+  mayDeleteFile,
+  nextFocus,
+}: CommentFilesProps) => {
+  const uploads = useUploadQueue(projectKey, number, commentId)
+  const [deleting, setDeleting] = useState<Attachment | null>(null)
+  return (
+    <div className='grid gap-2 empty:hidden'>
+      <UploadRows queue={uploads} />
+      <AttachmentList
+        projectKey={projectKey}
+        number={number}
+        attachments={files}
+        mayDelete={mayDeleteFile}
+        onDelete={setDeleting}
+      />
+      {deleting && (
+        <Suspense fallback={null}>
+          <DeleteAttachmentDialog
+            projectKey={projectKey}
+            number={number}
+            attachment={deleting}
+            nextFocus={nextFocus}
+            onClose={() => setDeleting(null)}
+          />
+        </Suspense>
+      )}
+    </div>
+  )
+}
+
 type CommentItemProps = ThreadProps & {
   comment: Comment
+  files: Attachment[]
+  mayDeleteFile: (attachment: Attachment) => boolean
   nameOf: (userId: number) => string | undefined
   writable: boolean
   note: string | undefined
@@ -216,6 +319,8 @@ const CommentItem = ({
   members,
   firstIds,
   comment,
+  files,
+  mayDeleteFile,
   nameOf,
   writable,
   note,
@@ -373,6 +478,14 @@ const CommentItem = ({
               <MarkdownView source={comment.body} members={members} />
             </div>
           )}
+          <CommentFiles
+            projectKey={projectKey}
+            number={number}
+            commentId={comment.id}
+            files={files}
+            mayDeleteFile={mayDeleteFile}
+            nextFocus={() => menu.current}
+          />
         </div>
       </article>
       {deleting && (
@@ -403,8 +516,7 @@ const useArrival = (comments: Comment[] | undefined) => {
     const target = document.getElementById(hash)
     if (!target) return
     const shown = new ResizeObserver(() => {
-      if (!(target.checkVisibility?.() ?? target.offsetParent !== null))
-        return
+      if (!(target.checkVisibility?.() ?? target.offsetParent !== null)) return
       shown.disconnect()
       arrived.current = hash
       target.scrollIntoView({ block: 'center' })
@@ -436,6 +548,9 @@ export const IssueComments = ({
 }: IssueCommentsProps) => {
   const { data: comments } = useQuery(commentsQuery(projectKey, number))
   const { data: members = NO_MEMBERS } = useQuery(membersQuery(projectKey))
+  const { data: attachments = NO_FILES } = useQuery(
+    attachmentsQuery(projectKey, number)
+  )
   const { data: project } = useQuery(projectQuery(projectKey))
   const { data: me } = useQuery(sessionQuery)
   const note = useReadOnly()
@@ -463,6 +578,12 @@ export const IssueComments = ({
               key={comment.id}
               {...thread}
               comment={comment}
+              files={attachments.filter(
+                (attachment) => attachment.comment_id === comment.id
+              )}
+              mayDeleteFile={(attachment) =>
+                mayDelete(project, me, attachment.uploader_id)
+              }
               nameOf={nameOf}
               writable={mayDelete(project, me, comment.author_id)}
               note={note}
