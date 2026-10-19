@@ -407,6 +407,12 @@ pub fn check_comment_body(body: &str) -> Result<String, AppError> {
     Ok(body.to_string())
 }
 
+/// D52: the new body, or `None` when the text stays the same (OQ-13: no edited marker).
+pub fn comment_edit(current: &str, input: &str) -> Result<Option<String>, AppError> {
+    let body = check_comment_body(input)?;
+    Ok((body != current).then_some(body))
+}
+
 /// D40: an admin, or the member who reported the issue.
 pub fn check_delete(role: MemberRole, user_id: i64, reporter_id: i64) -> Result<(), AppError> {
     if role != MemberRole::Admin && user_id != reporter_id {
@@ -735,6 +741,13 @@ mod tests {
         );
         assert!(check_comment_body("  ").is_err());
         assert!(check_comment_body(" \n\t\n ").is_err());
+    }
+
+    #[test]
+    fn a_comment_edit_that_keeps_the_text_changes_nothing() {
+        assert_eq!(comment_edit("hi", "\nhi \n").unwrap(), None);
+        assert_eq!(comment_edit("hi", "hello").unwrap(), Some("hello".into()));
+        assert!(comment_edit("hi", "  ").is_err());
     }
 
     #[test]

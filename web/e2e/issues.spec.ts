@@ -138,18 +138,74 @@ test('labels are picked from a list, saved at once and shown on the card', async
   await expect(card.getByTitle('Release', { exact: true })).toBeVisible()
 })
 
-test('a comment shows at once and stays after a reload', async ({ page }) => {
+test('a comment is posted, edited and deleted, and each change survives a reload', async ({
+  page,
+}) => {
   const key = await kanbanWithIssues(page)
   await page.goto(`/p/${key}/issues/2`)
-
-  await page.getByLabel('Add a comment').fill('Ready for review.')
-  await page.getByRole('button', { name: 'Comment', exact: true }).click()
-
   const comments = page.getByRole('region', { name: 'Comments' })
-  await expect(comments.getByRole('article')).toContainText('Ready for review.')
-  await expect(comments.getByRole('article')).toContainText('Ada')
+  const comment = comments.getByRole('article')
+
+  await comments.getByRole('button', { name: 'Add a comment…' }).click()
+  await comments
+    .getByRole('textbox', { name: 'Add a comment' })
+    .fill('Ready for review.')
+  await comments.getByRole('button', { name: 'Save' }).click()
+  await expect(comment).toContainText('Ready for review.')
+  await expect(comment).toContainText('Ada')
+
+  await comment.hover()
+  await comment.getByRole('button', { name: 'Comment actions' }).click()
+  await page.getByRole('menuitem', { name: 'Edit' }).click()
+  await expect(
+    comments.getByRole('textbox', { name: 'Edit comment' })
+  ).toBeFocused()
+  await page.keyboard.type(' Merged.')
+  await comments.getByRole('button', { name: 'Save' }).click()
+  await expect(comment).toContainText('Ready for review. Merged.')
   await page.reload()
-  await expect(comments.getByRole('article')).toContainText('Ready for review.')
+  await expect(comment.getByText('(edited)')).toBeVisible()
+
+  await comment.hover()
+  await comment.getByRole('button', { name: 'Comment actions' }).click()
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  await page
+    .getByRole('alertdialog', { name: 'Delete this comment?' })
+    .getByRole('button', { name: 'Delete' })
+    .click()
+  await expect(comment).toHaveCount(0)
+  await page.reload()
+  await expect(comments.getByText('No comments yet.')).toBeVisible()
+  await expect(comment).toHaveCount(0)
+})
+
+test('a copied comment link opens the issue at that comment, highlighted', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  const key = await kanbanWithIssues(page)
+  for (let note = 1; note <= 12; note++)
+    await api(page, 'POST', `/api/projects/${key}/issues/1/comments`, {
+      body: `Note ${note}`,
+    })
+  await page.goto(`/p/${key}/issues/1`)
+  const target = page
+    .getByRole('region', { name: 'Comments' })
+    .getByRole('listitem')
+    .filter({ hasText: 'Note 12' })
+
+  await target.hover()
+  await target.getByRole('button', { name: 'Comment actions' }).click()
+  await page.getByRole('menuitem', { name: 'Copy link' }).click()
+  await expect(page.getByText('Link copied')).toBeVisible()
+  const link = await page.evaluate(() => navigator.clipboard.readText())
+  expect(link).toMatch(new RegExp(`/p/${key}/issues/1#comment-\\d+$`))
+
+  await page.goto('/')
+  await page.goto(link)
+  await expect(target).toBeInViewport()
+  await expect(target).toHaveClass(/bg-muted/)
 })
 
 test('an invited visitor previews the invite, creates an account and joins', async ({

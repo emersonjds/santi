@@ -1,7 +1,8 @@
 import Markdown from 'react-markdown'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
+import type { Comment } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
   MEMBERS,
@@ -367,12 +368,12 @@ describe('issue detail', () => {
     const requests = inProjects({ [COMMENT]: pending })
     const { screen } = await renderApp('/p/WEB/issues/1')
 
-    await screen.getByLabelText('Add a comment').click()
+    await screen.getByRole('button', { name: 'Add a comment…' }).click()
     await expect
       .element(screen.getByRole('toolbar', { name: 'Formatting' }))
       .toBeVisible()
     await userEvent.keyboard('Ship it on Friday.')
-    await screen.getByRole('button', { name: 'Comment' }).click()
+    await screen.getByRole('button', { name: 'Save' }).click()
 
     const comments = screen
       .getByRole('region', { name: 'Comments' })
@@ -382,8 +383,8 @@ describe('issue detail', () => {
       .element(comments.nth(1))
       .toHaveTextContent('Ship it on Friday.')
     await expect
-      .element(screen.getByLabelText('Add a comment'))
-      .not.toHaveTextContent('Ship it on Friday.')
+      .element(screen.getByRole('button', { name: 'Add a comment…' }))
+      .toHaveFocus()
     await expect
       .poll(() => bodiesOf(requests, COMMENT))
       .toEqual([{ body: 'Ship it on Friday.' }])
@@ -769,7 +770,7 @@ describe('issue rich text', () => {
     const { screen } = await renderApp('/p/WEB/issues/1')
     const comments = screen.getByRole('region', { name: 'Comments' })
 
-    await comments.getByRole('textbox', { name: 'Add a comment' }).click()
+    await comments.getByRole('button', { name: 'Add a comment…' }).click()
     await expect
       .element(comments.getByRole('toolbar', { name: 'Formatting' }))
       .toBeVisible()
@@ -789,8 +790,8 @@ describe('issue rich text', () => {
       .element(posted.getByText('Alice', { exact: true }).last())
       .toBeVisible()
     await expect
-      .element(comments.getByRole('textbox', { name: 'Add a comment' }))
-      .not.toHaveTextContent('Thanks')
+      .element(comments.getByRole('button', { name: 'Add a comment…' }))
+      .toHaveFocus()
   })
 
   it('keeps the draft through Esc and Cancel while the save is in flight, then under its error', async () => {
@@ -866,18 +867,21 @@ describe('issue rich text', () => {
       .element(description.getByRole('textbox', { name: 'Description' }))
       .toHaveFocus()
     await userEvent.keyboard(' draft')
-    await comments.getByRole('textbox', { name: 'Add a comment' }).click()
+    await comments.getByRole('button', { name: 'Add a comment…' }).click()
+    await expect
+      .element(comments.getByRole('textbox', { name: 'Add a comment' }))
+      .toHaveFocus()
     await userEvent.keyboard('reply')
     await screen.getByRole('link', { name: 'WEB-2' }).click()
 
     await expect.element(description.getByText('Parent text')).toBeVisible()
     expect(description.getByRole('textbox').elements()).toEqual([])
     await expect
-      .element(comments.getByRole('textbox', { name: 'Add a comment' }))
-      .not.toHaveTextContent('reply')
-    await expect
-      .element(comments.getByRole('textbox', { name: 'Add a comment' }))
-      .toHaveValue('')
+      .element(comments.getByRole('button', { name: 'Add a comment…' }))
+      .toBeVisible()
+    expect(
+      comments.getByRole('textbox', { name: 'Add a comment' }).elements()
+    ).toEqual([])
   })
 
   it('leaves posted comments alone while a new one is typed', async () => {
@@ -886,7 +890,7 @@ describe('issue rich text', () => {
     const comments = screen.getByRole('region', { name: 'Comments' })
     const field = comments.getByRole('textbox', { name: 'Add a comment' })
     await expect.element(comments.getByRole('article').first()).toBeVisible()
-    await field.click()
+    await comments.getByRole('button', { name: 'Add a comment…' }).click()
     await expect
       .element(comments.getByRole('toolbar', { name: 'Formatting' }))
       .toBeVisible()
@@ -903,7 +907,7 @@ describe('issue rich text', () => {
     const { screen } = await renderApp('/p/WEB/issues/1')
     const comments = screen.getByRole('region', { name: 'Comments' })
 
-    await comments.getByRole('textbox', { name: 'Add a comment' }).click()
+    await comments.getByRole('button', { name: 'Add a comment…' }).click()
     await expect
       .element(comments.getByRole('toolbar', { name: 'Formatting' }))
       .toBeVisible()
@@ -1074,6 +1078,580 @@ describe('issue details layout', () => {
     }
     for (const field of details.querySelectorAll('select, input'))
       expect(getComputedStyle(field).fontSize).toBe('16px')
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+      document.documentElement.clientWidth
+    )
+  })
+})
+
+describe('comment thread', () => {
+  beforeEach(() => page.viewport(1280, 800))
+  afterEach(() => vi.unstubAllEnvs())
+
+  const LIST = 'GET /api/projects/WEB/issues/1/comments'
+  const EDIT = 'PATCH /api/projects/WEB/issues/1/comments/5'
+  const DELETE = 'DELETE /api/projects/WEB/issues/1/comments/5'
+  const OWN: Comment = {
+    id: 5,
+    author_id: 1,
+    author_name: 'Alice',
+    body: 'First pass done.',
+    created_at: new Date(Date.now() - 3_600_000).toISOString(),
+  }
+  const LAST: Comment = { ...OWN, id: 6, body: 'Second pass done.' }
+  const thread = (items: Comment[], replies = {}) =>
+    inProjects({
+      [LIST]: { status: 200, body: { items, next_cursor: null } },
+      ...replies,
+    })
+  /** Answers the first list only: the refetch after a write stays pending, so the thread shows what the client did. */
+  const heldThread = (items: Comment[], replies = {}) => {
+    let calls = 0
+    return thread(items, {
+      [LIST]: {
+        status: 200,
+        body: { items, next_cursor: null },
+        until: () => (calls++ === 0 ? undefined : new Promise(() => {})),
+      },
+      ...replies,
+    })
+  }
+  const notes = (count: number) =>
+    Array.from({ length: count }, (_, index) => ({
+      ...WEB_COMMENTS[0],
+      id: index + 1,
+      body: `Note ${index + 1}`,
+    }))
+  const commentsOf = (screen: RenderResult) =>
+    screen.getByRole('region', { name: 'Comments' })
+  const triggerOf = (screen: RenderResult) =>
+    commentsOf(screen).getByRole('button', { name: 'Add a comment…' })
+  const actionsOf = (screen: RenderResult, index: number) =>
+    commentsOf(screen)
+      .getByRole('article')
+      .nth(index)
+      .getByRole('button', { name: 'Comment actions' })
+  const menuItems = async () => {
+    await expect.element(page.getByRole('menuitem').first()).toBeVisible()
+    return page
+      .getByRole('menuitem')
+      .elements()
+      .map((item) => item.textContent)
+  }
+  const settled = () => new Promise((resolve) => setTimeout(resolve, 150))
+  const deleteAt = async (screen: RenderResult, index: number) => {
+    const confirm = screen.getByRole('alertdialog', {
+      name: 'Delete this comment?',
+    })
+    await actionsOf(screen, index).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await confirm.getByRole('button', { name: 'Delete' }).click()
+    await expect.element(confirm).not.toBeInTheDocument()
+  }
+  const editorReady = (screen: RenderResult) =>
+    expect
+      .element(commentsOf(screen).getByRole('toolbar', { name: 'Formatting' }))
+      .toBeVisible()
+
+  it('says there are no comments yet above the collapsed composer', async () => {
+    thread([])
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = commentsOf(screen)
+
+    await expect.element(comments.getByText('No comments yet.')).toBeVisible()
+    await expect
+      .element(triggerOf(screen))
+      .toHaveAttribute('aria-keyshortcuts', 'm')
+    await expect
+      .element(triggerOf(screen).getByText('M', { exact: true }))
+      .toBeVisible()
+    expect(comments.getByRole('textbox').elements()).toEqual([])
+  })
+
+  it('opens the composer with M; Esc and Cancel close it, keep nothing and give the focus back', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const field = commentsOf(screen).getByRole('textbox', {
+      name: 'Add a comment',
+    })
+    await expect.element(triggerOf(screen)).toBeVisible()
+
+    await userEvent.keyboard('m')
+    await expect.element(field).toHaveFocus()
+    await editorReady(screen)
+    await userEvent.keyboard('half a thought')
+    // A completion query is pending for 100 ms after a keystroke; the first Esc would close it.
+    await settled()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(triggerOf(screen)).toHaveFocus()
+
+    await triggerOf(screen).click()
+    await editorReady(screen)
+    await expect.element(field).toHaveFocus()
+    await expect.element(field).not.toHaveTextContent('half a thought')
+    await userEvent.keyboard('again')
+    await commentsOf(screen).getByRole('button', { name: 'Cancel' }).click()
+    await expect.element(triggerOf(screen)).toHaveFocus()
+  })
+
+  it('fills a quick reply without posting it; the chips go once there is text', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const chips = commentsOf(screen).getByRole('group', {
+      name: 'Quick replies',
+    })
+    await expect.element(chips).toBeVisible()
+    expect(
+      chips
+        .getByRole('button')
+        .elements()
+        .map((chip) => chip.textContent)
+    ).toEqual([
+      'Looks good to me',
+      'Thanks!',
+      'Can you say more?',
+      "I'll take a look.",
+    ])
+
+    await chips.getByRole('button', { name: 'Thanks!' }).click()
+    await editorReady(screen)
+    const field = commentsOf(screen).getByRole('textbox', {
+      name: 'Add a comment',
+    })
+    await expect.element(field).toHaveFocus()
+    await expect.element(chips).not.toBeInTheDocument()
+    await userEvent.keyboard(' Merging now.')
+
+    await expect.element(field).toHaveTextContent('Thanks! Merging now.')
+    expect(await bodiesOf(requests, COMMENT)).toEqual([])
+  })
+
+  it('has no quick replies in a build with VITE_QUICK_REPLIES=off', async () => {
+    vi.stubEnv('VITE_QUICK_REPLIES', 'off')
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await expect.element(triggerOf(screen)).toBeVisible()
+    expect(
+      commentsOf(screen)
+        .getByRole('group', { name: 'Quick replies' })
+        .elements()
+    ).toEqual([])
+  })
+
+  it('puts a refused comment back in the open composer', async () => {
+    inProjects({
+      [COMMENT]: { status: 500, body: problem(500, 'The database is away.') },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = commentsOf(screen)
+
+    await triggerOf(screen).click()
+    await editorReady(screen)
+    await userEvent.keyboard('Lost words')
+    await comments.getByRole('button', { name: 'Save' }).click()
+
+    await expect
+      .element(screen.getByText("Couldn't add the comment"))
+      .toBeVisible()
+    const field = comments.getByRole('textbox', { name: 'Add a comment' })
+    await expect.element(field).toHaveTextContent('Lost words')
+    await expect.element(field).toHaveFocus()
+    expect(comments.getByRole('article').elements()).toHaveLength(1)
+  })
+
+  it('edits an own comment: the same text sends nothing, a change waits for the server and is marked edited', async () => {
+    let answer = () => {}
+    const until = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    let saved: Comment | undefined
+    const requests = inProjects({
+      [LIST]: {
+        status: 200,
+        body: () => ({
+          items: [WEB_COMMENTS[0], saved ?? OWN],
+          next_cursor: null,
+        }),
+      },
+      [EDIT]: {
+        status: 200,
+        until,
+        body: () =>
+          (saved = {
+            ...OWN,
+            body: 'First pass done. Second too.',
+            edited_at: new Date().toISOString(),
+            edited_by_id: 1,
+            edited_by_name: 'Alice',
+          }),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = commentsOf(screen)
+    const own = comments.getByRole('article').nth(1)
+    const field = comments.getByRole('textbox', { name: 'Edit comment' })
+
+    await actionsOf(screen, 1).click()
+    expect(await menuItems()).toEqual(['Copy link', 'Edit', 'Delete'])
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await editorReady(screen)
+    await expect.element(field).toHaveFocus()
+    await expect.element(field).toHaveTextContent('First pass done.')
+    expect(
+      comments.getByRole('group', { name: 'Quick replies' }).elements()
+    ).toEqual([])
+    await comments.getByRole('button', { name: 'Save' }).click()
+    await expect.element(field).not.toBeInTheDocument()
+    expect(await bodiesOf(requests, EDIT)).toEqual([])
+
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await editorReady(screen)
+    await userEvent.keyboard(' Second too.')
+    await comments.getByRole('button', { name: 'Save' }).click()
+    await expect.element(field).toHaveAttribute('aria-readonly', 'true')
+    answer()
+
+    await expect.element(field).not.toBeInTheDocument()
+    await expect
+      .element(own.getByText('(edited)'))
+      .toHaveAttribute('title', expect.stringMatching(/^Edited by Alice · /))
+    await expect.element(own).toHaveTextContent('First pass done. Second too.')
+    expect(await bodiesOf(requests, EDIT)).toEqual([
+      { body: 'First pass done. Second too.' },
+    ])
+  })
+
+  it('keeps the edit under its error; Esc closes it with the focus back on the menu', async () => {
+    thread([...WEB_COMMENTS, OWN], {
+      [EDIT]: {
+        status: 422,
+        body: problem(422, 'Check the fields.', [
+          { field: 'body', message: 'must not be empty' },
+        ]),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = commentsOf(screen)
+    const field = comments.getByRole('textbox', { name: 'Edit comment' })
+
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await editorReady(screen)
+    await userEvent.keyboard(' More')
+    await comments.getByRole('button', { name: 'Save' }).click()
+
+    await expect.element(comments.getByText('must not be empty')).toBeVisible()
+    await expect.element(field).toHaveTextContent('First pass done. More')
+    await field.click()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(field).not.toBeInTheDocument()
+    await expect.element(actionsOf(screen, 1)).toHaveFocus()
+    await expect
+      .element(comments.getByRole('article').nth(1))
+      .toHaveTextContent('First pass done.')
+  })
+
+  it('deletes after the confirm at once, and puts the comment back when the server refuses', async () => {
+    let answer = () => {}
+    const until = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    heldThread([...WEB_COMMENTS, OWN], {
+      [DELETE]: {
+        status: 500,
+        body: problem(500, 'The database is away.'),
+        until,
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const articles = commentsOf(screen).getByRole('article')
+    const confirm = screen.getByRole('alertdialog', {
+      name: 'Delete this comment?',
+    })
+
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await expect.element(confirm).toHaveTextContent("It can't be undone.")
+    await confirm.getByRole('button', { name: 'Cancel' }).click()
+    await expect.element(confirm).not.toBeInTheDocument()
+    await expect.element(actionsOf(screen, 1)).toHaveFocus()
+    expect(articles.elements()).toHaveLength(2)
+
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await confirm.getByRole('button', { name: 'Delete' }).click()
+    await expect.element(confirm).not.toBeInTheDocument()
+    await expect.poll(() => articles.elements().length).toBe(1)
+    answer()
+
+    await expect
+      .element(screen.getByText("Couldn't delete the comment"))
+      .toBeVisible()
+    await expect.poll(() => articles.elements().length).toBe(2)
+    await expect.element(articles.nth(1)).toHaveTextContent('First pass done.')
+  })
+
+  it('puts back only the refused one of two quick deletes, in its place', async () => {
+    let answer = () => {}
+    const until = new Promise<void>((resolve) => {
+      answer = resolve
+    })
+    heldThread([...WEB_COMMENTS, OWN, LAST], {
+      [DELETE]: {
+        status: 500,
+        body: problem(500, 'The database is away.'),
+        until,
+      },
+      'DELETE /api/projects/WEB/issues/1/comments/6': { status: 204 },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const articles = commentsOf(screen).getByRole('article')
+
+    await deleteAt(screen, 1)
+    await deleteAt(screen, 1)
+    await expect.poll(() => articles.elements().length).toBe(1)
+    answer()
+
+    await expect
+      .element(screen.getByText("Couldn't delete the comment"))
+      .toBeVisible()
+    await expect
+      .poll(() => articles.elements().map((article) => article.textContent))
+      .toEqual([
+        expect.stringContaining('Draft is in the shared doc.'),
+        expect.stringContaining('First pass done.'),
+      ])
+  })
+
+  it('gives the focus after a delete to the next comment, else the one before, else the composer', async () => {
+    heldThread([...WEB_COMMENTS, OWN, LAST], {
+      [DELETE]: { status: 204 },
+      'DELETE /api/projects/WEB/issues/1/comments/6': { status: 204 },
+      'DELETE /api/projects/WEB/issues/1/comments/1': { status: 204 },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const articles = commentsOf(screen).getByRole('article')
+
+    await deleteAt(screen, 1)
+    await expect.element(articles.nth(1)).toHaveTextContent('Second pass done.')
+    await expect.element(actionsOf(screen, 1)).toHaveFocus()
+    await deleteAt(screen, 1)
+    await expect.element(actionsOf(screen, 0)).toHaveFocus()
+    await deleteAt(screen, 0)
+    await expect.element(triggerOf(screen)).toHaveFocus()
+  })
+
+  it('offers no actions on a comment the server has not taken yet', async () => {
+    inProjects({ [COMMENT]: pending })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const articles = commentsOf(screen).getByRole('article')
+    await expect.element(actionsOf(screen, 0)).toBeInTheDocument()
+
+    await triggerOf(screen).click()
+    await editorReady(screen)
+    await userEvent.keyboard('Ship it on Friday.')
+    await commentsOf(screen).getByRole('button', { name: 'Save' }).click()
+
+    await expect.element(articles.nth(1)).toHaveTextContent('Ship it on Friday.')
+    expect(
+      articles
+        .nth(1)
+        .getByRole('button', { name: 'Comment actions' })
+        .elements()
+    ).toEqual([])
+  })
+
+  it('brings the quick replies back once the comment being edited is gone', async () => {
+    let gone = false
+    inProjects({
+      [LIST]: {
+        status: 200,
+        body: () => ({
+          items: gone ? WEB_COMMENTS : [...WEB_COMMENTS, OWN],
+          next_cursor: null,
+        }),
+      },
+      [EDIT]: {
+        status: 404,
+        body: () => {
+          gone = true
+          return problem(404, 'No such comment.')
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = commentsOf(screen)
+    const chips = comments.getByRole('group', { name: 'Quick replies' })
+
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Edit' }).click()
+    await editorReady(screen)
+    await expect.element(chips).not.toBeInTheDocument()
+    await userEvent.keyboard(' More')
+    await comments.getByRole('button', { name: 'Save' }).click()
+
+    await expect
+      .poll(() => comments.getByRole('article').elements().length)
+      .toBe(1)
+    await expect.element(chips).toBeVisible()
+  })
+
+  it('gives a member only Copy link on a comment someone else wrote', async () => {
+    inProjects({
+      'GET /api/projects/WEB': {
+        status: 200,
+        body: { ...WEB, role: 'member' },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await actionsOf(screen, 0).click()
+    expect(await menuItems()).toEqual(['Copy link'])
+  })
+
+  it('gives an admin Edit and Delete on a comment someone else wrote', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await actionsOf(screen, 0).click()
+    expect(await menuItems()).toEqual(['Copy link', 'Edit', 'Delete'])
+  })
+
+  it('copies the link to the comment on the issue page', async () => {
+    inProjects()
+    const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    await actionsOf(screen, 0).click()
+    await page.getByRole('menuitem', { name: 'Copy link' }).click()
+
+    await expect.element(screen.getByText('Link copied')).toBeVisible()
+    expect(copy).toHaveBeenCalledWith(
+      expect.stringMatching(/\/p\/WEB\/issues\/1#comment-1$/)
+    )
+  })
+
+  it('dates an older comment, names the editor from the members, and spells both out on hover', async () => {
+    thread([
+      {
+        ...WEB_COMMENTS[0],
+        created_at: '2025-12-30T15:00:00Z',
+        edited_at: '2026-01-02T15:00:00Z',
+        edited_by_id: 2,
+        edited_by_name: 'Robert',
+      },
+    ])
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comment = commentsOf(screen).getByRole('article')
+
+    await expect
+      .element(comment.getByText('Dec 30, 2025'))
+      .toHaveAttribute('title', expect.stringMatching(/^Dec 30, 2025, /))
+    await expect
+      .element(comment.getByText('(edited)'))
+      .toHaveAttribute(
+        'title',
+        expect.stringMatching(/^Edited by Bob Stone · Jan 2, 2026, /)
+      )
+  })
+
+  it('loads every page of a long thread', async () => {
+    const all = notes(201)
+    const requests = inProjects({
+      [LIST]: {
+        status: 200,
+        body: (request: Request) =>
+          new URL(request.url).searchParams.get('cursor') === null
+            ? { items: all.slice(0, 200), next_cursor: 200 }
+            : { items: all.slice(200), next_cursor: null },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const comments = commentsOf(screen)
+
+    await expect.element(comments.getByText('Note 201')).toBeVisible()
+    expect(comments.getByRole('article').elements()).toHaveLength(201)
+    expect(
+      requests
+        .filter((request) => routeOf(request) === LIST)
+        .map((request) => new URL(request.url).searchParams.get('cursor'))
+    ).toEqual([null, '200'])
+  })
+
+  it('scrolls to the comment in the URL and highlights it for 3 seconds', async () => {
+    thread(notes(30))
+    const { screen } = await renderApp('/p/WEB/issues/1#comment-30')
+    const target = commentsOf(screen).getByRole('listitem').nth(29)
+
+    await expect.element(target).toHaveAttribute('id', 'comment-30')
+    await expect.element(target).toHaveClass(/bg-muted/)
+    await expect
+      .poll(() => {
+        const box = target.element().getBoundingClientRect()
+        return box.top >= 0 && box.bottom <= innerHeight
+      })
+      .toBe(true)
+    await expect.element(target, { timeout: 4000 }).not.toHaveClass(/bg-muted/)
+  })
+
+  it('opens the issue with no message when the comment in the URL is gone', async () => {
+    thread(notes(3))
+    const { screen } = await renderApp('/p/WEB/issues/1#comment-99')
+    const items = commentsOf(screen).getByRole('listitem')
+
+    await expect.element(items.nth(2)).toHaveTextContent('Note 3')
+    await settled()
+    expect(
+      items.elements().filter((item) => item.classList.contains('bg-muted'))
+    ).toEqual([])
+    expect(document.querySelectorAll('[data-sonner-toast]')).toHaveLength(0)
+  })
+
+  it('finds the comment in the URL in a browser without checkVisibility', async () => {
+    // Safari before 17.4 has no Element.checkVisibility.
+    Object.defineProperty(HTMLLIElement.prototype, 'checkVisibility', {
+      value: undefined,
+      configurable: true,
+    })
+    try {
+      thread(notes(3))
+      await renderApp('/p/WEB/issues/1#comment-2')
+
+      // Plain DOM: the locators call checkVisibility on a list item themselves.
+      await vi.waitFor(() =>
+        expect(document.getElementById('comment-2')?.className).toMatch(
+          /bg-muted/
+        )
+      )
+    } finally {
+      Reflect.deleteProperty(HTMLLIElement.prototype, 'checkVisibility')
+    }
+  })
+
+  it('keeps the composer, chips and comment actions at 44px at 375 with no sideways scroll', async () => {
+    await page.viewport(375, 800)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const chips = commentsOf(screen).getByRole('group', {
+      name: 'Quick replies',
+    })
+    await expect.element(chips).toBeVisible()
+
+    const controls = [
+      triggerOf(screen).element(),
+      actionsOf(screen, 0).element(),
+      ...chips.getByRole('button').elements(),
+    ]
+    for (const control of controls) {
+      const box = control.getBoundingClientRect()
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44)
+    }
+    expect(getComputedStyle(actionsOf(screen, 0).element()).opacity).toBe('1')
+    await expect
+      .element(triggerOf(screen).getByText('M', { exact: true }))
+      .not.toBeVisible()
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth
     )

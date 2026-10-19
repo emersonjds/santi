@@ -179,6 +179,22 @@ pub enum IssuesCommand {
     Comment(CommentArgs),
     /// Show an issue's comments, oldest first
     Comments { issue: IssueKey },
+    /// Change a comment's text (its author or a project admin)
+    CommentEdit {
+        issue: IssueKey,
+        /// Comment id, as `issues comments` shows it (`#7`)
+        id: i64,
+        body: String,
+    },
+    /// Delete a comment (its author or a project admin)
+    CommentDelete {
+        issue: IssueKey,
+        /// Comment id, as `issues comments` shows it (`#7`)
+        id: i64,
+        /// Delete without asking
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -446,6 +462,43 @@ mod tests {
             panic!("not issues comments");
         };
         assert_eq!(issue.to_string(), "WEB-1");
+    }
+
+    #[test]
+    fn comment_edit_and_delete_take_the_issue_and_comment_id() {
+        let Command::Issues(IssuesCommand::CommentEdit { issue, id, body }) =
+            parse(&["santi", "issues", "comment-edit", "web-1", "7", "Fixed"])
+        else {
+            panic!("not issues comment-edit");
+        };
+        assert_eq!(
+            (issue.to_string(), id, body.as_str()),
+            ("WEB-1".into(), 7, "Fixed")
+        );
+        for (args, expected) in [
+            (
+                &["santi", "issues", "comment-delete", "WEB-1", "7"][..],
+                false,
+            ),
+            (
+                &["santi", "issues", "comment-delete", "WEB-1", "7", "--yes"],
+                true,
+            ),
+        ] {
+            let Command::Issues(IssuesCommand::CommentDelete { issue, id, yes }) = parse(args)
+            else {
+                panic!("not issues comment-delete");
+            };
+            assert_eq!((issue.to_string(), id, yes), ("WEB-1".into(), 7, expected));
+        }
+        for args in [
+            &["santi", "issues", "comment-edit", "WEB-1", "seven", "x"][..],
+            &["santi", "issues", "comment-edit", "WEB-1", "7"],
+            &["santi", "issues", "comment-delete", "WEB-1"],
+        ] {
+            let error = Cli::try_parse_from(args).unwrap_err();
+            assert_eq!(error.exit_code(), 2, "{args:?}");
+        }
     }
 
     #[test]

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT p.key || '-' || i.number AS \"issue_key!\", c.author_id, c.body, c.created_at\n           FROM issue_comment c\n           JOIN issue i ON i.id = c.issue_id\n           JOIN project p ON p.id = i.project_id\n           WHERE i.project_id = $1\n           ORDER BY c.id",
+  "query": "SELECT p.key || '-' || i.number AS \"issue_key!\", c.author_id, c.body, c.created_at,\n                  c.edited_at, c.edited_by AS edited_by_id\n           FROM issue_comment c\n           JOIN issue i ON i.id = c.issue_id\n           JOIN project p ON p.id = i.project_id\n           WHERE i.project_id = $1\n           ORDER BY c.id",
   "describe": {
     "columns": [
       {
@@ -41,6 +41,28 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 4,
+        "name": "edited_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "edited_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "edited_by_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "edited_by"
+          }
+        }
       }
     ],
     "parameters": {
@@ -52,8 +74,10 @@
       null,
       false,
       false,
-      false
+      false,
+      true,
+      true
     ]
   },
-  "hash": "3bde5d1789fff07297a34f26d2f27fd5be4940512e46c192b3f818a6d54010e5"
+  "hash": "769e7df71ba71e394a4d4ca9901f70a881a421a6fb120a417ac3832fa0822532"
 }

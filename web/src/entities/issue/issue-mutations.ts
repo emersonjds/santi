@@ -323,7 +323,6 @@ export const useAddComment = (
       ),
     onMutate: async (body) => {
       await queryClient.cancelQueries({ queryKey })
-      const before = queryClient.getQueryData(queryKey)
       const draft: Comment = {
         id: -Date.now(),
         author_id: authorId,
@@ -332,11 +331,69 @@ export const useAddComment = (
         created_at: new Date().toISOString(),
       }
       queryClient.setQueryData(queryKey, (old = []) => [...old, draft])
-      return before
+      return draft.id
     },
-    onError: (error, _body, before) => {
-      queryClient.setQueryData(queryKey, before)
+    onError: (error, _body, draftId) => {
+      queryClient.setQueryData(queryKey, (old) =>
+        old?.filter((comment) => comment.id !== draftId)
+      )
       toast.error("Couldn't add the comment", { description: error.message })
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  })
+}
+
+/** SAN-136: the edit waits for the server (D50 amendment); the editor stays open on an error. */
+export const useEditComment = (projectKey: string, number: number) => {
+  const queryClient = useQueryClient()
+  const { queryKey } = commentsQuery(projectKey, number)
+  return useMutation({
+    mutationFn: async ({ id, body }: { id: number; body: string }) =>
+      dataOrThrow(
+        await api.PATCH('/api/projects/{key}/issues/{number}/comments/{id}', {
+          params: { path: { key: projectKey, number, id } },
+          body: { body },
+        })
+      ),
+    onSuccess: (saved) =>
+      queryClient.setQueryData(queryKey, (old) =>
+        old?.map((comment) => (comment.id === saved.id ? saved : comment))
+      ),
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
+  })
+}
+
+/** Takes the comment out at once; puts it back if the server refuses. */
+export const useDeleteComment = (projectKey: string, number: number) => {
+  const queryClient = useQueryClient()
+  const { queryKey } = commentsQuery(projectKey, number)
+  return useMutation({
+    mutationFn: async (id: number) =>
+      okOrThrow(
+        await api.DELETE('/api/projects/{key}/issues/{number}/comments/{id}', {
+          params: { path: { key: projectKey, number, id } },
+        })
+      ),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey })
+      const before = queryClient.getQueryData(queryKey) ?? []
+      const index = before.findIndex((comment) => comment.id === id)
+      queryClient.setQueryData(queryKey, (old) =>
+        old?.filter((comment) => comment.id !== id)
+      )
+      return { removed: before.find((comment) => comment.id === id), index }
+    },
+    onError: (error, id, taken) => {
+      // Only this comment comes back: another write may have changed the list since.
+      const removed = taken?.removed
+      queryClient.setQueryData(queryKey, (old) =>
+        old && removed && !old.some((comment) => comment.id === id)
+          ? [...old.slice(0, taken.index), removed, ...old.slice(taken.index)]
+          : old
+      )
+      toast.error("Couldn't delete the comment", {
+        description: error.message,
+      })
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey }),
   })

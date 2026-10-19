@@ -1,8 +1,7 @@
 import { type QueryClient, queryOptions } from '@tanstack/react-query'
 import { notFound } from '@tanstack/react-router'
-import { api, dataOrThrow, hasStatus } from '@/shared/api/client'
+import { type Comment, api, dataOrThrow, hasStatus } from '@/shared/api/client'
 
-// ponytail: one page of 200 (the API maximum); add "Show older" paging when a thread or a parent outgrows it.
 const PAGE = 200
 
 export const issuesKey = (projectKey: string) =>
@@ -22,14 +21,28 @@ export const issueQuery = (projectKey: string, number: number) =>
 export const commentsQuery = (projectKey: string, number: number) =>
   queryOptions({
     queryKey: [...issuesKey(projectKey), number, 'comments'],
-    queryFn: async () =>
-      dataOrThrow(
-        await api.GET('/api/projects/{key}/issues/{number}/comments', {
-          params: { path: { key: projectKey, number }, query: { limit: PAGE } },
-        })
-      ).items,
+    // SAN-136 Q8: every page, oldest first, until SAN-94 pages the Activity feed.
+    queryFn: async () => {
+      const comments: Comment[] = []
+      let cursor: number | undefined
+      for (;;) {
+        const page = dataOrThrow(
+          await api.GET('/api/projects/{key}/issues/{number}/comments', {
+            params: {
+              path: { key: projectKey, number },
+              query: { limit: PAGE, cursor },
+            },
+          })
+        )
+        comments.push(...page.items)
+        if (page.next_cursor == null || page.next_cursor === cursor)
+          return comments
+        cursor = page.next_cursor
+      }
+    },
   })
 
+// ponytail: one page of 200 (the API maximum); add paging when a parent outgrows it.
 export const subtasksQuery = (projectKey: string, parentKey: string) =>
   queryOptions({
     queryKey: [...issuesKey(projectKey), { parent: parentKey }],

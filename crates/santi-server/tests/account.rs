@@ -37,8 +37,14 @@ async fn the_export_holds_the_account_and_every_project_it_admins(pool: PgPool) 
     ana.create_sprint("SANTI").await;
     ana.create_issue("SANTI", json!({ "summary": "Ship it" }))
         .await;
-    ana.post(
-        "/api/projects/SANTI/issues/1/comments",
+    let (_, comment) = ana
+        .post(
+            "/api/projects/SANTI/issues/1/comments",
+            json!({ "body": "On i" }),
+        )
+        .await;
+    ana.patch(
+        &format!("/api/projects/SANTI/issues/1/comments/{}", comment["id"]),
         json!({ "body": "On it" }),
     )
     .await;
@@ -72,6 +78,8 @@ async fn the_export_holds_the_account_and_every_project_it_admins(pool: PgPool) 
     assert_eq!(santi["issues"][0]["summary"], "Ship it");
     assert_eq!(santi["comments"][0]["issue_key"], "SANTI-1");
     assert_eq!(santi["comments"][0]["body"], "On it");
+    assert!(santi["comments"][0]["edited_at"].is_string());
+    assert_eq!(santi["comments"][0]["edited_by_id"], ana.user_id);
     assert_eq!(export["projects"].as_array().unwrap().len(), 1);
     assert_eq!(export["other_projects"][0]["key"], "BOB");
     assert!(!text.contains("Bob's secret plan"));

@@ -7,7 +7,7 @@
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
     },
-    "version": "0.16.0"
+    "version": "0.17.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -2731,6 +2731,194 @@
         }
       }
     },
+    "/api/projects/{key}/issues/{number}/comments/{id}": {
+      "delete": {
+        "tags": [
+          "issues"
+        ],
+        "operationId": "delete_comment",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "description": "Issue number, the N of KEY-N",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Comment id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted for good (D52)"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Neither an admin nor the author",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "issues"
+        ],
+        "operationId": "edit_comment",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "description": "Issue number, the N of KEY-N",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Comment id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateComment"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Marked edited by the caller; the same text returns the comment untouched (D52)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Comment"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Neither an admin nor the author",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/{key}/issues/{number}/move": {
       "post": {
         "tags": [
@@ -5000,6 +5188,27 @@
             "type": "string",
             "format": "date-time"
           },
+          "edited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Last change of the text; null until a save changes it (D52)."
+          },
+          "edited_by_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "edited_by_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "type": "integer",
             "format": "int64"
@@ -5300,6 +5509,21 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "edited_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "Last change of the text; null until a save changes it (D52)."
+          },
+          "edited_by_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
           },
           "issue_key": {
             "type": "string"
@@ -6150,6 +6374,27 @@
                 "created_at": {
                   "type": "string",
                   "format": "date-time"
+                },
+                "edited_at": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date-time",
+                  "description": "Last change of the text; null until a save changes it (D52)."
+                },
+                "edited_by_id": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "format": "int64"
+                },
+                "edited_by_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "id": {
                   "type": "integer",
@@ -7233,6 +7478,19 @@
               "null"
             ],
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateComment": {
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "properties": {
+          "body": {
+            "type": "string",
+            "description": "CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`."
           }
         },
         "additionalProperties": false
