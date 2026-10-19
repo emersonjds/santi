@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, SubsecRound, Utc};
 use santi_types::auth::{
     AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
     LegalStatus, Login, PasswordResetPreview, ProjectExport, Register, ResetPassword, User,
@@ -209,7 +209,7 @@ pub async fn create_password_reset(
         return Ok(None);
     };
     let token = domain::new_secret();
-    let expires_at = Utc::now() + Duration::hours(domain::RESET_HOURS);
+    let expires_at = (Utc::now() + Duration::hours(domain::RESET_HOURS)).trunc_subsecs(6);
     repo::upsert_password_reset(&mut conn, user.id, &domain::hash_token(&token), expires_at)
         .await?;
     Ok(Some((token, expires_at)))
