@@ -27,6 +27,8 @@ pub enum Action {
     AcceptLegal,
     /// Creating a project and the sample project share one bucket.
     CreateProject,
+    /// Opening and using a reset link share one bucket.
+    PasswordReset,
 }
 
 impl Action {
@@ -36,7 +38,7 @@ impl Action {
             Action::Login => (10, 6),
             Action::Register => (10, 360),
             Action::Token => (10, 360),
-            Action::InviteAccept => (10, 60),
+            Action::InviteAccept | Action::PasswordReset => (10, 60),
             Action::Import => (20, 30),
             Action::Reauthenticate => (5, 60),
             Action::AcceptLegal => (10, 60),

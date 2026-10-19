@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use santi_types::auth::{ApiToken, LegalAcceptance, User};
+use santi_types::auth::{ApiToken, LegalAcceptance, PasswordResetPreview, User};
 use sqlx::PgConnection;
 
 use super::domain::{AGE_DECLARATION, PRIVACY_VERSION, TERMS_VERSION};
@@ -152,6 +152,83 @@ pub async fn delete_api_token(
     .execute(&mut *conn)
     .await?;
     Ok(result.rows_affected() == 1)
+}
+
+/// Replaces the account's previous reset link, if any.
+pub async fn upsert_password_reset(
+    conn: &mut PgConnection,
+    user_id: i64,
+    token_hash: &[u8],
+    expires_at: DateTime<Utc>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO password_reset (user_id, token_hash, expires_at) VALUES ($1, $2, $3)
+         ON CONFLICT (user_id) DO UPDATE
+         SET token_hash = EXCLUDED.token_hash, expires_at = EXCLUDED.expires_at, created_at = now()",
+        user_id,
+        token_hash,
+        expires_at
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+pub async fn find_password_reset(
+    conn: &mut PgConnection,
+    token_hash: &[u8],
+) -> Result<Option<PasswordResetPreview>, sqlx::Error> {
+    sqlx::query_as!(
+        PasswordResetPreview,
+        "SELECT u.email, r.expires_at FROM password_reset r
+         JOIN app_user u ON u.id = r.user_id
+         WHERE r.token_hash = $1 AND r.expires_at > now() AND u.deleted_at IS NULL",
+        token_hash
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+/// Single use: deletes a live link and returns its account.
+pub async fn take_password_reset(
+    conn: &mut PgConnection,
+    token_hash: &[u8],
+) -> Result<Option<i64>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "DELETE FROM password_reset r USING app_user u
+         WHERE u.id = r.user_id AND r.token_hash = $1 AND r.expires_at > now()
+           AND u.deleted_at IS NULL
+         RETURNING r.user_id",
+        token_hash
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+pub async fn set_password_hash(
+    conn: &mut PgConnection,
+    user_id: i64,
+    password_hash: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE app_user SET password_hash = $2 WHERE id = $1",
+        user_id,
+        password_hash
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// Signs the account out everywhere; API tokens stay.
+pub async fn delete_sessions(conn: &mut PgConnection, user_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "DELETE FROM auth_token WHERE user_id = $1 AND kind = 'session'",
+        user_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
 }
 
 pub async fn find_password_hash(
