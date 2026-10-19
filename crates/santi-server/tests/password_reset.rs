@@ -156,6 +156,10 @@ async fn resetting_sets_the_password_signs_in_and_ends_every_other_session(pool:
     let response = reset(&app, &token, NEW_PASSWORD).await;
 
     assert_eq!(response.status(), StatusCode::OK);
+    let set_cookie = response.headers()[header::SET_COOKIE].to_str().unwrap();
+    for flag in ["HttpOnly", "Secure", "SameSite=Lax"] {
+        assert!(set_cookie.contains(flag), "{set_cookie}");
+    }
     let new_session = session_cookie(&response);
     assert!(new_session.starts_with("__Host-santi_session="));
     let user = body_json(response).await;
@@ -205,8 +209,39 @@ async fn a_link_for_a_deleted_account_is_dead(pool: PgPool) {
     assert_eq!(app.send(request).await.status(), StatusCode::NO_CONTENT);
 
     let (preview, _) = app.get(&format!("/api/password-resets/{token}")).await;
+    let post = reset(&app, &token, NEW_PASSWORD).await.status();
 
     assert_eq!(preview, StatusCode::NOT_FOUND);
+    assert_eq!(post, StatusCode::NOT_FOUND);
+    let rows: i64 = sqlx::query_scalar("SELECT count(*) FROM password_reset")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(rows, 0);
+}
+
+#[sqlx::test]
+async fn two_uses_of_one_link_at_once_succeed_once(pool: PgPool) {
+    let app = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let token = reset_link(&pool, "ana@example.com").await;
+
+    let (first, second) = tokio::join!(
+        reset(&app, &token, NEW_PASSWORD),
+        reset(&app, &token, "another new passphrase")
+    );
+
+    let mut statuses = [first.status(), second.status()];
+    statuses.sort();
+    assert_eq!(statuses, [StatusCode::OK, StatusCode::NOT_FOUND]);
+}
+
+#[sqlx::test]
+async fn the_command_reports_a_database_failure(pool: PgPool) {
+    pool.close().await;
+
+    let failed = reset_link_output(&pool, "ana@example.com", "https://santi.dev").await;
+
+    assert!(failed.is_err_and(|error| error != "no account with that email"));
 }
 
 #[sqlx::test]
