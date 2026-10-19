@@ -13,7 +13,8 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 29] = [
+const TOOLS: [&str; 31] = [
+    "add_attachment",
     "add_comment",
     "archive_project",
     "complete_sprint",
@@ -27,6 +28,7 @@ const TOOLS: [&str; 29] = [
     "get_board",
     "get_issue",
     "get_sprint_report",
+    "list_attachments",
     "list_comments",
     "list_epics",
     "list_invites",
@@ -402,6 +404,7 @@ fn stdio_rejects_missing_unknown_and_malformed_arguments() {
             "list_epics",
             "list_members",
             "list_invites",
+            "list_attachments",
         ] {
             let description = tool(name).description.as_deref().unwrap();
             assert!(description.contains("untrusted"), "{name}: {description}");
@@ -570,7 +573,15 @@ fn streamable_http_requires_a_bearer_and_acts_as_its_user() {
         assert!(lowercase.headers().contains_key("mcp-session-id"));
 
         let client = connect(&endpoint, &token).await.unwrap();
-        assert_eq!(client.list_all_tools().await.unwrap().len(), TOOLS.len());
+        let tools = client.list_all_tools().await.unwrap();
+        assert_eq!(tools.len(), TOOLS.len() - 1);
+        assert!(!tools.iter().any(|tool| tool.name == "add_attachment"));
+        let file = json!({ "issue": "HTP-1", "path": "Cargo.toml" });
+        let Value::Object(file) = file else {
+            unreachable!()
+        };
+        let request = CallToolRequestParams::new("add_attachment").with_arguments(file);
+        assert!(client.call_tool(request).await.is_err());
         let created = ok(
             &client,
             "create_issue",
@@ -771,5 +782,152 @@ fn stdio_archives_trashes_restores_and_purges_a_project() {
         ok(&client, "purge_project", project.clone()).await;
         assert!(keys(ok(&client, "list_projects", json!({ "state": "trashed" })).await).is_empty());
         client.cancel().await.unwrap();
+    });
+}
+
+#[test]
+fn stdio_attaches_files_only_from_its_working_directory() {
+    let token = server().user();
+    server().project(&token, "ATF", "kanban");
+    let (config, work, outside) = (
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+        tempfile::tempdir().unwrap(),
+    );
+    let work_path = work.path();
+    std::fs::write(work_path.join("notes.txt"), "hello").unwrap();
+    std::fs::create_dir(work_path.join("docs")).unwrap();
+    std::fs::write(work_path.join("docs/plan.md"), "# Plan").unwrap();
+    std::fs::write(work_path.join(".env"), "TOKEN=x").unwrap();
+    std::fs::create_dir(work_path.join(".git")).unwrap();
+    std::fs::write(work_path.join(".git/notes.txt"), "x").unwrap();
+    let secret = outside.path().join("secret.txt");
+    std::fs::write(&secret, "secret").unwrap();
+    std::os::unix::fs::symlink(&secret, work_path.join("link.txt")).unwrap();
+    std::os::unix::fs::symlink(outside.path(), work_path.join("linked")).unwrap();
+    std::fs::File::create(work_path.join("big.txt"))
+        .unwrap()
+        .set_len(25 * 1024 * 1024 + 1)
+        .unwrap();
+    let spawn = |cwd: &std::path::Path, attach_dir: Option<&std::path::Path>| {
+        let mut command = santi(&config);
+        command
+            .env("SANTI_TOKEN", &token)
+            .env_remove("SANTI_MCP_ATTACH_DIR")
+            .current_dir(cwd);
+        if let Some(dir) = attach_dir {
+            command.env("SANTI_MCP_ATTACH_DIR", dir);
+        }
+        TokioChildProcess::new(command).unwrap()
+    };
+    server().block_on(async {
+        let client = ().serve(spawn(work_path, None)).await.unwrap();
+        let tools = client.list_all_tools().await.unwrap();
+        let tool = |name: &str| tools.iter().find(|tool| tool.name == name).unwrap();
+        let hints = |name: &str| tool(name).annotations.clone().unwrap();
+        assert_eq!(hints("list_attachments").read_only_hint, Some(true));
+        assert_eq!(hints("add_attachment").read_only_hint, Some(false));
+        assert_eq!(hints("add_attachment").destructive_hint, Some(false));
+        let description = tool("add_attachment").description.as_deref().unwrap();
+        for needle in ["working directory", "SANTI_MCP_ATTACH_DIR", "hidden"] {
+            assert!(description.contains(needle), "{needle}: {description}");
+        }
+        let schema = Value::Object((*tool("add_attachment").input_schema).clone());
+        assert_eq!(schema["required"], json!(["issue", "path"]));
+
+        ok(
+            &client,
+            "create_issue",
+            json!({ "project": "ATF", "summary": "Files" }),
+        )
+        .await;
+        let added = ok(
+            &client,
+            "add_attachment",
+            json!({ "issue": "ATF-1", "path": "notes.txt" }),
+        )
+        .await;
+        assert_eq!(added[0]["file_name"], "notes.txt");
+        assert_eq!(added[0]["size_bytes"], 5);
+        let absolute = work_path.join("docs/plan.md");
+        ok(
+            &client,
+            "add_attachment",
+            json!({ "issue": "ATF-1", "path": absolute }),
+        )
+        .await;
+        let comment = ok(
+            &client,
+            "add_comment",
+            json!({ "issue": "ATF-1", "body": "Plan attached" }),
+        )
+        .await;
+        let on_comment = ok(
+            &client,
+            "add_attachment",
+            json!({ "issue": "ATF-1", "path": "docs/../docs/plan.md", "comment_id": comment["id"] }),
+        )
+        .await;
+        assert_eq!(on_comment[0]["comment_id"], comment["id"]);
+
+        let escape = format!(
+            "../{}/secret.txt",
+            outside.path().file_name().unwrap().to_str().unwrap()
+        );
+        let secret = secret.to_str().unwrap();
+        for (path, message) in [
+            (secret, "outside"),
+            (escape.as_str(), "outside"),
+            ("link.txt", "outside"),
+            ("linked/secret.txt", "outside"),
+            (".env", "hidden"),
+            (".git/notes.txt", "hidden"),
+            ("docs", "not a file"),
+            ("missing.txt", "missing.txt"),
+            ("big.txt", "Larger than 25 MB."),
+        ] {
+            let refused = rejected(
+                &client,
+                "add_attachment",
+                json!({ "issue": "ATF-1", "path": path }),
+            )
+            .await;
+            assert!(refused.contains(message), "{path}: {refused}");
+            assert!(!refused.contains("secret\n"), "{refused}");
+        }
+
+        let listed = ok(&client, "list_attachments", json!({ "issue": "ATF-1" })).await;
+        assert_eq!(listed.as_array().unwrap().len(), 3);
+        let issue = ok(&client, "get_issue", json!({ "issue": "ATF-1" })).await;
+        assert_eq!(issue["key"], "ATF-1");
+        assert_eq!(issue["attachments"], listed);
+        client.cancel().await.unwrap();
+
+        let rooted = ().serve(spawn("/".as_ref(), Some(outside.path()))).await.unwrap();
+        let added = ok(
+            &rooted,
+            "add_attachment",
+            json!({ "issue": "ATF-1", "path": "secret.txt" }),
+        )
+        .await;
+        assert_eq!(added[0]["file_name"], "secret.txt");
+        let refused = rejected(
+            &rooted,
+            "add_attachment",
+            json!({ "issue": "ATF-1", "path": work_path.join("notes.txt") }),
+        )
+        .await;
+        assert!(refused.contains("outside"), "{refused}");
+        rooted.cancel().await.unwrap();
+
+        let everywhere = ().serve(spawn("/".as_ref(), None)).await.unwrap();
+        let refused = rejected(
+            &everywhere,
+            "add_attachment",
+            json!({ "issue": "ATF-1", "path": work_path.join("notes.txt") }),
+        )
+        .await;
+        assert!(refused.contains("SANTI_MCP_ATTACH_DIR"), "{refused}");
+        everywhere.cancel().await.unwrap();
     });
 }
