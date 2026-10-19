@@ -347,29 +347,41 @@ async fn download(
         Some(path) => path,
         None => PathBuf::from(name),
     };
-    let mut options = std::fs::OpenOptions::new();
-    match force {
-        true => options.write(true).create(true).truncate(true),
-        false => options.write(true).create_new(true),
-    };
-    let mut file = options.open(&path).map_err(|error| match error.kind() {
-        std::io::ErrorKind::AlreadyExists => Error::Usage(format!(
-            "{} already exists; add --force to overwrite it",
-            path.display()
-        )),
-        _ => Error::Other(format!("{}: {error}", path.display())),
-    })?;
-    let copied: Result<(), String> = async {
-        while let Some(chunk) = response.chunk().await.map_err(|error| error.to_string())? {
-            file.write_all(&chunk).map_err(|error| error.to_string())?;
+    if !force && path.exists() {
+        return Err(already_exists(&path));
+    }
+    // Written next to the target, then moved in: a cut download never leaves a partial file.
+    let part = path.with_file_name(format!(".santi-{id}-{}.part", std::process::id()));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&part)
+        .map_err(|error| Error::Other(format!("{}: {error}", part.display())))?;
+    let saved: Result<(), Error> = async {
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| Error::Network(format!("{}: {error}", path.display())))?
+        {
+            file.write_all(&chunk)
+                .map_err(|error| Error::Other(format!("{}: {error}", path.display())))?;
         }
-        Ok(())
+        drop(file);
+        let placed = match force {
+            true => std::fs::rename(&part, &path),
+            // A hard link fails when the target exists, so nothing is clobbered even in a race.
+            false => std::fs::hard_link(&part, &path).and_then(|()| std::fs::remove_file(&part)),
+        };
+        placed.map_err(|error| match error.kind() {
+            std::io::ErrorKind::AlreadyExists => already_exists(&path),
+            _ => Error::Other(format!("{}: {error}", path.display())),
+        })
     }
     .await;
-    if let Err(error) = copied {
-        std::fs::remove_file(&path).ok();
-        return Err(Error::Other(format!("{}: {error}", path.display())));
+    if saved.is_err() {
+        std::fs::remove_file(&part).ok();
     }
+    saved?;
     show(json, &attachment, |attachment| {
         format!(
             "Saved {} ({})",
@@ -381,6 +393,13 @@ async fn download(
 
 /// The base name to save a download as: no directory, no leading dot, no control or
 /// direction-changing character.
+fn already_exists(path: &std::path::Path) -> Error {
+    Error::Usage(format!(
+        "{} already exists; add --force to overwrite it",
+        path.display()
+    ))
+}
+
 fn safe_name(name: &str) -> Option<String> {
     let base = name.rsplit(['/', '\\']).next()?;
     let clean: String = base
@@ -1372,6 +1391,78 @@ mod tests {
                     &Local
                 )
             )
+        );
+    }
+
+    /// Answers the attachment list of WEB-1 (one file, id 5), then a download of it that
+    /// promises 100 bytes, sends 7 and closes.
+    async fn cut_download_server() -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut buffer = [0; 4096];
+                let read = stream.read(&mut buffer).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buffer[..read]).into_owned();
+                let answer = match request
+                    .starts_with("GET /api/projects/WEB/issues/1/attachments/5")
+                {
+                    true => {
+                        "HTTP/1.1 200 OK\r\ncontent-length: 100\r\nconnection: close\r\n\r\npartial"
+                            .to_string()
+                    }
+                    false => {
+                        let body = serde_json::json!([{
+                            "id": 5, "file_name": "report.pdf", "content_type": "application/pdf",
+                            "size_bytes": 100, "uploader_id": 1, "uploader_name": "Ana",
+                            "comment_id": null, "created_at": "2026-10-16T12:00:00Z",
+                        }])
+                        .to_string();
+                        format!(
+                            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                            body.len()
+                        )
+                    }
+                };
+                let _ = stream.write_all(answer.as_bytes()).await;
+            }
+        });
+        format!("http://{address}")
+    }
+
+    #[tokio::test]
+    async fn a_download_cut_mid_body_keeps_the_old_file_and_leaves_no_partial_one() {
+        let client = Client::new(&cut_download_server().await, None).unwrap();
+        let issue: IssueKey = "WEB-1".parse().unwrap();
+        let entries = |directory: &std::path::Path| {
+            let mut names: Vec<String> = std::fs::read_dir(directory)
+                .unwrap()
+                .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+                .collect();
+            names.sort();
+            names
+        };
+
+        let empty = tempfile::tempdir().unwrap();
+        let error = download(&client, &issue, 5, Some(empty.path().into()), false, false)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, Error::Network(_)), "{error}");
+        assert_eq!(error.exit_code(), 6);
+        assert!(entries(empty.path()).is_empty());
+
+        let kept = tempfile::tempdir().unwrap();
+        std::fs::write(kept.path().join("report.pdf"), "mine").unwrap();
+        let error = download(&client, &issue, 5, Some(kept.path().into()), true, false)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, Error::Network(_)), "{error}");
+        assert_eq!(entries(kept.path()), ["report.pdf"]);
+        assert_eq!(
+            std::fs::read(kept.path().join("report.pdf")).unwrap(),
+            b"mine"
         );
     }
 }
