@@ -62,4 +62,25 @@ test('an image attached to an issue shows as a tile and can be deleted', async (
   await expect(section.getByText('No attachments yet.')).toBeVisible()
   await page.reload()
   await expect(section.getByText('No attachments yet.')).toBeVisible()
+
+  const comments = page.getByRole('region', { name: 'Comments' })
+  await comments.getByRole('button', { name: 'Add a comment…' }).click()
+  await page.keyboard.type('The screen in question.')
+  await comments.locator('input[type=file]').setInputFiles({
+    name: 'pixel.png',
+    mimeType: 'image/png',
+    buffer: ONE_PIXEL_PNG,
+  })
+  await expect(
+    comments.getByRole('list', { name: 'Files to attach' })
+  ).toContainText('pixel.png')
+  await comments.getByRole('button', { name: 'Save' }).click()
+
+  const comment = comments
+    .getByRole('listitem')
+    .filter({ hasText: 'The screen in question.' })
+  await expect(comment.getByRole('img', { name: 'pixel.png' })).toBeVisible()
+  await expect(
+    section.getByRole('heading', { name: 'Attachments · 1' })
+  ).toBeVisible()
 })
