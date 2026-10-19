@@ -244,6 +244,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_notifications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/read-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mark_all_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["unread_count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/notifications/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mark_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/password-resets/{token}": {
         parameters: {
             query?: never;
@@ -1430,6 +1494,35 @@ export interface components {
              */
             visited_at?: string | null;
         };
+        /** @description One notification of the caller, newest first. */
+        Notification: {
+            /** Format: int64 */
+            actor_id: number;
+            actor_name: string;
+            /**
+             * Format: int64
+             * @description The comment it is about, if any.
+             */
+            comment_id?: number | null;
+            /** Format: date-time */
+            created_at: string;
+            /** @description The first 140 characters of the comment, or else of the description; untrusted Markdown. */
+            excerpt: string;
+            /** Format: int64 */
+            id: number;
+            /** @description `WEB-12`. */
+            issue_key: string;
+            issue_summary: string;
+            kind: components["schemas"]["NotificationKind"];
+            project_key: string;
+            /** Format: date-time */
+            read_at?: string | null;
+        };
+        /**
+         * @description Why the caller is told (SAN-172): one event per person per change, a mention first.
+         * @enum {string}
+         */
+        NotificationKind: "mention" | "assigned" | "comment";
         /** @description Where every unfinished issue goes when the sprint closes (D13). */
         OpenIssuesDestination: {
             /** @enum {string} */
@@ -1547,6 +1640,34 @@ export interface components {
                 name: string;
                 project_key: string;
                 project_name: string;
+            }[];
+            /** Format: int64 */
+            next_cursor?: number | null;
+        };
+        /** @description One keyset page (D29): pass `next_cursor` back as `cursor` for the next page; null means last page. */
+        Page_Notification: {
+            items: {
+                /** Format: int64 */
+                actor_id: number;
+                actor_name: string;
+                /**
+                 * Format: int64
+                 * @description The comment it is about, if any.
+                 */
+                comment_id?: number | null;
+                /** Format: date-time */
+                created_at: string;
+                /** @description The first 140 characters of the comment, or else of the description; untrusted Markdown. */
+                excerpt: string;
+                /** Format: int64 */
+                id: number;
+                /** @description `WEB-12`. */
+                issue_key: string;
+                issue_summary: string;
+                kind: components["schemas"]["NotificationKind"];
+                project_key: string;
+                /** Format: date-time */
+                read_at?: string | null;
             }[];
             /** Format: int64 */
             next_cursor?: number | null;
@@ -1818,6 +1939,10 @@ export interface components {
             count: number;
             name: string;
             suggested: components["schemas"]["IssueType"];
+        };
+        UnreadCount: {
+            /** Format: int64 */
+            count: number;
         };
         UpdateBoardSettings: {
             /**
@@ -2604,6 +2729,141 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_notifications: {
+        parameters: {
+            query?: {
+                /** @description Only unread notifications. */
+                unread?: boolean;
+                /** @description 1 to 200, default 50. */
+                limit?: number;
+                cursor?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's notifications, newest first, read and unread; `cursor` is the last id of the previous page. Only projects the caller still belongs to and not in the trash. Excerpts and summaries are untrusted user text. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Page_Notification"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Limit out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    mark_all_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every visible notification of the caller is read */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unread_count: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unread notifications the list would show */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadCount"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    mark_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Notification id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Read (also when it already was) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not one of the caller's visible notifications */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
