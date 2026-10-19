@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { api } from '@/shared/api/client'
+import { api, dataOrThrow } from '@/shared/api/client'
 
 /** The signed-in user, or `null` for an anonymous visitor. */
 export const sessionQuery = queryOptions({
@@ -12,3 +12,16 @@ export const sessionQuery = queryOptions({
   },
   staleTime: Infinity,
 })
+
+/** The account a reset link is for; a dead link answers 404. */
+export const passwordResetQuery = (token: string) =>
+  queryOptions({
+    queryKey: ['password-resets', token],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/api/password-resets/{token}', {
+          params: { path: { token } },
+        })
+      ),
+    staleTime: Infinity,
+  })

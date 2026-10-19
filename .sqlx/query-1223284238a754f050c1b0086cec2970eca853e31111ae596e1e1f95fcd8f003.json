@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM password_reset r USING app_user u\n         WHERE u.id = r.user_id AND r.token_hash = $1 AND r.expires_at > now()\n           AND u.deleted_at IS NULL\n         RETURNING r.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "password_reset",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1223284238a754f050c1b0086cec2970eca853e31111ae596e1e1f95fcd8f003"
+}

@@ -1,7 +1,7 @@
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, SubsecRound, Utc};
 use santi_types::auth::{
     AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
-    LegalStatus, Login, ProjectExport, Register, User,
+    LegalStatus, Login, PasswordResetPreview, ProjectExport, Register, ResetPassword, User,
 };
 use santi_types::issues::{Issue, IssueFilter, PageParams, StatusFilter};
 use santi_types::projects::{MemberRole, Project, ProjectState};
@@ -195,6 +195,72 @@ pub async fn delete_account(
     repo::erase_user(&mut tx, user.id).await?;
     tx.commit().await?;
     Ok(())
+}
+
+/// SAN-171: the operator's reset link for an account (any email case); `None` when no account
+/// uses it. Returns the token and when it expires.
+pub async fn create_password_reset(
+    pool: &PgPool,
+    email: &str,
+) -> Result<Option<(String, DateTime<Utc>)>, AppError> {
+    let email = email.trim().to_lowercase();
+    let mut conn = pool.acquire().await?;
+    let Some(user) = repo::find_user_by_email(&mut conn, &email).await? else {
+        return Ok(None);
+    };
+    let token = domain::new_secret();
+    let expires_at = (Utc::now() + Duration::hours(domain::RESET_HOURS)).trunc_subsecs(6);
+    repo::upsert_password_reset(&mut conn, user.id, &domain::hash_token(&token), expires_at)
+        .await?;
+    Ok(Some((token, expires_at)))
+}
+
+/// What `reset-link <email>` prints: the link, then when it expires; or why there is none.
+pub async fn reset_link_output(
+    pool: &PgPool,
+    email: &str,
+    base_url: &str,
+) -> Result<String, String> {
+    match create_password_reset(pool, email).await {
+        Ok(Some((token, expires_at))) => Ok(format!(
+            "{}\nexpires {}",
+            domain::reset_url(base_url, &token),
+            expires_at.format("%Y-%m-%d %H:%M UTC")
+        )),
+        Ok(None) => Err("no account with that email".into()),
+        Err(error) => Err(format!("{error:?}")),
+    }
+}
+
+/// Unknown, used and expired links are the same 404.
+pub async fn preview_password_reset(
+    pool: &PgPool,
+    token: &str,
+) -> Result<PasswordResetPreview, AppError> {
+    let mut conn = pool.acquire().await?;
+    repo::find_password_reset(&mut conn, &domain::hash_token(token))
+        .await?
+        .ok_or(AppError::NotFound)
+}
+
+/// Sets the new password, ends every session of the account and signs in on a new one.
+pub async fn reset_password(
+    pool: &PgPool,
+    token: &str,
+    input: ResetPassword,
+) -> Result<(User, String), AppError> {
+    domain::check_password(&input.password)?;
+    let mut tx = pool.begin().await?;
+    let user_id = repo::take_password_reset(&mut tx, &domain::hash_token(token))
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let password_hash = hash_in_background(input.password).await?;
+    repo::set_password_hash(&mut tx, user_id, &password_hash).await?;
+    repo::delete_sessions(&mut tx, user_id).await?;
+    let session = start_session(&mut tx, user_id).await?;
+    let user = repo::find_user(&mut tx, user_id).await?;
+    tx.commit().await?;
+    Ok((user, session))
 }
 
 pub fn legal_documents(legal: &Legal) -> LegalDocuments {
