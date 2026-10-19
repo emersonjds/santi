@@ -10,6 +10,49 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-10-19
+
+> Files on issues: attach images and documents to an issue, a comment or a new issue.
+
+### Added
+
+- **Attachments:** an Attachments section in the issue detail (dialog and full page). Attach with
+  the button, drag and drop or paste an image; each file uploads with its own progress, Cancel
+  and Retry. Images show as tiles with a viewer (arrows, swipe, Esc); other files as rows with
+  size, uploader and date. Download and, for the uploader or an admin, Delete.
+- **Comments and new issues:** attach files while writing a comment (they upload right after it is
+  posted and show under it) or in the create dialog (they upload right after the issue exists).
+- **Limits:** 25 MB per file, 100 per issue, 10 per upload. Images (PNG, JPEG, GIF, WebP), PDF,
+  Office and OpenDocument files, TXT, CSV, MD and ZIP; the type is read from the file's bytes, so
+  SVG, HTML and renamed files are refused.
+- **CLI:** `santi issues attach <ISSUE> <file>... [--comment <id>]`, `santi issues attachments
+  <ISSUE>` with `--download <id> [-o <path>] [--force]` and `--delete <id> [--yes]`.
+- **MCP:** `list_attachments`, `add_attachment` (local stdio only; files under the working folder
+  or `SANTI_MCP_ATTACH_DIR`, never hidden files or the home folder), and `get_issue` lists files.
+- **API:** `POST/GET /api/projects/{key}/issues/{number}/attachments`, `GET` (with
+  `?download=1` to save) and `DELETE …/attachments/{id}`.
+
+### Changed
+
+- **Archived projects** keep listing, previewing and downloading files; attach and delete are
+  locked. Trashed projects hide them; purge, issue delete, comment delete and account erase
+  remove the stored files.
+- **Signing out** clears any upload still listed in the tab.
+- **A file dropped outside a drop zone** no longer replaces the page.
+- **Password inputs and upload buttons** are named by file for screen readers.
+
+### Upgrade notes
+
+- Migration `0026_attachments.sql` adds the `attachment` table and swaps the `issue_comment`
+  issue index for a unique `(issue_id, id)` (brief lock on that table); it runs on startup.
+- Storage: set all of `SANTI_S3_BUCKET`, `SANTI_S3_ENDPOINT`, `SANTI_S3_REGION`,
+  `SANTI_S3_ACCESS_KEY_ID`, `SANTI_S3_SECRET_ACCESS_KEY` for an S3-compatible bucket (path-style;
+  a partial set stops the server), or none to keep files on disk at `SANTI_ATTACHMENTS_DIR`
+  (default `./data/attachments`; the image uses `/data/attachments`). On Railway use a Storage
+  Bucket: the container disk is lost on redeploy. A bucket lifecycle rule
+  `AbortIncompleteMultipartUpload` (1 day) is recommended.
+- The page CSP `img-src` includes the bucket endpoint when S3 is configured.
+
 ## [0.20.0] - 2026-10-19
 
 > See every live invite link, who joined with it, and stop a leaked one.
@@ -630,7 +673,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.20.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.21.0...HEAD
+[0.21.0]: https://github.com/emersonjds/santi/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/emersonjds/santi/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/emersonjds/santi/compare/v0.18.0...v0.19.0
 [0.18.0]: https://github.com/emersonjds/santi/compare/v0.17.1...v0.18.0
