@@ -1034,6 +1034,11 @@ export interface components {
             body: string;
         };
         CreateInvite: {
+            /**
+             * Format: int32
+             * @description How many people may join with the link, 1 to 50; 1 when absent.
+             */
+            max_uses?: number | null;
             role: components["schemas"]["MemberRole"];
         };
         CreateIssue: {
@@ -1216,6 +1221,8 @@ export interface components {
         Invite: {
             /** Format: date-time */
             expires_at: string;
+            /** Format: int32 */
+            max_uses: number;
             token: string;
         };
         /** @description What an invite link offers, shown before accepting it. */
@@ -1223,9 +1230,13 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
             inviter_name: string;
+            /** Format: int32 */
+            max_uses: number;
             project_key: string;
             project_name: string;
             role: components["schemas"]["MemberRole"];
+            /** Format: int32 */
+            spots_left: number;
         };
         Issue: {
             /** Format: int64 */
@@ -2029,7 +2040,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Joined; the invite is used up */
+            /** @description Joined; takes one of the invite's spots, the last one uses it up */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3534,6 +3545,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `max_uses` outside 1 to 50 */
             422: {
                 headers: {
                     [name: string]: unknown;
