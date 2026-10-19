@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { type ReactNode, useEffect } from 'react'
 import { z } from 'zod'
 import {
   type FieldValues,
@@ -7,13 +7,15 @@ import {
   useForm,
 } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
+import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
-import { boardQuery } from '@/entities/issue/board-query'
+import { backlogKey } from '@/entities/issue/backlog-query'
+import { boardQuery, boardsKey } from '@/entities/issue/board-query'
 import { issueCount } from '@/entities/issue/labels'
 import { sprintsQuery } from '@/entities/project/project-queries'
 import {
   ApiError,
+  type Backlog,
   type BacklogSection,
   type CompleteSprint,
   type Sprint,
@@ -541,13 +543,27 @@ const CompleteSprintForm = ({
   onClose,
 }: SprintFormProps) => {
   const complete = useCompleteSprint(projectKey)
+  const queryClient = useQueryClient()
+  // Board and backlog caches can lag a move made on the other page; count from a fresh read of both.
+  useEffect(() => {
+    void queryClient.invalidateQueries({ queryKey: backlogKey(projectKey) })
+    void queryClient.invalidateQueries({ queryKey: boardsKey(projectKey) })
+  }, [queryClient, projectKey])
+  const counting =
+    useIsFetching({ queryKey: backlogKey(projectKey) }) +
+      useIsFetching({ queryKey: boardsKey(projectKey) }) >
+    0
   const { data: sprints = [] } = useQuery(sprintsQuery(projectKey))
   // The board holds the sprint's done issues, which the backlog hides (BL-2).
   const { data: board } = useQuery(boardQuery(projectKey, {}))
   const done = board?.columns[board.columns.length - 1]?.cards.length
   // Parent rows only, as the backlog counts them (BL-2): subtasks follow their parent (SP-17).
+  const live = queryClient
+    .getQueriesData<Backlog>({ queryKey: backlogKey(projectKey) })
+    .flatMap(([, backlog]) => backlog?.sections ?? [])
+    .find((each) => each.sprint?.id === sprint.id)
   const open =
-    section?.issue_count ??
+    (live ?? section)?.issue_count ??
     board?.columns
       .slice(0, -1)
       .flatMap((column) => column.cards)
@@ -577,9 +593,11 @@ const CompleteSprintForm = ({
     <Shell
       title={`Complete ${sprint.name}`}
       description={
-        open === 0
-          ? 'Every issue is done.'
-          : `${done === undefined ? '' : `${issueCount(done)} done · `}${open ?? '…'} open`
+        counting
+          ? 'Counting issues…'
+          : open === 0
+            ? 'Every issue is done.'
+            : `${done === undefined ? '' : `${issueCount(done)} done · `}${open ?? '…'} open`
       }
       onClose={onClose}
     >
