@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.key AS project_key, u.used_at AS joined_at\n         FROM invite_use u\n         JOIN invite i ON i.id = u.invite_id\n         JOIN project p ON p.id = i.project_id\n         WHERE u.user_id = $1 ORDER BY u.used_at",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "project_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "joined_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "invite_use",
+            "name": "used_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "96da5bfd39414f61cf6de196fe33497749e0fb98fa0ecd57f099375987ebd9e2"
+}

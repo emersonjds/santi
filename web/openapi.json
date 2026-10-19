@@ -4869,6 +4869,7 @@
           "exported_at",
           "user",
           "legal_acceptances",
+          "invite_uses",
           "api_tokens",
           "projects",
           "other_projects",
@@ -4887,6 +4888,12 @@
           },
           "home": {
             "$ref": "#/components/schemas/HomeExport"
+          },
+          "invite_uses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InviteUse"
+            }
           },
           "legal_acceptances": {
             "type": "array",
@@ -5996,6 +6003,23 @@
           "spots_left": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "InviteUse": {
+        "type": "object",
+        "description": "A project the person joined through an invite link, and when.",
+        "required": [
+          "project_key",
+          "joined_at"
+        ],
+        "properties": {
+          "joined_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "project_key": {
+            "type": "string"
           }
         }
       },

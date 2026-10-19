@@ -8,3 +8,5 @@ CREATE TABLE invite_use (
     used_at   timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (invite_id, user_id)
 );
+
+CREATE INDEX invite_use_user_id ON invite_use (user_id);
