@@ -55,6 +55,15 @@ pub enum Command {
         #[command(subcommand)]
         command: Option<InvitesCommand>,
     },
+    /// List your notifications, newest first: mentions, assignments and comments (unread marked `*`)
+    #[command(args_conflicts_with_subcommands = true)]
+    Notifications {
+        /// Only unread ones
+        #[arg(long)]
+        unread: bool,
+        #[command(subcommand)]
+        command: Option<NotificationsCommand>,
+    },
     #[command(subcommand)]
     Sprints(SprintsCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
@@ -96,6 +105,18 @@ pub enum InvitesCommand {
         /// Revoke without asking
         #[arg(long)]
         yes: bool,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum NotificationsCommand {
+    /// Mark one notification read, or every one with --all
+    Read {
+        #[arg(required_unless_present = "all", conflicts_with = "all")]
+        id: Option<i64>,
+        /// Mark every notification read
+        #[arg(long)]
+        all: bool,
     },
 }
 
@@ -548,6 +569,42 @@ mod tests {
             &["santi", "invites"][..],
             &["santi", "invites", "revoke", "WEB"],
             &["santi", "invites", "revoke", "WEB", "seven"],
+        ] {
+            let error = Cli::try_parse_from(args).unwrap_err();
+            assert_eq!(error.exit_code(), 2, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn notifications_lists_or_marks_read() {
+        let Command::Notifications {
+            unread,
+            command: None,
+        } = parse(&["santi", "notifications", "--unread"])
+        else {
+            panic!("not notifications");
+        };
+        assert!(unread);
+        for (args, expected) in [
+            (
+                &["santi", "notifications", "read", "7"][..],
+                (Some(7), false),
+            ),
+            (&["santi", "notifications", "read", "--all"], (None, true)),
+        ] {
+            let Command::Notifications {
+                command: Some(NotificationsCommand::Read { id, all }),
+                ..
+            } = parse(args)
+            else {
+                panic!("not notifications read");
+            };
+            assert_eq!((id, all), expected);
+        }
+        for args in [
+            &["santi", "notifications", "read"][..],
+            &["santi", "notifications", "read", "7", "--all"],
+            &["santi", "notifications", "read", "seven"],
         ] {
             let error = Cli::try_parse_from(args).unwrap_err();
             assert_eq!(error.exit_code(), 2, "{args:?}");
