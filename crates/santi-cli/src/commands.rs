@@ -8,14 +8,15 @@ use santi_types::issues::{
     Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
     UpdateIssue,
 };
+use santi_types::notifications::{Notification, NotificationKind};
 use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
 
 use crate::cli::{
-    Cli, Command, CommentArgs, Filter, InvitesCommand, IssuesCommand, PlanArgs, ProjectsCommand,
-    SprintsCommand,
+    Cli, Command, CommentArgs, Filter, InvitesCommand, IssuesCommand, NotificationsCommand,
+    PlanArgs, ProjectsCommand, SprintsCommand,
 };
 use crate::client::{Client, ProjectKey};
 use crate::config::{self, Config};
@@ -68,6 +69,24 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
                 project.ok_or_else(|| Error::Usage("a project key is required".into()))?;
             let invites = client.invites(&project).await?;
             show(json, &invites, |invites| lines(invites, invite_text))
+        }
+        Command::Notifications {
+            command: Some(NotificationsCommand::Read { id: Some(id), .. }),
+            ..
+        } => {
+            client.read_notification(id).await?;
+            show(json, &(), |()| format!("Read notification {id}"))
+        }
+        Command::Notifications {
+            command: Some(NotificationsCommand::Read { id: None, .. }),
+            ..
+        } => {
+            client.read_all_notifications().await?;
+            show(json, &(), |()| "Read every notification".into())
+        }
+        Command::Notifications { unread, .. } => {
+            let page = client.notifications(unread, &PageParams::default()).await?;
+            show(json, &page, |page| notifications_text(page, Utc::now()))
         }
         Command::Sprints(command) => sprints(&client, command, json).await,
         Command::Plan(args) => plan(&client, args, json).await,
@@ -623,6 +642,37 @@ fn member_line(member: &MemberInfo) -> String {
     )
 }
 
+fn notifications_text(page: &Page<Notification>, now: DateTime<Utc>) -> String {
+    if page.items.is_empty() {
+        return "(none)".into();
+    }
+    let mut text = page
+        .items
+        .iter()
+        .map(|item| {
+            let unread = if item.read_at.is_none() { '*' } else { ' ' };
+            let (actor, key) = (&item.actor_name, &item.issue_key);
+            let what = match item.kind {
+                NotificationKind::Mention => format!("{actor} mentioned you on {key}"),
+                NotificationKind::Assigned => format!("{actor} assigned {key} to you"),
+                NotificationKind::Comment => format!("{actor} commented on {key}"),
+            };
+            let excerpt = plain_mentions(&item.excerpt).replace('\n', " ");
+            let about = match excerpt.is_empty() {
+                true => item.issue_summary.clone(),
+                false => format!("{}: {excerpt}", item.issue_summary),
+            };
+            let age = ago(item.created_at, now);
+            format!("{:<6} {unread} {what} · {age}\n         {about}", item.id)
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if page.next_cursor.is_some() {
+        text.push_str("\n… older notifications not shown");
+    }
+    text
+}
+
 fn invite_text(invite: &InviteInfo) -> String {
     let mut text = format!(
         "{:<6} {}, {} of {} spots used, expires {}",
@@ -1018,6 +1068,52 @@ mod tests {
             comments_text(&[comment], now),
             "#1 Bo · just now\n@Ana Souza please"
         );
+    }
+
+    #[test]
+    fn notifications_text_says_who_did_what_and_marks_unread() {
+        let now: DateTime<Utc> = "2026-10-19T12:00:00Z".parse().unwrap();
+        let mention = Notification {
+            id: 9,
+            kind: NotificationKind::Mention,
+            actor_id: 1,
+            actor_name: "Ana".into(),
+            project_key: "WEB".into(),
+            issue_key: "WEB-12".into(),
+            issue_summary: "Ship it".into(),
+            comment_id: Some(4),
+            excerpt: "[@Bo](mention:2) look\nnow".into(),
+            created_at: "2026-10-19T10:00:00Z".parse().unwrap(),
+            read_at: None,
+        };
+        let assigned = Notification {
+            id: 8,
+            kind: NotificationKind::Assigned,
+            excerpt: String::new(),
+            read_at: Some(now),
+            ..mention.clone()
+        };
+        let comment = Notification {
+            id: 7,
+            kind: NotificationKind::Comment,
+            ..mention.clone()
+        };
+        let page = Page {
+            items: vec![mention, assigned, comment],
+            next_cursor: Some(7),
+        };
+        assert_eq!(
+            notifications_text(&page, now),
+            "9      * Ana mentioned you on WEB-12 · 2 hours ago\n         Ship it: @Bo look now\n\
+             8        Ana assigned WEB-12 to you · 2 hours ago\n         Ship it\n\
+             7      * Ana commented on WEB-12 · 2 hours ago\n         Ship it: @Bo look now\n\
+             … older notifications not shown"
+        );
+        let empty = Page {
+            items: vec![],
+            next_cursor: None,
+        };
+        assert_eq!(notifications_text(&empty, now), "(none)");
     }
 
     #[test]

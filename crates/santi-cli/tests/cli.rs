@@ -335,6 +335,66 @@ fn issue_lifecycle_from_create_to_delete() {
 }
 
 #[test]
+fn notifications_list_and_mark_read() {
+    let santi = Santi::new();
+    let admin = server().user();
+    let bo = server().user();
+    server().project(&admin, "NTF", "kanban");
+    server().member(&admin, "NTF", &bo);
+    let bo_id = server().get(&bo, "/api/me")["id"].as_i64().unwrap();
+    server().post(
+        &admin,
+        "/api/projects/NTF/issues",
+        json!({ "summary": "Ship it" }),
+    );
+    let body = format!("[@Bo](mention:{bo_id}) look");
+    let comments = "/api/projects/NTF/issues/1/comments";
+    server().post(&admin, comments, json!({ "body": body }));
+    let second = json!({ "summary": "Second", "assignee_id": bo_id });
+    server().post(&admin, "/api/projects/NTF/issues", second);
+
+    let page = json(santi.with(&bo).args(["notifications"]));
+    assert_eq!(page["items"][0]["kind"], "assigned");
+    assert_eq!(page["items"][1]["kind"], "mention");
+    santi
+        .with(&bo)
+        .args(["notifications"])
+        .assert()
+        .success()
+        .stdout(
+            contains(" assigned NTF-2 to you · just now")
+                .and(contains(" mentioned you on NTF-1 · just now"))
+                .and(contains("Ship it: @Bo look")),
+        );
+    let id = page["items"][0]["id"].as_i64().unwrap().to_string();
+    santi
+        .with(&bo)
+        .args(["notifications", "read", &id])
+        .assert()
+        .success()
+        .stdout(format!("Read notification {id}\n"));
+    let unread = json(santi.with(&bo).args(["notifications", "--unread"]));
+    assert_eq!(unread["items"].as_array().unwrap().len(), 1);
+    santi
+        .with(&bo)
+        .args(["notifications", "read", "--all"])
+        .assert()
+        .success()
+        .stdout("Read every notification\n");
+    santi
+        .with(&bo)
+        .args(["notifications", "--unread"])
+        .assert()
+        .success()
+        .stdout("(none)\n");
+    santi
+        .with(&admin)
+        .args(["notifications", "read", &id])
+        .assert()
+        .code(4);
+}
+
+#[test]
 fn invites_list_live_links_with_joiners_and_revoke_one() {
     let santi = Santi::new();
     let admin = server().user();
