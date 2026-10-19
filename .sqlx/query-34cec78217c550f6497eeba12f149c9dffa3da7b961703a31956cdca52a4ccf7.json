@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH touched AS (UPDATE issue SET updated_at = now() WHERE id = $1)\n         INSERT INTO issue_activity (user_id, issue_id, worked_at) VALUES ($2, $1, now())\n         ON CONFLICT (user_id, issue_id) DO UPDATE SET worked_at = now()",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "34cec78217c550f6497eeba12f149c9dffa3da7b961703a31956cdca52a4ccf7"
+}

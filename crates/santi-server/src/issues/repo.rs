@@ -286,15 +286,21 @@ pub async fn find_deletable_for_update(
     .await
 }
 
-/// The issue and its subtasks; comments cascade, an epic's children lose their parent (0011).
-pub async fn delete_issue(conn: &mut PgConnection, issue_id: i64) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "DELETE FROM issue WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')",
+/// The issue and its subtasks; comments and attachments cascade, an epic's children lose their
+/// parent (0011). Returns the storage keys of the attachments that went (D53).
+pub async fn delete_issue(
+    conn: &mut PgConnection,
+    issue_id: i64,
+) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "WITH gone AS (
+           DELETE FROM issue WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')
+           RETURNING id)
+         SELECT storage_key FROM attachment WHERE issue_id IN (SELECT id FROM gone)",
         issue_id
     )
-    .execute(&mut *conn)
-    .await?;
-    Ok(())
+    .fetch_all(&mut *conn)
+    .await
 }
 
 pub async fn find_id(

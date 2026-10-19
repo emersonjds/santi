@@ -19,7 +19,9 @@ import type {
 type Reply = {
   status: number
   body?: unknown
-  until?: Promise<unknown> | ((request: Request) => Promise<unknown> | undefined)
+  until?:
+    | Promise<unknown>
+    | ((request: Request) => Promise<unknown> | undefined)
 }
 
 /** Answers `fetch` by `"METHOD /path"`; unknown calls get a 404 problem. Returns the requests seen. */
@@ -110,6 +112,7 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
       status: 200,
       body: { items: [], next_cursor: null },
     },
+    'GET /api/projects/WEB/issues/1/attachments': { status: 200, body: [] },
     ...replies,
   })
 

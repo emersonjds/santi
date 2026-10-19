@@ -564,6 +564,38 @@ export interface paths {
         patch: operations["update_issue"];
         trace?: never;
     };
+    "/api/projects/{key}/issues/{number}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_attachments"];
+        put?: never;
+        post: operations["upload_attachments"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/issues/{number}/attachments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["download_attachment"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_attachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/issues/{number}/comments": {
         parameters: {
             query?: never;
@@ -983,6 +1015,41 @@ export interface components {
             /** Format: int64 */
             id: number;
             name: string;
+        };
+        /** @description A file on an issue (D53); `comment_id` when it was attached to one of the issue's comments. */
+        Attachment: {
+            /** Format: int64 */
+            comment_id?: number | null;
+            /** @description Decided by the server from the bytes and the extension. */
+            content_type: string;
+            /** Format: date-time */
+            created_at: string;
+            file_name: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            size_bytes: number;
+            /** Format: int64 */
+            uploader_id: number;
+            uploader_name: string;
+        };
+        /**
+         * Format: binary
+         * @description The bytes of a downloaded file.
+         */
+        AttachmentFile: string;
+        /** @description `multipart/form-data` body of an upload. */
+        AttachmentUpload: {
+            /**
+             * Format: int64
+             * @description A comment of the same issue the files belong to.
+             */
+            comment_id?: number | null;
+            /**
+             * @description Repeated, 1 to 10 files of at most 25 MB each: PNG, JPEG, GIF, WebP, PDF, DOCX, XLSX,
+             *     PPTX, ODT, ODS, ODP, TXT, CSV, MD or ZIP.
+             */
+            file: string[];
         };
         Backlog: {
             epics: components["schemas"]["EpicSummary"][];
@@ -4154,7 +4221,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted with its subtasks and comments; an epic's children stay without an epic; the number is never reused (D40) */
+            /** @description Deleted with its subtasks, comments and attachments; an epic's children stay without an epic; the number is never reused (D40) */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -4232,6 +4299,249 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_attachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every file of the issue, comment files included, oldest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    upload_attachments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["AttachmentUpload"];
+            };
+        };
+        responses: {
+            /** @description Every file stored, in the order sent; the type is read from the bytes (D53) */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Attachment"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `comment_id` names a comment by someone else and the caller is not an admin; nothing is kept */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `payload-too-large`: the body passed 10 × 25 MB plus framing; nothing is kept */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A type not allowed, over 25 MB, over 10 files per request or 100 per issue, a broken multipart body, or `comment_id` not a comment of this issue; nothing is kept */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    download_attachment: {
+        parameters: {
+            query?: {
+                /** @description `1` saves the file even when it is an image, which otherwise opens in the browser. */
+                download?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+                /** @description Attachment id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file, served by santi: images `inline` unless `download=1`, the rest `attachment`, with `nosniff` and `Content-Security-Policy: sandbox` */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": components["schemas"]["AttachmentFile"];
+                };
+            };
+            /** @description S3 storage: a presigned URL valid 5 minutes in `Location` */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_attachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+                /** @description Attachment id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted for good; the stored file is removed after the commit */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Neither an admin nor the uploader */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived` */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4362,7 +4672,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Deleted for good (D52) */
+            /** @description Deleted for good with its attachments (D52, D53) */
             204: {
                 headers: {
                     [name: string]: unknown;

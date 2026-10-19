@@ -24,6 +24,7 @@ pub enum AppError {
         slug: &'static str,
         detail: String,
     },
+    PayloadTooLarge,
     /// D44: answered with `Retry-After` in seconds.
     TooManyRequests {
         retry_after: u64,
@@ -93,6 +94,12 @@ impl AppError {
             ),
             AppError::Conflict { slug, detail } => (409, *slug, "Conflict", detail.clone()),
             AppError::Gone { slug, detail } => (410, *slug, "Gone", detail.clone()),
+            AppError::PayloadTooLarge => (
+                413,
+                "payload-too-large",
+                "Request too large",
+                "The request body is larger than this route accepts.".into(),
+            ),
             AppError::TooManyRequests { retry_after } => (
                 429,
                 "rate-limited",

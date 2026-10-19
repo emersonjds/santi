@@ -593,6 +593,137 @@ fn comments_are_edited_and_deleted_by_their_author_or_an_admin() {
 }
 
 #[test]
+fn attachments_are_attached_listed_downloaded_and_deleted() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "ATT", "kanban");
+    santi
+        .with(&token)
+        .args(["issues", "create", "ATT", "--summary", "Files"])
+        .assert()
+        .success();
+    let comment = json(santi.with(&token).args(["comment", "ATT-1", "See file"]))["id"].to_string();
+    let files = tempfile::tempdir().unwrap();
+    let notes = files.path().join("notes.txt");
+    std::fs::write(&notes, "hello notes").unwrap();
+    let plan = files.path().join("plan.md");
+    std::fs::write(&plan, "# Plan").unwrap();
+
+    santi
+        .with(&token)
+        .args(["issues", "attach", "ATT-1"])
+        .arg(&notes)
+        .arg(&plan)
+        .assert()
+        .success()
+        .stdout(contains("notes.txt  11 B\n"))
+        .stdout(contains("plan.md  6 B\n"));
+    let attached = json(
+        santi
+            .with(&token)
+            .args(["issues", "attach", "ATT-1", "--comment", &comment])
+            .arg(&notes),
+    );
+    assert_eq!(attached[0]["comment_id"].to_string(), comment);
+    let listed = json(santi.with(&token).args(["issues", "attachments", "ATT-1"]));
+    assert_eq!(listed.as_array().unwrap().len(), 3);
+    santi
+        .with(&token)
+        .args(["issues", "attachments", "ATT-1"])
+        .assert()
+        .success()
+        .stdout(contains("plan.md  6 B  user"))
+        .stdout(contains(format!("  in comment {comment}\n")));
+
+    let id = listed[0]["id"].to_string();
+    let out = tempfile::tempdir().unwrap();
+    let download = |extra: &[&str]| {
+        let mut command = santi.with(&token);
+        command
+            .current_dir(out.path())
+            .args(["issues", "attachments", "ATT-1", "--download", &id])
+            .args(extra);
+        command
+    };
+    download(&[])
+        .assert()
+        .success()
+        .stdout(contains("Saved notes.txt (11 B)"));
+    let saved = out.path().join("notes.txt");
+    assert_eq!(std::fs::read(&saved).unwrap(), b"hello notes");
+    std::fs::write(&saved, "mine").unwrap();
+    download(&[]).assert().code(2).stderr(contains(
+        "notes.txt already exists; add --force to overwrite it",
+    ));
+    assert_eq!(std::fs::read(&saved).unwrap(), b"mine");
+    download(&["--force"]).assert().success();
+    assert_eq!(std::fs::read(&saved).unwrap(), b"hello notes");
+    download(&["-o", "copy.txt"]).assert().success();
+    assert_eq!(
+        std::fs::read(out.path().join("copy.txt")).unwrap(),
+        b"hello notes"
+    );
+    std::fs::create_dir(out.path().join("into")).unwrap();
+    download(&["-o", "into"]).assert().success();
+    assert_eq!(
+        std::fs::read(out.path().join("into/notes.txt")).unwrap(),
+        b"hello notes"
+    );
+
+    santi
+        .with(&token)
+        .args(["issues", "attachments", "ATT-1", "--delete", &id])
+        .write_stdin("n\n")
+        .assert()
+        .code(10)
+        .stdout("")
+        .stderr(contains(format!("Delete attachment {id} on ATT-1?")))
+        .stderr(contains(format!("Kept attachment {id}")));
+    santi
+        .with(&token)
+        .args(["issues", "attachments", "ATT-1", "--delete", &id, "--yes"])
+        .assert()
+        .success()
+        .stdout(contains(format!("Deleted attachment {id} on ATT-1")));
+    download(&["-o", "gone.txt"])
+        .assert()
+        .code(4)
+        .stderr(contains("Nothing exists here, or you cannot see it."));
+    assert!(!out.path().join("gone.txt").exists());
+
+    let big = files.path().join("big.txt");
+    std::fs::File::create(&big)
+        .unwrap()
+        .set_len(25 * 1024 * 1024 + 1)
+        .unwrap();
+    let script = files.path().join("run.sh");
+    std::fs::write(&script, "echo hi").unwrap();
+    for (file, message) in [
+        (&big, "Larger than 25 MB."),
+        (&script, "This file type is not allowed."),
+    ] {
+        santi
+            .with(&token)
+            .args(["issues", "attach", "ATT-1"])
+            .arg(&notes)
+            .arg(file)
+            .assert()
+            .code(2)
+            .stderr(contains(message));
+    }
+    let eleven: Vec<_> = (0..11).map(|_| notes.clone()).collect();
+    santi
+        .with(&token)
+        .args(["issues", "attach", "ATT-1"])
+        .args(&eleven)
+        .assert()
+        .code(2)
+        .stderr(contains("At most 10 files per upload."));
+    let left = json(santi.with(&token).args(["issues", "attachments", "ATT-1"]));
+    assert_eq!(left.as_array().unwrap().len(), 2);
+}
+
+#[test]
 fn validation_problems_name_the_field() {
     let santi = Santi::new();
     let token = server().user();
