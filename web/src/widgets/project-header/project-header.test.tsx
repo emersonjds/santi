@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { renderApp } from '@/test/render-app'
 import { OPS, WEB, inProjects, problem, routeOf } from '@/test/stub-api'
 
-const INVITE = { token: 'tok123', expires_at: '2026-10-23T12:00:00Z' }
+const INVITE = {
+  token: 'tok123',
+  expires_at: '2026-10-23T12:00:00Z',
+  max_uses: 3,
+}
 
 describe('project header', () => {
   it('shows the project with a breadcrumb and its views as tabs', async () => {
@@ -110,14 +114,16 @@ describe('project header', () => {
     const { screen } = await renderApp('/p/WEB/board')
 
     await screen.getByRole('button', { name: 'Invite' }).click()
-    await screen.getByLabelText('Invite as').selectOptions('admin')
+    await screen.getByLabelText('How many people').fill('3')
     await screen.getByRole('button', { name: 'Create invite link' }).click()
 
     const link = `${location.origin}/invites/tok123`
     await expect
       .element(screen.getByRole('textbox', { name: 'Invite link' }))
       .toHaveValue(link)
-    await expect.element(screen.getByText(/Works once\. Expires/)).toBeVisible()
+    await expect
+      .element(screen.getByText('Link for 3 people · valid 7 days'))
+      .toBeVisible()
     await screen.getByRole('button', { name: 'Copy link' }).click()
     await expect
       .element(screen.getByRole('button', { name: 'Copied' }))
@@ -126,7 +132,104 @@ describe('project header', () => {
     const post = requests.find(
       (request) => routeOf(request) === 'POST /api/projects/WEB/invites'
     )
-    expect(await post?.json()).toEqual({ role: 'admin' })
+    expect(await post?.json()).toEqual({ role: 'member', max_uses: 3 })
+  })
+
+  it('keeps an admin link to one person', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Invite' }).click()
+    await screen.getByLabelText('Invite as').selectOptions('admin')
+    const people = screen.getByLabelText('How many people')
+    await people.fill('3')
+    await screen.getByRole('button', { name: 'Create invite link' }).click()
+
+    await expect
+      .element(people)
+      .toHaveAccessibleDescription(
+        'A link for more than one person can only add members.'
+      )
+    expect(requests.map(routeOf)).not.toContain(
+      'POST /api/projects/WEB/invites'
+    )
+  })
+
+  it('says when the invite link could not be created', async () => {
+    inProjects({
+      'POST /api/projects/WEB/invites': {
+        status: 201,
+        until: () => Promise.reject(new TypeError('Failed to fetch')),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Invite' }).click()
+    await screen.getByRole('button', { name: 'Create invite link' }).click()
+
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent(
+        'Could not create the link. Check your connection and try again.'
+      )
+  })
+
+  it('makes a link for one person by default', async () => {
+    const requests = inProjects({
+      'POST /api/projects/WEB/invites': {
+        status: 201,
+        body: { ...INVITE, max_uses: 1 },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Invite' }).click()
+    await expect
+      .element(screen.getByLabelText('How many people'))
+      .toHaveValue(1)
+    await screen.getByRole('button', { name: 'Create invite link' }).click()
+
+    await expect
+      .element(screen.getByText('Link for 1 person · valid 7 days'))
+      .toBeVisible()
+    const post = requests.find(
+      (request) => routeOf(request) === 'POST /api/projects/WEB/invites'
+    )
+    expect(await post?.json()).toEqual({ role: 'member', max_uses: 1 })
+  })
+
+  it('keeps the number of people between 1 and 50', async () => {
+    const requests = inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Invite' }).click()
+    const people = screen.getByLabelText('How many people')
+    await people.fill('51')
+    await screen.getByRole('button', { name: 'Create invite link' }).click()
+
+    await expect.element(people).toHaveAccessibleDescription('Between 1 and 50.')
+    expect(requests.map(routeOf)).not.toContain(
+      'POST /api/projects/WEB/invites'
+    )
+  })
+
+  it('shows the server refusal of the number of people under the field', async () => {
+    inProjects({
+      'POST /api/projects/WEB/invites': {
+        status: 422,
+        body: problem(422, 'Invalid invite.', [
+          { field: 'max_uses', message: 'Use 1 to 50 people.' },
+        ]),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await screen.getByRole('button', { name: 'Invite' }).click()
+    await screen.getByRole('button', { name: 'Create invite link' }).click()
+
+    await expect
+      .element(screen.getByLabelText('How many people'))
+      .toHaveAccessibleDescription('Use 1 to 50 people.')
   })
 
   it('shows why an invite link was refused', async () => {

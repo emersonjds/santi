@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH spot AS (INSERT INTO invite_use (invite_id, user_id) VALUES ($1, $2))\n         UPDATE invite SET used_at = now()\n         WHERE id = $1 AND max_uses <= 1 + (SELECT count(*) FROM invite_use WHERE invite_id = $1)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "463f46ff6e95a9900907b649b840731cb7489d8928f27ebb19d4a81ddac5ebb8"
+}

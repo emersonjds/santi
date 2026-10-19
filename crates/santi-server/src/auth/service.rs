@@ -113,6 +113,7 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
     let mut conn = pool.acquire().await?;
     let me = repo::find_user(&mut conn, user.id).await?;
     let legal_acceptances = repo::list_acceptances(&mut conn, user.id).await?;
+    let invite_uses = repo::list_invite_uses(&mut conn, user.id).await?;
     let api_tokens = repo::list_api_tokens(&mut conn, user.id).await?;
     let (admin, other_projects): (Vec<Project>, Vec<Project>) =
         projects::repo::list_projects(&mut conn, user.id, None)
@@ -142,6 +143,7 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
         exported_at: Utc::now(),
         user: me,
         legal_acceptances,
+        invite_uses,
         api_tokens,
         projects: exports,
         other_projects,
