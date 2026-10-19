@@ -10,6 +10,36 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-10-18
+
+> A comment thread that reads well: roomier comments, a composer that opens with M, quick replies, and edit or delete from each comment.
+
+### Added
+
+- **Comments:** edit and delete your own comments (project admins can edit or delete any), with
+  an "(edited)" marker that names who and when; delete asks first. Copy link gives a permalink that
+  scrolls to the comment and highlights it.
+- **Composer:** starts collapsed as "Add a comment…"; press M or click to write; Save or Cancel,
+  Esc cancels. Quick replies ("Looks good to me", "Thanks!", "Can you say more?", "I'll take a
+  look.") fill the box without posting; self-hosters can hide them with `VITE_QUICK_REPLIES=off`.
+- **API:** `PATCH` and `DELETE /api/projects/{key}/issues/{number}/comments/{id}` (author or admin;
+  another project's or issue's comment is 404). `Comment` gains `edited_at`, `edited_by_id` and
+  `edited_by_name`.
+- **CLI:** `santi issues comment-edit` and `santi issues comment-delete`; `issues comments` shows
+  each comment's id and whether it was edited. **MCP:** `edit_comment` and `delete_comment`.
+
+### Changed
+
+- **Thread layout:** more space between and inside comments; times read relative for a week, then
+  as a date, with the full date and time on hover. Every comment loads, not only the first 200.
+- **Archived projects:** comment controls stay in place, locked, like every other control.
+- **Account export** includes when and by whom each comment was edited.
+
+### Upgrade notes
+
+- Migration `0022_comment_edit.sql` adds two nullable columns to comments (`edited_at`,
+  `edited_by`) with a check that both are set or both empty. Additive; no backfill.
+
 ## [0.16.0] - 2026-10-18
 
 > Rich text everywhere: Markdown descriptions and comments with a formatting toolbar, live styling, @mentions and emoji.
@@ -502,7 +532,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.17.0...HEAD
+[0.17.0]: https://github.com/emersonjds/santi/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/emersonjds/santi/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/emersonjds/santi/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/emersonjds/santi/compare/v0.14.0...v0.14.1
