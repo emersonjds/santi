@@ -15,8 +15,12 @@ import type {
   SprintReport,
 } from '@/shared/api/client'
 
-/** `body` may be a function of the request, read on each call: a reply that changes once something was written, or with the query. */
-type Reply = { status: number; body?: unknown; until?: Promise<unknown> }
+/** `body` and `until` may be functions of the request, read on each call: a reply that changes once something was written, or with the query. */
+type Reply = {
+  status: number
+  body?: unknown
+  until?: Promise<unknown> | ((request: Request) => Promise<unknown> | undefined)
+}
 
 /** Answers `fetch` by `"METHOD /path"`; unknown calls get a 404 problem. Returns the requests seen. */
 export const stubApi = (replies: Record<string, Reply>) => {
@@ -25,7 +29,9 @@ export const stubApi = (replies: Record<string, Reply>) => {
     requests.push(request)
     const route = `${request.method} ${new URL(request.url).pathname}`
     const reply = replies[route] ?? { status: 404, body: problem(404, route) }
-    await reply.until
+    await (typeof reply.until === 'function'
+      ? reply.until(request)
+      : reply.until)
     const value =
       typeof reply.body === 'function' ? reply.body(request) : reply.body
     const body = value === undefined ? null : JSON.stringify(value)

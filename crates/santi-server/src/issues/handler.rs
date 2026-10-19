@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use santi_types::Problem;
 use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
-    StatusFilter, UpdateIssue,
+    StatusFilter, UpdateComment, UpdateIssue,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -21,6 +21,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(get_issue, update_issue, delete_issue))
         .routes(routes!(move_issue))
         .routes(routes!(add_comment, list_comments))
+        .routes(routes!(edit_comment, delete_comment))
         .routes(routes!(list_labels))
 }
 
@@ -189,4 +190,47 @@ pub async fn list_comments(
     Ok(Json(
         service::list_comments(&state.pool, &member, number, page).await?,
     ))
+}
+
+#[utoipa::path(patch, path = "/api/projects/{key}/issues/{number}/comments/{id}", tag = "issues", request_body = UpdateComment,
+    params(
+        ("key" = String, Path, description = "Project key"),
+        ("number" = i64, Path, description = "Issue number, the N of KEY-N"),
+        ("id" = i64, Path, description = "Comment id")),
+    responses(
+        (status = 200, body = Comment, description = "Marked edited by the caller; the same text returns the comment untouched (D52)"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json", description = "Neither an admin nor the author"),
+        (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`"),
+        (status = 422, body = Problem, content_type = "application/problem+json")))]
+pub async fn edit_comment(
+    State(state): State<AppState>,
+    member: Member,
+    PathParams((_key, number, id)): PathParams<(String, i64, i64)>,
+    JsonBody(input): JsonBody<UpdateComment>,
+) -> Result<Json<Comment>, AppError> {
+    Ok(Json(
+        service::edit_comment(&state.pool, &member, number, id, input).await?,
+    ))
+}
+
+#[utoipa::path(delete, path = "/api/projects/{key}/issues/{number}/comments/{id}", tag = "issues",
+    params(
+        ("key" = String, Path, description = "Project key"),
+        ("number" = i64, Path, description = "Issue number, the N of KEY-N"),
+        ("id" = i64, Path, description = "Comment id")),
+    responses(
+        (status = 204, description = "Deleted for good (D52)"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json", description = "Neither an admin nor the author"),
+        (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`")))]
+pub async fn delete_comment(
+    State(state): State<AppState>,
+    member: Member,
+    PathParams((_key, number, id)): PathParams<(String, i64, i64)>,
+) -> Result<StatusCode, AppError> {
+    service::delete_comment(&state.pool, &member, number, id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
