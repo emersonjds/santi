@@ -244,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/password-resets/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["preview_password_reset"];
+        put?: never;
+        post: operations["reset_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects": {
         parameters: {
             query?: never;
@@ -1494,6 +1510,12 @@ export interface components {
             /** Format: int64 */
             next_cursor?: number | null;
         };
+        /** @description The account a live reset link belongs to. */
+        PasswordResetPreview: {
+            email: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
         PersonFound: {
             /** Format: int64 */
             count: number;
@@ -1611,6 +1633,9 @@ export interface components {
         };
         /** @enum {string} */
         ReportOutcome: "completed" | "not_completed" | "removed";
+        ResetPassword: {
+            password: string;
+        };
         RowProblem: {
             /**
              * Format: int64
@@ -2520,6 +2545,101 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    preview_password_reset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Reset token from the link the server operator generated */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account a live link resets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResetPreview"];
+                };
+            };
+            /** @description Unknown, used or expired link */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reset_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Reset token from the link the server operator generated */
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPassword"];
+            };
+        };
+        responses: {
+            /** @description Password replaced; every other session ended; signed in and sets the session cookie. API tokens stay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            /** @description Unknown, used or expired link */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Password breaks the rules (`password`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited (D44); wait `Retry-After` seconds */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

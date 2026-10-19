@@ -8,6 +8,7 @@ use crate::error::{AppError, reject_nul};
 
 pub const SESSION_COOKIE: &str = "__Host-santi_session";
 pub const SESSION_DAYS: i64 = 30;
+pub const RESET_HOURS: i64 = 24;
 pub const API_TOKEN_PREFIX: &str = "santi_";
 /// Versions of `web/terms.html` and `web/privacy.html` (and their pt-BR pages); bump one when its
 /// text changes and everyone is asked to accept it again (D45).
@@ -112,6 +113,23 @@ pub fn verify_password(password: &str, stored_hash: &str) -> bool {
 
 pub fn dummy_password_hash() -> String {
     DUMMY_PASSWORD_HASH.to_string()
+}
+
+/// The address people open santi at: `SANTI_PUBLIC_URL`, else the Railway domain, else local.
+pub fn public_url(configured: Option<String>, railway_domain: Option<String>) -> String {
+    let configured = configured.filter(|url| !url.is_empty());
+    let railway = railway_domain
+        .filter(|domain| !domain.is_empty())
+        .map(|domain| format!("https://{domain}"));
+    let url = configured.or(railway);
+    url.map_or_else(
+        || "http://localhost:8080".into(),
+        |url| url.trim_end_matches('/').to_string(),
+    )
+}
+
+pub fn reset_url(base: &str, token: &str) -> String {
+    format!("{base}/reset/{token}")
 }
 
 /// Bearer first, then the session cookie (D23). A present but unknown Bearer never falls back.
@@ -226,6 +244,29 @@ mod tests {
         assert_eq!(first.len(), 64);
         assert!(first.chars().all(|character| character.is_ascii_hexdigit()));
         assert_ne!(first, new_secret());
+    }
+
+    #[test]
+    fn public_url_prefers_the_configured_one_then_railway_then_localhost() {
+        let configured = Some("https://santi.dev/".to_string());
+        let railway = Some("santi.up.railway.app".to_string());
+        assert_eq!(public_url(configured, railway.clone()), "https://santi.dev");
+        assert_eq!(
+            public_url(Some(String::new()), railway),
+            "https://santi.up.railway.app"
+        );
+        assert_eq!(
+            public_url(None, Some(String::new())),
+            "http://localhost:8080"
+        );
+    }
+
+    #[test]
+    fn reset_url_puts_the_token_under_reset() {
+        assert_eq!(
+            reset_url("https://santi.dev", "abc"),
+            "https://santi.dev/reset/abc"
+        );
     }
 
     #[test]

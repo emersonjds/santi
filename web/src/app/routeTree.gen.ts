@@ -15,6 +15,7 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAccountRouteImport } from './routes/_authenticated/account'
 import { Route as InvitesTokenRouteImport } from './routes/invites/$token'
+import { Route as ResetTokenRouteImport } from './routes/reset/$token'
 import { Route as AuthenticatedPKeyRouteRouteImport } from './routes/_authenticated/p/$key/route'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects/index'
 import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenticated/projects/new'
@@ -56,6 +57,11 @@ const AuthenticatedAccountRoute = AuthenticatedAccountRouteImport.update({
 const InvitesTokenRoute = InvitesTokenRouteImport.update({
   id: '/invites/$token',
   path: '/invites/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetTokenRoute = ResetTokenRouteImport.update({
+  id: '/reset/$token',
+  path: '/reset/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedPKeyRouteRoute = AuthenticatedPKeyRouteRouteImport.update({
@@ -139,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/account': typeof AuthenticatedAccountRoute
   '/invites/$token': typeof InvitesTokenRoute
+  '/reset/$token': typeof ResetTokenRoute
   '/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/account': typeof AuthenticatedAccountRoute
   '/invites/$token': typeof InvitesTokenRoute
+  '/reset/$token': typeof ResetTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/projects/new': typeof AuthenticatedProjectsNewRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
@@ -179,6 +187,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/_authenticated/account': typeof AuthenticatedAccountRoute
   '/invites/$token': typeof InvitesTokenRoute
+  '/reset/$token': typeof ResetTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/p/$key': typeof AuthenticatedPKeyRouteRouteWithChildren
   '/_authenticated/projects/new': typeof AuthenticatedProjectsNewRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/account'
     | '/invites/$token'
+    | '/reset/$token'
     | '/p/$key'
     | '/projects/new'
     | '/projects/'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/account'
     | '/invites/$token'
+    | '/reset/$token'
     | '/'
     | '/projects/new'
     | '/projects'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/_authenticated/account'
     | '/invites/$token'
+    | '/reset/$token'
     | '/_authenticated/'
     | '/_authenticated/p/$key'
     | '/_authenticated/projects/new'
@@ -262,6 +274,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   RegisterRoute: typeof RegisterRoute
   InvitesTokenRoute: typeof InvitesTokenRoute
+  ResetTokenRoute: typeof ResetTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -306,6 +319,13 @@ declare module '@tanstack/react-router' {
       path: '/invites/$token'
       fullPath: '/invites/$token'
       preLoaderRoute: typeof InvitesTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset/$token': {
+      id: '/reset/$token'
+      path: '/reset/$token'
+      fullPath: '/reset/$token'
+      preLoaderRoute: typeof ResetTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/p/$key': {
@@ -459,6 +479,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   RegisterRoute: RegisterRoute,
   InvitesTokenRoute: InvitesTokenRoute,
+  ResetTokenRoute: ResetTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

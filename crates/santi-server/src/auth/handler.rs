@@ -6,7 +6,7 @@ use axum::response::IntoResponse;
 use santi_types::Problem;
 use santi_types::auth::{
     AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
-    LegalStatus, Login, Register, User,
+    LegalStatus, Login, PasswordResetPreview, Register, ResetPassword, User,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -29,6 +29,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(legal_status, accept_legal))
         .routes(routes!(create_token, list_tokens))
         .routes(routes!(delete_token))
+        .routes(routes!(preview_password_reset, reset_password))
 }
 
 #[utoipa::path(post, path = "/api/auth/register", tag = "auth", request_body = Register,
@@ -205,4 +206,39 @@ pub async fn delete_token(
 ) -> Result<StatusCode, AppError> {
     service::delete_token(&state.pool, &user, token_id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(get, path = "/api/password-resets/{token}", tag = "auth",
+    params(("token" = String, Path, description = "Reset token from the link the server operator generated")),
+    responses(
+        (status = 200, body = PasswordResetPreview, description = "The account a live link resets"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown, used or expired link"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
+pub async fn preview_password_reset(
+    State(state): State<AppState>,
+    ClientIp(address): ClientIp,
+    PathParams(token): PathParams<String>,
+) -> Result<Json<PasswordResetPreview>, AppError> {
+    state.limits.check(Action::PasswordReset, address, None)?;
+    Ok(Json(
+        service::preview_password_reset(&state.pool, &token).await?,
+    ))
+}
+
+#[utoipa::path(post, path = "/api/password-resets/{token}", tag = "auth", request_body = ResetPassword,
+    params(("token" = String, Path, description = "Reset token from the link the server operator generated")),
+    responses(
+        (status = 200, body = User, description = "Password replaced; every other session ended; signed in and sets the session cookie. API tokens stay"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown, used or expired link"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Password breaks the rules (`password`)"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
+pub async fn reset_password(
+    State(state): State<AppState>,
+    ClientIp(address): ClientIp,
+    PathParams(token): PathParams<String>,
+    JsonBody(input): JsonBody<ResetPassword>,
+) -> Result<impl IntoResponse, AppError> {
+    state.limits.check(Action::PasswordReset, address, None)?;
+    let (user, session) = service::reset_password(&state.pool, &token, input).await?;
+    Ok(([(SET_COOKIE, domain::session_cookie(&session))], Json(user)))
 }
