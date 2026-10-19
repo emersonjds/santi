@@ -923,8 +923,15 @@ describe('issue rich text', () => {
 const REM = 16
 
 /** Each Details group, as the names of its rows; whether a line sits above it. */
-const groupsOf = (screen: RenderResult) => {
-  const details = screen.getByRole('region', { name: 'Details' }).element()
+/** The Details region once the page is shown (it stays hidden until the terms check answers). */
+const detailsOf = async (screen: RenderResult) => {
+  const details = screen.getByRole('region', { name: 'Details' })
+  await expect.element(details).toBeVisible()
+  return details.element()
+}
+
+const groupsOf = async (screen: RenderResult) => {
+  const details = await detailsOf(screen)
   return [...details.children].slice(1).map((group) => ({
     rows: [...group.children].map((row) => row.firstElementChild?.textContent),
     divider: getComputedStyle(group).borderTopWidth,
@@ -938,11 +945,8 @@ const SCRUM_GROUPS = [
   { rows: ['Reporter', 'Created', 'Updated'], divider: '1px' },
 ]
 
-const widthOf = (screen: RenderResult) =>
-  screen
-    .getByRole('region', { name: 'Details' })
-    .element()
-    .getBoundingClientRect().width
+const widthOf = async (screen: RenderResult) =>
+  (await detailsOf(screen)).getBoundingClientRect().width
 
 const LONG_EPIC = 'Checkout revamp across every storefront and the mobile app'
 
@@ -962,6 +966,17 @@ const withEpicAndLabels = (labels: string[]) => ({
       next_cursor: null,
     },
   },
+  // A slow runner answers the terms check after the issue; the page stays hidden until then.
+  'GET /api/me/legal': {
+    status: 200,
+    body: {
+      required: true,
+      terms_version: '2026-10-16',
+      privacy_version: '2026-10-16',
+      accepted: true,
+    },
+    until: () => new Promise((resolve) => setTimeout(resolve, 400)),
+  },
 })
 
 describe('issue details layout', () => {
@@ -974,8 +989,8 @@ describe('issue details layout', () => {
     const epic = screen.getByLabelText('Epic')
     await expect.element(epic).toHaveValue('WEB-9')
 
-    expect(widthOf(screen)).toBe(22 * REM)
-    expect(groupsOf(screen)).toEqual(SCRUM_GROUPS)
+    expect(await widthOf(screen)).toBe(22 * REM)
+    expect(await groupsOf(screen)).toEqual(SCRUM_GROUPS)
     await expect
       .element(screen.getByLabelText('Sprint'))
       .toHaveAttribute('title', 'Sprint 4')
@@ -1018,8 +1033,8 @@ describe('issue details layout', () => {
     const { screen } = await renderApp('/p/WEB/issues/1')
     await expect.element(screen.getByLabelText('Epic')).toHaveValue('WEB-9')
 
-    expect(widthOf(screen)).toBe(19 * REM)
-    expect(groupsOf(screen)).toEqual(SCRUM_GROUPS)
+    expect(await widthOf(screen)).toBe(19 * REM)
+    expect(await groupsOf(screen)).toEqual(SCRUM_GROUPS)
   })
 
   it('leaves out a group with nothing to show: an epic on a kanban board', async () => {
@@ -1045,7 +1060,7 @@ describe('issue details layout', () => {
       .element(screen.getByLabelText('Summary'))
       .toHaveValue('Rework the alerts')
 
-    expect(groupsOf(screen)).toEqual([
+    expect(await groupsOf(screen)).toEqual([
       { rows: ['Status', 'Assignee'], divider: '0px' },
       { rows: ['Priority', 'Type', 'Points', 'Labels'], divider: '1px' },
       { rows: ['Reporter', 'Created', 'Updated'], divider: '1px' },
@@ -1060,12 +1075,12 @@ describe('issue details layout', () => {
     const { screen } = await renderApp('/p/WEB/issues/1')
     await expect.element(screen.getByLabelText('Epic')).toHaveValue('WEB-9')
 
-    const details = screen.getByRole('region', { name: 'Details' }).element()
+    const details = await detailsOf(screen)
     const view = details.closest('[data-issue-view]')
     expect(details.getBoundingClientRect().width).toBe(
       view?.getBoundingClientRect().width
     )
-    expect(groupsOf(screen).map((group) => group.rows)).toEqual(
+    expect((await groupsOf(screen)).map((group) => group.rows)).toEqual(
       SCRUM_GROUPS.map((group) => group.rows)
     )
     const controls = [
@@ -1454,7 +1469,9 @@ describe('comment thread', () => {
     await userEvent.keyboard('Ship it on Friday.')
     await commentsOf(screen).getByRole('button', { name: 'Save' }).click()
 
-    await expect.element(articles.nth(1)).toHaveTextContent('Ship it on Friday.')
+    await expect
+      .element(articles.nth(1))
+      .toHaveTextContent('Ship it on Friday.')
     expect(
       articles
         .nth(1)
