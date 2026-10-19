@@ -58,9 +58,15 @@ pub fn check_admin_remains(
     Ok(())
 }
 
-pub fn check_max_uses(max_uses: i32) -> Result<(), AppError> {
+pub fn check_max_uses(max_uses: i32, role: MemberRole) -> Result<(), AppError> {
     if !(1..=50).contains(&max_uses) {
-        return Err(AppError::invalid("max_uses", "must be between 1 and 50"));
+        return Err(AppError::invalid("max_uses", "Between 1 and 50."));
+    }
+    if role == MemberRole::Admin && max_uses > 1 {
+        return Err(AppError::invalid(
+            "max_uses",
+            "A link for more than one person can only add members.",
+        ));
     }
     Ok(())
 }
@@ -136,14 +142,26 @@ mod tests {
 
     #[test]
     fn an_invite_has_1_to_50_spots() {
-        assert_eq!(check_max_uses(1), Ok(()));
-        assert_eq!(check_max_uses(50), Ok(()));
+        assert_eq!(check_max_uses(1, MemberRole::Member), Ok(()));
+        assert_eq!(check_max_uses(50, MemberRole::Member), Ok(()));
         for spots in [0, 51, -1] {
             assert_eq!(
-                check_max_uses(spots),
-                Err(AppError::invalid("max_uses", "must be between 1 and 50"))
+                check_max_uses(spots, MemberRole::Member),
+                Err(AppError::invalid("max_uses", "Between 1 and 50."))
             );
         }
+    }
+
+    #[test]
+    fn an_admin_link_is_for_one_person() {
+        assert_eq!(check_max_uses(1, MemberRole::Admin), Ok(()));
+        assert_eq!(
+            check_max_uses(2, MemberRole::Admin),
+            Err(AppError::invalid(
+                "max_uses",
+                "A link for more than one person can only add members."
+            ))
+        );
     }
 
     #[test]

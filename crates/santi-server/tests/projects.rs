@@ -335,7 +335,22 @@ async fn invite_spots_are_validated(pool: PgPool) {
             .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
         assert_eq!(problem["errors"][0]["field"], "max_uses", "{problem}");
+        assert_eq!(problem["errors"][0]["message"], "Between 1 and 50.");
     }
+    let (admins, problem) = ana
+        .post(
+            "/api/projects/SANTI/invites",
+            json!({ "role": "admin", "max_uses": 2 }),
+        )
+        .await;
+    assert_eq!(admins, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+    assert_eq!(
+        problem["errors"][0],
+        json!({
+            "field": "max_uses",
+            "message": "A link for more than one person can only add members."
+        })
+    );
     let (_, single) = ana
         .post("/api/projects/SANTI/invites", json!({ "role": "member" }))
         .await;

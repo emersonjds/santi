@@ -92,7 +92,7 @@ pub async fn create_invite(
 ) -> Result<Invite, AppError> {
     domain::require_admin(member)?;
     let max_uses = input.max_uses.unwrap_or(1);
-    domain::check_max_uses(max_uses)?;
+    domain::check_max_uses(max_uses, input.role)?;
     let token = auth::domain::new_secret();
     let expires_at = Utc::now() + Duration::days(domain::INVITE_DAYS);
     let mut conn = pool.acquire().await?;

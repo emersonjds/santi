@@ -104,7 +104,8 @@ pub struct SetRole {
 #[serde(deny_unknown_fields)]
 pub struct CreateInvite {
     pub role: MemberRole,
-    /// How many people may join with the link, 1 to 50; 1 when absent.
+    /// How many people may join with the link, 1 to 50; 1 when absent. More than 1 only for members.
+    #[schema(minimum = 1, maximum = 50)]
     pub max_uses: Option<i32>,
 }
 
