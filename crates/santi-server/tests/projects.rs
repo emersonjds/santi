@@ -305,13 +305,19 @@ async fn a_removed_member_cannot_rejoin_with_the_same_link(pool: PgPool) {
 
     assert_eq!(removed, StatusCode::NO_CONTENT);
     assert_eq!(again, StatusCode::CONFLICT, "{problem}");
-    assert_eq!(problem["type"], "urn:santi:error:invite-already-used-by-you");
+    assert_eq!(
+        problem["type"],
+        "urn:santi:error:invite-already-used-by-you"
+    );
     assert_eq!(
         problem["detail"],
         "You already joined with this link. Ask an admin for a new invite."
     );
     assert_eq!(preview["spots_left"], 2, "{preview}");
-    assert_eq!(bob.get("/api/projects/SANTI").await.0, StatusCode::NOT_FOUND);
+    assert_eq!(
+        bob.get("/api/projects/SANTI").await.0,
+        StatusCode::NOT_FOUND
+    );
 }
 
 #[sqlx::test]
