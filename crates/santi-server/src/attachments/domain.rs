@@ -155,9 +155,31 @@ impl Inspector {
     }
 }
 
-/// Zero-width and bidi-control characters, which can disguise an extension.
+/// Unicode format characters (category Cf: zero-width, soft hyphen, bidi controls, tags), which
+/// can disguise an extension.
 fn is_invisible(char: char) -> bool {
-    matches!(char, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{feff}')
+    matches!(char,
+        '\u{ad}'
+        | '\u{600}'..='\u{605}'
+        | '\u{61c}'
+        | '\u{6dd}'
+        | '\u{70f}'
+        | '\u{890}'..='\u{891}'
+        | '\u{8e2}'
+        | '\u{180e}'
+        | '\u{200b}'..='\u{200f}'
+        | '\u{202a}'..='\u{202e}'
+        | '\u{2060}'..='\u{2064}'
+        | '\u{2066}'..='\u{206f}'
+        | '\u{feff}'
+        | '\u{fff9}'..='\u{fffb}'
+        | '\u{110bd}'
+        | '\u{110cd}'
+        | '\u{13430}'..='\u{1343f}'
+        | '\u{1bca0}'..='\u{1bca3}'
+        | '\u{1d173}'..='\u{1d17a}'
+        | '\u{e0001}'
+        | '\u{e0020}'..='\u{e007f}')
 }
 
 /// The base name without control or bidi-override characters, at most 255 characters with the
@@ -355,6 +377,10 @@ mod tests {
         );
         assert_eq!(sanitize_file_name("zero\u{200b}width.png"), "zerowidth.png");
         assert_eq!(sanitize_file_name("relatório.md"), "relatório.md");
+        assert_eq!(
+            sanitize_file_name("a\u{ad}b\u{61c}c\u{180e}d\u{2060}\u{2064}e\u{e0041}.png"),
+            "abcde.png"
+        );
     }
 
     #[test]
