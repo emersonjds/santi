@@ -17,6 +17,8 @@ const PREVIEW = {
   role: 'member',
   inviter_name: 'Bob Stone',
   expires_at: '2026-10-23T12:00:00Z',
+  max_uses: 1,
+  spots_left: 1,
 }
 
 const preview = { 'GET /api/invites/tok123': { status: 200, body: PREVIEW } }
@@ -93,6 +95,23 @@ describe('join a project', () => {
         dateStyle: 'medium',
       })
     )
+    await expect.element(offer).not.toHaveTextContent('spots left')
+  })
+
+  it('shows how many spots a group invite has left', async () => {
+    inProjects({
+      'GET /api/invites/tok123': {
+        status: 200,
+        body: { ...PREVIEW, max_uses: 5, spots_left: 3 },
+      },
+    })
+    const { screen } = await renderApp('/invites/tok123')
+
+    await expect
+      .element(
+        screen.getByRole('region', { name: 'Invite' }).getByText('3 of 5 spots left')
+      )
+      .toBeVisible()
   })
 
   it.each([

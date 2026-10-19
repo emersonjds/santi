@@ -53,6 +53,13 @@ pub struct LegalAcceptance {
     pub accepted_at: DateTime<Utc>,
 }
 
+/// A project the person joined through an invite link, and when.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct InviteUse {
+    pub project_key: String,
+    pub joined_at: DateTime<Utc>,
+}
+
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Login {
@@ -117,6 +124,7 @@ pub struct AccountExport {
     pub user: User,
     /// Every acceptance of the Terms of Use, the Privacy Policy and the age declaration.
     pub legal_acceptances: Vec<LegalAcceptance>,
+    pub invite_uses: Vec<InviteUse>,
     pub api_tokens: Vec<ApiToken>,
     pub projects: Vec<ProjectExport>,
     /// Projects the caller is a plain member of: named here, owned by their admins.

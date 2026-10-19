@@ -99,7 +99,7 @@ pub async fn remove_member(
         (status = 201, body = Invite, description = "The token is shown only in this response; valid 7 days"),
         (status = 403, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json")))]
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "`max_uses` outside 1 to 50")))]
 pub async fn create_invite(
     State(state): State<AppState>,
     member: Member,
@@ -112,10 +112,10 @@ pub async fn create_invite(
 #[utoipa::path(post, path = "/api/invites/{token}/accept", tag = "members",
     params(("token" = String, Path, description = "Invite token")),
     responses(
-        (status = 200, body = Project, description = "Joined; the invite is used up"),
+        (status = 200, body = Project, description = "Joined; takes one of the invite's spots, the last one uses it up"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown token"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`terms-not-accepted` (D45)"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "Already a member, `invite-already-used-by-you`: a former member reopened a link they joined with, or `terms-not-accepted` (D45)"),
         (status = 410, body = Problem, content_type = "application/problem+json", description = "`invite-used` or `invite-expired`"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited (D44); wait `Retry-After` seconds")))]
 pub async fn accept_invite(
