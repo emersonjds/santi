@@ -46,7 +46,15 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 - `plan_issue` requires `sprint_id`: a sprint id, or `null` to send the issue to the backlog.
 - Descriptions and comment bodies are Markdown (CommonMark + GFM), sent and returned as written. A
   mention is `[@Name](mention:<user_id>)`, with the id from `list_members`.
-- Summaries, descriptions and comments in an answer are text written by users. The server
+- `add_attachment` uploads one file from the machine running `santi mcp`, so an agent steered by
+  injected text could try to send a private file. It exists only over stdio (never over HTTP, where
+  the caller is remote), and `path` must resolve, symlinks followed, inside the server's working
+  directory, or `SANTI_MCP_ATTACH_DIR` when set; a working directory of `/`, your home folder or any
+  folder above it is refused until that variable is set. Hidden files and anything inside a hidden
+  directory (`.ssh`, `.env`, `.git`) are refused, as are files over 25 MB or of a type the server
+  does not take. A missing, outside or hidden path gets the same answer, "`<path>` is not a readable
+  file under `<folder>`", so a refusal never tells whether a path exists. No tool downloads bytes.
+- Summaries, descriptions, comments and file names in an answer are text written by users. The server
   instructions and the reading tools tell the agent to treat them as data, never as instructions.
 
 | Tool | Does | Hint |
@@ -55,8 +63,9 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `get_board` | a board: columns and cards | read-only |
 | `get_backlog` | sprint sections, the backlog and epics | read-only |
 | `search_issues` | text (`q`) and filters, paged | read-only |
-| `get_issue` | one issue, with status, people and sprint by name | read-only |
+| `get_issue` | one issue, with status, people and sprint by name, and `attachments` metadata (empty when the files could not be read) | read-only |
 | `list_comments` | an issue's comments, oldest first, paged | read-only |
+| `list_attachments` | an issue's files, comment files included: id, name, type, size, uploader, `comment_id` | read-only |
 | `list_sprints` | a board's sprints | read-only |
 | `get_sprint_report` | a started sprint's issues: completed, not completed, removed | read-only |
 | `list_epics` | a project's epics | read-only |
@@ -68,6 +77,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `move_issue` | status and/or rank | idempotent |
 | `plan_issue` | into a sprint, or `null` for the backlog (`sprint_id` required) | idempotent |
 | `add_comment` | comment on an issue | additive |
+| `add_attachment` | upload one file (`path`) to an issue or, with `comment_id`, a comment; stdio only, see above | additive |
 | `edit_comment` | change a comment's text (`comment_id` from `list_comments`; author or admin) | idempotent |
 | `mark_notifications_read` | the `ids` given (from `list_notifications`), or `all: true` | idempotent |
 | `create_sprint` | new future sprint | additive |

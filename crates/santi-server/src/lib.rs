@@ -1,3 +1,4 @@
+pub mod attachments;
 pub mod auth;
 pub mod boards;
 pub mod error;
@@ -13,15 +14,17 @@ pub mod rate_limit;
 pub mod reports;
 pub mod seed;
 pub mod sprints;
+pub mod storage;
 
 use std::path::Path;
 use std::sync::Arc;
 
 use axum::extract::{Request, State};
 use axum::http::header::{
-    CACHE_CONTROL, CONTENT_SECURITY_POLICY, REFERRER_POLICY, VARY, X_CONTENT_TYPE_OPTIONS,
+    CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_SECURITY_POLICY, REFERRER_POLICY, VARY,
+    X_CONTENT_TYPE_OPTIONS,
 };
-use axum::http::{HeaderValue, Response};
+use axum::http::{Extensions, HeaderMap, HeaderValue, Response, StatusCode, Version};
 use axum::middleware::Next;
 use axum::response::IntoResponse;
 use axum::routing::{MethodRouter, any, get, get_service};
@@ -31,6 +34,7 @@ use sha2::Digest;
 use sqlx::PgPool;
 use tower::ServiceExt;
 use tower_http::compression::CompressionLayer;
+use tower_http::compression::predicate::{DefaultPredicate, Predicate};
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::set_header::{SetResponseHeader, SetResponseHeaderLayer};
 use utoipa::OpenApi;
@@ -46,15 +50,18 @@ pub struct AppState {
     pub pool: PgPool,
     pub limits: Arc<RateLimits>,
     pub legal: Arc<Legal>,
+    pub storage: storage::Storage,
 }
 
 impl AppState {
-    /// Default limits (D44) and required legal documents without text hashes (D45).
+    /// Default limits (D44), required legal documents without text hashes (D45) and in-memory
+    /// attachment storage (D53).
     pub fn new(pool: PgPool) -> Self {
         AppState {
             pool,
             limits: Arc::default(),
             legal: Arc::default(),
+            storage: storage::Storage::memory(),
         }
     }
 }
@@ -110,13 +117,18 @@ pub async fn purge_expired(pool: &PgPool) -> Result<(u64, u64), sqlx::Error> {
 }
 
 /// OR-58: deletes up to 20 projects trashed 60 days ago or earlier, one per statement, so one
-/// that fails is logged and the rest still go; returns how many were deleted.
-pub async fn purge_trash(pool: &PgPool) -> Result<u64, sqlx::Error> {
+/// that fails is logged and the rest still go; returns how many were deleted. Their stored
+/// attachments go after each delete (D53).
+pub async fn purge_trash(pool: &PgPool, storage: &storage::Storage) -> Result<u64, sqlx::Error> {
     let mut conn = pool.acquire().await?;
     let mut purged = 0;
     for project in projects::repo::list_expired_trash(&mut conn, 20).await? {
         match projects::repo::purge(&mut conn, project.id).await {
-            Ok(deleted) => purged += u64::from(deleted),
+            Ok(None) => {}
+            Ok(Some(keys)) => {
+                purged += 1;
+                attachments::service::delete_objects(storage, &keys).await;
+            }
             Err(error) => eprintln!("trash purge of {} failed: {error}", project.key),
         }
     }
@@ -152,6 +164,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(imports::handler::router())
         .merge(home::handler::router())
         .merge(notifications::handler::router())
+        .merge(attachments::handler::router())
 }
 
 /// The API contract, built without a database; `web/openapi.json` is its committed snapshot (D38).
@@ -165,7 +178,7 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
     let (router, api) = api().split_for_parts();
     let router = router.merge(SwaggerUi::new("/docs").url("/openapi.json", api));
     let router = match web_dir.filter(|dir| dir.join("index.html").is_file()) {
-        Some(dir) => router.merge(spa(dir, state.legal.required)),
+        Some(dir) => router.merge(spa(dir, state.legal.required, state.storage.image_origin())),
         None => router.fallback(not_found),
     };
     router
@@ -178,18 +191,29 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
             REFERRER_POLICY,
             HeaderValue::from_static("strict-origin-when-cross-origin"),
         ))
-        .layer(CompressionLayer::new())
+        .layer(CompressionLayer::new().compress_when(DefaultPredicate::new().and(not_a_download)))
         .with_state(state)
+}
+
+/// Downloads keep their bytes and `Content-Length`.
+fn not_a_download(_: StatusCode, _: Version, headers: &HeaderMap, _: &Extensions) -> bool {
+    !headers.contains_key(CONTENT_DISPOSITION)
 }
 
 /// sonner and Radix's scroll lock add `<style>` tags at runtime: styles need `'unsafe-inline'`.
 /// Swagger UI under `/docs` runs inline scripts, so the policy covers the SPA only.
-const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+/// D53: attachment previews load from the bucket when S3 serves them.
+fn csp(image_origin: Option<&str>) -> String {
+    let images = image_origin.map_or(String::new(), |origin| format!(" {origin}"));
+    format!(
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:{images}; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    )
+}
 
 /// Hashed `/assets/*` are cached for good; pages are revalidated so a deploy shows at once.
 /// `/` is the landing page without a session cookie and the app with one (D37 amendment);
 /// `/about` is always the landing page; `/privacy` and `/terms` are static pages next to it.
-fn spa(dir: &Path, legal_pages: bool) -> Router<AppState> {
+fn spa(dir: &Path, legal_pages: bool, image_origin: Option<&str>) -> Router<AppState> {
     let assets = ServeDir::new(dir.join("assets"));
     let index = ServeFile::new(dir.join("index.html"));
     let landing = ServeFile::new(dir.join("landing.html"));
@@ -234,7 +258,7 @@ fn spa(dir: &Path, legal_pages: bool) -> Router<AppState> {
     };
     router.layer(SetResponseHeaderLayer::overriding(
         CONTENT_SECURITY_POLICY,
-        HeaderValue::from_static(CSP),
+        HeaderValue::try_from(csp(image_origin)).expect("origin checked by storage::Storage::new"),
     ))
 }
 

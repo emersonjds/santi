@@ -12,7 +12,8 @@ use super::{domain, repo};
 use crate::Legal;
 use crate::error::{AppError, reject_nul};
 use crate::members::{self, Member};
-use crate::{boards, home, issues, projects, sprints};
+use crate::storage::Storage;
+use crate::{attachments, boards, home, issues, projects, sprints};
 
 /// Creates the user and signs them in; returns the user and the session token.
 pub async fn register(
@@ -175,9 +176,11 @@ async fn all_issues(pool: &PgPool, member: &Member) -> Result<Vec<Issue>, AppErr
     }
 }
 
-/// D45: checks the password, then deletes the account in one transaction (see `repo::erase_user`).
+/// D45: checks the password, then deletes the account in one transaction (see `repo::erase_user`);
+/// the stored attachments of the projects that went with it are removed after the commit (D53).
 pub async fn delete_account(
     pool: &PgPool,
+    storage: &Storage,
     user: &CurrentUser,
     input: DeleteAccount,
 ) -> Result<(), AppError> {
@@ -192,10 +195,11 @@ pub async fn delete_account(
     }
     let mut tx = pool.begin().await?;
     repo::lock_memberships(&mut tx, user.id).await?;
-    repo::delete_solo_projects(&mut tx, user.id).await?;
+    let keys = repo::delete_solo_projects(&mut tx, user.id).await?;
     repo::hand_over_admin(&mut tx, user.id).await?;
     repo::erase_user(&mut tx, user.id).await?;
     tx.commit().await?;
+    attachments::service::delete_objects(storage, &keys).await;
     Ok(())
 }
 

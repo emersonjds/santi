@@ -255,22 +255,26 @@ pub async fn lock_memberships(conn: &mut PgConnection, user_id: i64) -> Result<(
     Ok(())
 }
 
-/// Projects no other living account belongs to go with the account (issues, sprints and comments cascade).
+/// Projects no other living account belongs to go with the account (issues, sprints, comments
+/// and attachments cascade); returns the storage keys of their attachments (D53).
 pub async fn delete_solo_projects(
     conn: &mut PgConnection,
     user_id: i64,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "DELETE FROM project p
-         WHERE p.id IN (SELECT project_id FROM member WHERE user_id = $1)
-           AND NOT EXISTS (SELECT 1 FROM member o JOIN app_user u ON u.id = o.user_id
-                           WHERE o.project_id = p.id AND o.user_id <> $1
-                             AND u.deleted_at IS NULL)",
+) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar!(
+        "WITH solo AS (
+           DELETE FROM project p
+           WHERE p.id IN (SELECT project_id FROM member WHERE user_id = $1)
+             AND NOT EXISTS (SELECT 1 FROM member o JOIN app_user u ON u.id = o.user_id
+                             WHERE o.project_id = p.id AND o.user_id <> $1
+                               AND u.deleted_at IS NULL)
+           RETURNING p.id)
+         SELECT a.storage_key FROM attachment a JOIN issue i ON i.id = a.issue_id
+         WHERE i.project_id IN (SELECT id FROM solo)",
         user_id
     )
-    .execute(&mut *conn)
-    .await?;
-    Ok(())
+    .fetch_all(&mut *conn)
+    .await
 }
 
 /// Where the user is the last living admin, the remaining living member with the oldest account

@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH gone AS (\n           DELETE FROM issue WHERE id = $1 OR (parent_id = $1 AND issue_type = 'subtask')\n           RETURNING id)\n         SELECT storage_key FROM attachment WHERE issue_id IN (SELECT id FROM gone)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "storage_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "attachment",
+            "name": "storage_key"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "18563ea3d5ed76868ba1c2033caa8603794d93b0a12e83ef12cecce184e64937"
+}

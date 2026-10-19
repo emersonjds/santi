@@ -191,16 +191,21 @@ pub async fn restore(conn: &mut PgConnection, project_id: i64) -> Result<bool, s
     Ok(updated.rows_affected() == 1)
 }
 
-/// Deletes a trashed project; everything it owns goes with it by `ON DELETE CASCADE`. False when
-/// the project is not in the trash.
-pub async fn purge(conn: &mut PgConnection, project_id: i64) -> Result<bool, sqlx::Error> {
-    let deleted = sqlx::query!(
-        "DELETE FROM project WHERE id = $1 AND trashed_at IS NOT NULL",
+/// Deletes a trashed project; everything it owns goes with it by `ON DELETE CASCADE`. Returns the
+/// storage keys of its attachments (D53), or `None` when the project is not in the trash.
+pub async fn purge(
+    conn: &mut PgConnection,
+    project_id: i64,
+) -> Result<Option<Vec<String>>, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"WITH gone AS (DELETE FROM project WHERE id = $1 AND trashed_at IS NOT NULL RETURNING id)
+           SELECT array(SELECT a.storage_key FROM attachment a JOIN issue i ON i.id = a.issue_id
+                        WHERE i.project_id = gone.id) AS "keys!"
+           FROM gone"#,
         project_id
     )
-    .execute(&mut *conn)
-    .await?;
-    Ok(deleted.rows_affected() == 1)
+    .fetch_optional(&mut *conn)
+    .await
 }
 
 pub struct ExpiredTrash {
