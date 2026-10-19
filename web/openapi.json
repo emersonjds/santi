@@ -237,7 +237,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Joined; the invite is used up",
+            "description": "Joined; takes one of the invite's spots, the last one uses it up",
             "content": {
               "application/json": {
                 "schema": {
@@ -2244,6 +2244,7 @@
             }
           },
           "422": {
+            "description": "`max_uses` outside 1 to 50",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5389,6 +5390,14 @@
           "role"
         ],
         "properties": {
+          "max_uses": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many people may join with the link, 1 to 50; 1 when absent."
+          },
           "role": {
             "$ref": "#/components/schemas/MemberRole"
           }
@@ -5932,12 +5941,17 @@
         "description": "The token is shown once; the invite link is `/invites/{token}`.",
         "required": [
           "token",
-          "expires_at"
+          "expires_at",
+          "max_uses"
         ],
         "properties": {
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "max_uses": {
+            "type": "integer",
+            "format": "int32"
           },
           "token": {
             "type": "string"
@@ -5952,7 +5966,9 @@
           "project_name",
           "role",
           "expires_at",
-          "inviter_name"
+          "inviter_name",
+          "max_uses",
+          "spots_left"
         ],
         "properties": {
           "expires_at": {
@@ -5962,6 +5978,10 @@
           "inviter_name": {
             "type": "string"
           },
+          "max_uses": {
+            "type": "integer",
+            "format": "int32"
+          },
           "project_key": {
             "type": "string"
           },
@@ -5970,6 +5990,10 @@
           },
           "role": {
             "$ref": "#/components/schemas/MemberRole"
+          },
+          "spots_left": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

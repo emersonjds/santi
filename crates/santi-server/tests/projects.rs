@@ -203,6 +203,146 @@ async fn invite_link_adds_the_member_once(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn a_group_invite_lets_each_spot_join_once(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let mut guests = Vec::new();
+    for name in ["bob", "carl", "dora", "eve"] {
+        guests.push(ana.another_user(&format!("{name}@example.com")).await);
+    }
+    ana.create_project("SANTI", "scrum").await;
+
+    let (created, invite) = ana
+        .post(
+            "/api/projects/SANTI/invites",
+            json!({ "role": "member", "max_uses": 3 }),
+        )
+        .await;
+    let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
+    let mut joined = Vec::new();
+    for guest in &guests[..3] {
+        joined.push(guest.post(&accept, json!(null)).await.0);
+    }
+    let (fourth, problem) = guests[3].post(&accept, json!(null)).await;
+    let uses: i64 = sqlx::query_scalar("SELECT count(*) FROM invite_use")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+    assert_eq!(created, StatusCode::CREATED);
+    assert_eq!(invite["max_uses"], 3);
+    assert_eq!(joined, [StatusCode::OK; 3]);
+    assert_eq!(fourth, StatusCode::GONE);
+    assert_eq!(problem["type"], "urn:santi:error:invite-used");
+    assert_eq!(uses, 3);
+}
+
+#[sqlx::test]
+async fn group_invite_preview_counts_spots_left(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    let carl = ana.another_user("carl@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let (_, invite) = ana
+        .post(
+            "/api/projects/SANTI/invites",
+            json!({ "role": "member", "max_uses": 3 }),
+        )
+        .await;
+    let token = invite["token"].as_str().unwrap();
+    bob.post(&format!("/api/invites/{token}/accept"), json!(null))
+        .await;
+
+    let (status, preview) = carl.get(&format!("/api/invites/{token}")).await;
+
+    assert_eq!(status, StatusCode::OK, "{preview}");
+    assert_eq!(preview["max_uses"], 3);
+    assert_eq!(preview["spots_left"], 2);
+}
+
+#[sqlx::test]
+async fn an_existing_member_takes_no_spot(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let (_, invite) = ana
+        .post("/api/projects/SANTI/invites", json!({ "role": "member" }))
+        .await;
+    let token = invite["token"].as_str().unwrap();
+
+    let (member, _) = ana
+        .post(&format!("/api/invites/{token}/accept"), json!(null))
+        .await;
+    let (_, preview) = bob.get(&format!("/api/invites/{token}")).await;
+    let (joined, _) = bob
+        .post(&format!("/api/invites/{token}/accept"), json!(null))
+        .await;
+
+    assert_eq!(member, StatusCode::CONFLICT);
+    assert_eq!(preview["spots_left"], 1, "{preview}");
+    assert_eq!(joined, StatusCode::OK);
+}
+
+#[sqlx::test]
+async fn concurrent_accepts_never_take_more_spots_than_the_link_has(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let mut guests = Vec::new();
+    for number in 0..5 {
+        guests.push(
+            ana.another_user(&format!("guest{number}@example.com"))
+                .await,
+        );
+    }
+    ana.create_project("SANTI", "scrum").await;
+    let (_, invite) = ana
+        .post(
+            "/api/projects/SANTI/invites",
+            json!({ "role": "member", "max_uses": 2 }),
+        )
+        .await;
+    let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
+
+    let mut accepts = tokio::task::JoinSet::new();
+    for guest in guests {
+        let accept = accept.clone();
+        accepts.spawn(async move { guest.post(&accept, json!(null)).await.0 });
+    }
+    let mut statuses = accepts.join_all().await;
+    statuses.sort();
+
+    assert_eq!(
+        statuses,
+        [
+            StatusCode::OK,
+            StatusCode::OK,
+            StatusCode::GONE,
+            StatusCode::GONE,
+            StatusCode::GONE
+        ]
+    );
+}
+
+#[sqlx::test]
+async fn invite_spots_are_validated(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+
+    for spots in [0, 51] {
+        let (status, problem) = ana
+            .post(
+                "/api/projects/SANTI/invites",
+                json!({ "role": "member", "max_uses": spots }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+        assert_eq!(problem["errors"][0]["field"], "max_uses", "{problem}");
+    }
+    let (_, single) = ana
+        .post("/api/projects/SANTI/invites", json!({ "role": "member" }))
+        .await;
+    assert_eq!(single["max_uses"], 1);
+}
+
+#[sqlx::test]
 async fn expired_invite_is_gone(pool: PgPool) {
     let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
@@ -249,6 +389,8 @@ async fn invite_preview_shows_what_the_link_grants(pool: PgPool) {
             "project_name": "Project SANTI",
             "role": "admin",
             "inviter_name": "ana@example.com",
+            "max_uses": 1,
+            "spots_left": 1,
         })
     );
     assert_eq!(

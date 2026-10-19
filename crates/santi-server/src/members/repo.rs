@@ -5,6 +5,7 @@ use sqlx::PgConnection;
 use super::Member;
 
 pub struct InviteGrant {
+    pub id: i64,
     pub project_id: i64,
     pub role: MemberRole,
 }
@@ -194,36 +195,59 @@ pub async fn insert_invite(
     token_hash: &[u8],
     created_by: i64,
     expires_at: DateTime<Utc>,
+    max_uses: i32,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO invite (project_id, role, token_hash, created_by, expires_at) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO invite (project_id, role, token_hash, created_by, expires_at, max_uses)
+         VALUES ($1, $2, $3, $4, $5, $6)",
         project_id,
         role as MemberRole,
         token_hash,
         created_by,
-        expires_at
+        expires_at,
+        max_uses
     )
     .execute(&mut *conn)
     .await?;
     Ok(())
 }
 
-/// Invites are single use: a valid one into an active project is marked used and its grant returned.
+/// Locks a live invite into an active project until the transaction ends and returns its grant.
 pub async fn take_invite(
     conn: &mut PgConnection,
     token_hash: &[u8],
 ) -> Result<Option<InviteGrant>, sqlx::Error> {
     sqlx::query_as!(
         InviteGrant,
-        r#"UPDATE invite i SET used_at = now()
-           FROM project p
-           WHERE p.id = i.project_id AND p.archived_at IS NULL AND p.trashed_at IS NULL
+        r#"SELECT i.id, i.project_id, i.role AS "role: MemberRole"
+           FROM invite i
+           JOIN project p ON p.id = i.project_id
+           WHERE p.archived_at IS NULL AND p.trashed_at IS NULL
              AND i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > now()
-           RETURNING i.project_id, i.role AS "role: MemberRole""#,
+           FOR UPDATE OF i"#,
         token_hash
     )
     .fetch_optional(&mut *conn)
     .await
+}
+
+/// Records the user's spot and marks the invite used once its last spot is taken.
+pub async fn record_invite_use(
+    conn: &mut PgConnection,
+    invite_id: i64,
+    user_id: i64,
+) -> Result<(), sqlx::Error> {
+    // The count runs on the statement's snapshot, which does not hold the row inserted here.
+    sqlx::query!(
+        "WITH spot AS (INSERT INTO invite_use (invite_id, user_id) VALUES ($1, $2))
+         UPDATE invite SET used_at = now()
+         WHERE id = $1 AND max_uses <= 1 + (SELECT count(*) FROM invite_use WHERE invite_id = $1)",
+        invite_id,
+        user_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
 }
 
 pub struct InviteRow {
@@ -239,7 +263,9 @@ pub async fn find_invite(
 ) -> Result<Option<InviteRow>, sqlx::Error> {
     let row = sqlx::query!(
         r#"SELECT p.key AS project_key, p.name AS project_name, i.role AS "role: MemberRole",
-                  i.expires_at, u.display_name AS inviter_name, i.used_at,
+                  i.expires_at, u.display_name AS inviter_name, i.used_at, i.max_uses,
+                  i.max_uses - (SELECT count(*) FROM invite_use WHERE invite_id = i.id)::int
+                      AS "spots_left!",
                   p.archived_at IS NOT NULL AS "archived!"
            FROM invite i
            JOIN project p ON p.id = i.project_id
@@ -256,6 +282,8 @@ pub async fn find_invite(
             role: row.role,
             expires_at: row.expires_at,
             inviter_name: row.inviter_name,
+            max_uses: row.max_uses,
+            spots_left: row.spots_left,
         },
         used_at: row.used_at,
         archived: row.archived,
