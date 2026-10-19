@@ -5,7 +5,7 @@ import { projectQuery } from '@/entities/project/project-queries'
 import type { Attachment } from '@/shared/api/client'
 import { fakeXhr } from '@/test/fake-xhr'
 import { renderApp } from '@/test/render-app'
-import { WEB, inProjects, problem, routeOf } from '@/test/stub-api'
+import { ALICE, WEB, inProjects, problem, routeOf } from '@/test/stub-api'
 
 const LIST = 'GET /api/projects/WEB/issues/1/attachments'
 const NOTE = 'archived-note'
@@ -618,6 +618,42 @@ describe('uploading attachments', () => {
       .element(screen.getByText('Drop files to attach'))
       .not.toBeInTheDocument()
     expect(sent).toHaveLength(0)
+  })
+
+  it('drops every upload on sign-out, so the next account sees none', async () => {
+    withFiles([], { 'POST /api/auth/logout': { status: 204 } })
+    const sent = fakeXhr()
+    const { screen, router, queryClient } = await renderApp('/p/WEB/issues/1')
+    await expect.element(screen.getByLabelText('Summary')).toBeVisible()
+    drag('drop', filesOf(pdf('mine.pdf'), pdf('busy.pdf')))
+    await expect.poll(() => sent.length).toBe(2)
+    sent[0].fail()
+    await expect
+      .element(
+        sectionOf(screen).getByRole('button', { name: 'Retry mine.pdf' })
+      )
+      .toBeVisible()
+
+    await screen.getByRole('button', { name: 'Account' }).click()
+    await screen.getByRole('menuitem', { name: 'Sign out' }).click()
+    await expect
+      .element(screen.getByRole('heading', { name: 'Sign in' }))
+      .toBeVisible()
+    expect(sent[1].aborted).toBe(true)
+    queryClient.setQueryData(['session'], {
+      ...ALICE,
+      id: 2,
+      email: 'bob@example.com',
+      display_name: 'Bob Stone',
+    })
+    await router.navigate({
+      to: '/p/$key/issues/$number',
+      params: { key: 'WEB', number: '1' },
+    })
+    await expect.element(screen.getByLabelText('Summary')).toBeVisible()
+    await expect
+      .element(sectionOf(screen).getByRole('list', { name: 'Uploads' }))
+      .not.toBeInTheDocument()
   })
 
   it('still cancels and removes uploads once the project is archived, and locks Retry', async () => {
