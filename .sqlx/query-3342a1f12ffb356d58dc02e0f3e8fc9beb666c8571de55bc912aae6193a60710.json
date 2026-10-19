@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id, i.project_id, i.role AS \"role: MemberRole\"\n           FROM invite i\n           JOIN project p ON p.id = i.project_id\n           WHERE p.archived_at IS NULL AND p.trashed_at IS NULL\n             AND i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > now()\n           FOR UPDATE OF i",
+  "query": "SELECT i.id, i.project_id, i.role AS \"role: MemberRole\"\n           FROM invite i\n           JOIN project p ON p.id = i.project_id\n           WHERE p.archived_at IS NULL AND p.trashed_at IS NULL\n             AND i.token_hash = $1 AND i.used_at IS NULL AND i.expires_at > clock_timestamp()\n           FOR UPDATE OF i",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       false
     ]
   },
-  "hash": "fe8c31da8daaaefd1c3ced2fa8138a5a66f77ca24e9e67f6512a7cd9afb2c4bd"
+  "hash": "3342a1f12ffb356d58dc02e0f3e8fc9beb666c8571de55bc912aae6193a60710"
 }
