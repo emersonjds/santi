@@ -1,4 +1,5 @@
 import { fileSize } from '@/entities/attachment/attachments'
+import { ReadOnly } from '@/shared/lib/read-only'
 import { Button } from '@/shared/ui/button'
 import { type UploadQueue, refusalOf } from './upload-queue'
 
@@ -21,27 +22,35 @@ export const UploadRows = ({ queue }: { queue: UploadQueue }) =>
                   <Button
                     variant='ghost'
                     className='h-11 md:h-8'
+                    aria-label={`Retry ${upload.file.name}`}
                     onClick={() => queue.retry(upload)}
                   >
                     Retry
                   </Button>
                 )}
+                {/* Local only: stays live in an archived project. */}
+                <ReadOnly value={undefined}>
+                  <Button
+                    variant='ghost'
+                    className='h-11 md:h-8'
+                    aria-label={`Remove ${upload.file.name}`}
+                    onClick={() => queue.remove(upload)}
+                  >
+                    Remove
+                  </Button>
+                </ReadOnly>
+              </span>
+            ) : (
+              <ReadOnly value={undefined}>
                 <Button
                   variant='ghost'
                   className='h-11 md:h-8'
-                  onClick={() => queue.remove(upload)}
+                  aria-label={`Cancel ${upload.file.name}`}
+                  onClick={() => queue.cancel(upload)}
                 >
-                  Remove
+                  Cancel
                 </Button>
-              </span>
-            ) : (
-              <Button
-                variant='ghost'
-                className='h-11 md:h-8'
-                onClick={() => queue.cancel(upload)}
-              >
-                Cancel
-              </Button>
+              </ReadOnly>
             )}
           </div>
           {upload.error ? (

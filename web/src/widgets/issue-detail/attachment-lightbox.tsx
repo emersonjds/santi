@@ -1,6 +1,7 @@
 import { type KeyboardEvent, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import type { Attachment } from '@/shared/api/client'
+import { ReadOnly } from '@/shared/lib/read-only'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import { Button, buttonVariants } from '@/shared/ui/button'
 import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog'
@@ -62,7 +63,7 @@ export const AttachmentLightbox = ({
         />
         <div className='flex items-center gap-2'>
           {images.length > 1 && (
-            <>
+            <ReadOnly value={undefined}>
               <Button
                 variant='outline'
                 size='icon'
@@ -81,7 +82,7 @@ export const AttachmentLightbox = ({
               >
                 <ChevronRight />
               </Button>
-            </>
+            </ReadOnly>
           )}
           <a
             href={`${urlOf(image)}?download=1`}
