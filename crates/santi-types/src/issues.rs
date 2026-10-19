@@ -229,11 +229,25 @@ pub struct Comment {
     /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
     pub body: String,
     pub created_at: DateTime<Utc>,
+    /// Last change of the text; null until a save changes it (D52).
+    #[serde(default)]
+    pub edited_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub edited_by_id: Option<i64>,
+    #[serde(default)]
+    pub edited_by_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CreateComment {
+    /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateComment {
     /// CommonMark + GFM Markdown; a single newline is a line break; mentions are `[@Name](mention:<user_id>)`.
     pub body: String,
 }

@@ -397,6 +397,81 @@ fn members_list_people_and_text_output_shows_mentions_by_name() {
 }
 
 #[test]
+fn comments_are_edited_and_deleted_by_their_author_or_an_admin() {
+    let santi = Santi::new();
+    let (admin, bob) = (server().user(), server().user());
+    server().project(&admin, "CMT", "kanban");
+    server().member(&admin, "CMT", &bob);
+    santi
+        .with(&admin)
+        .args(["issues", "create", "CMT", "--summary", "Thread"])
+        .assert()
+        .success();
+    let mine = json(santi.with(&admin).args(["comment", "CMT-1", "First"]))["id"].clone();
+    let bobs = json(santi.with(&bob).args(["comment", "CMT-1", "Bob's"]))["id"].clone();
+    let (mine, bobs) = (mine.to_string(), bobs.to_string());
+
+    santi
+        .with(&admin)
+        .args([
+            "issues",
+            "comment-edit",
+            "CMT-1",
+            &mine,
+            "First, **edited**",
+        ])
+        .assert()
+        .success()
+        .stdout(contains(format!("Edited comment {mine} on CMT-1")));
+    santi
+        .with(&admin)
+        .args(["issues", "comments", "CMT-1"])
+        .assert()
+        .success()
+        .stdout(contains(format!("#{mine} ")))
+        .stdout(contains(" · just now · edited\nFirst, **edited**\n"))
+        .stdout(contains(format!("#{bobs} ")));
+    let edited = json(santi.with(&admin).args(["issues", "comments", "CMT-1"]));
+    assert_eq!(edited[0]["body"], "First, **edited**");
+    assert!(edited[0]["edited_at"].is_string());
+
+    santi
+        .with(&bob)
+        .args(["issues", "comment-edit", "CMT-1", &mine, "Hijacked"])
+        .assert()
+        .code(3)
+        .stderr(contains("You are not allowed to do this."));
+    santi
+        .with(&bob)
+        .args(["issues", "comment-delete", "CMT-1", &mine, "--yes"])
+        .assert()
+        .code(3);
+
+    santi
+        .with(&admin)
+        .args(["issues", "comment-delete", "CMT-1", &bobs])
+        .write_stdin("n\n")
+        .assert()
+        .code(10)
+        .stdout("")
+        .stderr(contains(format!("Delete comment {bobs} on CMT-1?")))
+        .stderr(contains(format!("Kept comment {bobs}")));
+    santi
+        .with(&admin)
+        .args(["issues", "comment-delete", "CMT-1", &bobs, "--yes"])
+        .assert()
+        .success()
+        .stdout(contains(format!("Deleted comment {bobs} on CMT-1")));
+    let left = json(santi.with(&admin).args(["issues", "comments", "CMT-1"]));
+    assert_eq!(left.as_array().unwrap().len(), 1);
+    santi
+        .with(&admin)
+        .args(["issues", "comment-delete", "CMT-1", &bobs, "--yes"])
+        .assert()
+        .code(4);
+}
+
+#[test]
 fn validation_problems_name_the_field() {
     let santi = Santi::new();
     let token = server().user();

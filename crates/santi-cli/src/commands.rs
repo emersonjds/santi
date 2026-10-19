@@ -256,6 +256,19 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
                 comments_text(comments, Utc::now())
             })
         }
+        IssuesCommand::CommentEdit { issue, id, body } => {
+            let comment = client.edit_comment(&issue, id, &body).await?;
+            show(json, &comment, |_| {
+                format!("Edited comment {id} on {issue}")
+            })
+        }
+        IssuesCommand::CommentDelete { issue, id, yes } => {
+            if !yes && !confirm(&format!("Delete comment {id} on {issue}?"))? {
+                return Err(Error::Declined(format!("Kept comment {id}")));
+            }
+            client.delete_comment(&issue, id).await?;
+            show(json, &(), |()| format!("Deleted comment {id} on {issue}"))
+        }
     }
 }
 
@@ -568,7 +581,16 @@ fn comments_text(comments: &[Comment], now: DateTime<Utc>) -> String {
         .map(|comment| {
             let author = short_name(&comment.author_name);
             let age = ago(comment.created_at, now);
-            format!("{author} · {age}\n{}", plain_mentions(&comment.body))
+            let edited = if comment.edited_at.is_some() {
+                " · edited"
+            } else {
+                ""
+            };
+            format!(
+                "#{} {author} · {age}{edited}\n{}",
+                comment.id,
+                plain_mentions(&comment.body)
+            )
         })
         .collect::<Vec<_>>()
         .join("\n\n")
@@ -950,11 +972,14 @@ mod tests {
             author_name: "Bo".into(),
             body: "[@Ana Souza](mention:42) please".into(),
             created_at: "2026-10-16T12:00:00Z".parse().unwrap(),
+            edited_at: None,
+            edited_by_id: None,
+            edited_by_name: None,
         };
         let now = comment.created_at;
         assert_eq!(
             comments_text(&[comment], now),
-            "Bo · just now\n@Ana Souza please"
+            "#1 Bo · just now\n@Ana Souza please"
         );
     }
 
@@ -1031,7 +1056,14 @@ mod tests {
             author_name: author.into(),
             body: body.into(),
             created_at: at.parse().unwrap(),
+            edited_at: None,
+            edited_by_id: None,
+            edited_by_name: None,
         };
+        let mut edited = comment(2, "Ana Lima", "Second", "2026-10-16T11:59:30Z");
+        edited.edited_at = Some(now);
+        edited.edited_by_id = Some(2);
+        edited.edited_by_name = Some("Ana Lima".into());
         let comments = [
             comment(
                 1,
@@ -1039,11 +1071,11 @@ mod tests {
                 "First\nline two",
                 "2026-10-16T10:00:00Z",
             ),
-            comment(2, "Ana Lima", "Second", "2026-10-16T11:59:30Z"),
+            edited,
         ];
         assert_eq!(
             comments_text(&comments, now),
-            "Emerson Silva · 2 hours ago\nFirst\nline two\n\nAna Lima · just now\nSecond"
+            "#1 Emerson Silva · 2 hours ago\nFirst\nline two\n\n#2 Ana Lima · just now · edited\nSecond"
         );
         assert_eq!(comments_text(&[], now), "(no comments)");
     }

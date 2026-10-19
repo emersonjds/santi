@@ -612,3 +612,17 @@ Winner: A — accepted: 13 standard labels share 8 hues; the name stays the iden
   red #B42318/#FEE2E2 5.38:1, #F87171/#450A0A 5.84:1 · orange #9A3412/#FFEDD5 6.38:1, #FB923C/#431407 6.92:1 · amber #92400E/#FEF3C7 6.37:1, #FBBF24/#3A2A0A 8.30:1 · lime #3F6212/#ECFCCB 6.52:1, #BEF264/#1A2E05 11.19:1 · sky #075985/#E0F2FE 6.59:1, #38BDF8/#082F49 6.48:1 · blue #1D4ED8/#DBEAFE 5.49:1, #93C5FD/#172554 8.15:1 · fuchsia #86198F/#FAE8FF 7.08:1, #E879F9/#4A044E 6.02:1 · pink #9D174D/#FCE7F3 6.71:1, #F9A8D4/#500724 8.29:1.
 - Excluded: violet/indigo (primary, In Progress, points), gray (To Do, empty), teal and cyan (Done and success).
 - Mapping: `labelTone(name)` hashes the lowercased name with the avatar hash (`pickByName`) into a fixed hue order; reordering the list recolors every label. It is the only color source, so SAN-103 replaces its body (stored hue, hash as fallback) without touching call sites.
+
+## D52 — Comment edit and delete (SAN-136; closes the comment-edit item of SAN-76)
+Context: the API had create and list only; the baseline gives edit-own/edit-all and delete-own/delete-all rights (ED-35, ED-37), an edited marker with who and when (ED-34), and a confirm before delete (ED-36). santi has two roles; every web action also ships in the CLI and MCP.
+Options: A) author only now, admin rights in SAN-76 B) author or admin now, one rule C) a menu shell now, API later
+Product and UX votes: A — admin rights are a permissions concern. IA vote: C, with CLI and MCP in the same card later.
+Architecture vote: B — "admin or the person who wrote it" already exists on both sides (`issues::domain::check_delete`, web `mayDelete`) for issue delete (D40), so B costs no code and A would defer a baseline rule without the owner; C ships dead UI.
+Winner: B — accepted: an admin may rewrite another member's words; the marker names who.
+- Routes: `PATCH` and `DELETE /api/projects/{key}/issues/{number}/comments/{id}`; `UpdateComment { body }` → 200 `Comment`; delete → 204, hard (no replies exist; replies decide tombstones, OQ-12).
+- `Comment` adds `edited_at`, `edited_by_id`, `edited_by_name`, null until a save changes the text (OQ-13); earlier bodies are not kept.
+- Statuses: outsider or unknown project 404, archived 409, issue or comment not found under that issue 404 (a comment id from another issue or project is never 403), neither author nor admin 403, bad body 422.
+- Both writes bump `issue.updated_at`; edit records `worked_at` like a new comment.
+- Migration 0022: nullable `edited_at`, `edited_by` (FK `app_user`), CHECK both null or both set.
+- CLI `santi issues comment-edit|comment-delete`, MCP `edit_comment`, `delete_comment`; comment ids show in `santi issues comments`.
+- Later: reactions are a child table with `ON DELETE CASCADE`; replies add a nullable `parent_id` and revisit hard delete.

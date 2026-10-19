@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT c.id, c.author_id, author.display_name AS author_name, c.body, c.created_at\n         FROM issue_comment c JOIN app_user author ON author.id = c.author_id\n         WHERE c.issue_id = $1 AND c.id > $2 ORDER BY c.id LIMIT $3",
+  "query": "SELECT c.id, c.author_id, author.display_name AS author_name, c.body, c.created_at,\n                  c.edited_at, c.edited_by AS edited_by_id, editor.display_name AS \"edited_by_name?\"\n         FROM issue_comment c JOIN app_user author ON author.id = c.author_id\n         LEFT JOIN app_user editor ON editor.id = c.edited_by\n         WHERE c.issue_id = $1 AND c.id = $2",
   "describe": {
     "columns": [
       {
@@ -57,11 +57,43 @@
             "name": "created_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "edited_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "edited_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "edited_by_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue_comment",
+            "name": "edited_by"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "edited_by_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Int8",
         "Int8",
         "Int8"
       ]
@@ -71,8 +103,11 @@
       false,
       false,
       false,
-      false
+      false,
+      true,
+      true,
+      true
     ]
   },
-  "hash": "d601dbdd198c1b484c6bc7a27c929dc6ad9d5353f48f1666dcf910c36e712a80"
+  "hash": "92c156be7cdbaa15ea6d77c5ffe887d1c7c55b47792af4baed81aa6bead3e07b"
 }
