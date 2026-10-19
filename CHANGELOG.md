@@ -10,6 +10,36 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-10-19
+
+> A forgotten password is no longer a dead end: the server operator sends a one-time reset link.
+
+### Added
+
+- **Password reset link:** the `reset-link <email>` command prints a one-time link (valid 24 h,
+  single use, only its hash stored; a new link replaces the previous one). The person opens
+  `/reset/<token>`, chooses a new password and lands signed in. Every other session of the account
+  ends; API tokens stay. Generating a link does not change the password. Unknown, used and expired
+  links look the same. No email needed.
+- **API:** `GET` and `POST /api/password-resets/{token}` (public, rate limited per address like
+  invite accept).
+
+### Changed
+
+- **Password fields:** 16 px text on phones and a 44 px show/hide button, on sign-in and sign-up
+  too.
+- **Database connections** can use TLS (`sslmode=require` in `DATABASE_URL`); without `sslmode`
+  nothing changes.
+- **Account deletion** also removes the account's pending reset link.
+
+### Upgrade notes
+
+- Migration `0023_password_resets.sql` adds the `password_reset` table; it runs on startup and
+  only creates a new table.
+- To reset someone's password on a hosted instance, run the command from a checkout against the
+  database's public URL:
+  `DATABASE_URL='<postgres public url>?sslmode=require' SANTI_PUBLIC_URL=<santi url> cargo run -p santi-server --bin reset-link -- <email>`.
+
 ## [0.17.1] - 2026-10-19
 
 > Completing a sprint shows the right counts, and the test suite is green again.
@@ -544,7 +574,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.17.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.18.0...HEAD
+[0.18.0]: https://github.com/emersonjds/santi/compare/v0.17.1...v0.18.0
 [0.17.1]: https://github.com/emersonjds/santi/compare/v0.17.0...v0.17.1
 [0.17.0]: https://github.com/emersonjds/santi/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/emersonjds/santi/compare/v0.15.0...v0.16.0
