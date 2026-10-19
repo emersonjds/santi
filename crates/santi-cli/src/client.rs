@@ -1,8 +1,11 @@
 use std::fmt;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
-use reqwest::{Method, RequestBuilder, Url};
+use reqwest::multipart::{Form, Part};
+use reqwest::{Method, RequestBuilder, Response, Url};
+use santi_types::attachments::Attachment;
 use santi_types::auth::User;
 use santi_types::boards::{Backlog, BoardSettings, BoardView};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult};
@@ -18,6 +21,14 @@ use serde::de::DeserializeOwned;
 use serde_json::Value;
 
 use crate::error::{Error, problem_from};
+
+/// What the server accepts (D53) that can be checked without reading the bytes.
+const ATTACHABLE: [&str; 16] = [
+    "png", "jpg", "jpeg", "gif", "webp", "pdf", "docx", "xlsx", "pptx", "odt", "ods", "odp", "zip",
+    "txt", "csv", "md",
+];
+const MAX_FILE_BYTES: u64 = 25 * 1024 * 1024;
+const MAX_FILES_PER_UPLOAD: usize = 10;
 
 /// The one typed client of the JSON API; the CLI and the MCP server both go through it.
 #[derive(Clone)]
@@ -226,6 +237,45 @@ impl Client {
         }
     }
 
+    pub async fn attachments(&self, key: &IssueKey) -> Result<Vec<Attachment>, Error> {
+        self.send(self.issue_request(Method::GET, key, &["attachments"]))
+            .await
+    }
+
+    /// Streams `files` from disk after the checks the server would fail them on.
+    pub async fn attach(
+        &self,
+        key: &IssueKey,
+        files: &[PathBuf],
+        comment_id: Option<i64>,
+    ) -> Result<Vec<Attachment>, Error> {
+        if files.len() > MAX_FILES_PER_UPLOAD {
+            return Err(Error::Usage("At most 10 files per upload.".into()));
+        }
+        let mut form = Form::new();
+        for file in files {
+            form = form.part("file", attachable(file).await?);
+        }
+        if let Some(comment_id) = comment_id {
+            form = form.text("comment_id", comment_id.to_string());
+        }
+        let request = self.issue_request(Method::POST, key, &["attachments"]);
+        self.send(request.multipart(form)).await
+    }
+
+    /// The file's bytes, after following the redirect to storage.
+    pub async fn download(&self, key: &IssueKey, id: i64) -> Result<Response, Error> {
+        let id = id.to_string();
+        let request = self.issue_request(Method::GET, key, &["attachments", &id]);
+        self.response(request.query(&[("download", 1)])).await
+    }
+
+    pub async fn delete_attachment(&self, key: &IssueKey, id: i64) -> Result<(), Error> {
+        let id = id.to_string();
+        self.send(self.issue_request(Method::DELETE, key, &["attachments", &id]))
+            .await
+    }
+
     pub async fn sprints(&self, project: &ProjectKey) -> Result<Vec<Sprint>, Error> {
         let request = self.request(Method::GET, &["projects", project.as_str(), "sprints"]);
         self.send(request).await
@@ -365,25 +415,61 @@ impl Client {
         }
     }
 
-    async fn send<T: DeserializeOwned>(&self, request: RequestBuilder) -> Result<T, Error> {
-        let network = |error: reqwest::Error| {
-            Error::Network(format!(
-                "cannot reach santi at {}: {error}",
-                self.shown_url()
-            ))
-        };
+    fn network(&self, error: reqwest::Error) -> Error {
+        Error::Network(format!(
+            "cannot reach santi at {}: {error}",
+            self.shown_url()
+        ))
+    }
+
+    /// A successful response, or the API's problem as the error.
+    async fn response(&self, request: RequestBuilder) -> Result<Response, Error> {
+        let network = |error| self.network(error);
         let response = self.execute(request).await.map_err(network)?;
         let status = response.status();
-        let body = response.bytes().await.map_err(network)?;
-        if !status.is_success() {
-            return Err(Error::Api(problem_from(status.as_u16(), &body)));
+        if status.is_success() {
+            return Ok(response);
         }
+        let body = response.bytes().await.map_err(network)?;
+        Err(Error::Api(problem_from(status.as_u16(), &body)))
+    }
+
+    async fn send<T: DeserializeOwned>(&self, request: RequestBuilder) -> Result<T, Error> {
+        let response = self.response(request).await?;
+        let body = response
+            .bytes()
+            .await
+            .map_err(|error| self.network(error))?;
         let body = if body.is_empty() { &b"null"[..] } else { &body };
         serde_json::from_slice(body).map_err(|error| {
             let url = self.shown_url();
             Error::Other(format!("unexpected answer from {url}: {error}"))
         })
     }
+}
+
+async fn attachable(path: &Path) -> Result<Part, Error> {
+    let refused = |reason: &dyn fmt::Display| Error::Usage(format!("{}: {reason}", path.display()));
+    let file = tokio::fs::File::open(path)
+        .await
+        .map_err(|error| refused(&error))?;
+    let metadata = file.metadata().await.map_err(|error| refused(&error))?;
+    if !metadata.is_file() {
+        return Err(refused(&"not a file"));
+    }
+    if metadata.len() > MAX_FILE_BYTES {
+        return Err(refused(&"Larger than 25 MB."));
+    }
+    let name = path
+        .file_name()
+        .map_or(String::new(), |name| name.to_string_lossy().into_owned());
+    let extension = name
+        .rsplit_once('.')
+        .map(|(_, extension)| extension.to_ascii_lowercase());
+    if !extension.is_some_and(|extension| ATTACHABLE.contains(&extension.as_str())) {
+        return Err(refused(&"This file type is not allowed."));
+    }
+    Ok(Part::stream_with_length(file, metadata.len()).file_name(name))
 }
 
 fn csv_part(csv: Vec<u8>) -> reqwest::multipart::Part {
@@ -568,6 +654,29 @@ mod tests {
 
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
         assert_eq!(comments.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn a_download_follows_the_redirect_to_the_stored_file() {
+        let router = axum::Router::new()
+            .route(
+                "/api/projects/WEB/issues/1/attachments/3",
+                axum::routing::get(|| async {
+                    axum::response::Redirect::to("/bucket/object?signature=x")
+                }),
+            )
+            .route(
+                "/bucket/object",
+                axum::routing::get(|| async { "the bytes" }),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async { axum::serve(listener, router).await });
+        let client = Client::new(&format!("http://{address}"), None).unwrap();
+
+        let response = client.download(&"WEB-1".parse().unwrap(), 3).await.unwrap();
+
+        assert_eq!(response.bytes().await.unwrap(), "the bytes");
     }
 
     /// Accepts connections; the first `drops` read the request and close without answering

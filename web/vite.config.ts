@@ -5,14 +5,11 @@ import react from '@vitejs/plugin-react'
 import { tanstackRouter } from '@tanstack/router-plugin/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { playwright } from '@vitest/browser-playwright'
+import { inlineStylesheets, llmsTxt } from './src/shared/config/landing-build'
 import {
   missingLegalSettings,
   withoutLegalLinks,
 } from './src/shared/config/legal-build'
-import {
-  inlineStylesheets,
-  llmsTxt,
-} from './src/shared/config/landing-build'
 
 const server = { target: 'http://127.0.0.1:8080', changeOrigin: false }
 
@@ -136,7 +133,10 @@ export default defineConfig({
     },
   },
   server: {
-    proxy: { '/api': server, '/openapi.json': server, '/health': server },
+    // Under Vitest no server listens: a proxied image request would only log ECONNREFUSED.
+    proxy: process.env.VITEST
+      ? {}
+      : { '/api': server, '/openapi.json': server, '/health': server },
   },
   test: {
     include: ['src/**/*.test.{ts,tsx}'],
