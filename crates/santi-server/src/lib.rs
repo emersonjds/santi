@@ -114,13 +114,18 @@ pub async fn purge_expired(pool: &PgPool) -> Result<(u64, u64), sqlx::Error> {
 }
 
 /// OR-58: deletes up to 20 projects trashed 60 days ago or earlier, one per statement, so one
-/// that fails is logged and the rest still go; returns how many were deleted.
-pub async fn purge_trash(pool: &PgPool) -> Result<u64, sqlx::Error> {
+/// that fails is logged and the rest still go; returns how many were deleted. Their stored
+/// attachments go after each delete (D53).
+pub async fn purge_trash(pool: &PgPool, storage: &storage::Storage) -> Result<u64, sqlx::Error> {
     let mut conn = pool.acquire().await?;
     let mut purged = 0;
     for project in projects::repo::list_expired_trash(&mut conn, 20).await? {
         match projects::repo::purge(&mut conn, project.id).await {
-            Ok(deleted) => purged += u64::from(deleted),
+            Ok(None) => {}
+            Ok(Some(keys)) => {
+                purged += 1;
+                attachments::service::delete_objects(storage, &keys).await;
+            }
             Err(error) => eprintln!("trash purge of {} failed: {error}", project.key),
         }
     }
@@ -149,6 +154,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(reports::handler::router())
         .merge(imports::handler::router())
         .merge(home::handler::router())
+        .merge(attachments::handler::router())
 }
 
 /// The API contract, built without a database; `web/openapi.json` is its committed snapshot (D38).

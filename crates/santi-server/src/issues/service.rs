@@ -11,7 +11,8 @@ use super::{domain, repo};
 use crate::boards::repo::StatusRef;
 use crate::error::{AppError, not_found_if_parent_gone};
 use crate::members::Member;
-use crate::{boards, members, pagination, projects, sprints};
+use crate::storage::Storage;
+use crate::{attachments, boards, members, pagination, projects, sprints};
 
 pub async fn create_issue(
     pool: &PgPool,
@@ -101,8 +102,14 @@ pub async fn update_issue(
     get_issue(pool, member, number).await
 }
 
-/// D40: subtasks go with the issue; a removal from the running sprint stays recorded.
-pub async fn delete_issue(pool: &PgPool, member: &Member, number: i64) -> Result<(), AppError> {
+/// D40: subtasks go with the issue; a removal from the running sprint stays recorded. D53: their
+/// stored attachments go after the commit.
+pub async fn delete_issue(
+    pool: &PgPool,
+    storage: &Storage,
+    member: &Member,
+    number: i64,
+) -> Result<(), AppError> {
     let mut tx = pool.begin().await?;
     let issue = repo::find_deletable_for_update(&mut tx, member.project_id, number).await?;
     let issue = issue.ok_or(AppError::NotFound)?;
@@ -110,8 +117,9 @@ pub async fn delete_issue(pool: &PgPool, member: &Member, number: i64) -> Result
     if let Some(sprint_id) = issue.sprint_id {
         sprints::repo::record_leave(&mut tx, sprint_id, issue.id).await?;
     }
-    repo::delete_issue(&mut tx, issue.id).await?;
+    let keys = repo::delete_issue(&mut tx, issue.id).await?;
     tx.commit().await?;
+    attachments::service::delete_objects(storage, &keys).await;
     Ok(())
 }
 
@@ -302,8 +310,10 @@ pub async fn edit_comment(
         .ok_or(AppError::NotFound)
 }
 
+/// D53: the comment's attachments go with it.
 pub async fn delete_comment(
     pool: &PgPool,
+    storage: &Storage,
     member: &Member,
     number: i64,
     comment_id: i64,
@@ -316,9 +326,11 @@ pub async fn delete_comment(
         .await?
         .ok_or(AppError::NotFound)?;
     domain::check_delete(member.role, member.user_id, comment.author_id)?;
+    let keys = attachments::repo::keys_of_comment(&mut conn, comment_id).await?;
     if !repo::delete_comment(&mut conn, issue_id, comment_id).await? {
         return Err(AppError::NotFound);
     }
+    attachments::service::delete_objects(storage, &keys).await;
     Ok(())
 }
 
