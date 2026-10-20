@@ -32,7 +32,7 @@ pub async fn insert(
     Ok(())
 }
 
-/// Newest first, below `before_id`; only projects the recipient still belongs to and not trashed.
+/// Newest first, below `before_id`; D50 mention tokens read `@Name` in the excerpt; only projects the recipient still belongs to and not trashed.
 pub async fn list(
     conn: &mut PgConnection,
     recipient_id: i64,
@@ -45,7 +45,9 @@ pub async fn list(
         r#"SELECT n.id, n.kind AS "kind: NotificationKind", n.actor_id, actor.display_name AS actor_name,
                   p.key AS project_key, p.key || '-' || i.number AS "issue_key!",
                   i.summary AS issue_summary, n.comment_id,
-                  left(coalesce(c.body, i.description), 140) AS "excerpt!", n.created_at, n.read_at
+                  left(regexp_replace(regexp_replace(coalesce(c.body, i.description),
+                      '\[@((?:[^\]\[\\]|\\.)*)\]\(mention:[0-9]+\)', '@\1', 'g'),
+                      '\\(.)', '\1', 'g'), 140) AS "excerpt!", n.created_at, n.read_at
            FROM notification n
            JOIN member m ON m.project_id = n.project_id AND m.user_id = n.recipient_id
            JOIN project p ON p.id = n.project_id
