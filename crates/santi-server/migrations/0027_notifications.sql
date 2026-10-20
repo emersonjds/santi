@@ -14,3 +14,6 @@ CREATE TABLE notification (
 CREATE INDEX notification_recipient_idx ON notification (recipient_id, read_at, id DESC);
 CREATE INDEX notification_issue_idx ON notification (issue_id);
 CREATE INDEX notification_comment_idx ON notification (comment_id) WHERE comment_id IS NOT NULL;
+CREATE INDEX notification_list_idx ON notification (recipient_id, id DESC);
+CREATE INDEX notification_project_idx ON notification (project_id);
+CREATE INDEX notification_actor_idx ON notification (actor_id);
