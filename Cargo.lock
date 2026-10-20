@@ -2217,7 +2217,7 @@ dependencies = [
 
 [[package]]
 name = "santi-cli"
-version = "0.21.1"
+version = "0.22.0"
 dependencies = [
  "assert_cmd",
  "axum",
@@ -2241,7 +2241,7 @@ dependencies = [
 
 [[package]]
 name = "santi-server"
-version = "0.21.1"
+version = "0.22.0"
 dependencies = [
  "argon2",
  "axum",
@@ -2268,7 +2268,7 @@ dependencies = [
 
 [[package]]
 name = "santi-types"
-version = "0.21.1"
+version = "0.22.0"
 dependencies = [
  "chrono",
  "schemars",

@@ -9,6 +9,7 @@ import type {
   Issue,
   Member,
   MyProject,
+  Notification,
   ReportGroup,
   ReportIssue,
   Sprint,
@@ -20,8 +21,7 @@ type Reply = {
   status: number
   body?: unknown
   until?:
-    | Promise<unknown>
-    | ((request: Request) => Promise<unknown> | undefined)
+    Promise<unknown> | ((request: Request) => Promise<unknown> | undefined)
 }
 
 /** Answers `fetch` by `"METHOD /path"`; unknown calls get a 404 problem. Returns the requests seen. */
@@ -76,6 +76,11 @@ export const signedIn = (replies: Record<string, Reply> = {}) =>
     'GET /api/projects': { status: 200, body: [] },
     'GET /api/me/projects': { status: 200, body: [] },
     'GET /api/me/issues': {
+      status: 200,
+      body: { items: [], next_cursor: null },
+    },
+    'GET /api/notifications/unread-count': { status: 200, body: { count: 0 } },
+    'GET /api/notifications': {
       status: 200,
       body: { items: [], next_cursor: null },
     },
@@ -196,6 +201,23 @@ export const MEMBERS: Member[] = [
     role: 'member',
   },
 ]
+
+type NotificationFixture = Partial<Notification> &
+  Pick<Notification, 'id' | 'kind'>
+
+/** Bob Stone, two hours ago, on WEB-1, unread, with no comment and no excerpt. */
+export const notification = (fields: NotificationFixture): Notification => ({
+  actor_id: 2,
+  actor_name: 'Bob Stone',
+  project_key: 'WEB',
+  issue_key: 'WEB-1',
+  issue_summary: 'Write the release notes',
+  comment_id: null,
+  excerpt: '',
+  created_at: new Date(Date.now() - 2 * 3_600_000).toISOString(),
+  read_at: null,
+  ...fields,
+})
 
 type CardFixture = Partial<Card> & Pick<Card, 'key' | 'summary' | 'column_id'>
 
