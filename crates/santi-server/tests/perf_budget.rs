@@ -69,7 +69,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [Budget; 27] = [
+    let budgets: [Budget; 28] = [
         (
             "board",
             Method::GET,
@@ -127,6 +127,14 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             StatusCode::OK,
         ),
         ("me", Method::GET, "/api/me", None, 2, StatusCode::OK),
+        (
+            "comment with nobody to notify",
+            Method::POST,
+            "/api/projects/PERF/issues/300/comments",
+            Some(json!({ "body": "Plain note" })),
+            4,
+            StatusCode::CREATED,
+        ),
         (
             "notifications",
             Method::GET,
