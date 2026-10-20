@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
-/// Why the caller is told (SAN-172): one event per person per change, a mention first.
+/// Why the caller is told (SAN-172): one event per person per change: an assignment first, then a mention, then a comment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 #[cfg_attr(
     feature = "sqlx",
@@ -44,6 +44,10 @@ pub struct NotificationQuery {
     /// Only unread notifications.
     #[serde(default)]
     pub unread: bool,
+    /// Only this kind; every kind when absent.
+    #[serde(default)]
+    #[param(inline)]
+    pub kind: Option<NotificationKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

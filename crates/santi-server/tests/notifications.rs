@@ -349,3 +349,25 @@ async fn the_excerpt_shows_mentions_as_names_and_never_cuts_a_token(pool: PgPool
     let excerpt = items(&bo).await[0]["excerpt"].clone();
     assert_eq!(excerpt, format!("{}@Bo [QA] a", "x".repeat(130)));
 }
+
+#[sqlx::test]
+async fn the_list_filters_by_kind(pool: PgPool) {
+    let (ana, bo, _) = team(pool).await;
+    ana.patch(
+        "/api/projects/SANTI/issues/1",
+        json!({ "assignee_id": bo.user_id }),
+    )
+    .await;
+    ana.post(COMMENTS, json!({ "body": "plain" })).await;
+    ana.post(COMMENTS, json!({ "body": mention(&bo, "Bo") }))
+        .await;
+
+    let (_, mentions) = bo.get("/api/notifications?kind=mention").await;
+    let (_, assigned) = bo.get("/api/notifications?kind=assigned&unread=true").await;
+    let (bad, _) = bo.get("/api/notifications?kind=everything").await;
+
+    let mentions = mentions["items"].as_array().unwrap();
+    assert_eq!(kinds(mentions), ["mention"]);
+    assert_eq!(kinds(assigned["items"].as_array().unwrap()), ["assigned"]);
+    assert_eq!(bad, StatusCode::BAD_REQUEST);
+}

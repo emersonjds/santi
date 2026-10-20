@@ -20,13 +20,7 @@ describe('unread mentions on For you', () => {
       'GET /api/me/projects': { status: 200, body: [MY_WEB] },
       'GET /api/notifications': {
         status: 200,
-        body: {
-          items: [
-            notification({ id: 9, kind: 'comment', issue_key: 'WEB-9' }),
-            ...[8, 7, 6, 5, 4, 3].map(mention),
-          ],
-          next_cursor: null,
-        },
+        body: { items: [8, 7, 6, 5, 4].map(mention), next_cursor: 3 },
       },
     })
     const { screen, router } = await renderApp('/')
@@ -40,11 +34,15 @@ describe('unread mentions on For you', () => {
       .toHaveTextContent(
         /Bob Stone mentioned you on WEB-8.*Look at this @Alice 8/
       )
-    expect(section.getByText(/WEB-9|WEB-3/).elements()).toHaveLength(0)
     const asked = requests.find(
       (request) => routeOf(request) === 'GET /api/notifications'
     )
-    expect(new URL(asked!.url).searchParams.get('unread')).toBe('true')
+    const query = new URL(asked!.url).searchParams
+    expect(Object.fromEntries(query)).toEqual({
+      unread: 'true',
+      kind: 'mention',
+      limit: '5',
+    })
 
     await links.first().click()
     expect(router.state.location.pathname).toBe('/p/WEB/issues/8')
@@ -57,7 +55,7 @@ describe('unread mentions on For you', () => {
       'GET /api/notifications': {
         status: 200,
         body: {
-          items: [notification({ id: 1, kind: 'assigned' })],
+          items: [],
           next_cursor: null,
         },
       },

@@ -1,4 +1,4 @@
-use santi_types::notifications::{Notification, NotificationKind};
+use santi_types::notifications::{Notification, NotificationKind, NotificationQuery};
 use sqlx::PgConnection;
 
 use crate::members::Member;
@@ -36,7 +36,7 @@ pub async fn insert(
 pub async fn list(
     conn: &mut PgConnection,
     recipient_id: i64,
-    unread_only: bool,
+    query: &NotificationQuery,
     before_id: i64,
     limit: i64,
 ) -> Result<Vec<Notification>, sqlx::Error> {
@@ -56,12 +56,14 @@ pub async fn list(
            LEFT JOIN issue_comment c ON c.id = n.comment_id
            WHERE n.recipient_id = $1 AND p.trashed_at IS NULL
              AND n.id < $2 AND (NOT $3 OR n.read_at IS NULL)
+             AND ($5::text IS NULL OR n.kind = $5)
            ORDER BY n.id DESC
            LIMIT $4"#,
         recipient_id,
         before_id,
-        unread_only,
-        limit
+        query.unread,
+        limit,
+        query.kind as Option<NotificationKind>
     )
     .fetch_all(&mut *conn)
     .await

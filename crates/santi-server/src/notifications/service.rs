@@ -1,5 +1,5 @@
 use santi_types::issues::{Page, PageParams};
-use santi_types::notifications::Notification;
+use santi_types::notifications::{Notification, NotificationQuery};
 use sqlx::PgPool;
 
 use super::repo;
@@ -10,13 +10,13 @@ use crate::pagination;
 pub async fn list(
     pool: &PgPool,
     user: &CurrentUser,
-    unread_only: bool,
+    query: &NotificationQuery,
     page: PageParams,
 ) -> Result<Page<Notification>, AppError> {
     let limit = pagination::page_limit(page.limit)?;
     let before_id = page.cursor.unwrap_or(i64::MAX);
     let mut conn = pool.acquire().await?;
-    let items = repo::list(&mut conn, user.id, unread_only, before_id, limit + 1).await?;
+    let items = repo::list(&mut conn, user.id, query, before_id, limit + 1).await?;
     Ok(pagination::into_page(
         items,
         limit,
