@@ -20,6 +20,7 @@ use rmcp::transport::common::http_header::HEADER_SESSION_ID;
 use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
 use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
 use rmcp::{RoleServer, ServerHandler, ServiceExt, tool, tool_handler, tool_router};
+use santi_types::Problem;
 use santi_types::attachments::Attachment;
 use santi_types::issues::{
     CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, PageParams, StatusFilter, UpdateIssue,
@@ -885,7 +886,7 @@ impl Santi {
     }
 
     #[tool(
-        description = "Mark notifications read: the `ids` given (from list_notifications), or every one with `all: true`. Requires `ids` or `all`.",
+        description = "Mark notifications read: up to 50 `ids` (from list_notifications), or every one with `all: true`; not both. Stops at the first id that fails and names it and the ids already read.",
         annotations(
             read_only_hint = false,
             destructive_hint = false,
@@ -900,14 +901,31 @@ impl Santi {
         let client = self.client(&context);
         self.reply(
             async {
-                if args.all {
-                    return client.read_all_notifications().await;
+                match (args.all, args.ids.len()) {
+                    (true, 0) => return client.read_all_notifications().await,
+                    (true, _) => return Err(Error::Usage("give `ids` or `all`, not both".into())),
+                    (false, 0) => return Err(Error::Usage("give `ids` or `all`".into())),
+                    (false, 51..) => return Err(Error::Usage("give at most 50 `ids`".into())),
+                    (false, _) => {}
                 }
-                if args.ids.is_empty() {
-                    return Err(Error::Usage("give `ids` or `all`".into()));
-                }
-                for id in args.ids {
-                    client.read_notification(id).await?;
+                for (done, id) in args.ids.iter().enumerate() {
+                    if let Err(error) = client.read_notification(*id).await {
+                        let Error::Api(problem) = error else {
+                            return Err(error);
+                        };
+                        let read: Vec<String> =
+                            args.ids[..done].iter().map(i64::to_string).collect();
+                        let detail = format!(
+                            "notification {id}: {}; already read: {}",
+                            problem.detail,
+                            if read.is_empty() {
+                                "none".into()
+                            } else {
+                                read.join(", ")
+                            }
+                        );
+                        return Err(Error::Api(Problem { detail, ..problem }));
+                    }
                 }
                 Ok(())
             }

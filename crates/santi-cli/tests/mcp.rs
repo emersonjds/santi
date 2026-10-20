@@ -131,8 +131,19 @@ fn notifications_are_listed_and_marked_read() {
         assert_eq!(unread["items"], json!([]));
         let none = rejected(&client, "mark_notifications_read", json!({})).await;
         assert!(none.contains("`ids` or `all`"), "{none}");
-        let missing = json!({ "ids": [999_999_999] });
-        rejected(&client, "mark_notifications_read", missing).await;
+        let missing = json!({ "ids": [first, 999_999_999] });
+        let partial = rejected(&client, "mark_notifications_read", missing).await;
+        assert!(partial.contains("notification 999999999"), "{partial}");
+        assert!(
+            partial.contains(&format!("already read: {first}")),
+            "{partial}"
+        );
+        let both = json!({ "ids": [first], "all": true });
+        let both = rejected(&client, "mark_notifications_read", both).await;
+        assert!(both.contains("not both"), "{both}");
+        let many = json!({ "ids": (1..=51).collect::<Vec<_>>() });
+        let many = rejected(&client, "mark_notifications_read", many).await;
+        assert!(many.contains("at most 50"), "{many}");
         client.cancel().await.unwrap();
     });
 }
