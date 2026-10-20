@@ -13,6 +13,7 @@ use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
     StatusFilter, UpdateComment, UpdateIssue,
 };
+use santi_types::notifications::Notification;
 use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
 use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
@@ -139,6 +140,30 @@ impl Client {
         let id = id.to_string();
         let path = ["projects", project.as_str(), "invites", &id];
         self.send(self.request(Method::DELETE, &path)).await
+    }
+
+    pub async fn notifications(
+        &self,
+        unread: bool,
+        page: &PageParams,
+    ) -> Result<Page<Notification>, Error> {
+        let mut query = to_query(page);
+        if unread {
+            query.push(("unread".into(), "true".into()));
+        }
+        let request = self.request(Method::GET, &["notifications"]);
+        self.send(request.query(&query)).await
+    }
+
+    pub async fn read_notification(&self, id: i64) -> Result<(), Error> {
+        let id = id.to_string();
+        let path = ["notifications", &id, "read"];
+        self.send(self.request(Method::POST, &path)).await
+    }
+
+    pub async fn read_all_notifications(&self) -> Result<(), Error> {
+        let path = ["notifications", "read-all"];
+        self.send(self.request(Method::POST, &path)).await
     }
 
     pub async fn issues(

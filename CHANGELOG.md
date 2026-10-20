@@ -10,6 +10,39 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-10-19
+
+> A bell that tells you when someone mentions you, assigns you or comments on your issue.
+
+### Added
+
+- **Notifications bell** in the top bar with the unread count (9+ above nine), refreshed every
+  minute and when the tab comes back; it pauses while the tab is hidden. The panel (a sheet on
+  phones) lists who did what on which issue, with an excerpt; a click opens the issue at the
+  comment and marks it read. "Mark all as read" and "Load more".
+- **Events:** you were @mentioned in a comment or description, an issue was assigned to you, or
+  someone commented on an issue you reported or are assigned to. Never for your own changes; one
+  notice per person per change (assignment, then mention, then comment). Editing only notifies
+  newly mentioned people.
+- **For you:** up to five unread mentions at the top.
+- **CLI:** `santi notifications [--unread] [--cursor <id>] [--limit <n>]`, `santi notifications
+  read <id>` and `read --all`. **MCP:** `list_notifications` and `mark_notifications_read`.
+- **API:** `GET /api/notifications` (`cursor`, `limit`, `unread`, `kind`),
+  `GET /api/notifications/unread-count`, `POST /api/notifications/{id}/read`,
+  `POST /api/notifications/read-all`.
+
+### Changed
+
+- Notifications hide when you leave a project or it goes to the trash, and go with a deleted issue,
+  comment or account; they are kept for 90 days.
+- The CLI strips terminal control characters from names and text written by other people in
+  notification lists.
+
+### Upgrade notes
+
+- Migration `0027_notifications.sql` adds the `notification` table and its indexes; it runs on
+  startup. Comment create and edit now run in one transaction with their notifications.
+
 ## [0.21.1] - 2026-10-19
 
 > No more page that stops taking clicks after a quick confirm from a menu.
@@ -685,7 +718,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.21.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/emersonjds/santi/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/emersonjds/santi/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/emersonjds/santi/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/emersonjds/santi/compare/v0.19.0...v0.20.0

@@ -4,6 +4,7 @@ pub mod boards;
 pub mod home;
 pub mod imports;
 pub mod issues;
+pub mod notifications;
 pub mod projects;
 pub mod reports;
 pub mod sprints;
@@ -40,6 +41,7 @@ text_type!(
     home::ItemKind,
     issues::IssueType,
     issues::Priority,
+    notifications::NotificationKind,
     projects::BoardType,
     projects::MemberRole,
     projects::ProjectState,

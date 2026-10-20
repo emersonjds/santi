@@ -3,7 +3,10 @@ import type { Member } from '@/shared/api/client'
 /** D50: one cap, in characters, for a description and a comment body. */
 export const MAX_RICH_TEXT = 65_536
 
-const TOKEN = /^\[@((?:\\.|[^\\[\]])*)\]\(mention:(\d+)\)$/
+const MENTION = String.raw`\[@((?:\\.|[^\\[\]])*)\]\(mention:(\d+)\)`
+const TOKEN = new RegExp(`^${MENTION}$`)
+const TOKENS = new RegExp(MENTION, 'g')
+const unescapeName = (name: string) => name.replace(/\\(.)/g, '$1')
 const MENTION_URL = /^mention:(\d+)$/
 const PUNCTUATION = /[!-/:-@[-`{-~]/g
 
@@ -19,7 +22,7 @@ export const parseMention = (token: string) => {
   if (!match) return null
   return {
     userId: Number(match[2]),
-    name: match[1].replace(/\\(.)/g, '$1'),
+    name: unescapeName(match[1]),
   }
 }
 
@@ -27,3 +30,7 @@ export const mentionUserId = (href: string) => {
   const match = MENTION_URL.exec(href)
   return match ? Number(match[1]) : null
 }
+
+/** Untrusted Markdown with each mention as `@Name`, for a plain-text excerpt. */
+export const mentionsAsText = (markdown: string) =>
+  markdown.replace(TOKENS, (_token, name: string) => `@${unescapeName(name)}`)

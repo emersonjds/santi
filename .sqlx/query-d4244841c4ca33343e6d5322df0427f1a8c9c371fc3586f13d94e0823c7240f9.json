@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT count(*) AS \"count!\" FROM notification n\n           JOIN member m ON m.project_id = n.project_id AND m.user_id = n.recipient_id\n           JOIN project p ON p.id = n.project_id\n           WHERE n.recipient_id = $1 AND n.read_at IS NULL AND p.trashed_at IS NULL",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d4244841c4ca33343e6d5322df0427f1a8c9c371fc3586f13d94e0823c7240f9"
+}

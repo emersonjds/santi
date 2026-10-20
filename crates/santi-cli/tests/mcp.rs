@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 31] = [
+const TOOLS: [&str; 33] = [
     "add_attachment",
     "add_comment",
     "archive_project",
@@ -33,8 +33,10 @@ const TOOLS: [&str; 31] = [
     "list_epics",
     "list_invites",
     "list_members",
+    "list_notifications",
     "list_projects",
     "list_sprints",
+    "mark_notifications_read",
     "move_issue",
     "plan_issue",
     "purge_project",
@@ -82,6 +84,68 @@ async fn ok(client: &Client, tool: &'static str, arguments: Value) -> Value {
     let result = call(client, tool, arguments).await;
     assert_ne!(result.is_error, Some(true), "{tool}: {}", text(&result));
     serde_json::from_str(text(&result)).unwrap()
+}
+
+#[test]
+fn notifications_are_listed_and_marked_read() {
+    let admin = server().user();
+    let token = server().user();
+    server().project(&admin, "MNT", "kanban");
+    server().member(&admin, "MNT", &token);
+    let id = server().get(&token, "/api/me")["id"].clone();
+    let issue = json!({ "summary": "Ship it", "assignee_id": id });
+    server().post(&admin, "/api/projects/MNT/issues", issue);
+    let comment = json!({ "body": "on it" });
+    server().post(&admin, "/api/projects/MNT/issues/1/comments", comment);
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let mut command = santi(&config);
+        command.env("SANTI_TOKEN", &token);
+        let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        let tools = client.list_all_tools().await.unwrap();
+        let tool = |name: &str| tools.iter().find(|tool| tool.name == name).unwrap();
+        let hints = |name: &str| tool(name).annotations.clone().unwrap();
+        assert_eq!(hints("list_notifications").read_only_hint, Some(true));
+        assert_eq!(hints("mark_notifications_read").read_only_hint, Some(false));
+        assert_eq!(
+            hints("mark_notifications_read").destructive_hint,
+            Some(false)
+        );
+        let description = tool("list_notifications").description.as_deref().unwrap();
+        assert!(description.contains("untrusted"), "{description}");
+
+        let page = ok(&client, "list_notifications", json!({})).await;
+        assert_eq!(page["items"][0]["kind"], "comment");
+        assert_eq!(page["items"][1]["kind"], "assigned");
+        let first = page["items"][0]["id"].clone();
+        ok(
+            &client,
+            "mark_notifications_read",
+            json!({ "ids": [first] }),
+        )
+        .await;
+        let unread = ok(&client, "list_notifications", json!({ "unread": true })).await;
+        assert_eq!(unread["items"].as_array().unwrap().len(), 1);
+        ok(&client, "mark_notifications_read", json!({ "all": true })).await;
+        let unread = ok(&client, "list_notifications", json!({ "unread": true })).await;
+        assert_eq!(unread["items"], json!([]));
+        let none = rejected(&client, "mark_notifications_read", json!({})).await;
+        assert!(none.contains("`ids` or `all`"), "{none}");
+        let missing = json!({ "ids": [first, 999_999_999] });
+        let partial = rejected(&client, "mark_notifications_read", missing).await;
+        assert!(partial.contains("notification 999999999"), "{partial}");
+        assert!(
+            partial.contains(&format!("already read: {first}")),
+            "{partial}"
+        );
+        let both = json!({ "ids": [first], "all": true });
+        let both = rejected(&client, "mark_notifications_read", both).await;
+        assert!(both.contains("not both"), "{both}");
+        let many = json!({ "ids": (1..=51).collect::<Vec<_>>() });
+        let many = rejected(&client, "mark_notifications_read", many).await;
+        assert!(many.contains("at most 50"), "{many}");
+        client.cancel().await.unwrap();
+    });
 }
 
 #[test]

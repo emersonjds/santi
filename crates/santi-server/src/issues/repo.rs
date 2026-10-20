@@ -317,6 +317,28 @@ pub async fn find_id(
     .await
 }
 
+/// The issue a comment goes on, with the people a comment tells (SAN-172).
+pub struct Watched {
+    pub id: i64,
+    pub reporter_id: i64,
+    pub assignee_id: Option<i64>,
+}
+
+pub async fn find_watched(
+    conn: &mut PgConnection,
+    project_id: i64,
+    number: i64,
+) -> Result<Option<Watched>, sqlx::Error> {
+    sqlx::query_as!(
+        Watched,
+        "SELECT id, reporter_id, assignee_id FROM issue WHERE project_id = $1 AND number = $2",
+        project_id,
+        number
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
 pub async fn insert_comment(
     conn: &mut PgConnection,
     issue_id: i64,
