@@ -68,7 +68,7 @@ async fn a_mention_in_a_comment_reaches_the_person_and_can_be_read(pool: PgPool)
     assert_eq!(item["issue_summary"], "Ship it");
     assert_eq!(item["comment_id"], comment["id"]);
     assert_eq!(item["excerpt"].as_str().unwrap().chars().count(), 140);
-    assert!(item["excerpt"].as_str().unwrap().starts_with("[@Bo]"));
+    assert!(item["excerpt"].as_str().unwrap().starts_with("@Bo please look x"));
     assert_eq!(item["read_at"], Value::Null);
 
     let read = format!("/api/notifications/{}/read", item["id"]);
@@ -336,4 +336,16 @@ async fn cascades_and_the_list_have_an_index(pool: PgPool) {
     for columns in ["project_id", "actor_id", "recipient_id, id DESC"] {
         assert!(indexed.iter().any(|found| found == columns), "{columns}: {indexed:?}");
     }
+}
+
+#[sqlx::test]
+async fn the_excerpt_shows_mentions_as_names_and_never_cuts_a_token(pool: PgPool) {
+    let (ana, bo, _) = team(pool).await;
+    let token = format!(r"[@Bo \[QA\]](mention:{})", bo.user_id);
+    let body = format!("{}{token} and more", "x".repeat(130));
+
+    ana.post(COMMENTS, json!({ "body": body })).await;
+
+    let excerpt = items(&bo).await[0]["excerpt"].clone();
+    assert_eq!(excerpt, format!("{}@Bo [QA] a", "x".repeat(130)));
 }
