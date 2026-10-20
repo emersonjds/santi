@@ -71,6 +71,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `list_epics` | a project's epics | read-only |
 | `list_members` | a project's members: `user_id`, name, email, role | read-only |
 | `list_invites` | live invite links: `id`, role, spots used, expiry, who joined (admins) | read-only |
+| `list_notifications` | your mentions, assignments and comments, newest first, paged; `unread: true` for unread only | read-only |
 | `create_issue` | new issue (story by default) | additive |
 | `update_issue` | change fields; `null` clears | idempotent |
 | `move_issue` | status and/or rank | idempotent |
@@ -78,6 +79,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `add_comment` | comment on an issue | additive |
 | `add_attachment` | upload one file (`path`) to an issue or, with `comment_id`, a comment; stdio only, see above | additive |
 | `edit_comment` | change a comment's text (`comment_id` from `list_comments`; author or admin) | idempotent |
+| `mark_notifications_read` | the `ids` given (from `list_notifications`), or `all: true` | idempotent |
 | `create_sprint` | new future sprint | additive |
 | `create_project` | new project (`key`, `name`, `board_type` `scrum` by default); you become its admin | additive |
 | `start_sprint` | start a future sprint (`starts_at`, `ends_at`, `length`) | |

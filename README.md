@@ -188,6 +188,7 @@ santi issues attachments WEB-12 --delete 4      # asks first; --yes skips the qu
 
 Commands: `login`, `whoami`, `projects create <KEY> --name <NAME> [--type scrum|kanban]|list [--state archived|trashed]|archive|unarchive|trash|restore|purge`,
 `issues list|show|create|edit|move|delete|plan|comment|comments|comment-edit|comment-delete|attach|attachments`, `board`, `backlog`, `members`, `invites [revoke <KEY> <ID>]`,
+`notifications [--unread]|read <ID>|read --all`,
 `sprints list|create|start|complete`, `plan <ISSUE> --sprint <ID>|--backlog`, `search`, `comment`,
 `import <PROJECT> <CSV>` (preview, then confirm) and `mcp`; `issues plan` and `issues comment` are
 the top-level `plan` and `comment` under `issues`. `issues show` names the status, assignee,
