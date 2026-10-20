@@ -1408,6 +1408,30 @@ describe('comment thread', () => {
     await expect.element(articles.nth(1)).toHaveTextContent('First pass done.')
   })
 
+  it('takes clicks again after a delete confirmed while the menu is still fading out', async () => {
+    heldThread([...WEB_COMMENTS, OWN], { [DELETE]: { status: 204 } })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+    const confirm = screen.getByRole('alertdialog', {
+      name: 'Delete this comment?',
+    })
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    await confirm.getByRole('button', { name: 'Cancel' }).click()
+    await expect.element(confirm).not.toBeInTheDocument()
+
+    await actionsOf(screen, 1).click()
+    await page.getByRole('menuitem', { name: 'Delete' }).click()
+    const sure = confirm.getByRole('button', { name: 'Delete' })
+    await expect.element(sure).toBeInTheDocument()
+    sure.element().dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    await expect.element(page.getByRole('menu')).not.toBeInTheDocument()
+    await expect.element(confirm).not.toBeInTheDocument()
+    await expect
+      .poll(() => getComputedStyle(document.body).pointerEvents)
+      .toBe('auto')
+  })
+
   it('puts back only the refused one of two quick deletes, in its place', async () => {
     let answer = () => {}
     const until = new Promise<void>((resolve) => {

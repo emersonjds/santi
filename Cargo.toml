@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/santi-types", "crates/santi-server", "crates/santi-cli"]
 
 [workspace.package]
-version = "0.21.0"
+version = "0.21.1"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT OR Apache-2.0"
