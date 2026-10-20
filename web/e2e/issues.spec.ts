@@ -163,8 +163,12 @@ test('a comment is posted, edited and deleted, and each change survives a reload
     comments.getByRole('textbox', { name: 'Edit comment' })
   ).toBeFocused()
   await page.keyboard.type(' Merged.')
+  const edited = page.waitForResponse(
+    (response) => response.request().method() === 'PATCH'
+  )
   await comments.getByRole('button', { name: 'Save' }).click()
   await expect(comment).toContainText('Ready for review. Merged.')
+  expect((await edited).ok()).toBe(true)
   await page.reload()
   await expect(comment.getByText('(edited)')).toBeVisible()
 
