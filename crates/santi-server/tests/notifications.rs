@@ -153,15 +153,19 @@ async fn assigning_someone_else_notifies_them_and_self_assignment_does_not(pool:
 }
 
 #[sqlx::test]
-async fn a_mention_in_a_new_description_notifies(pool: PgPool) {
-    let (ana, bo, _) = team(pool).await;
+async fn a_mention_in_a_new_description_notifies_and_an_assignment_wins(pool: PgPool) {
+    let (ana, bo, cy) = team(pool).await;
 
     let description = format!("{} {}", mention(&bo, "Bo"), mention(&ana, "Ana"));
     let body = json!({ "summary": "New", "description": description, "assignee_id": bo.user_id });
     ana.create_issue("SANTI", body).await;
+    let description = format!("The plan {}", mention(&cy, "Cy"));
+    let change = json!({ "description": description, "assignee_id": cy.user_id });
+    ana.patch("/api/projects/SANTI/issues/1", change).await;
 
     assert_eq!(unread(&ana).await, 0);
-    assert_eq!(kinds(&items(&bo).await), ["mention"]);
+    assert_eq!(kinds(&items(&bo).await), ["assigned"]);
+    assert_eq!(kinds(&items(&cy).await), ["assigned"]);
 }
 
 #[sqlx::test]

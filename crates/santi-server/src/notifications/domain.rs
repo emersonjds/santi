@@ -46,8 +46,8 @@ pub fn added_mentions(old: &str, new: &str) -> BTreeSet<i64> {
         .collect()
 }
 
-/// One event per person: a mention wins over an assignment, an assignment over a comment; the
-/// actor is never told.
+/// One event per person: an assignment wins over a mention, a mention over a comment; the actor
+/// is never told.
 pub fn recipients(
     actor_id: i64,
     mentioned: &BTreeSet<i64>,
@@ -55,11 +55,12 @@ pub fn recipients(
     watchers: &[i64],
 ) -> Vec<(i64, NotificationKind)> {
     let mut seen = BTreeSet::from([actor_id]);
-    let mentions = mentioned.iter().map(|id| (*id, NotificationKind::Mention));
     let assignment = assigned.map(|id| (id, NotificationKind::Assigned));
+    let mentions = mentioned.iter().map(|id| (*id, NotificationKind::Mention));
     let comments = watchers.iter().map(|id| (*id, NotificationKind::Comment));
-    mentions
-        .chain(assignment)
+    assignment
+        .into_iter()
+        .chain(mentions)
         .chain(comments)
         .filter(|(id, _)| seen.insert(*id))
         .collect()
@@ -118,9 +119,9 @@ mod tests {
     }
 
     #[test]
-    fn a_mention_wins_and_the_actor_is_never_told() {
+    fn an_assignment_wins_over_a_mention_and_the_actor_is_never_told() {
         let told = recipients(1, &ids(&[1, 2, 3]), Some(3), &[2, 4, 4, 1]);
-        assert_eq!(told, [(2, Mention), (3, Mention), (4, Comment)]);
+        assert_eq!(told, [(3, Assigned), (2, Mention), (4, Comment)]);
     }
 
     #[test]
