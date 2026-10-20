@@ -323,3 +323,17 @@ async fn notifications_older_than_90_days_are_purged(pool: PgPool) {
     assert_eq!(unread(&bo).await, 0);
     assert_eq!(unread(&cy).await, 1);
 }
+
+#[sqlx::test]
+async fn cascades_and_the_list_have_an_index(pool: PgPool) {
+    let indexed: Vec<String> = sqlx::query_scalar(
+        "SELECT substring(indexdef FROM '\\((.*)\\)') FROM pg_indexes WHERE tablename = 'notification'",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
+
+    for columns in ["project_id", "actor_id", "recipient_id, id DESC"] {
+        assert!(indexed.iter().any(|found| found == columns), "{columns}: {indexed:?}");
+    }
+}
