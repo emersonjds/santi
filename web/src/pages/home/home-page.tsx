@@ -4,6 +4,7 @@ import { NoProjects, ProjectsFailed } from '@/features/project/no-projects'
 import { myProjectsQuery } from '@/entities/home/home-queries'
 import { HomeTabs } from './home-tabs'
 import { ProjectCards, ProjectCardsSkeleton } from './project-cards'
+import { UnreadMentions } from './unread-mentions'
 
 /** UI-9: recommended projects, then the caller's lists in tabs. */
 export const HomePage = () => {
@@ -18,6 +19,7 @@ export const HomePage = () => {
         <NoProjects />
       ) : (
         <>
+          <UnreadMentions />
           <section
             aria-labelledby='recommended-projects'
             className='grid gap-3'

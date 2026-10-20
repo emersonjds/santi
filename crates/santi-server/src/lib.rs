@@ -7,6 +7,7 @@ pub mod home;
 pub mod imports;
 pub mod issues;
 pub mod members;
+pub mod notifications;
 pub mod pagination;
 pub mod projects;
 pub mod rate_limit;
@@ -134,6 +135,12 @@ pub async fn purge_trash(pool: &PgPool, storage: &storage::Storage) -> Result<u6
     Ok(purged)
 }
 
+/// SAN-172: deletes notifications older than 90 days; returns how many.
+pub async fn purge_notifications(pool: &PgPool) -> Result<u64, sqlx::Error> {
+    let mut conn = pool.acquire().await?;
+    notifications::repo::purge_older_than_90_days(&mut conn).await
+}
+
 #[derive(OpenApi)]
 #[openapi(
     info(
@@ -156,6 +163,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(reports::handler::router())
         .merge(imports::handler::router())
         .merge(home::handler::router())
+        .merge(notifications::handler::router())
         .merge(attachments::handler::router())
 }
 

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { mentionToken, mentionUserId, parseMention } from './mention'
+import {
+  mentionToken,
+  mentionUserId,
+  mentionsAsText,
+  parseMention,
+} from './mention'
 
 describe('mention token', () => {
   it('writes a Markdown link with the brackets of the name escaped', () => {
@@ -37,5 +42,15 @@ describe('mention token', () => {
 
     expect(token).toBe('[@Bo \\`b\\` \\*x\\* \\<y\\>](mention:9)')
     expect(parseMention(token)).toEqual({ userId: 9, name })
+  })
+})
+
+describe('mentions as text', () => {
+  it('shows every mention of a plain text as @Name', () => {
+    expect(
+      mentionsAsText(
+        `Ask ${mentionToken({ user_id: 2, display_name: 'Bo [QA]' })} and [@Ana](mention:3), not [x](https://a.b).`
+      )
+    ).toBe('Ask @Bo [QA] and @Ana, not [x](https://a.b).')
   })
 })
