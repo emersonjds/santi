@@ -2,14 +2,11 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { NotificationRow } from '@/features/read-notifications/notification-row'
 import { notificationsQuery } from '@/entities/notification/notification-queries'
 
-const SHOWN = 5
-
 /** SAN-172 Q8: nothing at all when no mention is unread. */
 export const UnreadMentions = () => {
-  const { data } = useInfiniteQuery(notificationsQuery(true))
-  const mentions = (data ?? [])
-    .filter((each) => each.kind === 'mention')
-    .slice(0, SHOWN)
+  const { data: mentions = [] } = useInfiniteQuery(
+    notificationsQuery({ unread: true, kind: 'mention', limit: 5 })
+  )
   if (mentions.length === 0) return null
   return (
     <section aria-labelledby='unread-mentions' className='grid gap-3'>

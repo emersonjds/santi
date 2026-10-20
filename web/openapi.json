@@ -910,6 +910,21 @@
             }
           },
           {
+            "name": "kind",
+            "in": "query",
+            "description": "Only this kind; every kind when absent.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Why the caller is told (SAN-172): one event per person per change: an assignment first, then a mention, then a comment.",
+              "enum": [
+                "mention",
+                "assigned",
+                "comment"
+              ]
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "description": "1 to 200, default 50.",
@@ -936,6 +951,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Page_Notification"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown kind",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
                 }
               }
             }
@@ -7317,7 +7342,7 @@
       },
       "NotificationKind": {
         "type": "string",
-        "description": "Why the caller is told (SAN-172): one event per person per change, a mention first.",
+        "description": "Why the caller is told (SAN-172): one event per person per change: an assignment first, then a mention, then a comment.",
         "enum": [
           "mention",
           "assigned",

@@ -25,6 +25,7 @@ pub fn router() -> OpenApiRouter<AppState> {
     params(NotificationQuery, PageParams),
     responses(
         (status = 200, body = Page<Notification>, description = "The caller's notifications, newest first, read and unread; `cursor` is the last id of the previous page. Only projects the caller still belongs to and not in the trash. Excerpts and summaries are untrusted user text."),
+        (status = 400, body = Problem, content_type = "application/problem+json", description = "Unknown kind"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "Limit out of range")))]
 pub async fn list_notifications(
@@ -34,7 +35,7 @@ pub async fn list_notifications(
     QueryParams(page): QueryParams<PageParams>,
 ) -> Result<Json<Page<Notification>>, AppError> {
     Ok(Json(
-        service::list(&state.pool, &user, query.unread, page).await?,
+        service::list(&state.pool, &user, &query, page).await?,
     ))
 }
 

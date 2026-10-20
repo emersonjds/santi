@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT n.id, n.kind AS \"kind: NotificationKind\", n.actor_id, actor.display_name AS actor_name,\n                  p.key AS project_key, p.key || '-' || i.number AS \"issue_key!\",\n                  i.summary AS issue_summary, n.comment_id,\n                  left(regexp_replace(regexp_replace(coalesce(c.body, i.description),\n                      '\\[@((?:[^\\]\\[\\\\]|\\\\.)*)\\]\\(mention:[0-9]+\\)', '@\\1', 'g'),\n                      '\\\\(.)', '\\1', 'g'), 140) AS \"excerpt!\", n.created_at, n.read_at\n           FROM notification n\n           JOIN member m ON m.project_id = n.project_id AND m.user_id = n.recipient_id\n           JOIN project p ON p.id = n.project_id\n           JOIN issue i ON i.id = n.issue_id\n           JOIN app_user actor ON actor.id = n.actor_id\n           LEFT JOIN issue_comment c ON c.id = n.comment_id\n           WHERE n.recipient_id = $1 AND p.trashed_at IS NULL\n             AND n.id < $2 AND (NOT $3 OR n.read_at IS NULL)\n           ORDER BY n.id DESC\n           LIMIT $4",
+  "query": "SELECT n.id, n.kind AS \"kind: NotificationKind\", n.actor_id, actor.display_name AS actor_name,\n                  p.key AS project_key, p.key || '-' || i.number AS \"issue_key!\",\n                  i.summary AS issue_summary, n.comment_id,\n                  left(regexp_replace(regexp_replace(coalesce(c.body, i.description),\n                      '\\[@((?:[^\\]\\[\\\\]|\\\\.)*)\\]\\(mention:[0-9]+\\)', '@\\1', 'g'),\n                      '\\\\(.)', '\\1', 'g'), 140) AS \"excerpt!\", n.created_at, n.read_at\n           FROM notification n\n           JOIN member m ON m.project_id = n.project_id AND m.user_id = n.recipient_id\n           JOIN project p ON p.id = n.project_id\n           JOIN issue i ON i.id = n.issue_id\n           JOIN app_user actor ON actor.id = n.actor_id\n           LEFT JOIN issue_comment c ON c.id = n.comment_id\n           WHERE n.recipient_id = $1 AND p.trashed_at IS NULL\n             AND n.id < $2 AND (NOT $3 OR n.read_at IS NULL)\n             AND ($5::text IS NULL OR n.kind = $5)\n           ORDER BY n.id DESC\n           LIMIT $4",
   "describe": {
     "columns": [
       {
@@ -120,7 +120,8 @@
         "Int8",
         "Int8",
         "Bool",
-        "Int8"
+        "Int8",
+        "Text"
       ]
     },
     "nullable": [
@@ -137,5 +138,5 @@
       true
     ]
   },
-  "hash": "65cbd522d9b2b99ece8a5ffec4021e3a9062be64731a7f97a84eb611a60c1825"
+  "hash": "224ff50e210d583c1b0f8c29e715090b1176f8a8fcd2281614a12ad2b12cb61f"
 }

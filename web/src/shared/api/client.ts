@@ -14,6 +14,10 @@ type HomeQuery = NonNullable<
   paths['/api/me/issues']['get']['parameters']['query']
 >
 export type HomeView = NonNullable<HomeQuery['view']>
+export type NotificationFilter = Omit<
+  NonNullable<paths['/api/notifications']['get']['parameters']['query']>,
+  'cursor'
+>
 export type Member = Schemas['MemberInfo']
 export type BoardType = Schemas['BoardType']
 export type MemberRole = Schemas['MemberRole']

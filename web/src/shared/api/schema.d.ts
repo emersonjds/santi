@@ -1586,7 +1586,7 @@ export interface components {
             read_at?: string | null;
         };
         /**
-         * @description Why the caller is told (SAN-172): one event per person per change, a mention first.
+         * @description Why the caller is told (SAN-172): one event per person per change: an assignment first, then a mention, then a comment.
          * @enum {string}
          */
         NotificationKind: "mention" | "assigned" | "comment";
@@ -2810,6 +2810,8 @@ export interface operations {
             query?: {
                 /** @description Only unread notifications. */
                 unread?: boolean;
+                /** @description Only this kind; every kind when absent. */
+                kind?: "mention" | "assigned" | "comment";
                 /** @description 1 to 200, default 50. */
                 limit?: number;
                 cursor?: number;
@@ -2827,6 +2829,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Page_Notification"];
+                };
+            };
+            /** @description Unknown kind */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: {
