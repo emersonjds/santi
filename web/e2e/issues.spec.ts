@@ -147,9 +147,11 @@ test('a comment is posted, edited and deleted, and each change survives a reload
   const comment = comments.getByRole('article')
 
   await comments.getByRole('button', { name: 'Add a comment…' }).click()
-  await comments
-    .getByRole('textbox', { name: 'Add a comment' })
-    .fill('Ready for review.')
+  // Same swap as in attachments.spec.ts: wait for the editor, not the textarea it replaces.
+  await expect(
+    comments.locator('.cm-content[aria-label="Add a comment"]')
+  ).toBeFocused()
+  await page.keyboard.type('Ready for review.')
   await comments.getByRole('button', { name: 'Save' }).click()
   await expect(comment).toContainText('Ready for review.')
   await expect(comment).toContainText('Ada')
