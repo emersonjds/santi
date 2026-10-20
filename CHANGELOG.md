@@ -10,6 +10,18 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.21.1] - 2026-10-19
+
+> No more page that stops taking clicks after a quick confirm from a menu.
+
+### Fixed
+
+- **Menus and dialogs:** a dialog opened from a menu and closed before the menu finished closing
+  (for example a quick Delete confirm on a comment) could leave the whole page unclickable until
+  a reload. Radix components are upgraded so the lock is always released.
+- **Tests:** the end-to-end specs wait for the comment editor and for the delete answer instead of
+  racing them.
+
 ## [0.21.0] - 2026-10-19
 
 > Files on issues: attach images and documents to an issue, a comment or a new issue.
@@ -673,7 +685,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.21.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.21.1...HEAD
+[0.21.1]: https://github.com/emersonjds/santi/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/emersonjds/santi/compare/v0.20.0...v0.21.0
 [0.20.0]: https://github.com/emersonjds/santi/compare/v0.19.0...v0.20.0
 [0.19.0]: https://github.com/emersonjds/santi/compare/v0.18.0...v0.19.0
