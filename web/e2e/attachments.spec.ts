@@ -55,16 +55,24 @@ test('an image attached to an issue shows as a tile and can be deleted', async (
     .toBe(1)
 
   await section.getByRole('button', { name: 'Delete pixel.png' }).click()
+  const deleted = page.waitForResponse(
+    (response) => response.request().method() === 'DELETE'
+  )
   await page
     .getByRole('alertdialog', { name: 'Delete pixel.png?' })
     .getByRole('button', { name: 'Delete' })
     .click()
   await expect(section.getByText('No attachments yet.')).toBeVisible()
+  expect((await deleted).status()).toBe(204)
   await page.reload()
   await expect(section.getByText('No attachments yet.')).toBeVisible()
 
   const comments = page.getByRole('region', { name: 'Comments' })
   await comments.getByRole('button', { name: 'Add a comment…' }).click()
+  // The editor swaps in for the textarea when its chunk lands and its toolbar pushes Save down: a click at that moment misses.
+  await expect(
+    comments.locator('.cm-content[aria-label="Add a comment"]')
+  ).toBeFocused()
   await page.keyboard.type('The screen in question.')
   await comments.locator('input[type=file]').setInputFiles({
     name: 'pixel.png',
