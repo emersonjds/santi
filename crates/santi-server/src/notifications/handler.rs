@@ -34,9 +34,7 @@ pub async fn list_notifications(
     QueryParams(query): QueryParams<NotificationQuery>,
     QueryParams(page): QueryParams<PageParams>,
 ) -> Result<Json<Page<Notification>>, AppError> {
-    Ok(Json(
-        service::list(&state.pool, &user, &query, page).await?,
-    ))
+    Ok(Json(service::list(&state.pool, &user, &query, page).await?))
 }
 
 #[utoipa::path(get, path = "/api/notifications/unread-count", tag = "notifications",
