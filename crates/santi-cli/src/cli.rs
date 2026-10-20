@@ -61,6 +61,12 @@ pub enum Command {
         /// Only unread ones
         #[arg(long)]
         unread: bool,
+        /// Only notifications older than this id (the one the previous page points to)
+        #[arg(long)]
+        cursor: Option<i64>,
+        /// 1 to 200
+        #[arg(long)]
+        limit: Option<i64>,
         #[command(subcommand)]
         command: Option<NotificationsCommand>,
     },
@@ -709,12 +715,22 @@ mod tests {
     fn notifications_lists_or_marks_read() {
         let Command::Notifications {
             unread,
+            cursor,
+            limit,
             command: None,
-        } = parse(&["santi", "notifications", "--unread"])
+        } = parse(&[
+            "santi",
+            "notifications",
+            "--unread",
+            "--cursor",
+            "40",
+            "--limit",
+            "5",
+        ])
         else {
             panic!("not notifications");
         };
-        assert!(unread);
+        assert_eq!((unread, cursor, limit), (true, Some(40), Some(5)));
         for (args, expected) in [
             (
                 &["santi", "notifications", "read", "7"][..],

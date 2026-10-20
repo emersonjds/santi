@@ -85,8 +85,15 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
             client.read_all_notifications().await?;
             show(json, &(), |()| "Read every notification".into())
         }
-        Command::Notifications { unread, .. } => {
-            let page = client.notifications(unread, &PageParams::default()).await?;
+        Command::Notifications {
+            unread,
+            cursor,
+            limit,
+            ..
+        } => {
+            let page = client
+                .notifications(unread, &PageParams { limit, cursor })
+                .await?;
             show(json, &page, |page| notifications_text(page, Utc::now()))
         }
         Command::Sprints(command) => sprints(&client, command, json).await,
@@ -421,15 +428,19 @@ fn already_exists(path: &std::path::Path) -> Error {
 
 fn safe_name(name: &str) -> Option<String> {
     let base = name.rsplit(['/', '\\']).next()?;
-    let clean: String = base
-        .chars()
+    let clean = printable(base);
+    let clean = clean.trim().trim_start_matches('.');
+    (!clean.is_empty()).then(|| clean.to_string())
+}
+
+/// Without control, zero-width or bidi characters, so untrusted text cannot drive the terminal.
+fn printable(text: &str) -> String {
+    text.chars()
         .filter(|letter| {
             !letter.is_control()
                 && !matches!(letter, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2066}'..='\u{2069}' | '\u{feff}')
         })
-        .collect();
-    let clean = clean.trim().trim_start_matches('.');
-    (!clean.is_empty()).then(|| clean.to_string())
+        .collect()
 }
 
 fn size_text(bytes: i64) -> String {
@@ -804,24 +815,26 @@ fn notifications_text(page: &Page<Notification>, now: DateTime<Utc>) -> String {
         .iter()
         .map(|item| {
             let unread = if item.read_at.is_none() { '*' } else { ' ' };
-            let (actor, key) = (&item.actor_name, &item.issue_key);
+            let (actor, key) = (printable(&item.actor_name), &item.issue_key);
             let what = match item.kind {
                 NotificationKind::Mention => format!("{actor} mentioned you on {key}"),
                 NotificationKind::Assigned => format!("{actor} assigned {key} to you"),
                 NotificationKind::Comment => format!("{actor} commented on {key}"),
             };
-            let excerpt = plain_mentions(&item.excerpt).replace('\n', " ");
+            let excerpt = printable(&plain_mentions(&item.excerpt).replace('\n', " "));
+            let summary = printable(&item.issue_summary);
             let about = match excerpt.is_empty() {
-                true => item.issue_summary.clone(),
-                false => format!("{}: {excerpt}", item.issue_summary),
+                true => summary,
+                false => format!("{summary}: {excerpt}"),
             };
             let age = ago(item.created_at, now);
             format!("{:<6} {unread} {what} · {age}\n         {about}", item.id)
         })
         .collect::<Vec<_>>()
         .join("\n");
-    if page.next_cursor.is_some() {
-        text.push_str("\n… older notifications not shown");
+    if let Some(cursor) = page.next_cursor {
+        let more = format!("\n… older notifications not shown; see them with --cursor {cursor}");
+        text.push_str(&more);
     }
     text
 }
@@ -1260,7 +1273,21 @@ mod tests {
             "9      * Ana mentioned you on WEB-12 · 2 hours ago\n         Ship it: @Bo look now\n\
              8        Ana assigned WEB-12 to you · 2 hours ago\n         Ship it\n\
              7      * Ana commented on WEB-12 · 2 hours ago\n         Ship it: @Bo look now\n\
-             … older notifications not shown"
+             … older notifications not shown; see them with --cursor 7"
+        );
+        let hostile = Notification {
+            actor_name: "A\u{1b}[2Jna\u{202e}".into(),
+            issue_summary: "Ship\u{7} it\u{2066}".into(),
+            excerpt: "look\nnow\u{1b}]8;;x\u{7}".into(),
+            ..page.items[0].clone()
+        };
+        let page = Page {
+            items: vec![hostile],
+            next_cursor: None,
+        };
+        assert_eq!(
+            notifications_text(&page, now),
+            "9      * A[2Jna mentioned you on WEB-12 · 2 hours ago\n         Ship it: look now]8;;x"
         );
         let empty = Page {
             items: vec![],
