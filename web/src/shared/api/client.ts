@@ -8,6 +8,8 @@ export type Project = Schemas['Project']
 export type MyProject = Schemas['MyProject']
 export type HomeIssue = Schemas['HomeIssue']
 export type MyItem = Schemas['MyItem']
+export type Notification = Schemas['Notification']
+export type UnreadCount = Schemas['UnreadCount']
 type HomeQuery = NonNullable<
   paths['/api/me/issues']['get']['parameters']['query']
 >

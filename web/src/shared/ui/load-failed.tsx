@@ -3,9 +3,11 @@ import { Button } from './button'
 export const LoadFailed = ({
   message,
   onRetry,
+  action = 'Retry',
 }: {
   message: string
   onRetry: () => void
+  action?: string
 }) => (
   <div
     role='alert'
@@ -13,7 +15,7 @@ export const LoadFailed = ({
   >
     {message}
     <Button variant='outline' className='h-11 md:h-9' onClick={onRetry}>
-      Retry
+      {action}
     </Button>
   </div>
 )

@@ -5,12 +5,20 @@ import { SidebarTrigger } from '@/shared/ui/sidebar'
 import { AccountButton } from './account-button'
 import { CommandMenu } from './command-menu'
 import { CreateButton } from './create-button'
+import { NotificationsButton } from './notifications-button'
 import { ProjectSearch } from './project-search'
 import { Shortcuts } from './shortcuts'
 
 // Lazy: the Radix menu and its popper weigh ~20 KB gzip on every first visit (D39).
 const AccountMenu = lazy(() =>
   import('./account-menu').then((module) => ({ default: module.AccountMenu }))
+)
+
+// Lazy: only the bell and its count ship with the shell; the panel and its popper follow.
+const NotificationsMenu = lazy(() =>
+  import('./notifications-menu').then((module) => ({
+    default: module.NotificationsMenu,
+  }))
 )
 
 export const TopBar = () => {
@@ -31,6 +39,9 @@ export const TopBar = () => {
         {key ? <ProjectSearch projectKey={key} /> : null}
         <CommandMenu showTrigger={!key} />
         <CreateButton />
+        <Suspense fallback={<NotificationsButton disabled />}>
+          <NotificationsMenu />
+        </Suspense>
         <Suspense fallback={<AccountButton disabled />}>
           <AccountMenu onShortcuts={() => setSheet(true)} />
         </Suspense>
