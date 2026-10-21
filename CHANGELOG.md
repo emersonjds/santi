@@ -10,6 +10,33 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-10-21
+
+> Linked issues, restore from an export, password and sessions on your account, and a server ready to be measured.
+
+### Added
+
+- **Linked issues**: blocks / is blocked by, relates to, duplicates, clones, shown on both issues and grouped by relation; add with "Link issue" or `l`, remove from either side. Cards and backlog rows show **Blocked** while a blocker is not done. Links to projects you cannot open stay hidden. CLI `santi issues link` / `unlink`, MCP `link_issues` / `unlink_issues`.
+- **Restore a project from a santi export**: `santi restore <export.json> [--project KEY]` (and `POST /api/projects/restore`) recreates the board, statuses, sprints, issues with their keys and comments. The restorer is the only member; other people are listed so you can invite them again. Attachments, notifications and history are not in an export.
+- **Change your password** from the account page or `santi password`; every other session is signed out and earlier reset links stop working.
+- **Active sessions** on the account page: device, signed-in date and last activity, sign out one or all others. Only a short device label is stored, never the browser string or an address.
+- **Request logs**: one JSON line per request with route, status, latency and request id (`RUST_LOG`, `SANTI_LOG_FORMAT`).
+- **Scale strategy** in `docs/specs/scale-strategy.md`, with targets for an online team, a self-hosted team and a large company.
+
+### Changed
+
+- Every date and time follows the time zone on your account, including the sprint dialog, comments and the home page groups.
+- Issue search uses its index on large projects; `SANTI-12` or `12` find that issue exactly (`SANTI-12` no longer also finds SANTI-120).
+- `/account` and board settings load less code up front.
+- The server answers 503 "busy" with `Retry-After` instead of hanging when a request, a query or the connection pool runs out of time.
+
+### Upgrade notes
+
+- Migrations `0029_issue_links` and `0030_session_activity`.
+- New settings: `SANTI_REQUEST_TIMEOUT_SECS` (30), `SANTI_DB_STATEMENT_TIMEOUT_MS` (15000), `SANTI_DB_ACQUIRE_TIMEOUT_MS` (5000), `RUST_LOG` (info), `SANTI_LOG_FORMAT` (json). Logs are now JSON on stdout.
+- New API: `POST /api/projects/restore`; `GET/POST /api/projects/{key}/issues/{number}/links`, `DELETE …/links/{id}`; `POST /api/me/password`; `GET /api/me/sessions`, `DELETE /api/me/sessions[/{id}]`; `Card.blocked_by`. Any route may answer 503 `busy`.
+- Search: the `q` filter matches summaries, or an exact issue number given as `12` or `KEY-12`.
+
 ## [0.23.0] - 2026-10-21
 
 > Dark theme, a People tab for leads, subtasks you update in place, and a published Docker image.
@@ -766,7 +793,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.23.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.24.0...HEAD
+[0.24.0]: https://github.com/emersonjds/santi/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/emersonjds/santi/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/emersonjds/santi/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/emersonjds/santi/compare/v0.21.0...v0.21.1
