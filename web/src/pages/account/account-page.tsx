@@ -93,6 +93,7 @@ export const AccountPage = () => {
           Security
         </h2>
         <ChangePasswordForm />
+        <h3 className='font-medium'>Sessions</h3>
         <SessionsList headingId='security' />
       </section>
       <section aria-labelledby='tokens' className='grid gap-4'>
