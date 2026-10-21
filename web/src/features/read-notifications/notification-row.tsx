@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { mentionsAsText } from '@/features/rich-text/mention'
 import { commentTime } from '@/entities/issue/comment-time'
+import { useTimeZone } from '@/entities/session/session-query'
 import { UserAvatar } from '@/entities/user/user-avatar'
 import type { Notification } from '@/shared/api/client'
 import { shortName } from '@/shared/lib/initials'
@@ -25,6 +26,7 @@ export const NotificationRow = ({
   onNavigate?: () => void
 }) => {
   const markRead = useMarkRead()
+  const timeZone = useTimeZone()
   const unread = !notification.read_at
   return (
     <li>
@@ -62,7 +64,7 @@ export const NotificationRow = ({
             dateTime={notification.created_at}
             className='text-xs text-subtle-foreground'
           >
-            {commentTime(notification.created_at)}
+            {commentTime(notification.created_at, timeZone)}
           </time>
         </span>
         {unread && (

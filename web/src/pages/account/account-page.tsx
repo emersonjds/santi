@@ -11,7 +11,7 @@ import {
   legalDocumentsQuery,
   useLegalRequired,
 } from '@/entities/session/legal-queries'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { useTimeZone } from '@/entities/session/session-query'
 import { tokensQuery } from '@/entities/user/api-tokens'
 import { formatDate } from '@/shared/lib/format-date'
 import { Input } from '@/shared/ui/input'

@@ -8,6 +8,7 @@ import { TYPE_LABEL } from '@/entities/issue/labels'
 import { StatusPill } from '@/entities/issue/status-pill'
 import { CATEGORY } from '@/entities/issue/statuses'
 import { timeAgo } from '@/entities/issue/time-ago'
+import { useTimeZone } from '@/entities/session/session-query'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { HomeIssue, HomeView } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
@@ -75,6 +76,7 @@ const ListSkeleton = () => (
 /** One home tab: rows newest first under day headings, 50 at a time. */
 export const IssueList = ({ view }: { view: HomeView }) => {
   const list = useInfiniteQuery(myIssuesQuery(view))
+  const timeZone = useTimeZone()
 
   if (list.isError)
     return (
@@ -103,7 +105,7 @@ export const IssueList = ({ view }: { view: HomeView }) => {
   return (
     <div className='grid gap-5'>
       {/* ponytail: plain list; D39 virtualizes past 200 rows, reached only after four "Show more". */}
-      {groupByDay(issues).map(({ bucket, items }) => (
+      {groupByDay(issues, timeZone).map(({ bucket, items }) => (
         <section key={bucket} aria-label={bucket} className='grid gap-2'>
           <h3 className='text-xs font-semibold tracking-wide text-muted-foreground uppercase'>
             {bucket}
