@@ -81,11 +81,7 @@ async fn new_column_with_a_done_status_is_refused_and_rolled_back(pool: PgPool) 
 async fn members_cannot_change_the_layout(pool: PgPool) {
     let ana = admin_with_project(pool, "scrum").await;
     let bob = ana.another_user("bob@example.com").await;
-    ana.post(
-        "/api/projects/SANTI/members",
-        json!({ "email": "bob@example.com", "role": "member" }),
-    )
-    .await;
+    ana.add_member("SANTI", &bob, "member").await;
 
     let (status, _) = bob
         .post(

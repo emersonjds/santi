@@ -141,11 +141,7 @@ async fn admins_and_the_reporter_may_delete_other_members_may_not(pool: PgPool) 
     let ana = scrum(pool).await;
     let bob = ana.another_user("bob@example.com").await;
     let eve = ana.another_user("eve@example.com").await;
-    ana.post(
-        "/api/projects/SANTI/members",
-        json!({ "email": "bob@example.com", "role": "member" }),
-    )
-    .await;
+    ana.add_member("SANTI", &bob, "member").await;
     ana.create_issue("SANTI", json!({ "summary": "ana's" }))
         .await;
     bob.create_issue("SANTI", json!({ "summary": "bob's one" }))

@@ -118,12 +118,8 @@ async fn admins_and_the_author_may_edit_or_delete_a_comment_other_members_may_no
     let ana = project(pool).await;
     let bob = ana.another_user("bob@example.com").await;
     let cy = ana.another_user("cy@example.com").await;
-    for email in ["bob@example.com", "cy@example.com"] {
-        ana.post(
-            "/api/projects/SANTI/members",
-            json!({ "email": email, "role": "member" }),
-        )
-        .await;
+    for member in [&bob, &cy] {
+        ana.add_member("SANTI", member, "member").await;
     }
     bob.create_issue("SANTI", json!({ "summary": "bob's" }))
         .await;

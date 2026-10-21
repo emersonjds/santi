@@ -13,10 +13,8 @@ async fn team(pool: PgPool) -> (TestApp, TestApp, TestApp) {
     let bo = ana.another_user("bo@example.com").await;
     let cy = ana.another_user("cy@example.com").await;
     ana.create_project("SANTI", "scrum").await;
-    for email in ["bo@example.com", "cy@example.com"] {
-        let body = json!({ "email": email, "role": "member" });
-        let (status, _) = ana.post("/api/projects/SANTI/members", body).await;
-        assert_eq!(status, StatusCode::CREATED);
+    for member in [&bo, &cy] {
+        ana.add_member("SANTI", member, "member").await;
     }
     ana.create_issue(
         "SANTI",
