@@ -2,7 +2,9 @@ use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Local, Utc};
+use santi_types::Problem;
 use santi_types::attachments::Attachment;
+use santi_types::auth::AccountExport;
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
@@ -11,7 +13,9 @@ use santi_types::issues::{
 };
 use santi_types::notifications::{Notification, NotificationKind};
 use santi_types::people::{PersonProgress, TeamProgress};
-use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
+use santi_types::projects::{
+    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult,
+};
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -112,6 +116,7 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
         }
         Command::Comment(args) => comment(&client, args, json).await,
         Command::Import { project, file, yes } => import(&client, &project, file, yes, json).await,
+        Command::Restore { file, project } => restore(&client, file, project, json).await,
         Command::Mcp { http, allowed_host } => match http {
             Some(address) => crate::mcp::serve_http(client, address, allowed_host).await,
             None => crate::mcp::serve_stdio(client).await,
@@ -560,6 +565,85 @@ async fn import(
         .import(project, csv, &suggested_mapping(&preview))
         .await?;
     show(json, &result, result_text)
+}
+
+async fn restore(
+    client: &Client,
+    file: PathBuf,
+    only: Option<ProjectKey>,
+    json: bool,
+) -> Result<(), Error> {
+    let bytes = std::fs::read(&file)
+        .map_err(|error| Error::Usage(format!("{}: {error}", file.display())))?;
+    let export: AccountExport = serde_json::from_slice(&bytes)
+        .map_err(|error| Error::Usage(format!("not a santi export: {error}")))?;
+    let mut projects = export.projects;
+    if let Some(key) = only {
+        let keys: Vec<String> = projects
+            .iter()
+            .map(|found| found.project.key.clone())
+            .collect();
+        projects.retain(|found| found.project.key == key.as_str());
+        if projects.is_empty() {
+            return Err(Error::Usage(format!(
+                "no project {key} in {}; projects: {}",
+                file.display(),
+                keys.join(", ")
+            )));
+        }
+    }
+    let (mut answers, mut not_restored, mut failed) = (vec![], None, None);
+    for project in &projects {
+        let key = &project.project.key;
+        match client.restore_project(project).await {
+            Ok(result) => {
+                if !json {
+                    println!("{}", restored_text(&result));
+                }
+                not_restored = Some(printable(&result.not_restored));
+                answers.push(serde_json::to_value(result).expect("DTOs serialize"));
+            }
+            Err(Error::Api(problem)) if already_there(&problem) => {
+                if !json {
+                    println!("skipped {key}: a project with this key already exists");
+                }
+                answers.push(serde_json::json!({ "key": key, "skipped": "exists" }));
+            }
+            Err(error) => {
+                failed = Some(error);
+                break;
+            }
+        }
+    }
+    match (json, not_restored) {
+        (true, _) => println!(
+            "{}",
+            serde_json::to_string_pretty(&answers).expect("DTOs serialize")
+        ),
+        (false, Some(line)) => println!("{line}"),
+        (false, None) => {}
+    }
+    failed.map_or(Ok(()), Err)
+}
+
+/// The only refusal a restore skips; any other stops the run.
+fn already_there(problem: &Problem) -> bool {
+    problem.problem_type == "urn:santi:error:project-exists"
+}
+
+fn restored_text(result: &RestoreResult) -> String {
+    let mut text = vec![format!(
+        "restored {} ({} issues, {} sprints, {} comments)",
+        result.project.key, result.issues, result.sprints, result.comments
+    )];
+    text.extend(result.problems.iter().map(|problem| {
+        format!(
+            "  {}: {}",
+            printable(&problem.issue_key),
+            printable(&problem.message)
+        )
+    }));
+    text.join("\n")
 }
 
 /// The preview's suggestions, as the web importer pre-fills them.
@@ -1156,7 +1240,7 @@ fn problem_lines(problems: &[santi_types::imports::RowProblem]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use santi_types::projects::{InviteJoiner, MemberRole};
+    use santi_types::projects::{BoardType, InviteJoiner, MemberRole, RestoreProblem};
 
     use super::*;
 
@@ -1707,6 +1791,50 @@ mod tests {
         assert_eq!(
             std::fs::read(kept.path().join("report.pdf")).unwrap(),
             b"mine"
+        );
+    }
+
+    #[test]
+    fn only_an_existing_key_skips_a_project() {
+        let refusal = |problem_type: &str| Problem {
+            problem_type: problem_type.into(),
+            title: "Conflict".into(),
+            status: 409,
+            detail: "x".into(),
+            errors: vec![],
+        };
+        assert!(already_there(&refusal("urn:santi:error:project-exists")));
+        assert!(!already_there(&refusal("urn:santi:error:conflict")));
+    }
+
+    #[test]
+    fn restored_text_counts_then_lists_printable_problems() {
+        let result = RestoreResult {
+            project: Project {
+                id: 1,
+                key: "SHOP".into(),
+                name: "Shop".into(),
+                board_type: BoardType::Scrum,
+                role: MemberRole::Admin,
+                state: ProjectState::Active,
+                archived_at: None,
+                archived_by: None,
+                trashed_at: None,
+                trashed_by: None,
+                purge_at: None,
+            },
+            issues: 12,
+            sprints: 2,
+            comments: 5,
+            problems: vec![RestoreProblem {
+                issue_key: "SHOP-12".into(),
+                message: "assignee \u{1b}[31mgone\u{202e}, cleared".into(),
+            }],
+            not_restored: "Attachments are not in an export.".into(),
+        };
+        assert_eq!(
+            restored_text(&result),
+            "restored SHOP (12 issues, 2 sprints, 5 comments)\n  SHOP-12: assignee [31mgone, cleared"
         );
     }
 }

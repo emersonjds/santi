@@ -93,6 +93,13 @@ pub enum Command {
         #[arg(long)]
         yes: bool,
     },
+    /// Recreate projects from a `GET /api/me/export` file; a key that already exists is skipped
+    Restore {
+        file: PathBuf,
+        /// Only this project of the file
+        #[arg(long)]
+        project: Option<ProjectKey>,
+    },
     /// Run the MCP server: stdio by default, Streamable HTTP with --http
     Mcp {
         /// Serve Streamable HTTP at ADDR/mcp instead of stdio; every request needs `Authorization: Bearer <santi token>`

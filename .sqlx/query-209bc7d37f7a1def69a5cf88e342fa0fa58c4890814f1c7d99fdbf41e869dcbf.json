@@ -1,0 +1,31 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue (project_id, number, issue_type, summary, description, priority, status_id,\n                              assignee_id, reporter_id, points, labels, parent_id, sprint_id, rank, done_at,\n                              created_at, updated_at)\n           SELECT $1, r.number, r.issue_type, r.summary, r.description, r.priority, r.status_id,\n                  nullif(r.assignee_id, 0), r.reporter_id, nullif(r.points, -1),\n                  coalesce(string_to_array(nullif(r.labels, ''), ' '), '{}'), parent.id,\n                  nullif(r.sprint_id, 0), r.rank, CASE WHEN r.done THEN r.done_at END,\n                  r.created_at, r.updated_at\n           FROM unnest($2::bigint[], $3::text[], $4::text[], $5::text[], $6::text[], $7::bigint[],\n                       $8::bigint[], $9::bigint[], $10::float8[], $11::text[], $12::bigint[], $13::bigint[],\n                       $14::text[], $15::bool[], $16::timestamptz[], $17::timestamptz[], $18::timestamptz[])\n                AS r(number, issue_type, summary, description, priority, status_id, assignee_id, reporter_id,\n                     points, labels, parent_number, sprint_id, rank, done, done_at, created_at, updated_at)\n           LEFT JOIN issue parent ON parent.project_id = $1 AND parent.number = nullif(r.parent_number, 0)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8Array",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int8Array",
+        "Int8Array",
+        "Int8Array",
+        "Float8Array",
+        "TextArray",
+        "Int8Array",
+        "Int8Array",
+        "TextArray",
+        "BoolArray",
+        "TimestamptzArray",
+        "TimestamptzArray",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "209bc7d37f7a1def69a5cf88e342fa0fa58c4890814f1c7d99fdbf41e869dcbf"
+}
