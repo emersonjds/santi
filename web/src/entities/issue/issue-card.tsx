@@ -1,6 +1,6 @@
 import { type ReactNode, memo } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ListTree } from 'lucide-react'
+import { Ban, ListTree } from 'lucide-react'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
@@ -34,6 +34,18 @@ export const SubtaskCount = ({ card }: { card: Card }) => {
     )
   )
 }
+
+/** SAN-157 Q4: blocked by issues that are not done yet. */
+export const BlockedMarker = ({ card }: { card: Card }) =>
+  card.blocked_by?.length ? (
+    <span
+      className='inline-flex shrink-0 items-center gap-1 rounded-full bg-destructive/10 px-1.5 text-xs font-medium text-destructive'
+      title={`Blocked by ${card.blocked_by.join(', ')}`}
+    >
+      <Ban className='size-3.5' aria-hidden='true' />
+      Blocked
+    </span>
+  ) : null
 
 /** SAN-101: two labels on one line, then how many more; the rest on hover. `oneOnPhone` (SAN-122): one whole label below md. */
 export const LabelChips = ({
@@ -154,6 +166,7 @@ export const IssueCard = memo(
         >
           {card.key}
         </span>
+        <BlockedMarker card={card} />
         <SubtaskCount card={card} />
         <LabelChips labels={card.labels} />
         <span className='ms-auto flex shrink-0 items-center gap-2'>

@@ -43,6 +43,11 @@ const IssueMenu = lazy(() =>
   import('./issue-menu').then((module) => ({ default: module.IssueMenu }))
 )
 
+// Lazy: links and their issue picker would push the issue page past its D39 budget.
+const IssueLinks = lazy(() =>
+  import('./issue-links').then((module) => ({ default: module.IssueLinks }))
+)
+
 const DeleteIssueDialog = lazy(() =>
   import('@/features/delete-issue/delete-issue-dialog').then((module) => ({
     default: module.DeleteIssueDialog,
@@ -303,6 +308,9 @@ export const IssueDetail = ({
               {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
                 <IssueSubtasks issue={issue} projectKey={projectKey} />
               )}
+              <Suspense fallback={<Skeleton className='h-11 w-full md:h-8' />}>
+                <IssueLinks projectKey={projectKey} number={number} />
+              </Suspense>
               <IssueComments
                 projectKey={projectKey}
                 number={number}

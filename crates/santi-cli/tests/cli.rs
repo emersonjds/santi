@@ -593,6 +593,95 @@ fn comments_are_edited_and_deleted_by_their_author_or_an_admin() {
 }
 
 #[test]
+fn issues_are_linked_shown_and_unlinked() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "LNK", "kanban");
+    for summary in ["Source", "Target"] {
+        santi
+            .with(&token)
+            .args(["issues", "create", "LNK", "--summary", summary])
+            .assert()
+            .success();
+    }
+
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "blocks", "lnk-2"])
+        .assert()
+        .success()
+        .stdout("LNK-1 blocks LNK-2\n");
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "relates", "LNK-2"])
+        .assert()
+        .success()
+        .stdout("LNK-1 relates to LNK-2\n");
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "sideways", "LNK-2"])
+        .assert()
+        .code(2);
+    santi
+        .with(&token)
+        .args(["issues", "show", "LNK-2"])
+        .assert()
+        .success()
+        .stdout(contains(
+            "\n\nLinks:\n  is blocked by: LNK-1 Source [To Do]\n  relates to: LNK-1 Source [To Do]\n",
+        ));
+    let shown = json(santi.with(&token).args(["issues", "show", "LNK-1"]));
+    assert_eq!(shown["key"], "LNK-1");
+    assert_eq!(shown["links"][0]["relation"], "blocks");
+    assert_eq!(shown["links"][0]["issue"]["key"], "LNK-2");
+
+    santi
+        .with(&token)
+        .args(["issues", "unlink", "LNK-2", "LNK-1"])
+        .assert()
+        .code(2)
+        .stderr(contains(
+            "LNK-2 has 2 links to LNK-1 (is blocked by, relates to)",
+        ));
+    santi
+        .with(&token)
+        .args([
+            "issues",
+            "unlink",
+            "LNK-2",
+            "LNK-1",
+            "--relation",
+            "is-blocked-by",
+        ])
+        .assert()
+        .success()
+        .stdout("Unlinked LNK-2 is blocked by LNK-1\n");
+    let removed = json(
+        santi
+            .with(&token)
+            .args(["issues", "unlink", "LNK-1", "LNK-2"]),
+    );
+    assert_eq!(removed["relation"], "relates");
+    santi
+        .with(&token)
+        .args(["issues", "unlink", "LNK-1", "LNK-2"])
+        .assert()
+        .code(1)
+        .stderr(contains("no link between LNK-1 and LNK-2"));
+    santi
+        .with(&token)
+        .args(["issues", "show", "LNK-1"])
+        .assert()
+        .success()
+        .stdout(contains("Links:").not());
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "blocks", "LNK-1"])
+        .assert()
+        .code(5);
+}
+
+#[test]
 fn attachments_are_attached_listed_downloaded_and_deleted() {
     let santi = Santi::new();
     let token = server().user();
