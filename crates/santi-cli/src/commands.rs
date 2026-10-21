@@ -103,8 +103,7 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
             text,
             filter,
         } => {
-            let (filter, status, page) = filters(Some(text), filter);
-            let found = client.issues(&project, &filter, &status, &page).await?;
+            let found = issue_page(&client, &project, Some(text), filter).await?;
             show(json, &found, page_text)
         }
         Command::Comment(args) => comment(&client, args, json).await,
@@ -209,8 +208,7 @@ async fn login(
 async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(), Error> {
     match command {
         IssuesCommand::List { project, filter } => {
-            let (filter, status, page) = filters(None, filter);
-            let found = client.issues(&project, &filter, &status, &page).await?;
+            let found = issue_page(client, &project, None, filter).await?;
             show(json, &found, page_text)
         }
         IssuesCommand::Show { issue } => show(json, &client.issue(&issue).await?, issue_text),
@@ -592,6 +590,28 @@ fn suggested_mapping(preview: &ImportPreview) -> ImportMapping {
     }
 }
 
+/// One page of `issues list` or `search`; with `--all`, every page merged into one.
+async fn issue_page(
+    client: &Client,
+    project: &ProjectKey,
+    q: Option<String>,
+    filter: Filter,
+) -> Result<Page<Issue>, Error> {
+    let all = filter.all;
+    let (filter, status, mut page) = filters(q, filter);
+    if all {
+        page.limit.get_or_insert(200);
+    }
+    let mut found = client.issues(project, &filter, &status, &page).await?;
+    while all && let Some(cursor) = found.next_cursor {
+        page.cursor = Some(cursor);
+        let next = client.issues(project, &filter, &status, &page).await?;
+        found.items.extend(next.items);
+        found.next_cursor = next.next_cursor.filter(|&next| next != cursor);
+    }
+    Ok(found)
+}
+
 fn filters(q: Option<String>, filter: Filter) -> (IssueFilter, StatusFilter, PageParams) {
     let issues = IssueFilter {
         assignee: filter.assignee,
@@ -602,7 +622,7 @@ fn filters(q: Option<String>, filter: Filter) -> (IssueFilter, StatusFilter, Pag
     };
     let page = PageParams {
         limit: filter.limit,
-        cursor: None,
+        cursor: filter.cursor,
     };
     (
         issues,
@@ -925,8 +945,9 @@ fn ago(then: DateTime<Utc>, now: DateTime<Utc>) -> String {
 
 fn page_text(page: &Page<Issue>) -> String {
     let mut text = lines(&page.items, issue_line);
-    if page.next_cursor.is_some() {
-        text.push_str("\n… more issues; raise --limit");
+    if let Some(cursor) = page.next_cursor {
+        let more = format!("\n… more issues not shown; see them with --cursor {cursor}");
+        text.push_str(&more);
     }
     text
 }
