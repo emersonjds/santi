@@ -328,17 +328,41 @@ pub async fn delete_sessions(conn: &mut PgConnection, user_id: i64) -> Result<()
     Ok(())
 }
 
-/// Inside a transaction, also locks the account until it ends.
 pub async fn find_password_hash(
     conn: &mut PgConnection,
     user_id: i64,
 ) -> Result<String, sqlx::Error> {
-    sqlx::query_scalar!(
-        "SELECT password_hash FROM app_user WHERE id = $1 FOR UPDATE",
-        user_id
+    sqlx::query_scalar!("SELECT password_hash FROM app_user WHERE id = $1", user_id)
+        .fetch_one(&mut *conn)
+        .await
+}
+
+/// D60: false when the stored hash is no longer `old` (changed meanwhile).
+pub async fn replace_password_hash(
+    conn: &mut PgConnection,
+    user_id: i64,
+    old: &str,
+    new: &str,
+) -> Result<bool, sqlx::Error> {
+    let updated = sqlx::query!(
+        "UPDATE app_user SET password_hash = $3 WHERE id = $1 AND password_hash = $2",
+        user_id,
+        old,
+        new
     )
-    .fetch_one(&mut *conn)
-    .await
+    .execute(&mut *conn)
+    .await?;
+    Ok(updated.rows_affected() == 1)
+}
+
+pub async fn delete_password_resets(
+    conn: &mut PgConnection,
+    user_id: i64,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!("DELETE FROM password_reset WHERE user_id = $1", user_id)
+        .execute(&mut *conn)
+        .await?;
+    Ok(())
 }
 
 /// D45: the projects the user belongs to, locked so roles cannot change underneath the departure.
@@ -424,9 +448,7 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
         .execute(&mut *conn)
         .await?;
     // Before auth_token: waits for a reset in flight to commit, then deletes the session it made.
-    sqlx::query!("DELETE FROM password_reset WHERE user_id = $1", user_id)
-        .execute(&mut *conn)
-        .await?;
+    delete_password_resets(conn, user_id).await?;
     sqlx::query!("DELETE FROM auth_token WHERE user_id = $1", user_id)
         .execute(&mut *conn)
         .await?;

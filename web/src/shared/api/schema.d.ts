@@ -2883,7 +2883,16 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Wrong current password (`current`); new one breaks the rules or equals the current one (`new`) */
+            /** @description The password changed meanwhile; try again */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Wrong current password (`current`); new one breaks the rules or equals the current one (`new`, checked first and spends no attempt) */
             422: {
                 headers: {
                     [name: string]: unknown;

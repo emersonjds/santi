@@ -305,31 +305,33 @@ pub async fn reset_password(
     Ok((user, session))
 }
 
-/// D60: checks `current` with the account locked, stores the new hash and ends every other
-/// session in one transaction. API tokens stay; a token caller ends every session.
+/// D60: `new` is checked by the handler first. Checks `current` outside any transaction, then stores the new hash only if the stored
+/// one is unchanged, ends every other session and kills reset links in one transaction.
+/// API tokens stay; a token caller ends every session.
 pub async fn change_password(
     pool: &PgPool,
     user: &CurrentUser,
     input: ChangePassword,
 ) -> Result<SignedOut, AppError> {
-    let mut tx = pool.begin().await?;
-    let stored_hash = repo::find_password_hash(&mut tx, user.id).await?;
-    if !verify_in_background(input.current.clone(), stored_hash).await? {
+    let mut conn = pool.acquire().await?;
+    let stored_hash = repo::find_password_hash(&mut conn, user.id).await?;
+    drop(conn);
+    if !verify_in_background(input.current, stored_hash.clone()).await? {
         return Err(AppError::invalid(
             "current",
             "The current password is not right.",
         ));
     }
-    domain::check_password_field("new", &input.new)?;
-    if input.new == input.current {
-        return Err(AppError::invalid(
-            "new",
-            "Choose a password different from the current one.",
+    let password_hash = hash_in_background(input.new).await?;
+    let mut tx = pool.begin().await?;
+    if !repo::replace_password_hash(&mut tx, user.id, &stored_hash, &password_hash).await? {
+        return Err(AppError::conflict(
+            "password-changed",
+            "Your password changed meanwhile; try again.",
         ));
     }
-    let password_hash = hash_in_background(input.new).await?;
-    repo::set_password_hash(&mut tx, user.id, &password_hash).await?;
     let signed_out = repo::delete_other_sessions(&mut tx, user.id, user.token_id).await?;
+    repo::delete_password_resets(&mut tx, user.id).await?;
     tx.commit().await?;
     Ok(SignedOut { signed_out })
 }

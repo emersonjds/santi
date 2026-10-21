@@ -2,6 +2,7 @@ mod common;
 
 use axum::http::{Method, StatusCode, header};
 use common::{PASSWORD, TestApp, body_json, json_request, session_cookie};
+use santi_server::auth::service::create_password_reset;
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
@@ -134,6 +135,38 @@ async fn repeated_password_changes_are_rate_limited(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn a_new_password_that_breaks_the_rules_spends_no_attempt(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let laptop = sign_in(&ana, "ana@example.com", CHROME_ON_MAC).await;
+    for _ in 0..6 {
+        let (status, problem) = change_password(&ana, &laptop, "not the password", "short").await;
+        assert_eq!(problem["errors"][0]["field"], "new", "{status} {problem}");
+    }
+
+    let (status, body) = change_password(&ana, &laptop, PASSWORD, NEW_PASSWORD).await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+}
+
+#[sqlx::test]
+async fn changing_the_password_kills_a_reset_link_issued_before(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let laptop = sign_in(&ana, "ana@example.com", CHROME_ON_MAC).await;
+    let (token, _) = create_password_reset(&pool, "ana@example.com")
+        .await
+        .unwrap()
+        .unwrap();
+
+    let (status, body) = change_password(&ana, &laptop, PASSWORD, NEW_PASSWORD).await;
+
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let uri = format!("/api/password-resets/{token}");
+    assert_eq!(ana.get(&uri).await.0, StatusCode::NOT_FOUND);
+    let body = json!({ "password": "a password from the old link" });
+    assert_eq!(ana.post(&uri, body).await.0, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test]
 async fn the_list_shows_each_session_newest_activity_first_and_marks_this_one(pool: PgPool) {
     let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
     let laptop = sign_in(&ana, "ana@example.com", CHROME_ON_MAC).await;
@@ -214,6 +247,24 @@ async fn activity_is_refreshed_only_after_ten_minutes(pool: PgPool) {
     with_cookie(&ana, &laptop, Method::GET, "/api/projects/NOPE/board", None).await;
     let refreshed = last_used().await;
     assert!(chrono::Utc::now() - refreshed < chrono::Duration::minutes(1));
+
+    sqlx::query("UPDATE auth_token SET last_used_at = now() - interval '11 minutes'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    me(&ana, &laptop).await;
+    assert!(chrono::Utc::now() - last_used().await < chrono::Duration::minutes(1));
+    let token_last_used = || async {
+        sqlx::query_scalar::<_, chrono::DateTime<chrono::Utc>>(
+            "SELECT last_used_at FROM auth_token WHERE kind = 'api'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap()
+    };
+    let rewound = token_last_used().await;
+    assert_eq!(ana.get("/api/me").await.0, StatusCode::OK);
+    assert_eq!(token_last_used().await, rewound);
 }
 
 #[sqlx::test]
@@ -250,7 +301,7 @@ async fn signing_out_one_session_or_all_others(pool: PgPool) {
 
 #[sqlx::test]
 async fn this_session_and_other_people_sessions_cannot_be_signed_out_here(pool: PgPool) {
-    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     let laptop = sign_in(&ana, "ana@example.com", CHROME_ON_MAC).await;
     let bob_laptop = sign_in(&bob, "bob@example.com", CHROME_ON_MAC).await;
@@ -270,6 +321,15 @@ async fn this_session_and_other_people_sessions_cannot_be_signed_out_here(pool: 
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert_eq!(me(&bob, &bob_laptop).await, StatusCode::OK);
     assert_eq!(me(&ana, &laptop).await, StatusCode::OK);
+
+    let token_id: i64 = sqlx::query_scalar("SELECT id FROM auth_token WHERE kind = 'api' AND user_id = (SELECT id FROM app_user WHERE email = 'ana@example.com')")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let uri = format!("/api/me/sessions/{token_id}");
+    let (status, _) = with_cookie(&ana, &laptop, Method::DELETE, &uri, None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(ana.get("/api/me").await.0, StatusCode::OK);
 }
 
 #[sqlx::test]
