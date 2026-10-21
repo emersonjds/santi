@@ -14,7 +14,7 @@ santi-types = { path = "crates/santi-types" }
 santi-server = { path = "crates/santi-server" }
 axum = { version = "0.8.9", features = ["macros", "multipart"] }
 axum-extra = { version = "0.12.6", features = ["query"] }
-tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "time"] }
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "time", "sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_path_to_error = "0.1"

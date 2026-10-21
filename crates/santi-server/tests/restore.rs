@@ -160,7 +160,7 @@ async fn send_raw(app: &TestApp, body: Vec<u8>) -> (StatusCode, Value) {
 
 #[sqlx::test]
 async fn a_restored_project_exports_like_the_original(pool: PgPool) {
-    let (ana, _bob) = shop(pool).await;
+    let (ana, bob) = shop(pool).await;
     let original = export_of(&ana, "SHOP").await;
     assert_eq!(original["board"]["columns"].as_array().unwrap().len(), 4);
     assert_eq!(original["board"]["unmapped"][0]["name"], "Blocked");
@@ -179,7 +179,13 @@ async fn a_restored_project_exports_like_the_original(pool: PgPool) {
         ),
         (&json!(5), &json!(2), &json!(2))
     );
-    assert_eq!(restored["problems"], json!([]));
+    assert_eq!(
+        restored["problems"],
+        json!([
+            { "issue_key": "SHOP-2", "message": "assignee bob@example.com was cleared; invite them to assign them again" },
+            { "issue_key": "SHOP-1", "message": "a comment by bob@example.com shows you as its author now" }
+        ])
+    );
     assert!(
         restored["not_restored"]
             .as_str()
@@ -187,7 +193,23 @@ async fn a_restored_project_exports_like_the_original(pool: PgPool) {
             .contains("ttachments")
     );
     let again = export_of(&ana, "SHOP").await;
-    assert_eq!(comparable(again), comparable(original));
+    let mut expected = original.clone();
+    expected["members"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|member| member["user_id"] == ana.user_id);
+    for issue in expected["issues"].as_array_mut().unwrap() {
+        if issue["assignee_id"] == bob.user_id {
+            issue["assignee_id"] = Value::Null;
+            issue["assignee_name"] = Value::Null;
+        }
+    }
+    for comment in expected["comments"].as_array_mut().unwrap() {
+        if comment["author_id"] == bob.user_id {
+            comment["author_id"] = json!(ana.user_id);
+        }
+    }
+    assert_eq!(comparable(again.clone()), comparable(expected));
 
     let created = ana
         .create_issue("SHOP", json!({ "summary": "After the restore" }))
@@ -198,6 +220,20 @@ async fn a_restored_project_exports_like_the_original(pool: PgPool) {
     );
     let (status, report) = ana.get("/api/projects/SHOP/backlog").await;
     assert_eq!(status, StatusCode::OK, "{report}");
+    let closed = again["sprints"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|sprint| sprint["state"] == "closed")
+        .unwrap();
+    let (status, report) = ana
+        .get(&format!(
+            "/api/projects/SHOP/sprints/{}/report",
+            closed["id"]
+        ))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{report}");
+    assert_eq!(report["groups"][0]["issues"][0]["key"], "SHOP-4");
 }
 
 #[sqlx::test]
@@ -221,38 +257,59 @@ async fn restoring_a_key_that_exists_changes_nothing(pool: PgPool) {
 }
 
 #[sqlx::test]
-async fn people_missing_here_give_way_to_the_caller(pool: PgPool) {
+async fn a_stranger_restoring_a_file_brings_nobody_else_in(pool: PgPool) {
     let (ana, bob) = shop(pool).await;
     let mut file = export_of(&ana, "SHOP").await;
     purge(&ana, "SHOP").await;
-    let gone = 987_654;
-    file["issues"][1]["reporter_id"] = json!(gone);
-    file["comments"][1]["author_id"] = json!(gone);
-    file["members"] = json!([{ "user_id": gone, "email": "x@example.com", "display_name": "X", "role": "admin" }]);
+    let erased = 987_654;
+    file["issues"][1]["reporter_id"] = json!(erased);
+    let edited = file["comments"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|comment| !comment["edited_by_id"].is_null())
+        .unwrap();
+    edited["edited_by_id"] = json!(bob.user_id);
     let carol = ana.another_user("carol@example.com").await;
 
     let (status, restored) = carol.post(RESTORE, file.clone()).await;
 
     assert_eq!(status, StatusCode::CREATED, "{restored}");
     assert_eq!(restored["project"]["role"], "admin");
-    let keys: Vec<&str> = restored["problems"]
+    for outsider in [&ana, &bob] {
+        let (status, _) = outsider.get("/api/projects/SHOP").await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "named in the file only");
+    }
+    let mine = export_of(&carol, "SHOP").await;
+    let members: Vec<&Value> = mine["members"].as_array().unwrap().iter().collect();
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0]["user_id"], carol.user_id);
+    for issue in mine["issues"].as_array().unwrap() {
+        assert_eq!(issue["assignee_id"], Value::Null, "{issue}");
+        assert_eq!(issue["reporter_id"], carol.user_id, "{issue}");
+    }
+    for comment in mine["comments"].as_array().unwrap() {
+        assert_eq!(comment["author_id"], carol.user_id, "{comment}");
+        assert!(
+            comment["edited_by_id"].is_null() || comment["edited_by_id"] == carol.user_id,
+            "{comment}"
+        );
+    }
+    let messages: Vec<&str> = restored["problems"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|problem| problem["issue_key"].as_str().unwrap())
+        .map(|problem| problem["message"].as_str().unwrap())
         .collect();
-    assert_eq!(keys, ["SHOP-2", "SHOP-1"]);
-    let story = carol.get("/api/projects/SHOP/issues/2").await.1;
-    assert_eq!(story["reporter_id"], carol.user_id);
-    assert_eq!(story["assignee_id"], bob.user_id, "Bob still exists");
-    let (status, _) = ana.get("/api/projects/SHOP").await;
-    assert_eq!(
-        status,
-        StatusCode::NOT_FOUND,
-        "Ana was not in the file's members"
-    );
-    let (status, _) = bob.get("/api/projects/SHOP").await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(messages.len(), 5 + 1 + 2 + 1, "{messages:?}");
+    for wanted in [
+        "reporter ana@example.com is you now",
+        "assignee bob@example.com was cleared; invite them to assign them again",
+        "a comment by ana@example.com shows you as its author now",
+        "a comment edited by bob@example.com shows you as its editor now",
+    ] {
+        assert!(messages.contains(&wanted), "{wanted}: {messages:?}");
+    }
 }
 
 #[sqlx::test]
@@ -267,10 +324,20 @@ async fn a_file_that_is_not_a_project_export_is_refused(pool: PgPool) {
     let (wrong, problem) = ana.post(RESTORE, json!({ "project": 5 })).await;
     assert_eq!(wrong, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
     assert_eq!(problem["errors"][0]["field"], "project");
+    let mut twin_status = file.clone();
+    twin_status["board"]["unmapped"][0]["name"] = json!("Done");
+    let mut twin_rank = file.clone();
+    twin_rank["issues"][1]["rank"] = file["issues"][0]["rank"].clone();
     file["issues"][2]["status_name"] = json!("Nowhere");
-    let (unknown, problem) = ana.post(RESTORE, file).await;
-    assert_eq!(unknown, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
-    assert_eq!(problem["errors"][0]["field"], "issues[2].status_name");
+    for (changed, field) in [
+        (file, "issues[2].status_name"),
+        (twin_status, "board.unmapped[0].name"),
+        (twin_rank, "issues[1].rank"),
+    ] {
+        let (status, problem) = ana.post(RESTORE, changed).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+        assert_eq!(problem["errors"][0]["field"], field);
+    }
     let (huge, _) = send_raw(&ana, vec![b' '; 50 * 1024 * 1024 + 1]).await;
     assert_eq!(huge, StatusCode::PAYLOAD_TOO_LARGE);
     let (anonymous, _) = TestApp::anonymous(pool).post(RESTORE, json!({})).await;

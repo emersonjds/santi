@@ -6,16 +6,6 @@ use sqlx::PgConnection;
 
 use super::domain::key_number;
 
-/// The ids among `ids` of accounts that exist and are not erased.
-pub async fn live_users(conn: &mut PgConnection, ids: &[i64]) -> Result<Vec<i64>, sqlx::Error> {
-    sqlx::query_scalar!(
-        "SELECT id FROM app_user WHERE id = ANY($1) AND deleted_at IS NULL",
-        ids
-    )
-    .fetch_all(&mut *conn)
-    .await
-}
-
 /// A sprint with the state and instants of the file.
 pub async fn insert_sprint(
     conn: &mut PgConnection,
