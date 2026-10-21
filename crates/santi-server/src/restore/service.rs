@@ -28,6 +28,7 @@ pub async fn restore(
     .await
     .map_err(|error| AppError::Internal(error.to_string()))??;
     let mut tx = pool.begin().await?;
+    crate::timeouts::allow_long_statements(&mut tx).await?;
     // ponytail: two restores of one key racing past this check: the second gets the generic 409.
     if projects::repo::find_key_state(&mut tx, &key)
         .await?
