@@ -124,5 +124,6 @@ Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-By contributing, you agree that your contributions are dual-licensed under
-[MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at the user's option.
+By contributing, you agree that your contributions are licensed under the
+[GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only), the project's license. The name
+and logo are covered by the [trademark policy](TRADEMARK.md).
