@@ -23,6 +23,7 @@ http-body-util = "0.1"
 log = "0.4"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "postgres", "macros", "migrate", "chrono"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock", "serde", "std"] }
+chrono-tz = "0.10"
 utoipa = { version = "6", features = ["chrono"] }
 utoipa-axum = "0.3"
 utoipa-swagger-ui = { version = "10", features = ["axum", "vendored"] }
