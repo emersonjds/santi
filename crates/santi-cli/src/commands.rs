@@ -225,7 +225,7 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
             let (found, links) = tokio::join!(client.issue(&issue), client.links(&issue));
             let shown = IssueWithLinks {
                 issue: found?,
-                links: links?,
+                links: links.unwrap_or_default(),
             };
             show(json, &shown, |shown| match shown.links.is_empty() {
                 true => issue_text(&shown.issue),
@@ -1865,6 +1865,47 @@ mod tests {
             }
         });
         format!("http://{address}")
+    }
+
+    /// Answers SAN-97 and fails its links with a 500.
+    async fn links_down_server() -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let issue = serde_json::to_string(&issue()).unwrap();
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut buffer = [0; 4096];
+                let read = stream.read(&mut buffer).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buffer[..read]).into_owned();
+                let (status, body) =
+                    match request.starts_with("GET /api/projects/SAN/issues/97/links") {
+                        true => ("500 Internal Server Error", "{}"),
+                        false => ("200 OK", issue.as_str()),
+                    };
+                let answer = format!(
+                    "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = stream.write_all(answer.as_bytes()).await;
+            }
+        });
+        format!("http://{address}")
+    }
+
+    #[tokio::test]
+    async fn issues_show_falls_back_to_no_links_when_they_cannot_be_read() {
+        let client = Client::new(&links_down_server().await, None).unwrap();
+        let shown = issues(
+            &client,
+            IssuesCommand::Show {
+                issue: "SAN-97".parse().unwrap(),
+            },
+            true,
+        )
+        .await;
+        assert!(shown.is_ok(), "{shown:?}");
     }
 
     #[tokio::test]
