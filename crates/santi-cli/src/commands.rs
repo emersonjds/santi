@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Local, Utc};
 use santi_types::Problem;
 use santi_types::attachments::Attachment;
-use santi_types::auth::AccountExport;
+use santi_types::auth::{AccountExport, ChangePassword};
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
@@ -52,6 +52,17 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
             show(json, &me, |me| {
                 format!("{} <{}>", me.display_name, me.email)
             })
+        }
+        Command::Password => {
+            let change = ChangePassword {
+                current: secret("Current password: ")?,
+                new: secret("New password: ")?,
+            };
+            if secret("Repeat new password: ")? != change.new {
+                return Err(Error::Usage("Passwords do not match.".into()));
+            }
+            let done = client.change_password(&change).await?;
+            show(json, &done, |done| password_text(done.signed_out))
         }
         Command::Projects(command) => projects(&client, command, json).await,
         Command::Issues(command) => issues(&client, command, json).await,
@@ -779,6 +790,28 @@ fn ask(question: &str) -> Result<String, Error> {
     Ok(answer.trim().to_string())
 }
 
+/// Without echo on a terminal; piped input keeps every character but the line break.
+fn secret(question: &str) -> Result<String, Error> {
+    eprint!("{question}");
+    std::io::stderr().flush().ok();
+    let mut answer = String::new();
+    let read = match std::io::stdin().is_terminal() {
+        true => rpassword::read_password().map(|typed| answer = typed),
+        false => std::io::stdin().lock().read_line(&mut answer).map(drop),
+    };
+    read.map_err(|error| Error::Other(error.to_string()))?;
+    Ok(answer.trim_end_matches(['\r', '\n']).to_string())
+}
+
+fn password_text(signed_out: i64) -> String {
+    let others = match signed_out {
+        0 => "No other sessions were".to_string(),
+        1 => "1 other session was".to_string(),
+        n => format!("{n} other sessions were"),
+    };
+    format!("Password changed. {others} signed out.")
+}
+
 fn confirm(question: &str) -> Result<bool, Error> {
     let answer = ask(&format!("{question} [y/N] "))?;
     Ok(answer.eq_ignore_ascii_case("y") || answer.eq_ignore_ascii_case("yes"))
@@ -1315,6 +1348,22 @@ mod tests {
     use santi_types::projects::{BoardType, InviteJoiner, MemberRole, RestoreProblem};
 
     use super::*;
+
+    #[test]
+    fn password_text_counts_the_other_sessions() {
+        assert_eq!(
+            password_text(0),
+            "Password changed. No other sessions were signed out."
+        );
+        assert_eq!(
+            password_text(1),
+            "Password changed. 1 other session was signed out."
+        );
+        assert_eq!(
+            password_text(3),
+            "Password changed. 3 other sessions were signed out."
+        );
+    }
 
     #[test]
     fn short_name_keeps_first_and_last_word() {

@@ -1297,3 +1297,51 @@ fn restore_recreates_each_project_of_an_export_then_skips_existing_keys() {
         .code(2)
         .stderr(contains("not a santi export: "));
 }
+
+#[test]
+fn password_changes_and_signs_out_the_other_sessions() {
+    let santi = Santi::new();
+    let token = server().user();
+    santi
+        .with(&token)
+        .arg("password")
+        .write_stdin("correct horse battery\nstaple battery horse\nstaple battery horse\n")
+        .assert()
+        .success()
+        .stdout("Password changed. 1 other session was signed out.\n")
+        .stderr(contains("Current password:"))
+        .stderr(contains("Repeat new password:"));
+    let changed = json(
+        santi
+            .with(&token)
+            .arg("password")
+            .write_stdin("staple battery horse\nthird horse battery\nthird horse battery\n"),
+    );
+    assert_eq!(changed, json!({ "signed_out": 0 }));
+}
+
+#[test]
+fn password_with_a_wrong_current_one_shows_the_api_message() {
+    let santi = Santi::new();
+    let token = server().user();
+    santi
+        .with(&token)
+        .arg("password")
+        .write_stdin("wrong horse battery\nstaple battery horse\nstaple battery horse\n")
+        .assert()
+        .code(5)
+        .stderr(contains("The current password is not right."));
+}
+
+#[test]
+fn password_mismatch_is_refused_before_any_request() {
+    let santi = Santi::new();
+    let token = server().user();
+    santi
+        .with(&token)
+        .arg("password")
+        .write_stdin("wrong horse battery\nstaple battery horse\nstaple battery hors\n")
+        .assert()
+        .code(2)
+        .stderr(contains("Passwords do not match."));
+}
