@@ -6,7 +6,7 @@ use std::time::Duration;
 use reqwest::multipart::{Form, Part};
 use reqwest::{Method, RequestBuilder, Response, Url};
 use santi_types::attachments::Attachment;
-use santi_types::auth::{ProjectExport, User};
+use santi_types::auth::{ChangePassword, ProjectExport, SignedOut, User};
 use santi_types::boards::{Backlog, BoardSettings, BoardView};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult};
 use santi_types::issues::{
@@ -97,6 +97,11 @@ impl Client {
 
     pub async fn me(&self) -> Result<User, Error> {
         self.send(self.request(Method::GET, &["me"])).await
+    }
+
+    pub async fn change_password(&self, change: &ChangePassword) -> Result<SignedOut, Error> {
+        let request = self.request(Method::POST, &["me", "password"]);
+        self.send(request.json(change)).await
     }
 
     pub async fn projects(&self, state: ProjectState) -> Result<Vec<Project>, Error> {

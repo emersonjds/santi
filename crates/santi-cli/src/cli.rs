@@ -38,6 +38,8 @@ pub enum Command {
     Login,
     /// Show the signed-in user
     Whoami,
+    /// Change your password and sign out your other sessions (asked for, never an argument)
+    Password,
     #[command(subcommand)]
     Projects(ProjectsCommand),
     #[command(subcommand)]

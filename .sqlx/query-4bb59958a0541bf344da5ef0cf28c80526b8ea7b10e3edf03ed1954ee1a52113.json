@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH gone AS (\n             DELETE FROM auth_token WHERE user_id = $1 AND kind = 'session' AND id <> $2\n             RETURNING expires_at)\n           SELECT count(*) FILTER (WHERE expires_at > now()) AS \"count!\" FROM gone",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "count!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4bb59958a0541bf344da5ef0cf28c80526b8ea7b10e3edf03ed1954ee1a52113"
+}

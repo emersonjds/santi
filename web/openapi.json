@@ -644,6 +644,75 @@
         }
       }
     },
+    "/api/me/password": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "change_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePassword"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed; every other session ended (all of them for an API token caller). API tokens stay (D60)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The password changed meanwhile; try again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Wrong current password (`current`); new one breaks the rules or equals the current one (`new`, checked first and spends no attempt)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many password attempts for this account or address (D44); wait `Retry-After` seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/projects": {
       "get": {
         "tags": [
@@ -734,6 +803,119 @@
           },
           "422": {
             "description": "Limit out of range",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/sessions": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "list_sessions",
+        "responses": {
+          "200": {
+            "description": "Live sessions, most recent activity first; `current` marks the caller's (D60)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Session"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "delete_other_sessions",
+        "responses": {
+          "200": {
+            "description": "Every session but the caller's ended; API tokens stay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/me/sessions/{id}": {
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "delete_session",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Session id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Session ended"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No session of the caller with this id",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The caller's own session (`id`): sign out with `POST /api/auth/logout`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6331,6 +6513,23 @@
           }
         }
       },
+      "ChangePassword": {
+        "type": "object",
+        "description": "No `Debug`: passwords never reach a log.",
+        "required": [
+          "current",
+          "new"
+        ],
+        "properties": {
+          "current": {
+            "type": "string"
+          },
+          "new": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
       "Column": {
         "type": "object",
         "required": [
@@ -8854,6 +9053,37 @@
           }
         }
       },
+      "Session": {
+        "type": "object",
+        "description": "A signed-in browser (D60). `client` is a device label (\"Chrome on macOS\"), never the raw\nuser agent; `current` marks the caller's own session.",
+        "required": [
+          "id",
+          "client",
+          "created_at",
+          "last_used_at",
+          "current"
+        ],
+        "properties": {
+          "client": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "current": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_used_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "SetRole": {
         "type": "object",
         "required": [
@@ -8865,6 +9095,19 @@
           }
         },
         "additionalProperties": false
+      },
+      "SignedOut": {
+        "type": "object",
+        "description": "How many other sessions a password change or a bulk sign-out ended.",
+        "required": [
+          "signed_out"
+        ],
+        "properties": {
+          "signed_out": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "Sprint": {
         "type": "object",
