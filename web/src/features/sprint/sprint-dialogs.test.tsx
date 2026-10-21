@@ -4,6 +4,7 @@ import { type Locator, page, userEvent } from 'vitest/browser'
 import type { Backlog } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
+  ALICE,
   WEB_BACKLOG,
   WEB_BOARD,
   card,
@@ -32,6 +33,13 @@ const PLANNED_TIMES: Backlog = {
     },
     NO_SPRINT,
   ],
+}
+
+const IN_AUCKLAND = {
+  'GET /api/me': {
+    status: 200,
+    body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+  },
 }
 
 const bodyOf = async (requests: Request[], route: string) =>
@@ -142,6 +150,72 @@ describe('sprint dialogs', () => {
         starts_at: '2026-11-02T14:00:00.000Z',
         ends_at: '2026-11-17T04:59:00.000Z',
       })
+  })
+
+  it("writes the times as wall clock in the account's time zone", async () => {
+    const requests = inProjects({
+      ...IN_AUCKLAND,
+      'PUT /api/projects/WEB/sprints/5': { status: 200, body: {} },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await section(screen, 'Sprint 5')
+      .getByRole('button', { name: 'Add dates' })
+      .click()
+    const dialog = screen.getByRole('dialog', { name: 'Edit Sprint 5' })
+    await expect
+      .element(dialog)
+      .toHaveTextContent('Times use your time zone (GMT+13).')
+    await dialog.getByLabelText('Start date').fill('2026-10-21')
+    await dialog.getByLabelText('Start time').fill('09:00')
+    await dialog.getByLabelText('End date').fill('2026-10-22')
+    await dialog.getByRole('button', { name: 'Save' }).click()
+
+    await expect
+      .poll(() => bodyOf(requests, 'PUT /api/projects/WEB/sprints/5'))
+      .toEqual({
+        name: 'Sprint 5',
+        goal: '',
+        starts_at: '2026-10-20T20:00:00.000Z',
+        ends_at: '2026-10-22T10:59:00.000Z',
+      })
+  })
+
+  it("reads the planned times back in the account's time zone", async () => {
+    inProjects({
+      ...IN_AUCKLAND,
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: {
+          ...PLANNED_TIMES,
+          sections: [
+            {
+              ...PLANNED,
+              sprint: {
+                ...PLANNED.sprint!,
+                starts_at: '2026-10-20T20:00:00Z',
+                ends_at: '2026-10-22T10:59:00Z',
+              },
+            },
+            NO_SPRINT,
+          ],
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await screen.getByRole('button', { name: 'More for Sprint 5' }).click()
+    await screen.getByRole('menuitem', { name: 'Edit sprint' }).click()
+    const dialog = screen.getByRole('dialog', { name: 'Edit Sprint 5' })
+    await expectPair(dialog, 'Start', '2026-10-21', '09:00')
+    await expectPair(dialog, 'End', '2026-10-22', '23:59')
+  })
+
+  it("starts now on the account's clock", async () => {
+    const { dialog } = await openStart(NOT_RUNNING, IN_AUCKLAND)
+
+    await expectPair(dialog, 'Start', '2026-10-17', '11:00')
+    await expectPair(dialog, 'End', '2026-10-31', '11:00')
   })
 
   it('shows the planned times and clears the end of a future sprint', async () => {

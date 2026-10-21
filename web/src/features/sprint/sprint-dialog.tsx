@@ -13,6 +13,7 @@ import { backlogKey } from '@/entities/issue/backlog-query'
 import { boardQuery, boardsKey } from '@/entities/issue/board-query'
 import { issueCount } from '@/entities/issue/labels'
 import { sprintsQuery } from '@/entities/project/project-queries'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import {
   ApiError,
   type Backlog,
@@ -20,6 +21,7 @@ import {
   type CompleteSprint,
   type Sprint,
 } from '@/shared/api/client'
+import { instantToZonedWallTime } from '@/shared/lib/format-date'
 import { showProblem } from '@/shared/lib/show-problem'
 import { zoneName } from '@/shared/lib/sprint-dates'
 import { toast } from '@/shared/lib/toast'
@@ -58,7 +60,6 @@ import {
   fromInputs,
   nowToTheMinute,
   sprintWindow,
-  toInputs,
 } from './sprint-window'
 
 export type SprintAction =
@@ -89,12 +90,14 @@ type Moments = {
   ends_at: string
   ends_at_time: string
 }
-const startOf = (values: Moments) =>
-  fromInputs(values.starts_at, values.starts_at_time, '00:00')
-const endOf = (values: Moments) =>
-  fromInputs(values.ends_at, values.ends_at_time, '23:59')
+const startOf = (values: Moments, timeZone?: string) =>
+  fromInputs(values.starts_at, values.starts_at_time, '00:00', timeZone)
+const endOf = (values: Moments, timeZone?: string) =>
+  fromInputs(values.ends_at, values.ends_at_time, '23:59', timeZone)
 const ordered = (values: Moments) =>
-  !values.starts_at || !values.ends_at || endOf(values) > startOf(values)
+  !values.starts_at ||
+  !values.ends_at ||
+  endOf(values, 'UTC') > startOf(values, 'UTC')
 const ORDER = { message: 'End after the start.', path: ['ends_at'] }
 const moments = {
   starts_at: z.string(),
@@ -102,8 +105,10 @@ const moments = {
   ends_at: z.string(),
   ends_at_time: z.string(),
 }
-const pairOf = (instant?: string | null) =>
-  instant ? toInputs(new Date(instant)) : { day: '', time: '' }
+const pairOf = (instant: string | null | undefined, timeZone?: string) =>
+  instant
+    ? instantToZonedWallTime(new Date(instant), timeZone)
+    : { day: '', time: '' }
 const MOMENT_FIELDS = ['starts_at', 'ends_at'] as const
 
 const createSchema = z.object({
@@ -269,9 +274,9 @@ const MomentFields = <Values extends FieldValues>({
   </fieldset>
 )
 
-const ZoneLine = () => (
+const ZoneLine = ({ timeZone }: { timeZone?: string }) => (
   <p className='text-sm text-muted-foreground'>
-    Times use your time zone ({zoneName(new Date())}).
+    Times use your time zone ({zoneName(new Date(), timeZone)}).
   </p>
 )
 
@@ -321,8 +326,9 @@ type SprintFormProps = FormProps & { sprint: Sprint; section?: BacklogSection }
 
 const EditSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   const update = useUpdateSprint(projectKey)
-  const starts = pairOf(sprint.starts_at)
-  const ends = pairOf(sprint.ends_at)
+  const timeZone = useTimeZone()
+  const starts = pairOf(sprint.starts_at, timeZone)
+  const ends = pairOf(sprint.ends_at, timeZone)
   const form = useForm<z.infer<typeof editSchema>>({
     resolver: zodResolver(editSchema),
     defaultValues: {
@@ -340,8 +346,10 @@ const EditSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
         id: sprint.id,
         name: values.name,
         goal: values.goal,
-        starts_at: values.starts_at ? startOf(values).toISOString() : null,
-        ends_at: values.ends_at ? endOf(values).toISOString() : null,
+        starts_at: values.starts_at
+          ? startOf(values, timeZone).toISOString()
+          : null,
+        ends_at: values.ends_at ? endOf(values, timeZone).toISOString() : null,
       })
       .then(onClose, refusal(form, ['name', 'goal', ...MOMENT_FIELDS]))
   )
@@ -360,7 +368,7 @@ const EditSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
             legend='End'
             fields={['ends_at', 'ends_at_time']}
           />
-          <ZoneLine />
+          <ZoneLine timeZone={timeZone} />
           <TextField form={form} name='goal' label='Goal' textarea />
           <RootError message={form.formState.errors.root?.message} />
           <Actions
@@ -405,7 +413,11 @@ const DeleteSprintForm = ({ projectKey, sprint, onClose }: SprintFormProps) => {
   )
 }
 
-const startDefaults = (sprint: Sprint, length: string | null) => {
+const startDefaults = (
+  sprint: Sprint,
+  length: string | null,
+  timeZone?: string
+) => {
   const now = nowToTheMinute()
   const planned =
     sprint.ends_at && Date.parse(sprint.ends_at) > now.getTime()
@@ -413,8 +425,11 @@ const startDefaults = (sprint: Sprint, length: string | null) => {
       : null
   const remembered = length ?? '2w'
   const preset = PRESETS.some(([token]) => token === remembered)
-  const starts = toInputs(now)
-  const ends = toInputs(planned ?? sprintWindow(now, remembered))
+  const starts = instantToZonedWallTime(now, timeZone)
+  const ends = instantToZonedWallTime(
+    planned ?? sprintWindow(now, remembered, timeZone),
+    timeZone
+  )
   return {
     duration: planned || !preset ? CUSTOM : remembered,
     starts_at: starts.day,
@@ -432,24 +447,28 @@ const StartSprintForm = ({
   onClose,
 }: SprintFormProps & { section: BacklogSection; length: string | null }) => {
   const start = useStartSprint(projectKey)
+  const timeZone = useTimeZone()
   const form = useForm<z.infer<typeof startSchema>>({
     resolver: zodResolver(startSchema),
     defaultValues: {
       name: sprint.name,
       goal: sprint.goal,
-      ...startDefaults(sprint, length),
+      ...startDefaults(sprint, length, timeZone),
     },
   })
   const follow = () => {
     const values = form.getValues()
     if (values.duration === CUSTOM || !values.starts_at) return
-    const end = toInputs(sprintWindow(startOf(values), values.duration))
+    const end = instantToZonedWallTime(
+      sprintWindow(startOf(values, timeZone), values.duration, timeZone),
+      timeZone
+    )
     form.setValue('ends_at', end.day)
     form.setValue('ends_at_time', end.time)
   }
   const submit = form.handleSubmit(({ duration, ...values }) => {
-    const from = startOf(values)
-    const to = endOf(values)
+    const from = startOf(values, timeZone)
+    const to = endOf(values, timeZone)
     return start
       .mutateAsync({
         id: sprint.id,
@@ -513,7 +532,7 @@ const StartSprintForm = ({
             fields={['ends_at', 'ends_at_time']}
             onPick={() => form.setValue('duration', CUSTOM)}
           />
-          <ZoneLine />
+          <ZoneLine timeZone={timeZone} />
           <TextField form={form} name='goal' label='Goal' textarea />
           <RootError message={form.formState.errors.root?.message} />
           <Actions
