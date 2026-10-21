@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 33] = [
+const TOOLS: [&str; 34] = [
     "add_attachment",
     "add_comment",
     "archive_project",
@@ -28,6 +28,7 @@ const TOOLS: [&str; 33] = [
     "get_board",
     "get_issue",
     "get_sprint_report",
+    "get_team_progress",
     "list_attachments",
     "list_comments",
     "list_epics",
@@ -144,6 +145,46 @@ fn notifications_are_listed_and_marked_read() {
         let many = json!({ "ids": (1..=51).collect::<Vec<_>>() });
         let many = rejected(&client, "mark_notifications_read", many).await;
         assert!(many.contains("at most 50"), "{many}");
+        client.cancel().await.unwrap();
+    });
+}
+
+#[test]
+fn team_progress_is_the_api_answer() {
+    let admin = server().user();
+    let bob = server().user();
+    server().project(&admin, "MPP", "scrum");
+    server().member(&admin, "MPP", &bob);
+    let sprint = server().post(&admin, "/api/projects/MPP/sprints", json!({}));
+    for token in [&admin, &bob] {
+        let id = server().get(token, "/api/me")["id"].clone();
+        let issue =
+            json!({ "summary": "Ship", "assignee_id": id, "points": 2, "sprint_id": sprint["id"] });
+        server().post(&admin, "/api/projects/MPP/issues", issue);
+    }
+    let path = format!("/api/projects/MPP/sprints/{}/start", sprint["id"]);
+    server().post(&admin, &path, json!({}));
+    let api = server().get(&bob, "/api/projects/MPP/people");
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let mut command = santi(&config);
+        command.env("SANTI_TOKEN", &bob);
+        let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        let tools = client.list_all_tools().await.unwrap();
+        let tool = tools
+            .iter()
+            .find(|tool| tool.name == "get_team_progress")
+            .unwrap();
+        assert_eq!(tool.annotations.clone().unwrap().read_only_hint, Some(true));
+        let description = tool.description.as_deref().unwrap();
+        assert!(description.contains("untrusted"), "{description}");
+
+        let people = ok(&client, "get_team_progress", json!({ "project": "mpp" })).await;
+        assert_eq!(people, api);
+        assert_eq!(people["sprint"]["id"], sprint["id"]);
+        assert_eq!(people["people"].as_array().unwrap().len(), 2);
+        let missing = rejected(&client, "get_team_progress", json!({ "project": "NOPE" })).await;
+        assert_eq!(missing, "Nothing exists here, or you cannot see it.");
         client.cancel().await.unwrap();
     });
 }
