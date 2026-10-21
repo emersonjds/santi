@@ -35,6 +35,7 @@ const SHELL = split('_authenticated/route.tsx')
 
 const landing = [...withImports('landing.html')]
 
+// D39 caps every route at 170 KB; each limit sits ~5 KB above the measured size so growth is a decision.
 export default [
   {
     name: 'landing page JS (/ signed out, /about)',
@@ -58,19 +59,19 @@ export default [
   {
     name: 'initial JS, /login',
     path: firstVisit(split('login.tsx')),
-    limit: '170 KB',
+    limit: '157 KB',
     gzip: true,
   },
   {
     name: 'initial JS, / (home, with the shell)',
     path: firstVisit(SHELL, split('_authenticated/index.tsx')),
-    limit: '170 KB',
+    limit: '155 KB',
     gzip: true,
   },
   {
     name: 'initial JS, /projects (all projects)',
     path: firstVisit(SHELL, split('_authenticated/projects/index.tsx')),
-    limit: '170 KB',
+    limit: '165 KB',
     gzip: true,
   },
   {
@@ -86,7 +87,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/board.tsx')
     ),
-    limit: '170 KB',
+    limit: '168 KB',
     gzip: true,
   },
   {
@@ -139,7 +140,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/reports/index.tsx')
     ),
-    limit: '170 KB',
+    limit: '153 KB',
     gzip: true,
   },
   {
@@ -149,7 +150,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/people.tsx')
     ),
-    limit: '170 KB',
+    limit: '153 KB',
     gzip: true,
   },
   {
@@ -159,7 +160,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/reports/$id.tsx')
     ),
-    limit: '170 KB',
+    limit: '158 KB',
     gzip: true,
   },
   {
@@ -169,7 +170,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/members.tsx')
     ),
-    limit: '170 KB',
+    limit: '168 KB',
     gzip: true,
   },
   {
@@ -179,7 +180,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/index.tsx')
     ),
-    limit: '160 KB',
+    limit: '152 KB',
     gzip: true,
   },
   {
@@ -189,7 +190,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/import.tsx')
     ),
-    limit: '170 KB',
+    limit: '150 KB',
     gzip: true,
   },
 ]
