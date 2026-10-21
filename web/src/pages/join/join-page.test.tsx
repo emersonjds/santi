@@ -124,7 +124,9 @@ describe('join a project', () => {
 
     await expect
       .element(
-        screen.getByRole('region', { name: 'Invite' }).getByText('3 of 5 spots left')
+        screen
+          .getByRole('region', { name: 'Invite' })
+          .getByText('3 of 5 spots left')
       )
       .toBeVisible()
   })
