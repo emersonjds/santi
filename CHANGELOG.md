@@ -10,6 +10,23 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.24.1] - 2026-10-21
+
+> A security patch with updated TLS and archive dependencies, HSTS, and one search for the link picker.
+
+### Security
+
+- Updated `rustls-webpki`, `webpki-roots`, `webpki-root-certs` and the `zip` crate used by the API docs to fix RUSTSEC-2026-0381, -0382, -0383, -0367, -0368 and -0369. CI now fails on any open RustSec advisory, every third-party action and base image is pinned, and workflow tokens are read-only by default.
+- Every response sends `Strict-Transport-Security` (browsers ignore it over plain HTTP) and `X-Frame-Options: DENY`.
+
+### Changed
+
+- The linked-issues picker searches all your projects in one request (`GET /api/me/issues/search`).
+
+### Upgrade notes
+
+- New API: `GET /api/me/issues/search?q=&limit=&include_archived=`.
+
 ## [0.24.0] - 2026-10-21
 
 > Linked issues, restore from an export, password and sessions on your account, and a server ready to be measured.
@@ -793,7 +810,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.24.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.24.1...HEAD
+[0.24.1]: https://github.com/emersonjds/santi/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/emersonjds/santi/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/emersonjds/santi/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/emersonjds/santi/compare/v0.21.1...v0.22.0

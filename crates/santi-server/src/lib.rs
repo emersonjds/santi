@@ -27,8 +27,8 @@ use std::time::Duration;
 
 use axum::extract::{Request, State};
 use axum::http::header::{
-    CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_SECURITY_POLICY, REFERRER_POLICY, VARY,
-    X_CONTENT_TYPE_OPTIONS,
+    CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_SECURITY_POLICY, REFERRER_POLICY,
+    STRICT_TRANSPORT_SECURITY, VARY, X_CONTENT_TYPE_OPTIONS, X_FRAME_OPTIONS,
 };
 use axum::http::{Extensions, HeaderMap, HeaderValue, Response, StatusCode, Version};
 use axum::middleware::Next;
@@ -207,6 +207,15 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
         .layer(SetResponseHeaderLayer::if_not_present(
             REFERRER_POLICY,
             HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ))
+        // Browsers ignore this header over plain HTTP (RFC 6797), so localhost is unaffected.
+        .layer(SetResponseHeaderLayer::if_not_present(
+            STRICT_TRANSPORT_SECURITY,
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        ))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            X_FRAME_OPTIONS,
+            HeaderValue::from_static("DENY"),
         ))
         .layer(CompressionLayer::new().compress_when(DefaultPredicate::new().and(not_a_download)))
         .layer(middleware::from_fn(observability::log_request))

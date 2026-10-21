@@ -356,16 +356,24 @@ pub fn like_pattern(text: Option<&str>) -> Option<String> {
 
 /// SAN-214: the issue number a search names, as `12` or this project's `KEY-12` (any case).
 pub fn search_number(project_key: &str, text: Option<&str>) -> Option<i64> {
+    match search_key(text)? {
+        (Some(key), _) if key != project_key.to_ascii_uppercase() => None,
+        (_, number) => Some(number),
+    }
+}
+
+/// SAN-206: the issue a search names, as `12` (any project) or `KEY-12` (that project, any case).
+pub fn search_key(text: Option<&str>) -> Option<(Option<String>, i64)> {
     let text = text?.trim();
-    let digits = match text.split_once('-') {
-        Some((key, digits)) if key.eq_ignore_ascii_case(project_key) => digits,
+    let (key, digits) = match text.split_once('-') {
+        Some((key, digits)) if !key.is_empty() => (Some(key.to_ascii_uppercase()), digits),
         Some(_) => return None,
-        None => text,
+        None => (None, text),
     };
     if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
     }
-    digits.parse().ok()
+    Some((key, digits.parse().ok()?))
 }
 
 /// The filter in the shape the search query binds.
@@ -735,6 +743,26 @@ mod tests {
         assert_eq!(search_number("SAN", Some("+12")), None);
         assert_eq!(search_number("SAN", Some("99999999999999999999")), None);
         assert_eq!(search_number("SAN", None), None);
+    }
+
+    #[test]
+    fn search_text_names_an_issue_by_bare_number_or_by_any_projects_key() {
+        assert_eq!(search_key(Some("12")), Some((None, 12)));
+        assert_eq!(search_key(Some(" web-12 ")), Some((Some("WEB".into()), 12)));
+        assert_eq!(search_key(Some("OPS-012")), Some((Some("OPS".into()), 12)));
+        for bad in [
+            "-12",
+            "WEB-",
+            "WEB",
+            "12a",
+            "+12",
+            "WEB-1-2",
+            "99999999999999999999",
+            "",
+        ] {
+            assert_eq!(search_key(Some(bad)), None, "{bad}");
+        }
+        assert_eq!(search_key(None), None);
     }
 
     #[test]

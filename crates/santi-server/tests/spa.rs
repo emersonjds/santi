@@ -296,6 +296,21 @@ async fn api_answers_are_never_sniffed_or_leak_the_referrer() {
 }
 
 #[tokio::test]
+async fn every_answer_pins_https_and_refuses_to_be_framed() {
+    for app in [app(Some(&built_spa("transport-headers"))), app(None)] {
+        for uri in ["/api/nope", "/docs/", "/openapi.json"] {
+            let response = send(&app, Method::GET, uri).await;
+            assert_eq!(
+                header(&response, "strict-transport-security"),
+                Some("max-age=31536000; includeSubDomains"),
+                "{uri}"
+            );
+            assert_eq!(header(&response, "x-frame-options"), Some("DENY"), "{uri}");
+        }
+    }
+}
+
+#[tokio::test]
 async fn a_self_hoster_can_turn_the_legal_pages_off() {
     let pool = PgPool::connect_lazy("postgres://localhost/unused").unwrap();
     let legal = std::sync::Arc::new(santi_server::Legal {
