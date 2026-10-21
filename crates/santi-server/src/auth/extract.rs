@@ -21,7 +21,9 @@ impl FromRequestParts<AppState> for CurrentUser {
         let token = domain::token_from_headers(&parts.headers).ok_or(AppError::Unauthorized)?;
         let mut conn = state.pool.acquire().await?;
         let user = repo::find_by_token(&mut conn, &domain::hash_token(token)).await?;
-        user.ok_or(AppError::Unauthorized)
+        let user = user.ok_or(AppError::Unauthorized)?;
+        tracing::Span::current().record("user_id", user.id);
+        Ok(user)
     }
 }
 

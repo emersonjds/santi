@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, useQuery } from '@tanstack/react-query'
 import { api, dataOrThrow } from '@/shared/api/client'
 
 /** The signed-in user, or `null` for an anonymous visitor. */
@@ -25,3 +25,7 @@ export const passwordResetQuery = (token: string) =>
       ),
     staleTime: Infinity,
   })
+
+/** SAN-93: the zone the account reads dates in; `undefined` is the browser's. */
+export const useTimeZone = () =>
+  useQuery(sessionQuery).data?.time_zone ?? undefined

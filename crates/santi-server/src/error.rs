@@ -29,6 +29,9 @@ pub enum AppError {
     TooManyRequests {
         retry_after: u64,
     },
+    /// SAN-213: the pool, a statement or the request ran out of time; answered with
+    /// `Retry-After: 1`.
+    Busy,
     Internal(String),
 }
 
@@ -106,6 +109,12 @@ impl AppError {
                 "Too many requests",
                 format!("Too many attempts. Try again in {retry_after} seconds."),
             ),
+            AppError::Busy => (
+                503,
+                "busy",
+                "Server busy",
+                "The server is busy; try again.".into(),
+            ),
             AppError::Internal(_) => (
                 500,
                 "internal",
@@ -151,7 +160,7 @@ pub fn not_found_if_parent_gone(error: sqlx::Error) -> AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         if let AppError::Internal(message) = &self {
-            eprintln!("internal error: {message}");
+            tracing::error!(%message, "internal error");
         }
         let problem = self.to_problem();
         let status =
@@ -167,6 +176,9 @@ impl IntoResponse for AppError {
                 .headers_mut()
                 .insert(RETRY_AFTER, retry_after.into());
         }
+        if let AppError::Busy = self {
+            response.headers_mut().insert(RETRY_AFTER, 1.into());
+        }
         response
     }
 }
@@ -175,6 +187,9 @@ impl From<sqlx::Error> for AppError {
     fn from(error: sqlx::Error) -> Self {
         if matches!(error, sqlx::Error::RowNotFound) {
             return AppError::NotFound;
+        }
+        if matches!(error, sqlx::Error::PoolTimedOut) {
+            return AppError::Busy;
         }
         let Some(database_error) = error.as_database_error() else {
             return AppError::Internal(error.to_string());
@@ -197,12 +212,18 @@ impl From<sqlx::Error> for AppError {
         if database_error.code().as_deref() == Some(UNTRANSLATABLE_CHARACTER) {
             return AppError::invalid("input", "must not contain NUL characters");
         }
+        if database_error.code().as_deref() == Some(QUERY_CANCELED) {
+            tracing::error!(%error, "statement timeout");
+            return AppError::Busy;
+        }
         AppError::Internal(error.to_string())
     }
 }
 
 /// SQLSTATE 22021, raised for a NUL character in text.
 const UNTRANSLATABLE_CHARACTER: &str = "22021";
+/// SQLSTATE 57014, raised when `statement_timeout` cancels a statement.
+const QUERY_CANCELED: &str = "57014";
 
 /// Broken syntax or a wrong content type; valid JSON of the wrong shape goes through [`wrong_shape`].
 impl From<JsonRejection> for AppError {
@@ -348,9 +369,17 @@ mod tests {
 
     #[test]
     fn non_database_error_becomes_internal() {
-        let problem = AppError::from(sqlx::Error::PoolTimedOut).to_problem();
+        let problem = AppError::from(sqlx::Error::PoolClosed).to_problem();
 
         assert_eq!(problem.status, 500);
+    }
+
+    #[test]
+    fn a_pool_timeout_is_busy_with_retry_after() {
+        let response = AppError::from(sqlx::Error::PoolTimedOut).into_response();
+
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(response.headers()[header::RETRY_AFTER], "1");
     }
 
     #[sqlx::test(migrations = false)]

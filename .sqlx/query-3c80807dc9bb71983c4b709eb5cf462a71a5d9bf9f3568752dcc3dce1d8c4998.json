@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH found AS (\n             SELECT id, user_id FROM auth_token\n             WHERE token_hash = $1 AND (expires_at IS NULL OR expires_at > now())),\n           touched AS (\n             UPDATE auth_token t SET last_used_at = now() FROM found\n             WHERE t.id = found.id AND t.kind = 'session'\n               AND t.last_used_at < now() - interval '10 minutes')\n           SELECT user_id AS \"id!\", id AS \"token_id!\" FROM found",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "auth_token",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "token_id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "auth_token",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "3c80807dc9bb71983c4b709eb5cf462a71a5d9bf9f3568752dcc3dce1d8c4998"
+}

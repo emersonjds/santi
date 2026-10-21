@@ -5,7 +5,6 @@ import {
   customLength,
   fromInputs,
   sprintWindow,
-  toInputs,
 } from './sprint-window'
 
 // The browser runs in America/New_York (vite.config.ts).
@@ -46,18 +45,30 @@ describe('sprint window', () => {
     expect(sprintWindow(at(10, 30), '2w').getHours()).toBe(18)
   })
 
+  it.each([
+    ['1d', '2026-10-21T20:00:00Z', '2026-10-22T10:59:00.000Z'],
+    ['1w', '2026-03-31T20:00:00Z', '2026-04-07T21:00:00.000Z'],
+    ['1m', '2027-01-30T20:00:00Z', '2027-02-27T20:00:00.000Z'],
+  ])('%s from %s ends at %s in Auckland', (length, start, end) => {
+    expect(
+      sprintWindow(new Date(start), length, 'Pacific/Auckland').toISOString()
+    ).toBe(end)
+  })
+
   it('reads a custom length in minutes, refusing an empty or huge one', () => {
     expect(customLength(at(10, 16), at(10, 16, 19, 30))).toBe('90')
     expect(customLength(at(10, 16), at(10, 16))).toBeNull()
     expect(customLength(at(10, 16), new Date(2046, 0, 1))).toBeNull()
   })
 
-  it('splits an instant into local inputs and joins them back', () => {
+  it('joins the inputs into an instant, filling an empty time', () => {
     const instant = at(10, 16, 9, 5)
-    expect(toInputs(instant)).toEqual({ day: '2026-10-16', time: '09:05' })
     expect(fromInputs('2026-10-16', '09:05', '00:00')).toEqual(instant)
     expect(fromInputs('2026-10-16', '', '00:00')).toEqual(at(10, 16, 0))
     expect(fromInputs('2026-10-16', '', '23:59')).toEqual(at(10, 16, 23, 59))
+    expect(
+      fromInputs('2026-10-21', '', '23:59', 'Pacific/Auckland').toISOString()
+    ).toBe('2026-10-21T10:59:00.000Z')
   })
 
   it('names the zone', () => {

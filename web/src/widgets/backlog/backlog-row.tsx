@@ -9,6 +9,7 @@ import {
 } from '@/features/edit-row/row-fields'
 import { issueNumber } from '@/entities/issue/board-query'
 import {
+  BlockedMarker,
   LabelChips,
   PointsPill,
   SubtaskCount,
@@ -108,6 +109,7 @@ export const BacklogRow = memo(
                 <span className='truncate'>{epic.summary}</span>
               </span>
             )}
+            <BlockedMarker card={card} />
             <LabelChips labels={card.labels} oneOnPhone />
             {status && <StatusPill status={status} />}
             <SubtaskCount card={card} />

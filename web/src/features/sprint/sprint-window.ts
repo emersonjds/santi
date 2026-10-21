@@ -1,3 +1,8 @@
+import {
+  instantToZonedWallTime,
+  zonedWallTimeToInstant,
+} from '@/shared/lib/sprint-dates'
+
 const MINUTE = 60_000
 
 // D48: preset tokens shared with the server and the CLI.
@@ -11,29 +16,37 @@ export const PRESETS = [
 
 export const CUSTOM = 'custom'
 
-export const sprintWindow = (start: Date, length: string): Date => {
-  const end = new Date(start)
+/** Calendar steps land on the same wall clock in the account's zone. */
+export const sprintWindow = (
+  start: Date,
+  length: string,
+  timeZone?: string
+): Date => {
+  if (length === '4h') return new Date(start.getTime() + 240 * MINUTE)
+  const wall = instantToZonedWallTime(start, timeZone)
+  const day = new Date(`${wall.day}T00:00Z`)
+  const at = (time: string) =>
+    zonedWallTimeToInstant(day.toISOString().slice(0, 10), time, timeZone)
   switch (length) {
-    case '4h':
-      return new Date(start.getTime() + 240 * MINUTE)
     case '1d':
-      end.setHours(23, 59, 0, 0)
-      return end
+      return at('23:59')
     case '1w':
     case '2w':
-      end.setDate(end.getDate() + (length === '1w' ? 7 : 14))
-      return end
+      day.setUTCDate(day.getUTCDate() + (length === '1w' ? 7 : 14))
+      return at(wall.time)
     case '1m': {
-      const day = end.getDate()
-      end.setDate(1)
-      end.setMonth(end.getMonth() + 1)
-      end.setDate(
+      const date = day.getUTCDate()
+      day.setUTCDate(1)
+      day.setUTCMonth(day.getUTCMonth() + 1)
+      day.setUTCDate(
         Math.min(
-          day,
-          new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate()
+          date,
+          new Date(
+            Date.UTC(day.getUTCFullYear(), day.getUTCMonth() + 1, 0)
+          ).getUTCDate()
         )
       )
-      return end
+      return at(wall.time)
     }
     default:
       return new Date(start.getTime() + Number(length) * MINUTE)
@@ -45,20 +58,12 @@ export const customLength = (start: Date, end: Date) => {
   return minutes >= 1 && minutes <= 9_999_999 ? String(minutes) : null
 }
 
-// Swedish formats read YYYY-MM-DD and HH:MM, the native inputs' values.
-export const toInputs = (instant: Date) => ({
-  day: instant.toLocaleDateString('sv'),
-  time: instant.toLocaleTimeString('sv', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }),
-})
-
 export const fromInputs = (
   day: string,
   time: string,
-  fallback: '00:00' | '23:59'
-) => new Date(`${day}T${time || fallback}`)
+  fallback: '00:00' | '23:59',
+  timeZone?: string
+) => zonedWallTimeToInstant(day, time || fallback, timeZone)
 
 export const nowToTheMinute = () => {
   const now = new Date()

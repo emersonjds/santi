@@ -13,6 +13,7 @@ import {
   isImage,
 } from '@/entities/attachment/attachments'
 import { commentTime, fullDateTime } from '@/entities/issue/comment-time'
+import { useTimeZone } from '@/entities/session/session-query'
 import { PersonName } from '@/entities/user/user-avatar'
 import type { Attachment } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
@@ -98,6 +99,7 @@ export const AttachmentList = ({
   onDelete,
 }: AttachmentListProps) => {
   const [viewing, setViewing] = useState<number | null>(null)
+  const timeZone = useTimeZone()
   const urlOf = (attachment: Attachment) =>
     attachmentUrl(projectKey, number, attachment)
   const images = attachments.filter(isImage)
@@ -175,9 +177,9 @@ export const AttachmentList = ({
                   <span aria-hidden='true'>·</span>
                   <time
                     dateTime={attachment.created_at}
-                    title={fullDateTime(attachment.created_at)}
+                    title={fullDateTime(attachment.created_at, timeZone)}
                   >
-                    {commentTime(attachment.created_at)}
+                    {commentTime(attachment.created_at, timeZone)}
                   </time>
                   {attachment.comment_id != null && (
                     <>

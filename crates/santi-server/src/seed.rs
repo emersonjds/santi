@@ -158,7 +158,8 @@ pub async fn seed(pool: &PgPool, size: &SeedSize) -> Result<i64, AppError> {
         accept_terms: true,
         confirm_age: true,
     };
-    let (owner, _) = auth::service::register(pool, &crate::Legal::default(), register).await?;
+    let (owner, _) =
+        auth::service::register(pool, &crate::Legal::default(), register, None).await?;
     let user = CurrentUser {
         id: owner.id,
         token_id: 0,

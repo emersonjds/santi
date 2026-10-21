@@ -54,7 +54,7 @@ pub async fn board_view(
     let sprint = sprints::repo::find_active(&mut conn, member.board_id).await?;
     let columns = repo::list_columns(&mut conn, member.board_id).await?;
     let sprint_id = sprint.as_ref().map(|sprint| sprint.id);
-    let cards = repo::board_cards(&mut conn, member.project_id, sprint_id).await?;
+    let cards = repo::board_cards(&mut conn, member.project_id, sprint_id, member.user_id).await?;
     Ok(BoardView {
         board_type: member.board_type,
         sprint,
@@ -70,7 +70,7 @@ pub async fn backlog(
     domain::require_backlog(member.board_type)?;
     let mut conn = pool.acquire().await?;
     let sprints = sprints::repo::list_open(&mut conn, member.board_id).await?;
-    let cards = repo::backlog_cards(&mut conn, member.project_id).await?;
+    let cards = repo::backlog_cards(&mut conn, member.project_id, member.user_id).await?;
     let epics = repo::epic_summaries(&mut conn, member.project_id).await?;
     let sprint_length = sprints::repo::sprint_length(&mut conn, member.board_id).await?;
     Ok(Backlog {

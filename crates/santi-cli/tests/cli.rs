@@ -593,6 +593,95 @@ fn comments_are_edited_and_deleted_by_their_author_or_an_admin() {
 }
 
 #[test]
+fn issues_are_linked_shown_and_unlinked() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "LNK", "kanban");
+    for summary in ["Source", "Target"] {
+        santi
+            .with(&token)
+            .args(["issues", "create", "LNK", "--summary", summary])
+            .assert()
+            .success();
+    }
+
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "blocks", "lnk-2"])
+        .assert()
+        .success()
+        .stdout("LNK-1 blocks LNK-2\n");
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "relates", "LNK-2"])
+        .assert()
+        .success()
+        .stdout("LNK-1 relates to LNK-2\n");
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "sideways", "LNK-2"])
+        .assert()
+        .code(2);
+    santi
+        .with(&token)
+        .args(["issues", "show", "LNK-2"])
+        .assert()
+        .success()
+        .stdout(contains(
+            "\n\nLinks:\n  is blocked by: LNK-1 Source [To Do]\n  relates to: LNK-1 Source [To Do]\n",
+        ));
+    let shown = json(santi.with(&token).args(["issues", "show", "LNK-1"]));
+    assert_eq!(shown["key"], "LNK-1");
+    assert_eq!(shown["links"][0]["relation"], "blocks");
+    assert_eq!(shown["links"][0]["issue"]["key"], "LNK-2");
+
+    santi
+        .with(&token)
+        .args(["issues", "unlink", "LNK-2", "LNK-1"])
+        .assert()
+        .code(2)
+        .stderr(contains(
+            "LNK-2 has 2 links to LNK-1 (is blocked by, relates to)",
+        ));
+    santi
+        .with(&token)
+        .args([
+            "issues",
+            "unlink",
+            "LNK-2",
+            "LNK-1",
+            "--relation",
+            "is-blocked-by",
+        ])
+        .assert()
+        .success()
+        .stdout("Unlinked LNK-2 is blocked by LNK-1\n");
+    let removed = json(
+        santi
+            .with(&token)
+            .args(["issues", "unlink", "LNK-1", "LNK-2"]),
+    );
+    assert_eq!(removed["relation"], "relates");
+    santi
+        .with(&token)
+        .args(["issues", "unlink", "LNK-1", "LNK-2"])
+        .assert()
+        .code(1)
+        .stderr(contains("no link between LNK-1 and LNK-2"));
+    santi
+        .with(&token)
+        .args(["issues", "show", "LNK-1"])
+        .assert()
+        .success()
+        .stdout(contains("Links:").not());
+    santi
+        .with(&token)
+        .args(["issues", "link", "LNK-1", "blocks", "LNK-1"])
+        .assert()
+        .code(5);
+}
+
+#[test]
 fn attachments_are_attached_listed_downloaded_and_deleted() {
     let santi = Santi::new();
     let token = server().user();
@@ -1165,4 +1254,94 @@ fn issue_listings_page_by_cursor_or_follow_every_page() {
         .stdout(contains("more issues").not());
     let found = ["search", "PAG", "Paged", "--limit", "2", "--all"];
     assert_eq!(keys(&json(santi.with(&token).args(found))).len(), 5);
+}
+
+#[test]
+fn restore_recreates_each_project_of_an_export_then_skips_existing_keys() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+    server().project(&token, "BAK", "scrum");
+    run(&["issues", "create", "BAK", "--summary", "Keep me"]).success();
+    run(&["issues", "create", "BAK", "--summary", "Me too"]).success();
+    run(&["sprints", "create", "BAK", "--goal", "Ship"]).success();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("export.json");
+    let export = server().get(&token, "/api/me/export");
+    std::fs::write(&file, export.to_string()).unwrap();
+    let file = file.to_str().unwrap();
+    run(&["projects", "trash", "BAK", "--yes"]).success();
+    run(&["projects", "purge", "BAK", "--yes"]).success();
+
+    run(&["restore", file])
+        .success()
+        .stdout(contains("restored BAK (2 issues, 1 sprints, 0 comments)"))
+        .stdout(contains("not restored"));
+    run(&["issues", "list", "BAK"])
+        .success()
+        .stdout(contains("BAK-1").and(contains("Me too")));
+    run(&["restore", file]).success().stdout(contains(
+        "skipped BAK: a project with this key already exists",
+    ));
+    let answers = json(
+        santi
+            .with(&token)
+            .args(["restore", file, "--project", "bak"]),
+    );
+    assert_eq!(answers, json!([{ "key": "BAK", "skipped": "exists" }]));
+    run(&["restore", file, "--project", "NOPE"])
+        .code(2)
+        .stderr(contains("no project NOPE").and(contains("BAK")));
+    std::fs::write(dir.path().join("csv.json"), "[1, 2]").unwrap();
+    run(&["restore", dir.path().join("csv.json").to_str().unwrap()])
+        .code(2)
+        .stderr(contains("not a santi export: "));
+}
+
+#[test]
+fn password_changes_and_signs_out_the_other_sessions() {
+    let santi = Santi::new();
+    let token = server().user();
+    santi
+        .with(&token)
+        .arg("password")
+        .write_stdin("correct horse battery\nstaple battery horse\nstaple battery horse\n")
+        .assert()
+        .success()
+        .stdout("Password changed. 1 other session was signed out.\n")
+        .stderr(contains("Current password:"))
+        .stderr(contains("Repeat new password:"));
+    let changed = json(
+        santi
+            .with(&token)
+            .arg("password")
+            .write_stdin("staple battery horse\nthird horse battery\nthird horse battery\n"),
+    );
+    assert_eq!(changed, json!({ "signed_out": 0 }));
+}
+
+#[test]
+fn password_with_a_wrong_current_one_shows_the_api_message() {
+    let santi = Santi::new();
+    let token = server().user();
+    santi
+        .with(&token)
+        .arg("password")
+        .write_stdin("wrong horse battery\nstaple battery horse\nstaple battery horse\n")
+        .assert()
+        .code(5)
+        .stderr(contains("The current password is not right."));
+}
+
+#[test]
+fn password_mismatch_is_refused_before_any_request() {
+    let santi = Santi::new();
+    let token = server().user();
+    santi
+        .with(&token)
+        .arg("password")
+        .write_stdin("wrong horse battery\nstaple battery horse\nstaple battery hors\n")
+        .assert()
+        .code(2)
+        .stderr(contains("Passwords do not match."));
 }

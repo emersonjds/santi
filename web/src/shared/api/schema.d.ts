@@ -164,6 +164,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["change_password"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/projects": {
         parameters: {
             query?: never;
@@ -191,6 +207,38 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_sessions"];
+        put?: never;
+        post?: never;
+        delete: operations["delete_other_sessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_session"];
         options?: never;
         head?: never;
         patch?: never;
@@ -334,6 +382,22 @@ export interface paths {
         get: operations["list_projects"];
         put?: never;
         post: operations["create_project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore_export"];
         delete?: never;
         options?: never;
         head?: never;
@@ -626,6 +690,38 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["edit_comment"];
+        trace?: never;
+    };
+    "/api/projects/{key}/issues/{number}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_links"];
+        put?: never;
+        post: operations["create_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/issues/{number}/links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_link"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/projects/{key}/issues/{number}/move": {
@@ -1119,6 +1215,8 @@ export interface components {
             /** Format: int64 */
             assignee_id?: number | null;
             assignee_name?: string | null;
+            /** @description Keys of the issues blocking this one that are not done and the viewer can open (D59). */
+            blocked_by?: string[];
             /** Format: int64 */
             column_id: number;
             /** Format: int64 */
@@ -1148,6 +1246,11 @@ export interface components {
             total_subtasks: number;
             /** Format: date-time */
             updated_at: string;
+        };
+        /** @description No `Debug`: passwords never reach a log. */
+        ChangePassword: {
+            current: string;
+            new: string;
         };
         Column: {
             /** Format: int64 */
@@ -1224,6 +1327,11 @@ export interface components {
              */
             status_id?: number | null;
             summary: string;
+        };
+        CreateLink: {
+            /** @description The other issue's key, like `OPS-12`; it may be in another project the caller belongs to. */
+            issue: string;
+            relation: components["schemas"]["Relation"];
         };
         CreateProject: {
             board_type: components["schemas"]["BoardType"];
@@ -1479,6 +1587,12 @@ export interface components {
              */
             worked_at?: string | null;
         };
+        IssueLink: {
+            /** Format: int64 */
+            id: number;
+            issue: components["schemas"]["LinkedIssue"];
+            relation: components["schemas"]["Relation"];
+        };
         /** @enum {string} */
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
         /** @enum {string} */
@@ -1504,6 +1618,20 @@ export interface components {
             privacy_version: string;
             required: boolean;
             terms_version: string;
+        };
+        /** @description The other end of a link. */
+        LinkedIssue: {
+            /** Format: int64 */
+            assignee_id?: number | null;
+            assignee_name?: string | null;
+            issue_type: components["schemas"]["IssueType"];
+            key: string;
+            priority: components["schemas"]["Priority"];
+            status_category: components["schemas"]["StatusCategory"];
+            /** Format: int64 */
+            status_id: number;
+            status_name: string;
+            summary: string;
         };
         Login: {
             email: string;
@@ -1875,6 +2003,11 @@ export interface components {
             email: string;
             password: string;
         };
+        /**
+         * @description How the other issue relates to this one, read from this issue (D59); declared in display order.
+         * @enum {string}
+         */
+        Relation: "blocks" | "is_blocked_by" | "relates" | "duplicates" | "is_duplicated_by" | "clones" | "is_cloned_by";
         ReorderColumns: {
             column_ids: number[];
         };
@@ -1911,6 +2044,24 @@ export interface components {
         ResetPassword: {
             password: string;
         };
+        RestoreProblem: {
+            issue_key: string;
+            message: string;
+        };
+        /** @description A project recreated from a santi export (`POST /api/projects/restore`, SAN-99). */
+        RestoreResult: {
+            /** Format: int64 */
+            comments: number;
+            /** Format: int64 */
+            issues: number;
+            /** @description What an export does not carry, in one line. */
+            not_restored: string;
+            /** @description The first 100 people changes: users missing on this instance. */
+            problems: components["schemas"]["RestoreProblem"][];
+            project: components["schemas"]["Project"];
+            /** Format: int64 */
+            sprints: number;
+        };
         RowProblem: {
             /**
              * Format: int64
@@ -1919,8 +2070,27 @@ export interface components {
             line: number;
             message: string;
         };
+        /**
+         * @description A signed-in browser (D60). `client` is a device label ("Chrome on macOS"), never the raw
+         *     user agent; `current` marks the caller's own session.
+         */
+        Session: {
+            client: string;
+            /** Format: date-time */
+            created_at: string;
+            current: boolean;
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            last_used_at: string;
+        };
         SetRole: {
             role: components["schemas"]["MemberRole"];
+        };
+        /** @description How many other sessions a password change or a bulk sign-out ended. */
+        SignedOut: {
+            /** Format: int64 */
+            signed_out: number;
         };
         Sprint: {
             /** Format: date-time */
@@ -2683,6 +2853,65 @@ export interface operations {
             };
         };
     };
+    change_password: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePassword"];
+            };
+        };
+        responses: {
+            /** @description Password changed; every other session ended (all of them for an API token caller). API tokens stay (D60) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedOut"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The password changed meanwhile; try again */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Wrong current password (`current`); new one breaks the rules or equals the current one (`new`, checked first and spends no attempt) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many password attempts for this account or address (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     my_projects: {
         parameters: {
             query?: never;
@@ -2744,6 +2973,109 @@ export interface operations {
                 };
             };
             /** @description Limit out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Live sessions, most recent activity first; `current` marks the caller's (D60) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Session"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_other_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every session but the caller's ended; API tokens stay */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedOut"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Session id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Session ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No session of the caller with this id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The caller's own session (`id`): sign out with `POST /api/auth/logout` */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3239,6 +3571,83 @@ export interface operations {
             };
         };
     };
+    restore_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectExport"];
+            };
+        };
+        responses: {
+            /** @description A new project from one project of `GET /api/me/export`, with its board, sprints, issue numbers and comments; the caller is its only member, as admin (D58): other assignees are cleared, other reporters, comment authors and editors become the caller, each listed by name in `problems` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreResult"];
+                };
+            };
+            /** @description `bad-request`: the body could not be read */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-exists`: a project holds the key; nothing written */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `payload-too-large`: over 50 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Malformed JSON is a 422 here, not a 400. Also: not an export, over 50,000 issues, 500 statuses, 2,000 sprints or 200,000 comments, a field a normal write refuses, or a key, parent, status or sprint the file does not hold; the field is named (`issues[3].summary`) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited like imports (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     get_project: {
         parameters: {
             query?: never;
@@ -3401,7 +3810,7 @@ export interface operations {
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary or the key, ignoring case. */
+                /** @description Text matched in the summary, ignoring case, or an issue number given as `12` or `SANTI-12`. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
@@ -3470,7 +3879,7 @@ export interface operations {
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary or the key, ignoring case. */
+                /** @description Text matched in the summary, ignoring case, or an issue number given as `12` or `SANTI-12`. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
@@ -4157,7 +4566,7 @@ export interface operations {
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary or the key, ignoring case. */
+                /** @description Text matched in the summary, ignoring case, or an issue number given as `12` or `SANTI-12`. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
@@ -4892,6 +5301,162 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Links read from this issue, by relation (blocks, is blocked by, relates, duplicates, is duplicated by, clones, is cloned by) then key; links to issues the caller cannot open are left out, uncounted (D59) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueLink"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLink"];
+            };
+        };
+        responses: {
+            /** @description Linked; the other issue shows the inverse relation */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueLink"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description This issue, or the other one, does not exist or is in a project the caller is not a member of */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`: this issue's project or the other issue's */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `issue` is not an issue key, is this issue, or already has this link with it in either direction */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+                /** @description Link id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed from both issues */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such link on this issue, or its other issue is one the caller cannot open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`: this issue's project or the other issue's */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

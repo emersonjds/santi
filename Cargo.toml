@@ -3,7 +3,7 @@ resolver = "3"
 members = ["crates/santi-types", "crates/santi-server", "crates/santi-cli"]
 
 [workspace.package]
-version = "0.23.0"
+version = "0.24.0"
 edition = "2024"
 rust-version = "1.97"
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ santi-types = { path = "crates/santi-types" }
 santi-server = { path = "crates/santi-server" }
 axum = { version = "0.8.9", features = ["macros", "multipart"] }
 axum-extra = { version = "0.12.6", features = ["query"] }
-tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "time"] }
+tokio = { version = "1.53", features = ["macros", "rt-multi-thread", "net", "time", "sync"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_path_to_error = "0.1"
@@ -39,6 +39,8 @@ toml = "1"
 object_store = { version = "0.14", features = ["aws"] }
 futures-util = { version = "0.3", default-features = false }
 uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
