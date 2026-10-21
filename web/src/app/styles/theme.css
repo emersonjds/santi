@@ -1,4 +1,4 @@
-/* D36 tokens mapped onto the shadcn variables (D37). Dark is defined but off: nothing sets data-theme yet. */
+/* D36 tokens mapped onto the shadcn variables (D37). public/theme.js sets data-theme before first paint (SAN-93). */
 :root {
   --radius: 0.5rem;
   --background: #ffffff;

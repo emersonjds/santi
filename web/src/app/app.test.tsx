@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { applyTheme } from '@/shared/lib/theme'
 import { renderApp } from '@/test/render-app'
 import {
   ALICE,
@@ -174,5 +175,16 @@ describe('app', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Sign in' }))
       .toBeVisible()
+  })
+
+  it('applies the theme saved on the account when the app loads', async () => {
+    onTestFinished(() => applyTheme('system'))
+    signedIn({
+      'GET /api/me': { status: 200, body: { ...ALICE, theme: 'dark' } },
+    })
+
+    await renderApp('/')
+
+    await expect.poll(() => document.documentElement.dataset.theme).toBe('dark')
   })
 })
