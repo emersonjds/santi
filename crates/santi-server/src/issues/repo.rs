@@ -504,7 +504,9 @@ pub async fn search_issues(
            LEFT JOIN issue parent ON parent.id = i.parent_id
            WHERE i.project_id = $1
              AND i.id > $2
-             AND (cardinality($3::bigint[]) = 0 OR i.assignee_id = ANY($3))
+             AND ((cardinality($3::bigint[]) = 0 AND NOT $12)
+                  OR i.assignee_id = ANY($3)
+                  OR ($12 AND i.assignee_id IS NULL))
              AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))
              AND (cardinality($5::text[]) = 0 OR i.labels && $5)
              AND ((cardinality($6::bigint[]) = 0 AND NOT $7)
@@ -525,7 +527,8 @@ pub async fn search_issues(
         query.pattern.as_deref(),
         query.updated_since,
         &query.categories[..] as &[StatusCategory],
-        limit
+        limit,
+        query.unassigned
     )
     .fetch_all(&mut *conn)
     .await

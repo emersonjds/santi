@@ -293,12 +293,23 @@ async fn search_combines_filters_and_within_or_across_and(pool: PgPool) {
             ana.user_id
         ))
         .await;
+    let (_, unassigned) = ana
+        .get("/api/projects/SANTI/issues?unassigned=true")
+        .await;
+    let (_, mine_or_unassigned) = ana
+        .get(&format!(
+            "/api/projects/SANTI/issues?assignee={}&unassigned=true&label=ui",
+            ana.user_id
+        ))
+        .await;
     let (_, text) = ana.get("/api/projects/SANTI/issues?q=LOGIN").await;
     let (_, literal_percent) = ana.get("/api/projects/SANTI/issues?q=50%25").await;
 
     assert_eq!(keys(&either_type), ["SANTI-1", "SANTI-2"]);
     assert_eq!(keys(&type_and_label), ["SANTI-1"]);
     assert_eq!(keys(&mine), ["SANTI-1"]);
+    assert_eq!(keys(&unassigned), ["SANTI-2", "SANTI-3"]);
+    assert_eq!(keys(&mine_or_unassigned), ["SANTI-1", "SANTI-3"]);
     assert_eq!(keys(&text), ["SANTI-1"]);
     assert_eq!(keys(&literal_percent), Vec::<String>::new());
 }
