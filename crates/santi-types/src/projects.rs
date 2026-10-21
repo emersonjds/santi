@@ -143,3 +143,22 @@ pub struct InviteJoiner {
     pub email: String,
     pub joined_at: DateTime<Utc>,
 }
+
+/// A project recreated from a santi export (`POST /api/projects/restore`, SAN-99).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]
+pub struct RestoreResult {
+    pub project: Project,
+    pub issues: i64,
+    pub sprints: i64,
+    pub comments: i64,
+    /// The first 100 people changes: users missing on this instance.
+    pub problems: Vec<RestoreProblem>,
+    /// What an export does not carry, in one line.
+    pub not_restored: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct RestoreProblem {
+    pub issue_key: String,
+    pub message: String,
+}
