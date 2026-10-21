@@ -19,17 +19,21 @@ export const EmptySlot = () => (
   </li>
 )
 
-/** D6: a parent's `open/total` subtasks, on its board card and backlog row. */
-export const SubtaskCount = ({ card }: { card: Card }) =>
-  card.total_subtasks > 0 && (
-    <span
-      className='inline-flex items-center gap-1 rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'
-      title={`${card.open_subtasks} of ${card.total_subtasks} subtasks open`}
-    >
-      <ListTree className='size-3.5' aria-hidden='true' />
-      {card.open_subtasks}/{card.total_subtasks}
-    </span>
+/** D57: a parent's `done/total` subtasks, on its board card and backlog row. */
+export const SubtaskCount = ({ card }: { card: Card }) => {
+  const done = card.total_subtasks - card.open_subtasks
+  return (
+    card.total_subtasks > 0 && (
+      <span
+        className='inline-flex items-center gap-1 rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'
+        title={`${done} of ${card.total_subtasks} subtasks done`}
+      >
+        <ListTree className='size-3.5' aria-hidden='true' />
+        {done}/{card.total_subtasks}
+      </span>
+    )
   )
+}
 
 /** SAN-101: two labels on one line, then how many more; the rest on hover. `oneOnPhone` (SAN-122): one whole label below md. */
 export const LabelChips = ({

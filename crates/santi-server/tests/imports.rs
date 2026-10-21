@@ -594,7 +594,7 @@ async fn files_with_too_many_different_values_are_refused_quickly(pool: PgPool) 
     );
     assert_eq!(
         problem["errors"][0]["message"],
-        "the file has more than 500 different statuses; split it or merge statuses first"
+        "the file has more than 500 different sprints; split it or merge sprints first"
     );
     assert!(
         elapsed < Duration::from_secs(2),

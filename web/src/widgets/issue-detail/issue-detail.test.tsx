@@ -369,9 +369,13 @@ describe('issue detail', () => {
       .fill('Only the board.')
     await screen.getByRole('button', { name: 'Save' }).click()
     await expect.element(screen.getByText('Only the board.')).toBeVisible()
-    await screen.getByLabelText('Assignee').selectOptions('Bob Stone')
+    await screen
+      .getByLabelText('Assignee', { exact: true })
+      .selectOptions('Bob Stone')
     await screen.getByRole('button', { name: 'Assign to me' }).click()
-    await screen.getByLabelText('Assignee').selectOptions('Unassigned')
+    await screen
+      .getByLabelText('Assignee', { exact: true })
+      .selectOptions('Unassigned')
     await screen.getByLabelText('Points').fill('5')
     await userEvent.keyboard('{Enter}')
     await screen.getByRole('button', { name: 'Add label' }).click()

@@ -1,19 +1,109 @@
 import { type FormEvent, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { Loader2, Plus } from 'lucide-react'
+import { RowAssignee, RowPriority } from '@/features/edit-row/row-fields'
+import { cardOf } from '@/entities/issue/board-cache'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
+import { useOfferToFinishParent } from '@/entities/issue/finish-parent'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
-import { useCreateIssue } from '@/entities/issue/issue-mutations'
+import {
+  useCreateIssue,
+  useMoveSubtask,
+  useUpdateSubtask,
+} from '@/entities/issue/issue-mutations'
 import { subtasksQuery } from '@/entities/issue/issue-queries'
-import { StatusPill } from '@/entities/issue/status-pill'
-import { type Status, statusesById } from '@/entities/issue/statuses'
-import { type Issue, fieldMessage } from '@/shared/api/client'
+import { CATEGORY, statusesById } from '@/entities/issue/statuses'
+import {
+  type BoardSettings,
+  type Issue,
+  fieldMessage,
+} from '@/shared/api/client'
+import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
+import { NativeSelect } from '@/shared/ui/native-select'
 
-const SubtaskStatus = ({ status }: { status?: Status }) =>
-  status && <StatusPill status={status} />
+type SubtaskRowProps = {
+  subtask: Issue
+  parentKey: string
+  projectKey: string
+  settings?: BoardSettings
+  onStatusMoved: (from: number, to: number) => void
+}
+
+/** SAN-156: one line on wide screens; on a phone the controls take a second line. */
+const SubtaskRow = ({
+  subtask,
+  parentKey,
+  projectKey,
+  settings,
+  onStatusMoved,
+}: SubtaskRowProps) => {
+  const move = useMoveSubtask(projectKey, parentKey)
+  const update = useUpdateSubtask(projectKey, parentKey)
+  const category = statusesById(settings).get(subtask.status_id)?.category
+  const card = {
+    ...cardOf(subtask, 0),
+    assignee_name: subtask.assignee_name ?? null,
+  }
+  const fields = { card, projectKey, useUpdate: () => update }
+
+  const changeStatus = (status_id: number) =>
+    move.mutate(
+      { subtask, status_id },
+      { onSuccess: () => onStatusMoved(subtask.status_id, status_id) }
+    )
+
+  return (
+    <li className='grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 px-3 py-2 text-sm transition-colors duration-150 hover:bg-hover md:flex md:min-h-11 md:py-1'>
+      <TypeGlyph type={subtask.issue_type} />
+      <span className='whitespace-nowrap text-subtle-foreground tabular-nums'>
+        {subtask.key}
+      </span>
+      <Link
+        to='/p/$key/issues/$number'
+        params={{ key: projectKey, number: String(subtask.number) }}
+        title={subtask.summary}
+        className='min-w-0 flex-1 truncate hover:underline'
+      >
+        {subtask.summary}
+      </Link>
+      <span className='col-span-3 flex min-w-0 items-center gap-2 md:contents'>
+        <span className='relative min-w-0'>
+          <NativeSelect
+            aria-label={`Status of ${subtask.key}`}
+            aria-busy={move.isPending}
+            className={cn(
+              'max-w-32 border-transparent font-semibold md:h-8',
+              category ? CATEGORY[category].tone : 'bg-muted'
+            )}
+            value={subtask.status_id}
+            onChange={(event) => changeStatus(Number(event.target.value))}
+          >
+            {settings?.columns.map((column) => (
+              <optgroup key={column.id} label={column.name}>
+                {column.statuses.map((status) => (
+                  <option key={status.id} value={status.id}>
+                    {status.name}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </NativeSelect>
+          {move.isPending && (
+            <Loader2
+              aria-hidden='true'
+              className='pointer-events-none absolute end-1.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin'
+            />
+          )}
+        </span>
+        <RowPriority {...fields} />
+        <RowAssignee {...fields} />
+      </span>
+    </li>
+  )
+}
 
 type IssueSubtasksProps = { issue: Issue; projectKey: string }
 
@@ -25,6 +115,10 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
   const statuses = statusesById(settings)
+  const offerToFinish = useOfferToFinishParent(projectKey)
+  const done = subtasks.filter(
+    (subtask) => statuses.get(subtask.status_id)?.category === 'done'
+  ).length
 
   const cancel = () => {
     setAdding(false)
@@ -47,26 +141,39 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
     <section aria-labelledby='issue-subtasks' className='grid gap-2'>
       <h3 id='issue-subtasks' className='text-sm font-semibold'>
         Subtasks
+        {subtasks.length > 0 && (
+          <span className='font-normal text-muted-foreground'>
+            {` · ${done} of ${subtasks.length} done`}
+          </span>
+        )}
       </h3>
+      {subtasks.length > 0 && (
+        <div
+          role='progressbar'
+          aria-labelledby='issue-subtasks'
+          aria-valuemin={0}
+          aria-valuemax={subtasks.length}
+          aria-valuenow={done}
+          className='h-1 overflow-hidden rounded-full bg-border'
+        >
+          <div
+            className='h-full rounded-full bg-status-done'
+            style={{ width: `${(done / subtasks.length) * 100}%` }}
+          />
+        </div>
+      )}
       <ul className='grid grid-cols-1 divide-y rounded-md border empty:hidden'>
         {subtasks.map((subtask) => (
-          <li
+          <SubtaskRow
             key={subtask.key}
-            className='flex min-h-11 items-center gap-2 px-3 text-sm transition-colors duration-150 hover:bg-hover'
-          >
-            <TypeGlyph type={subtask.issue_type} />
-            <span className='text-subtle-foreground tabular-nums'>
-              {subtask.key}
-            </span>
-            <Link
-              to='/p/$key/issues/$number'
-              params={{ key: projectKey, number: String(subtask.number) }}
-              className='min-w-0 flex-1 truncate hover:underline'
-            >
-              {subtask.summary}
-            </Link>
-            <SubtaskStatus status={statuses.get(subtask.status_id)} />
-          </li>
+            subtask={subtask}
+            parentKey={issue.key}
+            projectKey={projectKey}
+            settings={settings}
+            onStatusMoved={(from, to) =>
+              void offerToFinish(issue.key, from, to)
+            }
+          />
         ))}
       </ul>
       {adding ? (
