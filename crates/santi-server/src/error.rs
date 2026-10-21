@@ -151,7 +151,7 @@ pub fn not_found_if_parent_gone(error: sqlx::Error) -> AppError {
 impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         if let AppError::Internal(message) = &self {
-            eprintln!("internal error: {message}");
+            tracing::error!(%message, "internal error");
         }
         let problem = self.to_problem();
         let status =

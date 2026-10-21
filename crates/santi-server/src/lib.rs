@@ -9,6 +9,7 @@ pub mod issues;
 pub mod links;
 pub mod members;
 pub mod notifications;
+pub mod observability;
 pub mod pagination;
 pub mod people;
 pub mod projects;
@@ -132,7 +133,7 @@ pub async fn purge_trash(pool: &PgPool, storage: &storage::Storage) -> Result<u6
                 purged += 1;
                 attachments::service::delete_objects(storage, &keys).await;
             }
-            Err(error) => eprintln!("trash purge of {} failed: {error}", project.key),
+            Err(error) => tracing::error!(project = %project.key, %error, "trash purge failed"),
         }
     }
     Ok(purged)
@@ -198,6 +199,7 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
             HeaderValue::from_static("strict-origin-when-cross-origin"),
         ))
         .layer(CompressionLayer::new().compress_when(DefaultPredicate::new().and(not_a_download)))
+        .layer(middleware::from_fn(observability::log_request))
         .with_state(state)
 }
 
