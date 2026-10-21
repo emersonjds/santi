@@ -171,6 +171,22 @@ async fn board_quick_filters_combine(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn board_filters_unassigned_cards(pool: PgPool) {
+    let ana = project(pool, "kanban").await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "mine", "assignee_id": ana.user_id }),
+    )
+    .await;
+    ana.create_issue("SANTI", json!({ "summary": "nobody's" }))
+        .await;
+
+    let (_, board) = ana.get("/api/projects/SANTI/board?unassigned=true").await;
+
+    assert_eq!(column_keys(&board, 0), ["SANTI-2"]);
+}
+
+#[sqlx::test]
 async fn board_filters_by_no_epic_and_matches_text_on_the_key(pool: PgPool) {
     let ana = project(pool, "kanban").await;
     ana.create_issue("SANTI", json!({ "summary": "Epic", "issue_type": "epic" }))
