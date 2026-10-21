@@ -71,13 +71,7 @@ async fn team(pool: PgPool, board_type: &str) -> (TestApp, TestApp) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     ana.create_project("SANTI", board_type).await;
     let bob = ana.another_user("bob@example.com").await;
-    let (status, _) = ana
-        .post(
-            "/api/projects/SANTI/members",
-            json!({ "email": "bob@example.com", "role": "member" }),
-        )
-        .await;
-    assert_eq!(status, StatusCode::CREATED);
+    ana.add_member("SANTI", &bob, "member").await;
     (ana, bob)
 }
 

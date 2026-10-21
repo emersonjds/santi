@@ -134,18 +134,6 @@ pub async fn list_members(
     .await
 }
 
-pub async fn find_user_id_by_email(
-    conn: &mut PgConnection,
-    email: &str,
-) -> Result<Option<i64>, sqlx::Error> {
-    sqlx::query_scalar!(
-        "SELECT id FROM app_user WHERE email = $1 AND deleted_at IS NULL",
-        email
-    )
-    .fetch_optional(&mut *conn)
-    .await
-}
-
 pub async fn count_admins(conn: &mut PgConnection, project_id: i64) -> Result<i64, sqlx::Error> {
     sqlx::query_scalar!(
         r#"SELECT count(*) AS "count!" FROM member WHERE project_id = $1 AND role = 'admin'"#,

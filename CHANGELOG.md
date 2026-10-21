@@ -10,6 +10,11 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- `POST /api/projects/{key}/members` is removed: it revealed which emails have accounts. Add
+  people with invite links.
+
 ## [0.22.0] - 2026-10-19
 
 > A bell that tells you when someone mentions you, assigns you or comments on your issue.
