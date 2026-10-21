@@ -76,7 +76,7 @@ export default [
   {
     name: 'initial JS, /account',
     path: firstVisit(SHELL, split('_authenticated/account.tsx')),
-    limit: '170 KB',
+    limit: '160 KB',
     gzip: true,
   },
   {
