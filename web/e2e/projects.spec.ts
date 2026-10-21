@@ -88,8 +88,8 @@ test('an admin changes a member role and removes them; a member gets 403 on the 
   const teammate = await (await browser.newContext()).newPage()
   const graceEmail = `e2e-${unique()}@example.com`
   await register(teammate, 'Grace', graceEmail)
-  await page.evaluate(
-    async ({ key, email }) => {
+  const token = await page.evaluate(
+    async ({ key }) => {
       const post = (path: string, body: unknown) =>
         fetch(path, {
           method: 'POST',
@@ -101,9 +101,16 @@ test('an admin changes a member role and removes them; a member gets 403 on the 
         name: `Team ${key}`,
         board_type: 'kanban',
       })
-      await post(`/api/projects/${key}/members`, { email, role: 'member' })
+      const invite = await post(`/api/projects/${key}/invites`, {
+        role: 'member',
+      })
+      return ((await invite.json()) as { token: string }).token
     },
-    { key, email: graceEmail }
+    { key }
+  )
+  await teammate.evaluate(
+    (token) => fetch(`/api/invites/${token}/accept`, { method: 'POST' }),
+    token
   )
 
   await teammate.goto(`/p/${key}/settings/members`)

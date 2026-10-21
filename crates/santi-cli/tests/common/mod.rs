@@ -106,21 +106,16 @@ impl Server {
         });
     }
 
-    /// Adds the user behind `member` to project `key` as a plain member.
+    /// Adds the user behind `member` to project `key` as a plain member, through an invite link.
     pub fn member(&self, admin: &str, key: &str, member: &str) {
-        let email = self.get(member, "/api/me")["email"].clone();
-        let body = json!({ "email": email, "role": "member" });
-        self.block_on(async {
-            let status = reqwest::Client::new()
-                .post(format!("{}/api/projects/{key}/members", self.url))
-                .bearer_auth(admin)
-                .json(&body)
-                .send()
-                .await
-                .unwrap()
-                .status();
-            assert!(status.is_success(), "{status}");
-        });
+        let invite = self.post(
+            admin,
+            &format!("/api/projects/{key}/invites"),
+            json!({ "role": "member" }),
+        );
+        let token = invite["token"].as_str().unwrap();
+        let joined = self.post(member, &format!("/api/invites/{token}/accept"), json!(null));
+        assert_eq!(joined["key"], key, "{joined}");
     }
 
     pub fn post(&self, token: &str, path: &str, body: Value) -> Value {

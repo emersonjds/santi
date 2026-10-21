@@ -91,7 +91,7 @@ You need Docker with Compose ([Docker Desktop](https://www.docker.com/products/d
 ```bash
 git clone https://github.com/emersonjds/santi.git
 cd santi
-docker compose up -d        # first run builds the image, a few minutes
+docker compose up -d        # pulls the published image
 ```
 
 Open <http://localhost:8080>, choose **Create account**, then **New project**. The database lives
@@ -105,8 +105,10 @@ docker compose down -v          # stop and delete the data
 
 To host it for a team, see [Deploy on Railway](docs/deploy/railway.md).
 
-Change the ports with `SANTI_PORT` (default 8080) and `SANTI_DB_PORT` (default 5440, bound to
-localhost only), e.g. `SANTI_PORT=9000 docker compose up -d`.
+Change the ports with `SANTI_PORT` (default 8080) and `SANTI_DB_PORT` (default 5440); both are
+bound to localhost only, so a server puts an HTTPS reverse proxy in front (see below), e.g.
+`SANTI_PORT=9000 docker compose up -d`. Pin a release with `SANTI_VERSION=0.23.0`; build from the
+checkout with `docker compose -f compose.yaml -f compose.build.yaml up -d --build`.
 
 **Browsers:** the session cookie is `Secure`. Chrome, Edge and Firefox accept it on
 `http://localhost`; Safari does not, so on plain HTTP sign in with one of the others or put HTTPS
