@@ -235,6 +235,26 @@ describe('account page', () => {
       expect(patches(requests)).toHaveLength(0)
     })
 
+    it('counts an emoji as one character, as the server does', async () => {
+      const emoji = '🙂'.repeat(60)
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, display_name: emoji },
+        },
+      })
+      const { screen } = await renderApp('/account')
+
+      await screen.getByLabelText('Name', { exact: true }).fill(emoji)
+      await userEvent.keyboard('{Enter}')
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      expect(await patches(requests)[0]?.json()).toEqual({
+        display_name: emoji,
+      })
+    })
+
     it('keeps the text and says so when the save fails', async () => {
       signedIn({
         'GET /api/tokens': { status: 200, body: [] },
