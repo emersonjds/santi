@@ -563,7 +563,7 @@
         "tags": [
           "home"
         ],
-        "operationId": "search_issues",
+        "operationId": "search_my_issues",
         "parameters": [
           {
             "name": "q",
