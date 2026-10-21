@@ -43,3 +43,22 @@ updates:
     ignore:
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
+      # Held while first-visit JS sits at the 170 KB budget (SAN-204): measured +8 KB (React 19.3),
+      # +7 KB (zod 4.6), +2.8 KB on /account (react-hook-form 7.90), +1.4 KB (lucide-react 1.59).
+      - dependency-name: react
+        update-types: [version-update:semver-minor]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-minor]
+      - dependency-name: "@types/react"
+        update-types: [version-update:semver-minor]
+      - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-minor]
+      - dependency-name: zod
+        update-types: [version-update:semver-minor]
+      - dependency-name: react-hook-form
+        update-types: [version-update:semver-minor]
+      - dependency-name: lucide-react
+        update-types: [version-update:semver-minor]
+      # 2.0.8 changes toast behaviour our tests rely on (offers, Undo, failure toasts).
+      - dependency-name: sonner
+        versions: ["2.0.8"]
