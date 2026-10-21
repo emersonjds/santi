@@ -62,7 +62,7 @@ describe('project header', () => {
         .getByRole('link')
         .elements()
         .map((tab) => tab.textContent)
-    ).toEqual(['Board', 'Backlog', 'Reports', 'Settings'])
+    ).toEqual(['Board', 'Backlog', 'Reports', 'People', 'Settings'])
 
     await router.navigate({ to: '/p/$key/reports', params: { key: 'OPS' } })
 
@@ -207,7 +207,9 @@ describe('project header', () => {
     await people.fill('51')
     await screen.getByRole('button', { name: 'Create invite link' }).click()
 
-    await expect.element(people).toHaveAccessibleDescription('Between 1 and 50.')
+    await expect
+      .element(people)
+      .toHaveAccessibleDescription('Between 1 and 50.')
     expect(requests.map(routeOf)).not.toContain(
       'POST /api/projects/WEB/invites'
     )
