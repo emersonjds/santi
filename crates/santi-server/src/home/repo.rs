@@ -1,6 +1,7 @@
 use santi_types::boards::StatusCategory;
 use santi_types::home::{HomeIssue, IssueActivity, ItemKind, MyItem, MyProject, ProjectActivity};
-use santi_types::issues::IssueType;
+use santi_types::issues::{IssueType, Priority};
+use santi_types::links::LinkedIssue;
 use santi_types::projects::{BoardType, MemberRole};
 use sqlx::PgConnection;
 
@@ -77,6 +78,45 @@ pub async fn my_issues(
         user_id,
         view,
         offset,
+        limit
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// SAN-206: issues in `user_id`'s projects, never trashed ones; the named key or number first,
+/// then the most recently updated.
+pub async fn search_issues(
+    conn: &mut PgConnection,
+    user_id: i64,
+    pattern: Option<&str>,
+    project_key: Option<&str>,
+    number: Option<i64>,
+    include_archived: bool,
+    limit: i64,
+) -> Result<Vec<LinkedIssue>, sqlx::Error> {
+    sqlx::query_as!(
+        LinkedIssue,
+        r#"SELECT p.key || '-' || i.number AS "key!", i.summary, i.status_id,
+                  s.name AS status_name, s.category AS "status_category: StatusCategory",
+                  i.priority AS "priority: Priority", i.assignee_id,
+                  assignee.display_name AS "assignee_name?", i.issue_type AS "issue_type: IssueType"
+           FROM issue i
+           JOIN project p ON p.id = i.project_id AND p.trashed_at IS NULL
+                AND ($5 OR p.archived_at IS NULL)
+           JOIN member m ON m.project_id = p.id AND m.user_id = $1
+           JOIN status s ON s.id = i.status_id
+           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id
+           WHERE $2::text IS NULL OR i.summary ILIKE $2
+              OR (i.number = $4::bigint AND ($3::text IS NULL OR p.key = $3))
+           ORDER BY (i.number = $4 AND ($3::text IS NULL OR p.key = $3)) IS TRUE DESC,
+                    i.updated_at DESC, i.id DESC
+           LIMIT $6"#,
+        user_id,
+        pattern,
+        project_key,
+        number,
+        include_archived,
         limit
     )
     .fetch_all(&mut *conn)

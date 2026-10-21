@@ -1,0 +1,3 @@
+# Only `cargo deny check advisories` runs in CI; licenses, bans and sources are unchecked.
+[advisories]
+ignore = []
