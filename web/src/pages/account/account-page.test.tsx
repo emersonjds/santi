@@ -1,5 +1,6 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
+import { userEvent } from 'vitest/browser'
 import { applyTheme } from '@/shared/lib/theme'
 import { renderApp } from '@/test/render-app'
 import { ALICE, problem, routeOf, signedIn } from '@/test/stub-api'
@@ -14,7 +15,7 @@ const create = async (screen: RenderResult, name: string) => {
 }
 
 describe('account page', () => {
-  it('opens from the account menu with the profile read only', async () => {
+  it('opens from the account menu with the email read only', async () => {
     signedIn({ 'GET /api/tokens': { status: 200, body: [LAPTOP] } })
     const { screen, router } = await renderApp('/')
 
@@ -174,6 +175,80 @@ describe('account page', () => {
 
     const row = screen.getByRole('listitem').filter({ hasText: 'laptop' })
     await expect.element(row.getByText('Created Oct 2, 2026')).toBeVisible()
+  })
+
+  describe('display name', () => {
+    const patches = (requests: Request[]) =>
+      requests.filter((request) => routeOf(request) === 'PATCH /api/me')
+
+    it('saves on blur and shows the new name in the account menu', async () => {
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, display_name: 'Alice B' },
+        },
+      })
+      const { screen } = await renderApp('/account')
+      const name = screen.getByLabelText('Name', { exact: true })
+
+      await name.fill('Alice B')
+      await userEvent.tab()
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      expect(await patches(requests)[0]?.json()).toEqual({
+        display_name: 'Alice B',
+      })
+      await name.click()
+      await userEvent.keyboard('{Enter}')
+      expect(patches(requests)).toHaveLength(1)
+      await screen.getByRole('button', { name: 'Account (Alice B)' }).click()
+      await expect
+        .element(screen.getByRole('menu').getByText('Alice B'))
+        .toBeVisible()
+    })
+
+    it('checks the name before saving and puts it back on Escape', async () => {
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+      })
+      const { screen } = await renderApp('/account')
+      const name = screen.getByLabelText('Name', { exact: true })
+
+      await name.fill('   ')
+      await userEvent.keyboard('{Enter}')
+      await expect.element(screen.getByText('Name is required.')).toBeVisible()
+      await expect.element(name).toHaveAttribute('aria-invalid', 'true')
+
+      await name.fill('x'.repeat(101))
+      await userEvent.keyboard('{Enter}')
+      await expect.element(screen.getByText('Name is too long.')).toBeVisible()
+      await expect.element(screen.getByText('101/100')).toBeVisible()
+
+      await userEvent.keyboard('{Escape}')
+      await expect.element(name).toHaveValue('Alice')
+      expect(screen.getByText('Name is too long.').elements()).toHaveLength(0)
+      expect(patches(requests)).toHaveLength(0)
+    })
+
+    it('keeps the text and says so when the save fails', async () => {
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 500, body: problem(500, 'Boom.') },
+      })
+      const { screen } = await renderApp('/account')
+      const name = screen.getByLabelText('Name', { exact: true })
+
+      await name.fill('Alice B')
+      await userEvent.keyboard('{Enter}')
+
+      await expect
+        .element(screen.getByText('Could not save your name.'))
+        .toBeVisible()
+      await expect.element(name).toHaveValue('Alice B')
+      await expect.element(name).toHaveFocus()
+      expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
   })
 
   describe('theme', () => {
