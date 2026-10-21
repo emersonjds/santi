@@ -51,10 +51,7 @@ const PageLink = ({
   children,
 }: {
   to:
-    | '/p/$key/board'
-    | '/p/$key/backlog'
-    | '/p/$key/reports'
-    | '/p/$key/settings'
+    '/p/$key/board' | '/p/$key/backlog' | '/p/$key/reports' | '/p/$key/settings'
   projectKey: string
   onNavigate: () => void
   children: string

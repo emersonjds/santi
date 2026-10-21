@@ -9,11 +9,7 @@ import { api, okOrThrow } from '@/shared/api/client'
 import { toast } from '@/shared/lib/toast'
 
 export type LifecycleAction =
-  | 'archive'
-  | 'unarchive'
-  | 'trash'
-  | 'restore'
-  | 'purge'
+  'archive' | 'unarchive' | 'trash' | 'restore' | 'purge'
 
 const send = async (projectKey: string, action: LifecycleAction) => {
   const params = { path: { key: projectKey } }
