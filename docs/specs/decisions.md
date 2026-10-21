@@ -668,3 +668,11 @@ Options: A) done/total on every chip plus a non-blocking offer when the last sub
 Winner: A (product, ia, ux) — progress reads the same way in the issue view, on cards and in the backlog; the offer is a toast with a Move button, so nobody is stopped by a modal and nothing moves without a click.
 - The offer appears once per change that closes the last open subtask, from the subtask list or the board; Move sends the parent to the board's first done status.
 - Moving a parent stays silent and never closes its subtasks (D6 unchanged there).
+
+## D59 — Typed issue links, visible only where the viewer can see both ends (SAN-157)
+Context: issues need typed relations (blocks, relates to, duplicates, clones) across projects, without telling anyone that an issue they cannot open exists.
+Options: A) one row per link with a derived inverse label, filtered per viewer B) two rows per link (one per direction) C) links only inside one project
+Winner: A (product, ia, ux; ia and ux on visibility) — one row cannot drift out of sync; per-viewer filtering hides links to projects the viewer does not belong to, with no count; C would block the common "blocked by the platform team" case.
+- Four types with inverses: blocks / is blocked by, relates to (symmetric), duplicates / is duplicated by, clones / is cloned by.
+- Creating a link needs edit rights on the issue and membership of the other issue's project; deleting an issue removes its links.
+- Cards show "Blocked" while a visible blocker is not done.
