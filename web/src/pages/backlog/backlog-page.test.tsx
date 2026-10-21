@@ -113,6 +113,7 @@ describe('backlog page', () => {
   })
 
   it('shows two labels on a row, then how many more', async () => {
+    await page.viewport(1440, 900)
     withBacklog(
       backlogOf(
         {
@@ -145,6 +146,43 @@ describe('backlog page', () => {
     await expect
       .element(bug.getByText('+1', { exact: true }))
       .toHaveAttribute('title', 'api')
+    await page.viewport(414, 896)
+  })
+
+  it('shows one whole label on a phone row, then how many more', async () => {
+    await page.viewport(375, 800)
+    withBacklog(
+      backlogOf(
+        {
+          ...ACTIVE,
+          cards: ACTIVE.cards.map((each) =>
+            each.key === 'WEB-2'
+              ? { ...each, labels: ['regression', 'docs', 'api'] }
+              : each
+          ),
+        },
+        PLANNED,
+        EMPTY,
+        NO_SPRINT
+      )
+    )
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    const bug = screen
+      .getByRole('region', { name: 'Sprint 4' })
+      .getByRole('listitem')
+      .nth(1)
+    const first = bug.getByTitle('regression', { exact: true })
+    await expect.element(first).toBeVisible()
+    const chip = first.element()
+    expect(chip.scrollWidth).toBeLessThanOrEqual(chip.clientWidth)
+    await expect
+      .element(bug.getByTitle('docs', { exact: true }))
+      .not.toBeVisible()
+    await expect
+      .element(bug.getByText('+2', { exact: true }))
+      .toHaveAttribute('title', 'docs, api')
+    await page.viewport(414, 896)
   })
 
   it('lets a planned sprint start only when no other runs and it holds an issue', async () => {

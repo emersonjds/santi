@@ -108,7 +108,7 @@ export const BacklogRow = memo(
                 <span className='truncate'>{epic.summary}</span>
               </span>
             )}
-            <LabelChips labels={card.labels} />
+            <LabelChips labels={card.labels} oneOnPhone />
             {status && <StatusPill status={status} />}
             <SubtaskCount card={card} />
             {editable ? <RowPoints {...fields} /> : <Points card={card} />}
