@@ -87,7 +87,7 @@
     "vitest": "^4.1.4",
     "vitest-browser-react": "^2.3.0"
   },
-  "license": "MIT OR Apache-2.0",
+  "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=24"
   },
