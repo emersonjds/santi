@@ -27,6 +27,27 @@ const withSubtasks = (items: Issue[]) => ({
   },
 })
 
+/** The server's list: WEB-3 turns done once its move lands. */
+const afterMove3 = (others: Issue[]) => {
+  let moved = false
+  return {
+    'GET /api/projects/WEB/issues': {
+      status: 200,
+      body: () => ({
+        items: [subtask('WEB-3', moved ? 30 : 20), ...others],
+        next_cursor: null,
+      }),
+    },
+    [MOVE_3]: {
+      status: 200,
+      body: () => {
+        moved = true
+        return subtask('WEB-3', 30)
+      },
+    },
+  }
+}
+
 const bodiesOf = (requests: Request[], route: string) =>
   Promise.all(
     requests
@@ -127,12 +148,12 @@ describe('subtask workflow', () => {
     await expect
       .element(section.getByRole('button', { name: 'Add subtask' }))
       .toHaveAttribute('aria-disabled', 'true')
-    expect(section.getByLabelText('Assignee of WEB-3').elements()).toHaveLength(
-      0
-    )
-    expect(section.getByLabelText('Priority of WEB-3').elements()).toHaveLength(
-      0
-    )
+    await expect
+      .element(section.getByLabelText('Assignee of WEB-3'))
+      .toHaveAttribute('aria-disabled', 'true')
+    await expect
+      .element(section.getByLabelText('Priority of WEB-3'))
+      .toHaveAttribute('aria-disabled', 'true')
   })
 
   it('stacks a row on two lines at 375 with 44px controls and no sideways scroll', async () => {
@@ -159,8 +180,7 @@ describe('subtask workflow', () => {
 
   it('offers to finish the parent when its last open subtask is done', async () => {
     const requests = inProjects({
-      ...withSubtasks([subtask('WEB-3', 20), subtask('WEB-4', 30)]),
-      [MOVE_3]: { status: 200, body: subtask('WEB-3', 30) },
+      ...afterMove3([subtask('WEB-4', 30)]),
       [MOVE_PARENT]: {
         status: 200,
         body: issue({ key: 'WEB-1', summary: 'x' }),
@@ -182,9 +202,8 @@ describe('subtask workflow', () => {
 
   it('says so when moving the parent fails', async () => {
     inProjects({
-      ...withSubtasks([subtask('WEB-3', 20)]),
-      [MOVE_3]: { status: 200, body: subtask('WEB-3', 30) },
-      [MOVE_PARENT]: { status: 409, body: problem(409, 'No.') },
+      ...afterMove3([]),
+      [MOVE_PARENT]: { status: 409, body: problem(409, 'Parent locked.') },
     })
     const { screen } = await renderApp('/p/WEB/issues/1')
 
@@ -196,6 +215,29 @@ describe('subtask workflow', () => {
     await expect
       .element(screen.getByText('Could not move WEB-1.'))
       .toBeVisible()
+    await expect.element(screen.getByText('Parent locked.')).toBeVisible()
+  })
+
+  it('asks the server, not the screen, whether every subtask is done', async () => {
+    let refuse = () => {}
+    const requests = inProjects({
+      ...afterMove3([subtask('WEB-4', 20)]),
+      'POST /api/projects/WEB/issues/4/move': {
+        status: 409,
+        body: problem(409, 'No.'),
+        until: new Promise<void>((resolve) => (refuse = resolve)),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    const section = sectionOf(screen)
+    await section.getByLabelText('Status of WEB-4').selectOptions('Done')
+    await section.getByLabelText('Status of WEB-3').selectOptions('Done')
+    await expect.poll(() => bodiesOf(requests, MOVE_3)).toHaveLength(1)
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    expect(screen.getByText(/All subtasks are done/).elements()).toHaveLength(0)
+    refuse()
   })
 
   it('makes no offer while another subtask stays open', async () => {

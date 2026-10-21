@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { attachmentsQuery } from '@/entities/attachment/attachments'
+import { peopleQuery } from '@/entities/project/project-queries'
 import {
   type Backlog,
   type BoardSettings,
@@ -48,15 +49,19 @@ import {
 } from './issue-queries'
 import { statusesOf } from './statuses'
 
-const useBoardWrite = <Variables>(
+const useBoardWrite = <Variables, Result = unknown>(
   projectKey: string,
-  write: (variables: Variables) => Promise<unknown>,
+  write: (variables: Variables) => Promise<Result>,
   change: (board: BoardView, variables: Variables) => BoardView,
   failure: (variables: Variables) => string
 ) =>
   useOptimisticWrite({
     queryKey: boardsKey(projectKey),
-    refresh: [backlogKey(projectKey), issuesKey(projectKey)],
+    refresh: [
+      backlogKey(projectKey),
+      issuesKey(projectKey),
+      peopleQuery(projectKey).queryKey,
+    ],
     write,
     change,
     failure,
@@ -112,7 +117,7 @@ const statusFor = (
 
 export const useMoveIssue = (projectKey: string) => {
   const queryClient = useQueryClient()
-  return useBoardWrite<Move>(
+  return useBoardWrite<Move, Issue>(
     projectKey,
     async ({ card, toColumnId, after, before, statusId }) => {
       const status_id =
@@ -160,7 +165,11 @@ export const useUpdateIssue = (projectKey: string) =>
 export const useUpdateRow = (projectKey: string) =>
   useOptimisticWrite<Backlog, CardUpdate>({
     queryKey: backlogKey(projectKey),
-    refresh: [boardsKey(projectKey), issuesKey(projectKey)],
+    refresh: [
+      boardsKey(projectKey),
+      issuesKey(projectKey),
+      peopleQuery(projectKey).queryKey,
+    ],
     write: async ({ card, change }) =>
       dataOrThrow(
         await api.PATCH('/api/projects/{key}/issues/{number}', {
@@ -183,6 +192,7 @@ const subtaskViews = (projectKey: string, parentKey: string) => ({
     boardsKey(projectKey),
     backlogKey(projectKey),
     issuesKey(projectKey),
+    peopleQuery(projectKey).queryKey,
   ],
 })
 
@@ -352,6 +362,9 @@ export const useEditIssue = (projectKey: string, issue: Issue) => {
         queryClient.invalidateQueries({ queryKey: issueKey, exact: true }),
         queryClient.invalidateQueries({ queryKey: boards }),
         queryClient.invalidateQueries({ queryKey: backlogKey(projectKey) }),
+        queryClient.invalidateQueries({
+          queryKey: peopleQuery(projectKey).queryKey,
+        }),
       ]),
   })
 }

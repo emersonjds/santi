@@ -48,7 +48,10 @@ export const useOfferToFinishParent = (projectKey: string) => {
       ),
     onSuccess: (_, { parentKey, name }) =>
       toast.success(`${parentKey} moved to ${name}.`),
-    onError: (_, { parentKey }) => toast.error(`Could not move ${parentKey}.`),
+    onError: (error, { parentKey }) =>
+      toast.error(`Could not move ${parentKey}.`, {
+        description: error.message,
+      }),
     onSettled: () =>
       Promise.all(
         [
@@ -59,23 +62,20 @@ export const useOfferToFinishParent = (projectKey: string) => {
       ),
   })
 
-  /** Without `subtasksAfter` the parent's subtasks are fetched as the server now has them. */
-  return async (
-    parentKey: string,
-    from: number,
-    subtasksAfter?: Pick<Issue, 'status_id'>[]
-  ) => {
+  /** Only a subtask entering done asks the server for its siblings. */
+  return async (parentKey: string, from: number, to: number) => {
     const settings = await queryClient.ensureQueryData(
       boardSettingsQuery(projectKey)
     )
-    const subtasks =
-      subtasksAfter ??
-      (await queryClient.fetchQuery({
-        ...subtasksQuery(projectKey, parentKey),
-        staleTime: 0,
-      }))
     const done = firstDoneStatus(settings)
-    if (!done || !closesLastSubtask(from, subtasks, settings)) return
+    const category = (statusId: number) =>
+      statusesById(settings).get(statusId)?.category
+    if (!done || category(to) !== 'done' || category(from) === 'done') return
+    const subtasks = await queryClient.fetchQuery({
+      ...subtasksQuery(projectKey, parentKey),
+      staleTime: 0,
+    })
+    if (!closesLastSubtask(from, subtasks, settings)) return
     // One toast per parent: a second finish replaces it.
     toast.success(`All subtasks are done. Move ${parentKey} to ${done.name}?`, {
       id: `finish-${parentKey}`,

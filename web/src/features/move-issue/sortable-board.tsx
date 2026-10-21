@@ -274,13 +274,16 @@ export const SortableBoard = ({
 }: SortableBoardProps) => {
   const move = useMoveIssue(projectKey)
   const offerToFinish = useOfferToFinishParent(projectKey)
+  // A per-call onSuccess is dropped once a later drag starts; the write toasts a refusal itself.
   const send = (plan: Move) =>
-    move.mutate(plan, {
-      onSuccess: () => {
-        const parent = plan.card.parent_key
-        if (parent) void offerToFinish(parent, plan.card.status_id)
+    move.mutateAsync(plan).then(
+      ({ status_id }) => {
+        const { issue_type, parent_key } = plan.card
+        if (issue_type === 'subtask' && parent_key)
+          void offerToFinish(parent_key, plan.card.status_id, status_id)
       },
-    })
+      () => {}
+    )
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const [drag, setDrag] = useState<Drag | null>(null)
   const pending = drag?.base === board ? drag : null
