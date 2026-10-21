@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { groupByDay } from '@/entities/home/day-buckets'
 import { recentQuery } from '@/entities/home/home-queries'
+import { useTimeZone } from '@/entities/session/session-query'
 import { useDebouncedValue } from '@/shared/lib/use-debounced-value'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import {
@@ -21,6 +22,7 @@ const RecentList = ({
   onNavigate: () => void
 }) => {
   const list = useInfiniteQuery(recentQuery(q))
+  const timeZone = useTimeZone()
   const items = list.data
   const failed = list.isError && !list.isFetchNextPageError && (
     <LoadFailed
@@ -44,7 +46,7 @@ const RecentList = ({
   return (
     <div className='grid gap-3'>
       {failed}
-      {groupByDay(items).map(({ bucket, items: rows }) => (
+      {groupByDay(items, timeZone).map(({ bucket, items: rows }) => (
         <section key={bucket} aria-label={bucket} className='grid gap-1'>
           <h3 className='px-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase'>
             {bucket}

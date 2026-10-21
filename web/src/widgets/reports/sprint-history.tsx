@@ -4,7 +4,7 @@ import {
   formatPoints,
   sprintHistoryQuery,
 } from '@/entities/report/report-queries'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { useTimeZone } from '@/entities/session/session-query'
 import type { SprintTotals } from '@/shared/api/client'
 import { formatRange } from '@/shared/lib/sprint-dates'
 import { Button } from '@/shared/ui/button'
