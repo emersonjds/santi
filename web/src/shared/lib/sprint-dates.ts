@@ -1,11 +1,14 @@
-import { formatDate } from './format-date'
+import { formatDate, safeTimeZone } from './format-date'
 
 const MINUTE = 60_000
 const HOUR_MINUTES = 60
 const DAY_MINUTES = 1440
 
 export const zoneName = (instant: Date, timeZone?: string) =>
-  new Intl.DateTimeFormat('en-US', { timeZoneName: 'short', timeZone })
+  new Intl.DateTimeFormat('en-US', {
+    timeZoneName: 'short',
+    timeZone: safeTimeZone(timeZone),
+  })
     .formatToParts(instant)
     .find((part) => part.type === 'timeZoneName')!.value
 

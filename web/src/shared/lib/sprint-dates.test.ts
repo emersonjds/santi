@@ -10,6 +10,12 @@ describe('sprint ranges', () => {
     expect(formatRange(at(16, 0), at(16, 23, 59))).toBe('Oct 16')
   })
 
+  it("names the browser's zone for one this browser does not know", () => {
+    expect(formatRange(at(16, 9), at(16, 22), 'h23', 'Mars/Olympus')).toBe(
+      'Oct 16, 09:00 – 22:00 EDT'
+    )
+  })
+
   it('shows the times and the zone otherwise, in the hour cycle of the locale', () => {
     expect(formatRange(at(16, 9), at(16, 22), 'h23')).toBe(
       'Oct 16, 09:00 – 22:00 EDT'
