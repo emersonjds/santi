@@ -1,6 +1,6 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use santi_types::auth::ProjectExport;
+use axum::body::Bytes;
 use santi_types::boards::BoardSettings;
 use santi_types::projects::{MemberRole, RestoreResult};
 use sqlx::{PgConnection, PgPool};
@@ -12,13 +12,21 @@ use crate::imports::domain::tier;
 use crate::{boards, imports, members, projects, sprints};
 
 /// SAN-99: a new project from one project of an account export, in one transaction; the caller
-/// is its admin.
+/// is its only member, as admin (D58).
 pub async fn restore(
     pool: &PgPool,
     user: &CurrentUser,
-    mut export: ProjectExport,
+    body: Bytes,
 ) -> Result<RestoreResult, AppError> {
-    let key = domain::check(&export)?;
+    let caller = user.id;
+    let (mut export, key, problems) = tokio::task::spawn_blocking(move || {
+        let mut export = domain::read(&body)?;
+        let key = domain::check(&mut export)?;
+        let problems = domain::resolve_people(&mut export, caller);
+        Ok::<_, AppError>((export, key, problems))
+    })
+    .await
+    .map_err(|error| AppError::Internal(error.to_string()))??;
     let mut tx = pool.begin().await?;
     // ponytail: two restores of one key racing past this check: the second gets the generic 409.
     if projects::repo::find_key_state(&mut tx, &key)
@@ -27,12 +35,6 @@ pub async fn restore(
     {
         return Err(domain::exists(&key));
     }
-    let live: HashSet<i64> = repo::live_users(&mut tx, &domain::people(&export))
-        .await?
-        .into_iter()
-        .collect();
-    let problems = domain::resolve_people(&mut export, &live, user.id);
-
     let project = &export.project;
     let project_id = projects::repo::insert_project(&mut tx, &key, &project.name).await?;
     let board_id = projects::repo::insert_board(
@@ -43,9 +45,6 @@ pub async fn restore(
     )
     .await?;
     members::repo::insert_member(&mut tx, project_id, user.id, MemberRole::Admin).await?;
-    for member in &export.members {
-        members::repo::insert_member(&mut tx, project_id, member.user_id, member.role).await?;
-    }
     let status_ids = restore_board(&mut tx, project_id, board_id, &export.board).await?;
     let mut sprint_ids = HashMap::with_capacity(export.sprints.len());
     for sprint in &export.sprints {
@@ -55,8 +54,11 @@ pub async fn restore(
     }
 
     for issue in &mut export.issues {
-        issue.status_id = status_ids[issue.status_name.as_str()];
-        issue.sprint_id = issue.sprint_id.map(|id| sprint_ids[&id]);
+        let unknown = || AppError::invalid(&issue.key, "names a status or sprint the file lacks");
+        issue.status_id = *status_ids.get(&issue.status_name).ok_or_else(unknown)?;
+        if let Some(id) = issue.sprint_id {
+            issue.sprint_id = Some(*sprint_ids.get(&id).ok_or_else(unknown)?);
+        }
     }
     export.issues.sort_by_key(|issue| tier(issue.issue_type)); // D41: parents first
     for same_tier in export

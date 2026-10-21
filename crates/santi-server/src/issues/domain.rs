@@ -25,6 +25,11 @@ pub fn rank_between(before: Option<&str>, after: Option<&str>) -> String {
     String::from_utf8(key).expect("rank digits are ASCII")
 }
 
+/// A key `rank_between` can place others around: base-62 digits, not ending in '0'.
+pub fn is_rank(key: &str) -> bool {
+    !key.is_empty() && !key.ends_with('0') && key.bytes().all(|digit| DIGITS.contains(&digit))
+}
+
 /// D39: open-ended keys step one unit, with escape levels.
 fn step(key: &[u8], up: bool) -> Vec<u8> {
     let top = DIGITS.len() - 1;

@@ -1,18 +1,31 @@
 use std::collections::{HashMap, HashSet};
 
 use santi_types::FieldError;
-use santi_types::auth::ProjectExport;
-use santi_types::boards::Status;
-use santi_types::issues::IssueType;
-use santi_types::projects::RestoreProblem;
-use santi_types::sprints::SprintState;
+use santi_types::auth::{ExportedComment, ProjectExport};
+use santi_types::boards::{BoardSettings, Status, StatusCategory};
+use santi_types::issues::{Issue, IssueType};
+use santi_types::projects::{BoardType, RestoreProblem};
+use santi_types::sprints::{Sprint, SprintState};
 
+use crate::boards::domain::{
+    LayoutColumn, check_board_shape, check_done_mapping, check_done_window, check_name,
+    check_wip_limit,
+};
 use crate::error::{AppError, wrong_shape};
 use crate::imports::domain::MAX_PROBLEMS;
-use crate::{boards, issues, projects};
+use crate::issues::domain::{
+    check_comment_body, check_description, check_parent, check_points, check_summary, is_rank,
+    normalize_labels,
+};
+use crate::projects::domain::{check_project_key, check_project_name};
+use crate::sprints::domain::{
+    check_goal, check_issue_can_change_sprint, check_sprint_name, check_window, require_scrum,
+};
 
 pub const MAX_ISSUES: usize = 50_000;
 pub const MAX_STATUSES: usize = 500;
+pub const MAX_SPRINTS: usize = 2_000;
+pub const MAX_COMMENTS: usize = 200_000;
 
 pub const NOT_RESTORED: &str = "Attachments, notifications and issue history are not in an export \
 and were not restored; closed sprints report their issues as they are now.";
@@ -23,50 +36,172 @@ pub fn read(bytes: &[u8]) -> Result<ProjectExport, AppError> {
     serde_path_to_error::deserialize(&mut json).map_err(|error| wrong_shape(&error.to_string()))
 }
 
-/// Refuses a file santi could not have written: limits, then every key, number, parent, status,
-/// sprint and label against the file itself. Returns the project key.
-pub fn check(export: &ProjectExport) -> Result<String, AppError> {
-    let key = projects::domain::check_project_key(&export.project.key)?;
-    projects::domain::check_project_name(&export.project.name)?;
-    let board = &export.board;
-    let board_type = export.project.board_type;
-    let statuses: Vec<&Status> = board
+/// Refuses a file santi could not have written: limits first, then every field through the
+/// validators of a normal write, normalised in place, and every reference against the file
+/// itself. Returns the project key.
+pub fn check(export: &mut ProjectExport) -> Result<String, AppError> {
+    let ProjectExport {
+        project,
+        board,
+        sprints,
+        issues,
+        comments,
+        ..
+    } = export;
+    let key = check_project_key(&project.key)?;
+    project.name = check_project_name(&project.name)?;
+    let statuses: usize = board
         .columns
         .iter()
-        .flat_map(|column| &column.statuses)
-        .chain(&board.unmapped)
-        .collect();
-    if statuses.len() > MAX_STATUSES || board.columns.len() > MAX_STATUSES {
+        .map(|column| column.statuses.len())
+        .sum();
+    if statuses + board.unmapped.len() > MAX_STATUSES || board.columns.len() > MAX_STATUSES {
         return Err(AppError::invalid(
             "board",
             "a project holds at most 500 statuses and 500 columns",
         ));
     }
-    boards::domain::check_done_window(board_type, board.done_window_days).map_err(at("board"))?;
-    for column in &board.columns {
-        boards::domain::check_wip_limit(board_type, column.wip_limit).map_err(at("board"))?;
+    let limits = [
+        ("issues", issues.len(), MAX_ISSUES),
+        ("sprints", sprints.len(), MAX_SPRINTS),
+        ("comments", comments.len(), MAX_COMMENTS),
+    ];
+    for (field, count, limit) in limits {
+        if count > limit {
+            return Err(AppError::invalid(
+                field,
+                &format!("a restore takes at most {limit} {field}"),
+            ));
+        }
     }
-    let status_names: HashSet<&str> = statuses.iter().map(|status| status.name.as_str()).collect();
-    if export.issues.len() > MAX_ISSUES {
+    let categories = check_board(project.board_type, board)?;
+    let sprint_ids = check_sprints(project.board_type, sprints)?;
+    check_issues(&key, issues, &categories, &sprint_ids)?;
+    check_comments(issues, comments)?;
+    Ok(key)
+}
+
+/// Columns, statuses and the done mapping as a board edit checks them. Returns each status's
+/// category by name.
+fn check_board(
+    board_type: BoardType,
+    board: &mut BoardSettings,
+) -> Result<HashMap<String, StatusCategory>, AppError> {
+    if board.board_type != board_type {
         return Err(AppError::invalid(
-            "issues",
-            "a project holds at most 50,000 issues",
+            "board.board_type",
+            "must match the project's board type",
         ));
     }
-    let running = export
-        .sprints
-        .iter()
-        .filter(|sprint| sprint.state == SprintState::Active);
-    if running.count() > 1 {
-        return Err(AppError::invalid(
-            "sprints",
-            "at most one sprint runs at a time",
-        ));
+    check_done_window(board_type, board.done_window_days).map_err(at("board.done_window_days"))?;
+    let mut categories = HashMap::new();
+    let mut layout = Vec::with_capacity(board.columns.len());
+    let mut last_position = None;
+    for (index, column) in board.columns.iter_mut().enumerate() {
+        let field = |name: &str| format!("board.columns[{index}].{name}");
+        column.name = check_name("name", &column.name).map_err(at(&field("name")))?;
+        check_wip_limit(board_type, column.wip_limit).map_err(at(&field("wip_limit")))?;
+        if last_position.is_some_and(|last| last >= column.position) {
+            return Err(AppError::invalid(
+                &field("position"),
+                "columns run left to right by position",
+            ));
+        }
+        last_position = Some(column.position);
+        for (inner, status) in column.statuses.iter_mut().enumerate() {
+            add_status(
+                &mut categories,
+                status,
+                &field(&format!("statuses[{inner}].name")),
+            )?;
+        }
+        layout.push(LayoutColumn {
+            id: column.id,
+            categories: column
+                .statuses
+                .iter()
+                .map(|status| status.category)
+                .collect(),
+        });
     }
-    let sprint_ids: HashSet<i64> = export.sprints.iter().map(|sprint| sprint.id).collect();
-    let mut types: HashMap<&str, IssueType> = HashMap::with_capacity(export.issues.len());
-    let mut numbers = HashSet::with_capacity(export.issues.len());
-    for (index, issue) in export.issues.iter().enumerate() {
+    for (index, status) in board.unmapped.iter_mut().enumerate() {
+        add_status(
+            &mut categories,
+            status,
+            &format!("board.unmapped[{index}].name"),
+        )?;
+    }
+    check_done_mapping(&layout).map_err(at("board.columns"))?;
+    check_board_shape(&layout).map_err(at("board.columns"))?;
+    Ok(categories)
+}
+
+fn add_status(
+    categories: &mut HashMap<String, StatusCategory>,
+    status: &mut Status,
+    field: &str,
+) -> Result<(), AppError> {
+    status.name = check_name("name", &status.name).map_err(at(field))?;
+    if categories
+        .insert(status.name.clone(), status.category)
+        .is_some()
+    {
+        return Err(AppError::invalid(field, "repeats another status's name"));
+    }
+    Ok(())
+}
+
+/// D6 and the sprint lifecycle: scrum only, times that fit the state, one running. Returns the ids.
+fn check_sprints(board_type: BoardType, list: &mut [Sprint]) -> Result<HashSet<i64>, AppError> {
+    if !list.is_empty() {
+        require_scrum(board_type).map_err(at("sprints"))?;
+    }
+    let mut ids = HashSet::with_capacity(list.len());
+    let mut running = false;
+    for (index, sprint) in list.iter_mut().enumerate() {
+        let field = |name: &str| format!("sprints[{index}].{name}");
+        if !ids.insert(sprint.id) {
+            return Err(AppError::invalid(
+                &field("id"),
+                "repeats another sprint's id",
+            ));
+        }
+        sprint.name = check_sprint_name(&sprint.name).map_err(at(&field("name")))?;
+        sprint.goal = check_goal(&sprint.goal).map_err(at(&field("goal")))?;
+        check_window(sprint.starts_at, sprint.ends_at).map_err(at(&field("ends_at")))?;
+        let (started, closed) = (sprint.started_at.is_some(), sprint.closed_at.is_some());
+        let fits = match sprint.state {
+            SprintState::Future => !started && !closed,
+            SprintState::Active => started && !closed,
+            SprintState::Closed => started && closed,
+        };
+        if !fits {
+            return Err(AppError::invalid(
+                &field("state"),
+                "a future sprint has no start or close time, an active one a start, a closed one both",
+            ));
+        }
+        if sprint.state == SprintState::Active {
+            if running {
+                return Err(AppError::invalid(
+                    "sprints",
+                    "at most one sprint runs at a time",
+                ));
+            }
+            running = true;
+        }
+    }
+    Ok(ids)
+}
+
+fn check_issues(
+    key: &str,
+    list: &mut [Issue],
+    categories: &HashMap<String, StatusCategory>,
+    sprint_ids: &HashSet<i64>,
+) -> Result<(), AppError> {
+    let mut numbers = HashSet::with_capacity(list.len());
+    for (index, issue) in list.iter_mut().enumerate() {
         let field = |name: &str| format!("issues[{index}].{name}");
         if issue.key != format!("{key}-{}", issue.number) || issue.number < 1 {
             return Err(AppError::invalid(
@@ -80,10 +215,22 @@ pub fn check(export: &ProjectExport) -> Result<String, AppError> {
                 "repeats another issue's number",
             ));
         }
-        if !status_names.contains(issue.status_name.as_str()) {
+        issue.summary = check_summary(&issue.summary).map_err(at(&field("summary")))?;
+        issue.description =
+            check_description(&issue.description).map_err(at(&field("description")))?;
+        issue.labels =
+            normalize_labels(std::mem::take(&mut issue.labels)).map_err(at(&field("labels")))?;
+        check_points(issue.issue_type, issue.points).map_err(at(&field("points")))?;
+        let Some(category) = categories.get(&issue.status_name) else {
             return Err(AppError::invalid(
                 &field("status_name"),
                 "names no status of the board",
+            ));
+        };
+        if issue.done_at.is_some() != (*category == StatusCategory::Done) {
+            return Err(AppError::invalid(
+                &field("done_at"),
+                "is set exactly when the status is in the done category",
             ));
         }
         if issue.sprint_id.is_some_and(|id| !sprint_ids.contains(&id)) {
@@ -92,34 +239,56 @@ pub fn check(export: &ProjectExport) -> Result<String, AppError> {
                 "names no sprint in the file",
             ));
         }
-        issues::domain::normalize_labels(issue.labels.clone()).map_err(at(&field("labels")))?;
-        types.insert(&issue.key, issue.issue_type);
+        if issue.issue_type == IssueType::Epic && issue.sprint_id.is_some() {
+            check_issue_can_change_sprint(IssueType::Epic).map_err(at(&field("sprint_id")))?;
+        }
     }
-    for (index, issue) in export.issues.iter().enumerate() {
+    let by_key: HashMap<&str, &Issue> = list
+        .iter()
+        .map(|issue| (issue.key.as_str(), issue))
+        .collect();
+    let mut ranks = HashSet::with_capacity(list.len());
+    for (index, issue) in list.iter().enumerate() {
+        let field = |name: &str| format!("issues[{index}].{name}");
+        if !is_rank(&issue.rank) || !ranks.insert(issue.rank.as_str()) {
+            return Err(AppError::invalid(
+                &field("rank"),
+                "must be base-62 digits, not ending in 0, unique in the file",
+            ));
+        }
         let parent = match &issue.parent_key {
-            Some(parent) => Some(*types.get(parent.as_str()).ok_or_else(|| {
-                AppError::invalid(
-                    &format!("issues[{index}].parent_key"),
-                    "names no issue in the file",
-                )
+            Some(parent) => Some(*by_key.get(parent.as_str()).ok_or_else(|| {
+                AppError::invalid(&field("parent_key"), "names no issue in the file")
             })?),
             None => None,
         };
-        issues::domain::check_parent(issue.issue_type, parent)
-            .map_err(at(&format!("issues[{index}].parent_key")))?;
+        check_parent(issue.issue_type, parent.map(|parent| parent.issue_type))
+            .map_err(at(&field("parent_key")))?;
+        if issue.issue_type == IssueType::Subtask
+            && parent.is_some_and(|parent| parent.sprint_id != issue.sprint_id)
+        {
+            check_issue_can_change_sprint(IssueType::Subtask).map_err(at(&field("sprint_id")))?;
+        }
     }
-    for (index, comment) in export.comments.iter().enumerate() {
-        if !types.contains_key(comment.issue_key.as_str()) {
+    Ok(())
+}
+
+fn check_comments(issues: &[Issue], comments: &mut [ExportedComment]) -> Result<(), AppError> {
+    let keys: HashSet<&str> = issues.iter().map(|issue| issue.key.as_str()).collect();
+    for (index, comment) in comments.iter_mut().enumerate() {
+        if !keys.contains(comment.issue_key.as_str()) {
             return Err(AppError::invalid(
                 &format!("comments[{index}].issue_key"),
                 "names no issue in the file",
             ));
         }
+        comment.body =
+            check_comment_body(&comment.body).map_err(at(&format!("comments[{index}].body")))?;
     }
-    Ok(key)
+    Ok(())
 }
 
-/// Moves a validation error onto the field of the file it came from.
+/// Moves a validation error or a refused board rule onto the field of the file it came from.
 fn at(field: &str) -> impl Fn(AppError) -> AppError {
     move |error| match error {
         AppError::Validation(errors) => AppError::Validation(
@@ -131,6 +300,7 @@ fn at(field: &str) -> impl Fn(AppError) -> AppError {
                 })
                 .collect(),
         ),
+        AppError::Conflict { detail, .. } => AppError::invalid(field, &detail),
         other => other,
     }
 }
@@ -142,73 +312,63 @@ pub fn exists(key: &str) -> AppError {
     )
 }
 
-/// Every user the file names.
-pub fn people(export: &ProjectExport) -> Vec<i64> {
-    let members = export.members.iter().map(|member| member.user_id);
-    let issues = export
-        .issues
-        .iter()
-        .flat_map(|issue| [Some(issue.reporter_id), issue.assignee_id])
-        .flatten();
-    let comments = export
-        .comments
-        .iter()
-        .flat_map(|comment| [Some(comment.author_id), comment.edited_by_id])
-        .flatten();
-    let all: HashSet<i64> = members.chain(issues).chain(comments).collect();
-    all.into_iter().collect()
-}
-
-/// Users missing on this instance give way to the caller: assignees are cleared, reporters and
-/// comment authors become the caller. Members are kept once each, the caller left out (it joins
-/// as admin). Returns the changes, the first `MAX_PROBLEMS`.
-pub fn resolve_people(
-    export: &mut ProjectExport,
-    live: &HashSet<i64>,
-    caller: i64,
-) -> Vec<RestoreProblem> {
-    let mut seen = HashSet::from([caller]);
-    export
+/// D58: the caller is the only person the project keeps. Other assignees are cleared; other
+/// reporters, comment authors and editors become the caller. Returns the changes with the names
+/// the file gives, the first `MAX_PROBLEMS`.
+pub fn resolve_people(export: &mut ProjectExport, caller: i64) -> Vec<RestoreProblem> {
+    let names: HashMap<i64, &str> = export
         .members
-        .retain(|member| live.contains(&member.user_id) && seen.insert(member.user_id));
+        .iter()
+        .map(|member| (member.user_id, member.display_name.as_str()))
+        .collect();
+    let name_of = |id: i64| names.get(&id).copied().unwrap_or("another person");
     let mut problems = Vec::new();
     let mut note = |issue_key: &str, message: String| {
-        problems.push(RestoreProblem {
-            issue_key: issue_key.into(),
-            message,
-        })
+        if problems.len() < MAX_PROBLEMS {
+            problems.push(RestoreProblem {
+                issue_key: issue_key.into(),
+                message,
+            });
+        }
     };
     for issue in &mut export.issues {
-        if issue.assignee_id.is_some_and(|id| !live.contains(&id)) {
+        if issue.assignee_id.is_some_and(|id| id != caller) {
             issue.assignee_id = None;
-            let name = issue.assignee_name.take().unwrap_or_default();
+            let name = issue.assignee_name.take();
+            let name = name.as_deref().unwrap_or("another person");
             note(
                 &issue.key,
-                format!("assignee {name} is not on this instance; left unassigned"),
+                format!("assignee {name} was cleared; invite them to assign them again"),
             );
         }
-        if !live.contains(&issue.reporter_id) {
+        if issue.reporter_id != caller {
             issue.reporter_id = caller;
             let name = &issue.reporter_name;
-            note(
-                &issue.key,
-                format!("reporter {name} is not on this instance; you are the reporter now"),
-            );
+            note(&issue.key, format!("reporter {name} is you now"));
         }
     }
     for comment in &mut export.comments {
-        if !live.contains(&comment.author_id) {
+        let author = comment.author_id;
+        if author != caller {
             comment.author_id = caller;
+            let name = name_of(author);
             note(
                 &comment.issue_key,
-                "a comment's author is not on this instance; you are its author now".into(),
+                format!("a comment by {name} shows you as its author now"),
             );
         }
-        if comment.edited_by_id.is_some_and(|id| !live.contains(&id)) {
-            comment.edited_by_id = Some(caller);
+        let Some(editor) = comment.edited_by_id.filter(|editor| *editor != caller) else {
+            continue;
+        };
+        comment.edited_by_id = Some(caller);
+        if editor != author {
+            let name = name_of(editor);
+            note(
+                &comment.issue_key,
+                format!("a comment edited by {name} shows you as its editor now"),
+            );
         }
     }
-    problems.truncate(MAX_PROBLEMS);
     problems
 }
 
@@ -258,7 +418,9 @@ mod tests {
             "board": {
                 "board_type": "scrum", "done_window_days": null,
                 "columns": [{ "id": 3, "name": "To Do", "position": 0, "wip_limit": null,
-                              "statuses": [{ "id": 1, "name": "To Do", "category": "todo", "column_id": 3 }] }],
+                              "statuses": [{ "id": 1, "name": "To Do", "category": "todo", "column_id": 3 }] },
+                            { "id": 6, "name": "Done", "position": 1, "wip_limit": null,
+                              "statuses": [{ "id": 2, "name": "Done", "category": "done", "column_id": 6 }] }],
                 "unmapped": [{ "id": 5, "name": "Blocked", "category": "todo", "column_id": null }]
             },
             "sprints": [sprint(4, "active")],
@@ -283,12 +445,12 @@ mod tests {
     fn refused(change: impl FnOnce(&mut Value)) -> String {
         let mut value = file();
         change(&mut value);
-        field(check(&export(value)).unwrap_err())
+        field(check(&mut export(value)).unwrap_err())
     }
 
     #[test]
     fn a_santi_export_passes_and_names_its_key() {
-        assert_eq!(check(&export(file())).unwrap(), "SHOP");
+        assert_eq!(check(&mut export(file())).unwrap(), "SHOP");
     }
 
     #[test]
@@ -309,6 +471,13 @@ mod tests {
             value["sprints"] = json!([sprint(4, "active"), sprint(5, "active")]);
         });
         assert_eq!(two_running, "sprints");
+
+        let mut many = export(file());
+        many.sprints = vec![many.sprints[0].clone(); MAX_SPRINTS + 1];
+        assert_eq!(field(check(&mut many).unwrap_err()), "sprints");
+        let mut many = export(file());
+        many.comments = vec![many.comments[0].clone(); MAX_COMMENTS + 1];
+        assert_eq!(field(check(&mut many).unwrap_err()), "comments");
     }
 
     #[test]
@@ -360,57 +529,201 @@ mod tests {
     }
 
     #[test]
-    fn people_missing_here_are_replaced_and_listed() {
+    fn every_field_passes_the_validators_of_a_normal_write() {
+        type Change = fn(&mut Value);
+        let cases: [(&str, Change); 16] = [
+            ("issues[0].summary", |v| {
+                v["issues"][0]["summary"] = json!(" ")
+            }),
+            ("issues[1].description", |v| {
+                v["issues"][1]["description"] = json!("a\0b")
+            }),
+            ("issues[1].points", |v| v["issues"][1]["points"] = json!(-1)),
+            ("issues[2].points", |v| v["issues"][2]["points"] = json!(1)),
+            ("comments[0].body", |v| {
+                v["comments"][0]["body"] = json!("  ")
+            }),
+            ("sprints[0].name", |v| v["sprints"][0]["name"] = json!("")),
+            ("sprints[0].goal", |v| {
+                v["sprints"][0]["goal"] = json!("g".repeat(1001))
+            }),
+            ("sprints[0].ends_at", |v| {
+                v["sprints"][0]["ends_at"] = json!("2026-09-01T00:00:00Z")
+            }),
+            ("sprints[1].id", |v| {
+                v["sprints"] = json!([sprint(4, "active"), sprint(4, "closed")])
+            }),
+            ("board.columns[0].name", |v| {
+                v["board"]["columns"][0]["name"] = json!(" ")
+            }),
+            ("board.columns[1].statuses[0].name", |v| {
+                v["board"]["columns"][1]["statuses"][0]["name"] = json!("To Do")
+            }),
+            ("board.unmapped[0].name", |v| {
+                v["board"]["unmapped"][0]["name"] = json!("Done")
+            }),
+            ("board.columns[1].position", |v| {
+                v["board"]["columns"][1]["position"] = json!(0)
+            }),
+            ("board.columns", |v| {
+                v["board"]["columns"][0]["statuses"][0]["category"] = json!("done")
+            }),
+            ("board.columns", |v| {
+                v["board"]["columns"].as_array_mut().unwrap().truncate(1)
+            }),
+            ("board.board_type", |v| {
+                v["board"]["board_type"] = json!("kanban")
+            }),
+        ];
+        for (expected, change) in cases {
+            assert_eq!(refused(change), expected);
+        }
+    }
+
+    #[test]
+    fn ranks_are_base_62_keys_not_ending_in_zero_and_unique() {
+        for rank in ["", "a!", "a0"] {
+            assert_eq!(
+                refused(|value| value["issues"][1]["rank"] = json!(rank)),
+                "issues[1].rank",
+                "{rank:?}"
+            );
+        }
+        assert_eq!(
+            refused(|value| value["issues"][1]["rank"] = json!("a1")),
+            "issues[1].rank"
+        );
+    }
+
+    #[test]
+    fn sprint_rules_hold_for_epics_subtasks_kanban_and_states() {
+        let in_sprint =
+            |value: &mut Value, index: usize| value["issues"][index]["sprint_id"] = json!(4);
+        assert_eq!(refused(|value| in_sprint(value, 0)), "issues[0].sprint_id");
+        assert_eq!(refused(|value| in_sprint(value, 1)), "issues[2].sprint_id");
+        assert_eq!(refused(|value| in_sprint(value, 2)), "issues[2].sprint_id");
+        let mut together = file();
+        in_sprint(&mut together, 1);
+        in_sprint(&mut together, 2);
+        assert!(check(&mut export(together)).is_ok());
+        assert_eq!(
+            refused(|value| {
+                value["project"]["board_type"] = json!("kanban");
+                value["board"]["board_type"] = json!("kanban");
+            }),
+            "sprints"
+        );
+        let states: [fn(&mut Value); 3] = [
+            |v| v["sprints"][0]["started_at"] = json!(null),
+            |v| v["sprints"][0] = sprint(4, "closed"),
+            |v| v["sprints"][0] = sprint(4, "future"),
+        ];
+        for change in states {
+            assert_eq!(refused(change), "sprints[0].state");
+        }
+    }
+
+    #[test]
+    fn done_at_is_set_exactly_in_a_done_status() {
+        assert_eq!(
+            refused(|value| value["issues"][0]["done_at"] = json!("2026-10-03T00:00:00Z")),
+            "issues[0].done_at"
+        );
+        assert_eq!(
+            refused(|value| value["issues"][0]["status_name"] = json!("Done")),
+            "issues[0].done_at"
+        );
+        let mut done = file();
+        done["issues"][0]["status_name"] = json!("Done");
+        done["issues"][0]["done_at"] = json!("2026-10-03T00:00:00Z");
+        assert!(check(&mut export(done)).is_ok());
+    }
+
+    #[test]
+    fn what_passes_is_stored_normalised() {
         let mut value = file();
-        value["issues"][2]["assignee_id"] = json!(1);
-        value["members"][1]["user_id"] = json!(1);
+        value["issues"][0]["labels"] = json!([" web ", "web", "pay"]);
+        value["issues"][0]["summary"] = json!("  Checkout  ");
         let mut restored = export(value);
-        let mut wanted = people(&restored);
-        wanted.sort();
-        assert_eq!(wanted, vec![1, 2]);
+        check(&mut restored).unwrap();
+        assert_eq!(restored.issues[0].labels, ["web", "pay"]);
+        assert_eq!(restored.issues[0].summary, "Checkout");
+    }
 
-        let problems = resolve_people(&mut restored, &HashSet::from([1]), 9);
-
-        assert_eq!(
-            restored.members.len(),
-            1,
-            "user 2 is gone, user 1 is listed once"
-        );
-        let mut caller_listed = export(file());
-        resolve_people(&mut caller_listed, &HashSet::from([1, 2]), 1);
-        assert_eq!(
-            caller_listed.members[0].user_id, 2,
-            "the caller joins as admin"
-        );
-        let [epic, story, subtask] = &restored.issues[..] else {
-            panic!()
-        };
-        assert_eq!((epic.assignee_id, epic.reporter_id), (None, 1));
-        assert_eq!(story.assignee_id, None);
-        assert_eq!(subtask.assignee_id, Some(1));
-        let comment = &restored.comments[0];
-        assert_eq!((comment.author_id, comment.edited_by_id), (9, Some(9)));
-        let keys: Vec<&str> = problems
+    #[test]
+    fn only_the_caller_stays_and_everyone_else_is_listed_by_name() {
+        let mut as_ana = export(file());
+        let problems = resolve_people(&mut as_ana, 1);
+        assert!(as_ana.issues.iter().all(|issue| issue.assignee_id.is_none()
+            && issue.assignee_name.is_none()
+            && issue.reporter_id == 1));
+        let comment = &as_ana.comments[0];
+        assert_eq!((comment.author_id, comment.edited_by_id), (1, Some(1)));
+        let listed: Vec<(&str, &str)> = problems
             .iter()
-            .map(|problem| problem.issue_key.as_str())
+            .map(|problem| (problem.issue_key.as_str(), problem.message.as_str()))
             .collect();
-        assert_eq!(keys, ["SHOP-1", "SHOP-2", "SHOP-2"]);
-        assert!(
-            problems[0].message.contains("Bob"),
-            "{}",
-            problems[0].message
+        assert_eq!(
+            listed,
+            [
+                (
+                    "SHOP-1",
+                    "assignee Bob was cleared; invite them to assign them again"
+                ),
+                (
+                    "SHOP-2",
+                    "assignee Bob was cleared; invite them to assign them again"
+                ),
+                (
+                    "SHOP-3",
+                    "assignee Bob was cleared; invite them to assign them again"
+                ),
+                ("SHOP-2", "a comment by Bob shows you as its author now"),
+            ]
         );
 
-        let mut missing_reporter = export(file());
-        let problems = resolve_people(&mut missing_reporter, &HashSet::from([2]), 9);
+        let mut as_stranger = export(file());
+        let problems = resolve_people(&mut as_stranger, 9);
         assert!(
-            missing_reporter
+            as_stranger
                 .issues
                 .iter()
                 .all(|issue| issue.reporter_id == 9)
         );
-        assert_eq!(missing_reporter.members.len(), 1);
-        assert_eq!(problems.len(), 3);
+        assert_eq!(problems.len(), 7);
+        assert_eq!(problems[1].message, "reporter Ana is you now");
+    }
+
+    #[test]
+    fn editors_and_unknown_people_are_replaced_too() {
+        let mut value = file();
+        value["issues"][2]["assignee_id"] = json!(9);
+        value["issues"][1]["assignee_name"] = json!(null);
+        value["comments"][0]["author_id"] = json!(77);
+        let mut restored = export(value);
+
+        let problems = resolve_people(&mut restored, 9);
+
+        assert_eq!(restored.issues[2].assignee_id, Some(9), "the caller stays");
+        let comment = &restored.comments[0];
+        assert_eq!((comment.author_id, comment.edited_by_id), (9, Some(9)));
+        let messages: Vec<&str> = problems
+            .iter()
+            .map(|problem| problem.message.as_str())
+            .collect();
+        assert!(
+            messages
+                .contains(&"assignee another person was cleared; invite them to assign them again")
+        );
+        assert!(messages.contains(&"a comment by another person shows you as its author now"));
+        assert!(messages.contains(&"a comment edited by Bob shows you as its editor now"));
+    }
+
+    #[test]
+    fn problems_stop_at_the_cap() {
+        let mut many = export(file());
+        many.comments = vec![many.comments[0].clone(); MAX_PROBLEMS * 2];
+        assert_eq!(resolve_people(&mut many, 9).len(), MAX_PROBLEMS);
     }
 
     #[test]
