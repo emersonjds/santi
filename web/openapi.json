@@ -1373,6 +1373,95 @@
         }
       }
     },
+    "/api/projects/restore": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "restore_export",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectExport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "A new project from one project of `GET /api/me/export`, with its board, sprints, issue numbers and comments; the caller is its only member, as admin (D58): other assignees are cleared, other reporters, comment authors and editors become the caller, each listed by name in `problems`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestoreResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`bad-request`: the body could not be read",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-exists`: a project holds the key; nothing written",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload-too-large`: over 50 MB",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Malformed JSON is a 422 here, not a 400. Also: not an export, over 50,000 issues, 500 statuses, 2,000 sprints or 200,000 comments, a field a normal write refuses, or a key, parent, status or sprint the file does not hold; the field is named (`issues[3].summary`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited like imports (D44); wait `Retry-After` seconds",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projects/{key}": {
       "get": {
         "tags": [
@@ -8692,6 +8781,61 @@
           }
         },
         "additionalProperties": false
+      },
+      "RestoreProblem": {
+        "type": "object",
+        "required": [
+          "issue_key",
+          "message"
+        ],
+        "properties": {
+          "issue_key": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "RestoreResult": {
+        "type": "object",
+        "description": "A project recreated from a santi export (`POST /api/projects/restore`, SAN-99).",
+        "required": [
+          "project",
+          "issues",
+          "sprints",
+          "comments",
+          "problems",
+          "not_restored"
+        ],
+        "properties": {
+          "comments": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "issues": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "not_restored": {
+            "type": "string",
+            "description": "What an export does not carry, in one line."
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RestoreProblem"
+            },
+            "description": "The first 100 people changes: users missing on this instance."
+          },
+          "project": {
+            "$ref": "#/components/schemas/Project"
+          },
+          "sprints": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
       },
       "RowProblem": {
         "type": "object",
