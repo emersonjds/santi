@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
+import { applyTheme } from '@/shared/lib/theme'
 import { renderApp } from '@/test/render-app'
-import { problem, routeOf, signedIn } from '@/test/stub-api'
+import { ALICE, problem, routeOf, signedIn } from '@/test/stub-api'
 
 const LAPTOP = { id: 3, name: 'laptop', created_at: '2026-10-01T12:00:00Z' }
 const CI = { id: 4, name: 'ci', created_at: '2026-10-02T12:00:00Z' }
@@ -18,7 +19,7 @@ describe('account page', () => {
     const { screen, router } = await renderApp('/')
 
     await screen.getByRole('button', { name: 'Account' }).click()
-    await screen.getByRole('menuitem', { name: 'API tokens' }).click()
+    await screen.getByRole('menuitem', { name: 'Account' }).click()
 
     await expect.poll(() => router.state.location.pathname).toBe('/account')
     await expect
@@ -155,5 +156,61 @@ describe('account page', () => {
     await expect
       .element(confirm.getByText('The resource was not found.'))
       .toBeVisible()
+  })
+
+  describe('theme', () => {
+    const theme = () => document.documentElement.dataset.theme
+
+    it('applies a choice at once and saves it', async () => {
+      onTestFinished(() => applyTheme('system'))
+      let answer = (_: unknown) => {}
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, theme: 'dark' },
+          until: new Promise((resolve) => (answer = resolve)),
+        },
+      })
+      const { screen } = await renderApp('/account')
+      const control = screen.getByRole('radiogroup', { name: 'Theme' })
+      await expect
+        .element(control.getByRole('radio', { name: 'System' }))
+        .toBeChecked()
+
+      await control.getByRole('radio', { name: 'Dark' }).click()
+
+      expect(theme()).toBe('dark')
+      const patch = requests.find(
+        (request) => routeOf(request) === 'PATCH /api/me'
+      )
+      expect(await patch?.json()).toEqual({ theme: 'dark' })
+      answer(undefined)
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await expect
+        .element(control.getByRole('radio', { name: 'Dark' }))
+        .toBeChecked()
+    })
+
+    it('reverts and says so when the save fails', async () => {
+      onTestFinished(() => applyTheme('system'))
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 500, body: problem(500, 'Boom.') },
+      })
+      const { screen } = await renderApp('/account')
+      const control = screen.getByRole('radiogroup', { name: 'Theme' })
+
+      await control.getByRole('radio', { name: 'Dark' }).click()
+
+      await expect
+        .element(screen.getByText('Could not save your theme.'))
+        .toBeVisible()
+      expect(theme()).toBe('light')
+      await expect
+        .element(control.getByRole('radio', { name: 'System' }))
+        .toBeChecked()
+      expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
   })
 })
