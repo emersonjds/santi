@@ -682,3 +682,10 @@ Winner: A (product, ia, ux; ia and ux on visibility) — one row cannot drift ou
 - Creating a link needs edit rights on the issue and membership of the other issue's project; deleting an issue removes its links.
 - A pair of issues carries each type at most once, in either direction: "A blocks B" refuses a later "B blocks A" (no mutual blocks, duplicates or clones).
 - Cards show "Blocked" while a visible blocker is not done.
+
+## D60 — Sessions show a device label and last activity, never the raw user agent or the address (SAN-198)
+Context: people need to see where they are signed in and end sessions they do not recognise; storing more than that is personal data santi does not need (LGPD/GDPR minimisation).
+Options: A) a short device label parsed at sign-in plus sign-in and last-activity times B) the raw User-Agent and IP address C) sign-in time only
+Winner: A (product, ia, ux) — enough to recognise a device, nothing that locates the person; B keeps data with no use for a small team, C cannot tell two laptops apart.
+- Last activity is refreshed at most every 10 minutes per session.
+- Changing the password ends every other session; API tokens stay until revoked from their own list.
