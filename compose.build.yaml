@@ -1,0 +1,5 @@
+# Builds santi from this checkout: `docker compose -f compose.yaml -f compose.build.yaml up -d --build`.
+services:
+  santi:
+    build: .
+    image: santi:local

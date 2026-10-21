@@ -286,12 +286,12 @@ Ranked by what blocks a small team using the MVP every day.
    backlog rows; Esc and a Cancel on the "Add subtask" field.
    Why: real bugs against adopted rules, each a few lines.
 4. **Members management** — S. Done in SAN-44: `/p/{key}/settings/members` (`members-page.test`,
-   `e2e/projects.spec.ts` "an admin changes a member role…"); add by email and moving the invite box
-   off the header left out.
+   `e2e/projects.spec.ts` "an admin changes a member role…"); moving the invite box off the header left out;
+   add by email dropped (SAN-182, D55).
    Rules: IA §3 `/settings/members`, IA §9.
-   API: none; `POST /members`, `PUT/DELETE /members/{user_id}`, last-admin guard exist
+   API: none; `PUT/DELETE /members/{user_id}`, last-admin guard exist
    (`projects::admin_changes_roles_and_removes_members`, `projects::the_last_admin_stays`).
-   UI: members page: role select, remove, add by email, invite link box moved from the header;
+   UI: members page: role select, remove, invite link box moved from the header;
    "A project needs at least one admin." hint.
    Why: nobody can remove someone who left or promote a second admin.
 5. **Complete quick filters + phone filter sheet** — M. Done in SAN-47 (`filter-bar.test`,

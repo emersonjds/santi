@@ -11,13 +11,7 @@ async fn two_projects(pool: PgPool) -> (TestApp, TestApp) {
     let bob = ana.another_user("bob@example.com").await;
     ana.create_project("WEB", "scrum").await;
     ana.create_project("OPS", "kanban").await;
-    let (status, _) = ana
-        .post(
-            "/api/projects/WEB/members",
-            json!({ "email": "bob@example.com", "role": "member" }),
-        )
-        .await;
-    assert_eq!(status, StatusCode::CREATED);
+    ana.add_member("WEB", &bob, "member").await;
     (ana, bob)
 }
 
@@ -341,13 +335,7 @@ async fn leaving_a_project_hides_its_issues_and_project(pool: PgPool) {
     }
     assert!(my_projects(&bob).await.is_empty());
 
-    let (status, _) = ana
-        .post(
-            "/api/projects/WEB/members",
-            json!({ "email": "bob@example.com", "role": "member" }),
-        )
-        .await;
-    assert_eq!(status, StatusCode::CREATED);
+    ana.add_member("WEB", &bob, "member").await;
     for name in ["starred", "viewed", "worked"] {
         assert!(
             keys(&view(&bob, name).await).is_empty(),

@@ -371,6 +371,16 @@ fn stdio_lists_described_tools_and_drives_a_sprint() {
         )
         .await;
         assert_eq!(found["items"][0]["key"], "MCP-2");
+        let page = json!({ "project": "MCP", "limit": 1 });
+        let first = ok(&client, "search_issues", page).await;
+        let cursor = first["next_cursor"].clone();
+        assert!(cursor.is_i64(), "{first}");
+        let page = json!({ "project": "MCP", "limit": 1, "cursor": cursor });
+        let second = ok(&client, "search_issues", page).await;
+        assert_ne!(second["items"][0]["key"], first["items"][0]["key"]);
+        assert_eq!(second["next_cursor"], Value::Null);
+        let description = tool("search_issues").description.as_deref().unwrap();
+        assert!(description.contains("`next_cursor`"), "{description}");
 
         let closed = ok(
             &client,

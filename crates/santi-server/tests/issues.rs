@@ -548,13 +548,7 @@ async fn wrong_shape_bodies_say_why_in_the_detail(pool: PgPool) {
 async fn erased_people_read_as_deleted_user(pool: PgPool) {
     let ana = project(pool).await;
     let bob = ana.another_user("bob@example.com").await;
-    let (joined, _) = ana
-        .post(
-            "/api/projects/SANTI/members",
-            json!({ "email": "bob@example.com", "role": "member" }),
-        )
-        .await;
-    assert_eq!(joined, StatusCode::CREATED);
+    ana.add_member("SANTI", &bob, "member").await;
     bob.create_issue("SANTI", json!({ "summary": "Bob's" }))
         .await;
     bob.post(
