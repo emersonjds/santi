@@ -179,7 +179,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/index.tsx')
     ),
-    limit: '170 KB',
+    limit: '160 KB',
     gzip: true,
   },
   {
