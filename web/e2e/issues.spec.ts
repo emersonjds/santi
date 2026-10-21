@@ -152,9 +152,15 @@ test('a comment is posted, edited and deleted, and each change survives a reload
     comments.locator('.cm-content[aria-label="Add a comment"]')
   ).toBeFocused()
   await page.keyboard.type('Ready for review.')
+  const posted = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith('/comments')
+  )
   await comments.getByRole('button', { name: 'Save' }).click()
   await expect(comment).toContainText('Ready for review.')
   await expect(comment).toContainText('Ada')
+  expect((await posted).ok()).toBe(true)
 
   await comment.hover()
   await comment.getByRole('button', { name: 'Comment actions' }).click()
@@ -175,11 +181,15 @@ test('a comment is posted, edited and deleted, and each change survives a reload
   await comment.hover()
   await comment.getByRole('button', { name: 'Comment actions' }).click()
   await page.getByRole('menuitem', { name: 'Delete' }).click()
+  const deleted = page.waitForResponse(
+    (response) => response.request().method() === 'DELETE'
+  )
   await page
     .getByRole('alertdialog', { name: 'Delete this comment?' })
     .getByRole('button', { name: 'Delete' })
     .click()
   await expect(comment).toHaveCount(0)
+  expect((await deleted).ok()).toBe(true)
   await page.reload()
   await expect(comments.getByText('No comments yet.')).toBeVisible()
   await expect(comment).toHaveCount(0)
