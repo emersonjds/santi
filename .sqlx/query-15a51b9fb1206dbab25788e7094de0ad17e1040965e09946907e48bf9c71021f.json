@@ -1,0 +1,124 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.key || '-' || i.number AS \"key!\", i.summary, i.status_id,\n                  s.name AS status_name, s.category AS \"status_category: StatusCategory\",\n                  i.priority AS \"priority: Priority\", i.assignee_id,\n                  assignee.display_name AS \"assignee_name?\", i.issue_type AS \"issue_type: IssueType\"\n           FROM issue i\n           JOIN project p ON p.id = i.project_id AND p.trashed_at IS NULL\n                AND ($5 OR p.archived_at IS NULL)\n           JOIN member m ON m.project_id = p.id AND m.user_id = $1\n           JOIN status s ON s.id = i.status_id\n           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id\n           WHERE $2::text IS NULL OR i.summary ILIKE $2\n              OR (i.number = $4::bigint AND ($3::text IS NULL OR p.key = $3))\n           ORDER BY (i.number = $4 AND ($3::text IS NULL OR p.key = $3)) IS TRUE DESC,\n                    i.updated_at DESC, i.id DESC\n           LIMIT $6",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "summary",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "summary"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "status_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "status_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "status_name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "status_category: StatusCategory",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "status",
+            "name": "category"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "priority: Priority",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "priority"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "assignee_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "assignee_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "assignee_name?",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "display_name"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "issue_type: IssueType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "issue",
+            "name": "issue_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Text",
+        "Int8",
+        "Bool",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "15a51b9fb1206dbab25788e7094de0ad17e1040965e09946907e48bf9c71021f"
+}

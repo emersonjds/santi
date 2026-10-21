@@ -32,9 +32,26 @@ pub fn parse_star_key(key: &str) -> Result<StarTarget, AppError> {
         .map_err(|_| invalid())
 }
 
+/// SAN-206: the issue search answers 20 rows unless asked for 1 to 50.
+pub fn search_limit(limit: Option<i64>) -> Result<i64, AppError> {
+    let limit = limit.unwrap_or(20);
+    if !(1..=50).contains(&limit) {
+        return Err(AppError::invalid("limit", "must be between 1 and 50"));
+    }
+    Ok(limit)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn issue_search_limit_defaults_to_20_and_caps_at_50() {
+        assert_eq!(search_limit(None).unwrap(), 20);
+        assert_eq!(search_limit(Some(50)).unwrap(), 50);
+        assert!(search_limit(Some(51)).is_err());
+        assert!(search_limit(Some(0)).is_err());
+    }
 
     #[test]
     fn keys_name_a_project_or_an_issue() {

@@ -568,3 +568,91 @@ async fn feeds_skip_projects_left_archived_or_trashed(pool: PgPool) {
         assert!(keys(&feed(&bob, uri).await).is_empty(), "{uri}");
     }
 }
+
+async fn search(app: &TestApp, query: &str) -> Vec<String> {
+    let (status, found) = app.get(&format!("/api/me/issues/search?{query}")).await;
+    assert_eq!(status, StatusCode::OK, "{found}");
+    found
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|issue| issue["key"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+#[sqlx::test]
+async fn issue_search_covers_only_my_open_projects(pool: PgPool) {
+    let (ana, bob) = two_projects(pool).await;
+    let carol = ana.another_user("carol@example.com").await;
+    carol.create_project("SEC", "scrum").await;
+    ana.create_project("ARC", "scrum").await;
+    ana.create_project("API", "scrum").await;
+    carol
+        .create_issue("SEC", json!({ "summary": "Login secret" }))
+        .await;
+    for key in ["WEB", "ARC", "API", "OPS"] {
+        ana.create_issue(key, json!({ "summary": format!("Login {key}") }))
+            .await;
+    }
+    ana.create_issue("WEB", json!({ "summary": "Logout" }))
+        .await;
+    ana.post("/api/projects/ARC/archive", json!({})).await;
+    ana.post("/api/projects/API/trash", json!({})).await;
+
+    assert_eq!(search(&ana, "q=login").await, ["OPS-1", "WEB-1"]);
+    assert_eq!(
+        search(&ana, "q=LOGIN&include_archived=true").await,
+        ["OPS-1", "ARC-1", "WEB-1"]
+    );
+    assert_eq!(search(&bob, "q=login").await, ["WEB-1"]);
+    assert_eq!(search(&carol, "q=login").await, ["SEC-1"]);
+    let (_, found) = ana.get("/api/me/issues/search?q=logout").await;
+    let row = &found[0];
+    assert_eq!(row["key"], "WEB-2");
+    assert_eq!(row["summary"], "Logout");
+    assert_eq!(row["status_name"], "To Do");
+    assert_eq!(row["status_category"], "todo");
+    assert_eq!(row["issue_type"], "story");
+    assert!(row["priority"].is_string());
+    assert!(row["assignee_name"].is_null());
+}
+
+#[sqlx::test]
+async fn issue_search_puts_key_matches_first_then_the_most_recently_updated(pool: PgPool) {
+    let (ana, _bob) = two_projects(pool).await;
+    for (key, summary) in [
+        ("OPS", "a"),
+        ("OPS", "b"),
+        ("WEB", "c"),
+        ("WEB", "d"),
+        ("WEB", "Fix 2 bugs"),
+    ] {
+        ana.create_issue(key, json!({ "summary": summary })).await;
+    }
+
+    assert_eq!(search(&ana, "q=2").await, ["WEB-2", "OPS-2", "WEB-3"]);
+    assert_eq!(search(&ana, "q=web-2").await, ["WEB-2"]);
+    assert_eq!(search(&ana, "q=%20OPS-2%20").await, ["OPS-2"]);
+    assert!(search(&ana, "q=API-2").await.is_empty());
+    let (status, _) = ana
+        .patch("/api/projects/OPS/issues/2", json!({ "summary": "bb" }))
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(search(&ana, "q=2").await, ["OPS-2", "WEB-2", "WEB-3"]);
+}
+
+#[sqlx::test]
+async fn issue_search_returns_20_by_default_and_at_most_50(pool: PgPool) {
+    let (ana, _bob) = two_projects(pool).await;
+    for _ in 0..21 {
+        ana.create_issue("WEB", json!({ "summary": "same" })).await;
+    }
+
+    assert_eq!(search(&ana, "q=same").await.len(), 20);
+    assert_eq!(search(&ana, "q=same&limit=2").await, ["WEB-21", "WEB-20"]);
+    assert_eq!(search(&ana, "").await.len(), 20);
+    for query in ["q=same&limit=51", "q=same&limit=0", "q=a%00b"] {
+        let (status, _) = ana.get(&format!("/api/me/issues/search?{query}")).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{query}");
+    }
+}
