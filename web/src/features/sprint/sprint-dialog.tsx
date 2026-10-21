@@ -13,7 +13,7 @@ import { backlogKey } from '@/entities/issue/backlog-query'
 import { boardQuery, boardsKey } from '@/entities/issue/board-query'
 import { issueCount } from '@/entities/issue/labels'
 import { sprintsQuery } from '@/entities/project/project-queries'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { useTimeZone } from '@/entities/session/session-query'
 import {
   ApiError,
   type Backlog,
@@ -21,9 +21,8 @@ import {
   type CompleteSprint,
   type Sprint,
 } from '@/shared/api/client'
-import { instantToZonedWallTime } from '@/shared/lib/format-date'
 import { showProblem } from '@/shared/lib/show-problem'
-import { zoneName } from '@/shared/lib/sprint-dates'
+import { instantToZonedWallTime, zoneName } from '@/shared/lib/sprint-dates'
 import { toast } from '@/shared/lib/toast'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import { Button } from '@/shared/ui/button'

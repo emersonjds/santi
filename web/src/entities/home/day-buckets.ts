@@ -1,7 +1,7 @@
 import {
   instantToZonedWallTime,
   zonedWallTimeToInstant,
-} from '@/shared/lib/format-date'
+} from '@/shared/lib/sprint-dates'
 
 export const BUCKETS = [
   'Today',

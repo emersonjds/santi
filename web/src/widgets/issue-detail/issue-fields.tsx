@@ -21,8 +21,7 @@ import {
   projectQuery,
   sprintsQuery,
 } from '@/entities/project/project-queries'
-import { sessionQuery } from '@/entities/session/session-query'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { sessionQuery, useTimeZone } from '@/entities/session/session-query'
 import { PersonName } from '@/entities/user/user-avatar'
 import { type Issue, fieldMessage } from '@/shared/api/client'
 import { fullName, shortName } from '@/shared/lib/initials'

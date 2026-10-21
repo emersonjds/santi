@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { groupByDay } from '@/entities/home/day-buckets'
 import { recentQuery } from '@/entities/home/home-queries'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { useTimeZone } from '@/entities/session/session-query'
 import { useDebouncedValue } from '@/shared/lib/use-debounced-value'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import {

@@ -13,7 +13,7 @@ import {
   isImage,
 } from '@/entities/attachment/attachments'
 import { commentTime, fullDateTime } from '@/entities/issue/comment-time'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { useTimeZone } from '@/entities/session/session-query'
 import { PersonName } from '@/entities/user/user-avatar'
 import type { Attachment } from '@/shared/api/client'
 import { cn } from '@/shared/lib/utils'
