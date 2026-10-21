@@ -680,4 +680,5 @@ Options: A) one row per link with a derived inverse label, filtered per viewer B
 Winner: A (product, ia, ux; ia and ux on visibility) — one row cannot drift out of sync; per-viewer filtering hides links to projects the viewer does not belong to, with no count; C would block the common "blocked by the platform team" case.
 - Four types with inverses: blocks / is blocked by, relates to (symmetric), duplicates / is duplicated by, clones / is cloned by.
 - Creating a link needs edit rights on the issue and membership of the other issue's project; deleting an issue removes its links.
+- A pair of issues carries each type at most once, in either direction: "A blocks B" refuses a later "B blocks A" (no mutual blocks, duplicates or clones).
 - Cards show "Blocked" while a visible blocker is not done.
