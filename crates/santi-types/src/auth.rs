@@ -72,6 +72,42 @@ pub struct User {
     pub id: i64,
     pub email: String,
     pub display_name: String,
+    pub theme: Theme,
+    /// IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone.
+    pub time_zone: Option<String>,
+}
+
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(
+    feature = "sqlx",
+    derive(sqlx::Encode, sqlx::Decode),
+    sqlx(rename_all = "snake_case")
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Theme {
+    Light,
+    Dark,
+    /// Follows the operating system.
+    System,
+}
+
+/// Absent fields stay as they are; `"time_zone": null` goes back to the browser's zone.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateMe {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme: Option<Theme>,
+    /// IANA name, e.g. `Pacific/Auckland`.
+    #[serde(
+        default,
+        deserialize_with = "crate::nullable_field",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[schema(value_type = Option<String>)]
+    pub time_zone: Option<Option<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

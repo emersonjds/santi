@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, display_name FROM app_user WHERE id = $1",
+  "query": "INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, $2, $3)\n           RETURNING id, email, display_name, theme AS \"theme: Theme\", time_zone",
   "describe": {
     "columns": [
       {
@@ -35,18 +35,44 @@
             "name": "display_name"
           }
         }
+      },
+      {
+        "ordinal": 3,
+        "name": "theme: Theme",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "theme"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "time_zone",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "time_zone"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Int8"
+        "Text",
+        "Text",
+        "Text"
       ]
     },
     "nullable": [
       false,
       false,
-      false
+      false,
+      false,
+      true
     ]
   },
-  "hash": "b4209352f29be755210afdb3a3df88769850456a642629a78c2c12429dfd00da"
+  "hash": "0e0ab25200a42776ca398bcc40873d96356fa82f9c2880f0c5e3f1d8b225969d"
 }

@@ -14,6 +14,7 @@ import type {
   ReportIssue,
   Sprint,
   SprintReport,
+  User,
 } from '@/shared/api/client'
 
 /** `body` and `until` may be functions of the request, read on each call: a reply that changes once something was written, or with the query. */
@@ -21,7 +22,8 @@ type Reply = {
   status: number
   body?: unknown
   until?:
-    Promise<unknown> | ((request: Request) => Promise<unknown> | undefined)
+    | Promise<unknown>
+    | ((request: Request) => Promise<unknown> | undefined)
 }
 
 /** Answers `fetch` by `"METHOD /path"`; unknown calls get a 404 problem. Returns the requests seen. */
@@ -134,7 +136,9 @@ export const ALICE = {
   id: 1,
   email: 'alice@example.com',
   display_name: 'Alice',
-}
+  theme: 'system',
+  time_zone: null,
+} satisfies User
 
 export const WEB = {
   id: 1,

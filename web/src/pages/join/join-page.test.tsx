@@ -98,6 +98,21 @@ describe('join a project', () => {
     await expect.element(offer).not.toHaveTextContent('spots left')
   })
 
+  it("dates the expiry in the account's time zone", async () => {
+    inProjects({
+      ...preview,
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+    })
+    const { screen } = await renderApp('/invites/tok123')
+
+    await expect
+      .element(screen.getByRole('region', { name: 'Invite' }))
+      .toHaveTextContent(/Expires\s*Oct 24, 2026/)
+  })
+
   it('shows how many spots a group invite has left', async () => {
     inProjects({
       'GET /api/invites/tok123': {

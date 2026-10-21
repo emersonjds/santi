@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { z } from 'zod'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { tokensQuery } from '@/entities/user/api-tokens'
@@ -20,16 +18,14 @@ import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { RootError } from '@/shared/ui/root-error'
 
-// Mirrors auth/service.rs; the server stays the authority.
-const schema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, 'Enter a name.')
-    .max(100, 'Use at most 100 characters.'),
-})
+type NewToken = { name: string }
 
-type NewToken = z.infer<typeof schema>
+// Mirrors auth/service.rs; the server stays the authority. No zod: it would put /account over its D39 budget.
+const checkName = (name: string) => {
+  const trimmed = name.trim()
+  if (trimmed === '') return 'Enter a name.'
+  return trimmed.length <= 100 || 'Use at most 100 characters.'
+}
 
 const FIELDS = ['name'] as const
 
@@ -80,12 +76,13 @@ export const CreateTokenForm = () => {
   const queryClient = useQueryClient()
   const [created, setCreated] = useState<string | null>(null)
   const form = useForm<NewToken>({
-    resolver: zodResolver(schema),
     defaultValues: { name: '' },
   })
 
-  const create = async (body: NewToken) => {
-    const { data, error } = await api.POST('/api/tokens', { body })
+  const create = async ({ name }: NewToken) => {
+    const { data, error } = await api.POST('/api/tokens', {
+      body: { name: name.trim() },
+    })
     if (error) return showProblem(form.setError, FIELDS, error)
     setCreated(data.token)
     form.reset()
@@ -105,6 +102,7 @@ export const CreateTokenForm = () => {
         <FormField
           control={form.control}
           name='name'
+          rules={{ validate: checkName }}
           render={({ field }) => (
             <FormItem>
               <FormLabel className='sr-only'>Token name</FormLabel>
