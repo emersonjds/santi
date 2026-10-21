@@ -14,6 +14,7 @@ import type {
   ReportIssue,
   Sprint,
   SprintReport,
+  TeamProgress,
   User,
 } from '@/shared/api/client'
 
@@ -120,6 +121,8 @@ export const inProjects = (replies: Record<string, Reply> = {}) =>
       body: { items: [], next_cursor: null },
     },
     'GET /api/projects/WEB/issues/1/attachments': { status: 200, body: [] },
+    'GET /api/projects/WEB/people': { status: 200, body: WEB_PEOPLE },
+    'GET /api/projects/OPS/people': { status: 200, body: OPS_PEOPLE },
     ...replies,
   })
 
@@ -301,6 +304,54 @@ export const WEB_BOARD: BoardView = {
       }),
     ]),
     column(3, 'Done', []),
+  ],
+}
+
+const tally = (issues: number, points: number) => ({ issues, points })
+
+/** Sprint 4 by person: Bob has two stuck issues, Alice none, then the unassigned ones. */
+export const WEB_PEOPLE: TeamProgress = {
+  sprint: WEB_BOARD.sprint,
+  people: [
+    {
+      user_id: 2,
+      name: 'Bob Stone',
+      to_do: tally(2, 3),
+      in_progress: tally(3, 5),
+      done: tally(3, 5),
+      stuck: 2,
+    },
+    {
+      user_id: 1,
+      name: 'Alice',
+      to_do: tally(1, 0),
+      in_progress: tally(1, 0),
+      done: tally(0, 0),
+      stuck: 0,
+    },
+    {
+      user_id: null,
+      name: null,
+      to_do: tally(1, 0),
+      in_progress: tally(0, 0),
+      done: tally(0, 0),
+      stuck: 0,
+    },
+  ],
+}
+
+/** The OPS board by person: everything is unassigned. */
+export const OPS_PEOPLE: TeamProgress = {
+  sprint: null,
+  people: [
+    {
+      user_id: null,
+      name: null,
+      to_do: tally(1, 0),
+      in_progress: tally(2, 0),
+      done: tally(0, 0),
+      stuck: 0,
+    },
   ],
 }
 

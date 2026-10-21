@@ -49,6 +49,18 @@ export const sprintsQuery = (key: string) =>
       ),
   })
 
+/** SAN-173: who is doing what in the running sprint (scrum) or on the board (kanban). */
+export const peopleQuery = (key: string) =>
+  queryOptions({
+    queryKey: ['projects', key, 'people'],
+    queryFn: async () =>
+      dataOrThrow(
+        await api.GET('/api/projects/{key}/people', {
+          params: { path: { key } },
+        })
+      ),
+  })
+
 export const invitePreviewQuery = (token: string) =>
   queryOptions({
     queryKey: ['invites', token],

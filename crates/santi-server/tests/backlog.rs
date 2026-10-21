@@ -98,6 +98,30 @@ async fn quick_filters_hide_rows_but_not_totals(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn backlog_filters_an_assignee_or_unassigned(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    let bob = ana.another_user("bob@example.com").await;
+    ana.add_member("SANTI", &bob, "member").await;
+    for assignee in [Some(ana.user_id), Some(bob.user_id), None] {
+        ana.create_issue(
+            "SANTI",
+            json!({ "summary": "work", "assignee_id": assignee }),
+        )
+        .await;
+    }
+
+    let (_, backlog) = ana
+        .get(&format!(
+            "/api/projects/SANTI/backlog?unassigned=true&assignee={}",
+            ana.user_id
+        ))
+        .await;
+
+    assert_eq!(section_keys(&backlog, 0), ["SANTI-1", "SANTI-3"]);
+}
+
+#[sqlx::test]
 async fn reopened_issue_of_a_closed_sprint_returns_to_the_backlog(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     ana.create_project("SANTI", "scrum").await;

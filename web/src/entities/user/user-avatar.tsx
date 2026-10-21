@@ -48,3 +48,13 @@ export const PersonName = ({
     {shortName(name)}
   </span>
 )
+
+/** SAN-173: a dashed empty circle, the same size as a member avatar. */
+export const UnassignedAvatar = ({ className }: { className?: string }) => (
+  <span
+    className={cn(
+      'block size-8 shrink-0 rounded-full border-2 border-dashed border-muted-foreground bg-background',
+      className
+    )}
+  />
+)
