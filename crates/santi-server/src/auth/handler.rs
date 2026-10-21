@@ -1,12 +1,13 @@
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
-use axum::http::header::SET_COOKIE;
+use axum::http::header::{SET_COOKIE, USER_AGENT};
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use santi_types::Problem;
 use santi_types::auth::{
-    AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
-    LegalStatus, Login, PasswordResetPreview, Register, ResetPassword, UpdateMe, User,
+    AcceptLegal, AccountExport, ApiToken, ChangePassword, CreateToken, CreatedToken, DeleteAccount,
+    LegalDocuments, LegalStatus, Login, PasswordResetPreview, Register, ResetPassword, Session,
+    SignedOut, UpdateMe, User,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -30,6 +31,13 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(create_token, list_tokens))
         .routes(routes!(delete_token))
         .routes(routes!(preview_password_reset, reset_password))
+        .routes(routes!(change_password))
+        .routes(routes!(list_sessions, delete_other_sessions))
+        .routes(routes!(delete_session))
+}
+
+fn user_agent(headers: &HeaderMap) -> Option<&str> {
+    headers.get(USER_AGENT)?.to_str().ok()
 }
 
 #[utoipa::path(post, path = "/api/auth/register", tag = "auth", request_body = Register,
@@ -41,10 +49,12 @@ pub fn router() -> OpenApiRouter<AppState> {
 pub async fn register(
     State(state): State<AppState>,
     ClientIp(address): ClientIp,
+    headers: HeaderMap,
     JsonBody(input): JsonBody<Register>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::Register, address, None)?;
-    let (user, session) = service::register(&state.pool, &state.legal, input).await?;
+    let (user, session) =
+        service::register(&state.pool, &state.legal, input, user_agent(&headers)).await?;
     Ok((
         StatusCode::CREATED,
         [(SET_COOKIE, domain::session_cookie(&session))],
@@ -61,11 +71,12 @@ pub async fn register(
 pub async fn login(
     State(state): State<AppState>,
     ClientIp(address): ClientIp,
+    headers: HeaderMap,
     JsonBody(input): JsonBody<Login>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::Login, address, None)?;
     let key = state.limits.login_attempt(&input.email, address)?;
-    let (user, session) = service::login(&state.pool, input).await?;
+    let (user, session) = service::login(&state.pool, input, user_agent(&headers)).await?;
     state.limits.login_succeeded(&key);
     Ok(([(SET_COOKIE, domain::session_cookie(&session))], Json(user)))
 }
@@ -249,9 +260,71 @@ pub async fn reset_password(
     State(state): State<AppState>,
     ClientIp(address): ClientIp,
     PathParams(token): PathParams<String>,
+    headers: HeaderMap,
     JsonBody(input): JsonBody<ResetPassword>,
 ) -> Result<impl IntoResponse, AppError> {
     state.limits.check(Action::PasswordReset, address, None)?;
-    let (user, session) = service::reset_password(&state.pool, &token, input).await?;
+    let (user, session) =
+        service::reset_password(&state.pool, &token, input, user_agent(&headers)).await?;
     Ok(([(SET_COOKIE, domain::session_cookie(&session))], Json(user)))
+}
+
+#[utoipa::path(post, path = "/api/me/password", tag = "auth", request_body = ChangePassword,
+    responses(
+        (status = 200, body = SignedOut, description = "Password changed; every other session ended (all of them for an API token caller). API tokens stay (D60)"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Wrong current password (`current`); new one breaks the rules or equals the current one (`new`)"),
+        (status = 429, body = Problem, content_type = "application/problem+json", description = "Too many password attempts for this account or address (D44); wait `Retry-After` seconds")))]
+pub async fn change_password(
+    State(state): State<AppState>,
+    ClientIp(address): ClientIp,
+    user: CurrentUser,
+    JsonBody(input): JsonBody<ChangePassword>,
+) -> Result<Json<SignedOut>, AppError> {
+    state
+        .limits
+        .check(Action::Reauthenticate, address, Some(user.id))?;
+    Ok(Json(
+        service::change_password(&state.pool, &user, input).await?,
+    ))
+}
+
+#[utoipa::path(get, path = "/api/me/sessions", tag = "auth",
+    responses(
+        (status = 200, body = Vec<Session>, description = "Live sessions, most recent activity first; `current` marks the caller's (D60)"),
+        (status = 401, body = Problem, content_type = "application/problem+json")))]
+pub async fn list_sessions(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<Json<Vec<Session>>, AppError> {
+    Ok(Json(service::list_sessions(&state.pool, &user).await?))
+}
+
+#[utoipa::path(delete, path = "/api/me/sessions", tag = "auth",
+    responses(
+        (status = 200, body = SignedOut, description = "Every session but the caller's ended; API tokens stay"),
+        (status = 401, body = Problem, content_type = "application/problem+json")))]
+pub async fn delete_other_sessions(
+    State(state): State<AppState>,
+    user: CurrentUser,
+) -> Result<Json<SignedOut>, AppError> {
+    Ok(Json(
+        service::delete_other_sessions(&state.pool, &user).await?,
+    ))
+}
+
+#[utoipa::path(delete, path = "/api/me/sessions/{id}", tag = "auth",
+    params(("id" = i64, Path, description = "Session id")),
+    responses(
+        (status = 204, description = "Session ended"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "No session of the caller with this id"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "The caller's own session (`id`): sign out with `POST /api/auth/logout`")))]
+pub async fn delete_session(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    PathParams(session_id): PathParams<i64>,
+) -> Result<StatusCode, AppError> {
+    service::delete_session(&state.pool, &user, session_id).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
