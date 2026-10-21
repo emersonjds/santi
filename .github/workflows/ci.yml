@@ -156,7 +156,7 @@ jobs:
       - name: Start the server with the SPA build
         run: |
           SANTI_ADDR=127.0.0.1:8089 SANTI_WEB_DIR=web/dist SANTI_IP_LIMITS=off target/debug/santi-server > server.log 2>&1 &
-          for attempt in $(seq 60); do curl -sf http://127.0.0.1:8089/health && exit 0; sleep 1; done
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:8089/health && exit 0; sleep 1; done
           cat server.log
           exit 1
       - run: pnpm e2e
