@@ -19,9 +19,11 @@ pub mod restore;
 pub mod seed;
 pub mod sprints;
 pub mod storage;
+pub mod timeouts;
 
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::extract::{Request, State};
 use axum::http::header::{
@@ -55,17 +57,20 @@ pub struct AppState {
     pub limits: Arc<RateLimits>,
     pub legal: Arc<Legal>,
     pub storage: storage::Storage,
+    /// SAN-213: API routes past it answer 503; attachments, imports and restore are exempt.
+    pub request_timeout: Duration,
 }
 
 impl AppState {
     /// Default limits (D44), required legal documents without text hashes (D45) and in-memory
-    /// attachment storage (D53).
+    /// attachment storage (D53), and the default request timeout (SAN-213).
     pub fn new(pool: PgPool) -> Self {
         AppState {
             pool,
             limits: Arc::default(),
             legal: Arc::default(),
             storage: storage::Storage::memory(),
+            request_timeout: timeouts::Timeouts::default().request,
         }
     }
 }
@@ -149,13 +154,15 @@ pub async fn purge_notifications(pool: &PgPool) -> Result<u64, sqlx::Error> {
 #[openapi(
     info(
         title = "santi",
-        description = "Agile tracker API. Authenticate with the `__Host-santi_session` cookie or `Authorization: Bearer santi_…`. Errors are RFC 9457 `application/problem+json`."
+        description = "Agile tracker API. Authenticate with the `__Host-santi_session` cookie or `Authorization: Bearer santi_…`. Errors are RFC 9457 `application/problem+json`. Any route may answer 503 `busy` with `Retry-After` when the server is out of time or connections."
     ),
     components(schemas(Problem))
 )]
 struct ApiDoc;
 
-fn api() -> OpenApiRouter<AppState> {
+/// Attachment streams, imports and restore have their own body limits and deadlines, so the
+/// request timeout skips them.
+fn api(request_timeout: Duration) -> OpenApiRouter<AppState> {
     OpenApiRouter::with_openapi(ApiDoc::openapi())
         .routes(routes!(health))
         .merge(auth::handler::router())
@@ -166,23 +173,26 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(sprints::handler::router())
         .merge(reports::handler::router())
         .merge(people::handler::router())
-        .merge(imports::handler::router())
-        .merge(restore::handler::router())
         .merge(home::handler::router())
         .merge(notifications::handler::router())
-        .merge(attachments::handler::router())
         .merge(links::handler::router())
+        .layer(middleware::from_fn(move |request: Request, next: Next| {
+            timeouts::cut_after(request_timeout, request, next)
+        }))
+        .merge(imports::handler::router())
+        .merge(restore::handler::router())
+        .merge(attachments::handler::router())
 }
 
 /// The API contract, built without a database; `web/openapi.json` is its committed snapshot (D38).
 pub fn openapi() -> utoipa::openapi::OpenApi {
-    api().split_for_parts().1
+    api(Duration::ZERO).split_for_parts().1
 }
 
 /// `web_dir` holds the SPA build; when it has an `index.html` the server answers every GET it
 /// has no route for with that page (client routes, D37), except under `/api`.
 pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
-    let (router, api) = api().split_for_parts();
+    let (router, api) = api(state.request_timeout).split_for_parts();
     let router = router.merge(SwaggerUi::new("/docs").url("/openapi.json", api));
     let router = match web_dir.filter(|dir| dir.join("index.html").is_file()) {
         Some(dir) => router.merge(spa(dir, state.legal.required, state.storage.image_origin())),
@@ -337,8 +347,14 @@ fn cache_when_ok<B>(value: &'static str) -> impl Fn(&Response<B>) -> Option<Head
     }
 }
 
+/// Runs on a connection taken out of the pool, so a long migration is not cut by the pool's
+/// `statement_timeout` (SAN-213) and the lifted limit never returns to the pool.
 pub async fn migrate(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateError> {
-    sqlx::migrate!().run(pool).await
+    let mut conn = pool.acquire().await?.detach();
+    sqlx::query("SET statement_timeout = 0")
+        .execute(&mut conn)
+        .await?;
+    sqlx::migrate!().run(&mut conn).await
 }
 
 #[utoipa::path(get, path = "/health", tag = "health", responses((status = 200, body = Health)))]

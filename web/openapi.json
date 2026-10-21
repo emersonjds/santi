@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "santi",
-    "description": "Agile tracker API. Authenticate with the `__Host-santi_session` cookie or `Authorization: Bearer santi_…`. Errors are RFC 9457 `application/problem+json`.",
+    "description": "Agile tracker API. Authenticate with the `__Host-santi_session` cookie or `Authorization: Bearer santi_…`. Errors are RFC 9457 `application/problem+json`. Any route may answer 503 `busy` with `Retry-After` when the server is out of time or connections.",
     "license": {
       "name": "MIT OR Apache-2.0",
       "identifier": "MIT OR Apache-2.0"
