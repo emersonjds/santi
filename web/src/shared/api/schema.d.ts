@@ -685,7 +685,7 @@ export interface paths {
         };
         get: operations["list_members"];
         put?: never;
-        post: operations["add_member"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1004,10 +1004,6 @@ export interface components {
             other_projects: components["schemas"]["Project"][];
             projects: components["schemas"]["ProjectExport"][];
             user: components["schemas"]["User"];
-        };
-        AddMember: {
-            email: string;
-            role: components["schemas"]["MemberRole"];
         };
         ApiToken: {
             /** Format: date-time */
@@ -4968,66 +4964,6 @@ export interface operations {
                 };
             };
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    add_member: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project key */
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddMember"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberInfo"];
-                };
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45) */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description No account uses this email */
-            422: {
                 headers: {
                     [name: string]: unknown;
                 };

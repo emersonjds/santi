@@ -3946,82 +3946,6 @@
             }
           }
         }
-      },
-      "post": {
-        "tags": [
-          "members"
-        ],
-        "operationId": "add_member",
-        "parameters": [
-          {
-            "name": "key",
-            "in": "path",
-            "description": "Project key",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddMember"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MemberInfo"
-                }
-              }
-            }
-          },
-          "403": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "404": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45)",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "No account uses this email",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          }
-        }
       }
     },
     "/api/projects/{key}/members/{user_id}": {
@@ -5584,22 +5508,6 @@
             "$ref": "#/components/schemas/User"
           }
         }
-      },
-      "AddMember": {
-        "type": "object",
-        "required": [
-          "email",
-          "role"
-        ],
-        "properties": {
-          "email": {
-            "type": "string"
-          },
-          "role": {
-            "$ref": "#/components/schemas/MemberRole"
-          }
-        },
-        "additionalProperties": false
       },
       "ApiToken": {
         "type": "object",
