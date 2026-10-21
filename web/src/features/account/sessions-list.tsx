@@ -21,12 +21,14 @@ export const SessionsList = ({ headingId }: { headingId: string }) => {
   const list = useRef<HTMLUListElement>(null)
   const end = useMutation({
     mutationFn: async (ending: Ending) => {
-      if ('id' in ending)
-        return okOrThrow(
-          await api.DELETE('/api/me/sessions/{id}', {
-            params: { path: { id: ending.id } },
-          })
-        )
+      if ('id' in ending) {
+        const result = await api.DELETE('/api/me/sessions/{id}', {
+          params: { path: { id: ending.id } },
+        })
+        // 404: the session already ended elsewhere.
+        if (result.response.status !== 404) okOrThrow(result)
+        return
+      }
       return dataOrThrow(await api.DELETE('/api/me/sessions')).signed_out
     },
     onSuccess: (signedOut, ending) => {
@@ -35,6 +37,7 @@ export const SessionsList = ({ headingId }: { headingId: string }) => {
         'id' in ending ? session.id !== ending.id : session.current
       )
       queryClient.setQueryData(sessionsQuery.queryKey, kept)
+      if ('id' in ending) void queryClient.invalidateQueries(sessionsQuery)
       if (signedOut === undefined) toast.success('Signed out this session.')
       else
         toast.success(
@@ -53,6 +56,7 @@ export const SessionsList = ({ headingId }: { headingId: string }) => {
           : document.getElementById(headingId)
       target?.focus()
     },
+    onError: () => queryClient.invalidateQueries(sessionsQuery),
   })
 
   if (sessions.error)
@@ -114,7 +118,11 @@ export const SessionsList = ({ headingId }: { headingId: string }) => {
               <Button
                 variant='outline'
                 className='h-11 md:h-9'
-                aria-label={`Sign out ${session.client}`}
+                aria-label={`Sign out ${session.client}, signed in ${formatDate(
+                  session.created_at,
+                  { dateStyle: 'medium' },
+                  timeZone
+                )}, active ${timeAgo(session.last_used_at)}`}
                 data-session={session.id}
                 aria-disabled={end.isPending}
                 onClick={() => !end.isPending && end.mutate({ id: session.id })}
@@ -127,7 +135,7 @@ export const SessionsList = ({ headingId }: { headingId: string }) => {
       </ul>
       <Button
         variant='outline'
-        className='order-first h-11 sm:w-fit md:h-9'
+        className='h-11 sm:w-fit md:h-9'
         disabled={end.isPending}
         onClick={() => end.mutate({ others: true })}
       >

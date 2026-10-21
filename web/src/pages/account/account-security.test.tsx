@@ -292,6 +292,87 @@ describe('account security', () => {
         .toBeVisible()
     })
 
+    it('puts the Sessions heading above the list and the bulk sign out below it', async () => {
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'GET /api/me/sessions': { status: 200, body: [THIS, PHONE] },
+      })
+      const { screen } = await renderApp('/account')
+      const section = screen.getByRole('region', { name: 'Security' })
+      const heading = section.getByRole('heading', {
+        level: 3,
+        name: 'Sessions',
+      })
+      const bulk = section.getByRole('button', {
+        name: 'Sign out other sessions (1)',
+      })
+
+      await expect.element(bulk).toBeVisible()
+      await expect.element(heading).toBeVisible()
+      const box = (element: Element) => element.getBoundingClientRect()
+      const rows = list(screen).element()
+      expect(box(heading.element()).bottom).toBeLessThanOrEqual(box(rows).top)
+      expect(box(bulk.element()).top).toBeGreaterThanOrEqual(box(rows).bottom)
+      expect(
+        rows.compareDocumentPosition(bulk.element()) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy()
+    })
+
+    it('names each sign out by device, sign-in date and activity', async () => {
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'GET /api/me/sessions': {
+          status: 200,
+          body: [
+            THIS,
+            PHONE,
+            {
+              ...PHONE,
+              id: 3,
+              created_at: '2026-10-04T12:00:00Z',
+              last_used_at: hoursAgo(50),
+            },
+          ],
+        },
+      })
+      const { screen } = await renderApp('/account')
+
+      for (const name of [
+        'Sign out Safari on iOS, signed in Oct 2, 2026, active 3 hours ago',
+        'Sign out Safari on iOS, signed in Oct 4, 2026, active 2 days ago',
+      ])
+        await expect
+          .element(screen.getByRole('button', { name, exact: true }))
+          .toBeVisible()
+    })
+
+    it('treats a session already gone as signed out and reloads the list', async () => {
+      let sessions = [THIS, PHONE, CLI]
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'GET /api/me/sessions': { status: 200, body: () => sessions },
+        'DELETE /api/me/sessions/2': {
+          status: 404,
+          body: () => {
+            sessions = [THIS]
+            return problem(404, 'Not found.')
+          },
+        },
+      })
+      const { screen } = await renderApp('/account')
+
+      await screen
+        .getByRole('button', { name: 'Sign out Safari on iOS' })
+        .click()
+
+      await expect
+        .element(screen.getByText('Only this device is signed in.'))
+        .toBeVisible()
+      expect(screen.getByText('Could not sign out.').elements()).toHaveLength(0)
+      expect(sessionGets(requests).length).toBeGreaterThanOrEqual(2)
+    })
+
     it('signs out one session and moves focus to the next', async () => {
       let sessions = [THIS, PHONE, CLI]
       const requests = signedIn({
@@ -371,7 +452,7 @@ describe('account security', () => {
 
     it('keeps the rows and offers a retry when a sign out fails', async () => {
       let fail = true
-      signedIn({
+      const requests = signedIn({
         'GET /api/tokens': { status: 200, body: [] },
         'GET /api/me/sessions': { status: 200, body: [THIS, PHONE] },
         'DELETE /api/me/sessions': {
@@ -395,6 +476,7 @@ describe('account security', () => {
         .toBeVisible()
       expect(list(screen).getByRole('listitem').elements()).toHaveLength(2)
       expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+      await expect.poll(() => sessionGets(requests).length).toBe(2)
 
       await screen
         .getByRole('button', { name: 'Sign out other sessions (1)' })
