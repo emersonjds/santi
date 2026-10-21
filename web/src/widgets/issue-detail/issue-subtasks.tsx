@@ -84,7 +84,7 @@ const SubtaskRow = ({
             aria-label={`Status of ${subtask.key}`}
             aria-busy={move.isPending}
             className={cn(
-              'max-w-48 border-transparent font-semibold md:h-8',
+              'max-w-32 border-transparent font-semibold md:h-8',
               category ? CATEGORY[category].tone : 'bg-muted'
             )}
             value={subtask.status_id}
@@ -173,7 +173,7 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
           aria-valuemin={0}
           aria-valuemax={subtasks.length}
           aria-valuenow={done}
-          className='h-1 overflow-hidden rounded-full bg-muted'
+          className='h-1 overflow-hidden rounded-full bg-border'
         >
           <div
             className='h-full rounded-full bg-status-done'
