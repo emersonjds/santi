@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, s.name AS status_name, i.assignee_id, assignee.display_name AS \"assignee_name?\",\n                  i.reporter_id, reporter.display_name AS reporter_name, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id, sprint.name AS \"sprint_name?\",\n                  i.rank, i.done_at, i.created_at, i.updated_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           JOIN status s ON s.id = i.status_id\n           JOIN app_user reporter ON reporter.id = i.reporter_id\n           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id\n           LEFT JOIN sprint ON sprint.id = i.sprint_id\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           WHERE i.project_id = $1\n             AND i.id > $2\n             AND ((cardinality($3::bigint[]) = 0 AND NOT $12)\n                  OR i.assignee_id = ANY($3)\n                  OR ($12 AND i.assignee_id IS NULL))\n             AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))\n             AND (cardinality($5::text[]) = 0 OR i.labels && $5)\n             AND ((cardinality($6::bigint[]) = 0 AND NOT $7)\n                  OR parent.number = ANY($6)\n                  OR ($7 AND i.parent_id IS NULL))\n             AND ($8::text IS NULL OR i.summary ILIKE $8 OR p.key || '-' || i.number ILIKE $8)\n             AND ($9::timestamptz IS NULL OR i.updated_at > $9)\n             AND (cardinality($10::text[]) = 0 OR s.category = ANY($10))\n           ORDER BY i.id\n           LIMIT $11",
+  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.number, i.summary, i.description,\n       i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n       i.status_id, s.name AS status_name, i.assignee_id, assignee.display_name AS \"assignee_name?\",\n       i.reporter_id, reporter.display_name AS reporter_name, i.points, i.labels,\n       p.key || '-' || parent.number AS parent_key, i.sprint_id, sprint.name AS \"sprint_name?\",\n       i.rank, i.done_at, i.created_at, i.updated_at\nFROM issue i\nJOIN project p ON p.id = i.project_id\nJOIN status s ON s.id = i.status_id\nJOIN app_user reporter ON reporter.id = i.reporter_id\nLEFT JOIN app_user assignee ON assignee.id = i.assignee_id\nLEFT JOIN sprint ON sprint.id = i.sprint_id\nLEFT JOIN issue parent ON parent.id = i.parent_id\nWHERE i.project_id = $1\n  AND i.id > $2\n  AND ((cardinality($3::bigint[]) = 0 AND NOT $12)\n       OR i.assignee_id = ANY($3)\n       OR ($12 AND i.assignee_id IS NULL))\n  AND (cardinality($4::text[]) = 0 OR i.issue_type = ANY($4))\n  AND (cardinality($5::text[]) = 0 OR i.labels && $5)\n  AND ((cardinality($6::bigint[]) = 0 AND NOT $7)\n       OR parent.number = ANY($6)\n       OR ($7 AND i.parent_id IS NULL))\n  AND ($8::text IS NULL OR i.summary ILIKE $8 OR ($13::bigint IS NOT NULL AND i.number = $13))\n  AND ($9::timestamptz IS NULL OR i.updated_at > $9)\n  AND (cardinality($10::text[]) = 0 OR s.category = ANY($10))\nORDER BY i.id\nLIMIT $11\n",
   "describe": {
     "columns": [
       {
@@ -249,7 +249,8 @@
         "Timestamptz",
         "TextArray",
         "Int8",
-        "Bool"
+        "Bool",
+        "Int8"
       ]
     },
     "nullable": [
@@ -277,5 +278,5 @@
       false
     ]
   },
-  "hash": "5023c9a6141c80cb9f834783d0d71f5217eb1531bee1589681092a863ecfc648"
+  "hash": "f6373894ba375a573b000958e81e18d05f144c12ddea3436c0f942f400f25b5f"
 }
