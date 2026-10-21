@@ -333,7 +333,7 @@ async fn a_rename_racing_the_erase_cannot_restore_the_name(pool: PgPool) {
 }
 
 #[sqlx::test]
-async fn erased_accounts_are_never_found_or_heirs(pool: PgPool) {
+async fn erased_accounts_are_never_heirs(pool: PgPool) {
     let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
     let carol = ana.another_user("carol@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
