@@ -43,7 +43,7 @@ pub async fn list_links(
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json", description = "This issue, or the other one, does not exist or is in a project the caller is not a member of"),
         (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`: this issue's project or the other issue's"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "`issue` is not an issue key, is this issue, or already has this link with it (either direction for `relates`)")))]
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "`issue` is not an issue key, is this issue, or already has this link with it in either direction")))]
 pub async fn create_link(
     State(state): State<AppState>,
     member: Member,
@@ -63,7 +63,7 @@ pub async fn create_link(
         (status = 204, description = "Removed from both issues"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json", description = "No such link on this issue, or its other issue is one the caller cannot open"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`")))]
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`: this issue's project or the other issue's")))]
 pub async fn delete_link(
     State(state): State<AppState>,
     member: Member,

@@ -87,6 +87,13 @@ pub async fn create(
 pub async fn delete(pool: &PgPool, member: &Member, number: i64, id: i64) -> Result<(), AppError> {
     let mut conn = pool.acquire().await?;
     let issue_id = issue_id(&mut conn, member, number).await?;
+    let link = repo::list(&mut conn, member.user_id, issue_id, Some(id))
+        .await?
+        .pop()
+        .ok_or(AppError::NotFound)?;
+    if link.other_archived {
+        return Err(projects::domain::archived());
+    }
     if !repo::delete(&mut conn, member.user_id, issue_id, id).await? {
         return Err(AppError::NotFound);
     }

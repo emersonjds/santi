@@ -16,6 +16,7 @@ pub struct LinkRow {
     pub assignee_id: Option<i64>,
     pub assignee_name: Option<String>,
     pub issue_type: IssueType,
+    pub other_archived: bool,
 }
 
 /// The issue `user_id` can open as `project_key`-`number`: a member of its project, not trashed.
@@ -78,7 +79,8 @@ pub async fn list(
                   p.key || '-' || o.number AS "key!", o.summary, o.status_id,
                   s.name AS status_name, s.category AS "status_category: StatusCategory",
                   o.priority AS "priority: Priority", o.assignee_id,
-                  assignee.display_name AS "assignee_name?", o.issue_type AS "issue_type: IssueType"
+                  assignee.display_name AS "assignee_name?", o.issue_type AS "issue_type: IssueType",
+                  p.archived_at IS NOT NULL AS "other_archived!"
            FROM issue_link l
            JOIN issue o ON o.id = CASE WHEN l.source_id = $2 THEN l.target_id ELSE l.source_id END
            JOIN project p ON p.id = o.project_id AND p.trashed_at IS NULL
