@@ -340,6 +340,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restore_export"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}": {
         parameters: {
             query?: never;
@@ -1911,6 +1927,24 @@ export interface components {
         ResetPassword: {
             password: string;
         };
+        RestoreProblem: {
+            issue_key: string;
+            message: string;
+        };
+        /** @description A project recreated from a santi export (`POST /api/projects/restore`, SAN-99). */
+        RestoreResult: {
+            /** Format: int64 */
+            comments: number;
+            /** Format: int64 */
+            issues: number;
+            /** @description What an export does not carry, in one line. */
+            not_restored: string;
+            /** @description The first 100 people changes: users missing on this instance. */
+            problems: components["schemas"]["RestoreProblem"][];
+            project: components["schemas"]["Project"];
+            /** Format: int64 */
+            sprints: number;
+        };
         RowProblem: {
             /**
              * Format: int64
@@ -3229,6 +3263,74 @@ export interface operations {
                 };
             };
             /** @description Rate limited per account (D44); wait `Retry-After` seconds */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    restore_export: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectExport"];
+            };
+        };
+        responses: {
+            /** @description A new project from one project of `GET /api/me/export`, with its board, sprints, issue numbers and comments; the caller is its admin. Users missing here are replaced and listed in `problems` */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestoreResult"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-exists`: a project holds the key; nothing written */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `payload-too-large`: over 50 MB */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not JSON, not an export, over 50,000 issues or 500 statuses, or a key, parent, status or sprint the file does not hold; the field is named */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Rate limited like imports (D44); wait `Retry-After` seconds */
             429: {
                 headers: {
                     [name: string]: unknown;
