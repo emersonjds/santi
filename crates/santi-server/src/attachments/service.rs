@@ -53,7 +53,7 @@ async fn issue_id(pool: &PgPool, member: &Member, number: i64) -> Result<i64, Ap
 pub async fn delete_objects(storage: &Storage, keys: &[String]) {
     for key in keys {
         if let Err(error) = storage.delete(key).await {
-            eprintln!("attachment object {key} not deleted: {error}");
+            tracing::warn!(%key, %error, "attachment object not deleted");
         }
     }
 }

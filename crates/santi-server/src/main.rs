@@ -1,5 +1,14 @@
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // SAN-209
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    let json = std::env::var("SANTI_LOG_FORMAT").as_deref() != Ok("pretty");
+    tracing::subscriber::set_global_default(santi_server::observability::subscriber(
+        filter,
+        json,
+        std::io::stdout,
+    ))?;
     let database_url = std::env::var("DATABASE_URL")?;
     let address = std::env::var("SANTI_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".into());
     let web_dir = std::env::var("SANTI_WEB_DIR").unwrap_or_else(|_| "web/dist".into());
@@ -41,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for warning in
         storage_config.startup_warnings(std::env::var_os("RAILWAY_ENVIRONMENT").is_some())
     {
-        eprintln!("WARNING: {warning}");
+        tracing::warn!("{warning}");
     }
     let storage = santi_server::storage::Storage::new(&storage_config)?;
     // D45 and OR-58: purge.
@@ -51,14 +60,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut hourly = tokio::time::interval(std::time::Duration::from_secs(60 * 60));
         loop {
             hourly.tick().await;
-            if let Err(error) = santi_server::purge_expired(&purge_pool).await {
-                eprintln!("purge failed: {error}");
+            match santi_server::purge_expired(&purge_pool).await {
+                Ok((sessions, invites)) => tracing::info!(sessions, invites, "purge done"),
+                Err(error) => tracing::error!(%error, "purge failed"),
             }
-            if let Err(error) = santi_server::purge_trash(&purge_pool, &purge_storage).await {
-                eprintln!("trash purge failed: {error}");
+            match santi_server::purge_trash(&purge_pool, &purge_storage).await {
+                Ok(projects) => tracing::info!(projects, "trash purge done"),
+                Err(error) => tracing::error!(%error, "trash purge failed"),
             }
-            if let Err(error) = santi_server::purge_notifications(&purge_pool).await {
-                eprintln!("notification purge failed: {error}");
+            match santi_server::purge_notifications(&purge_pool).await {
+                Ok(notifications) => tracing::info!(notifications, "notification purge done"),
+                Err(error) => tracing::error!(%error, "notification purge failed"),
             }
         }
     });
