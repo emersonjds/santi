@@ -105,11 +105,11 @@ describe('backlog page', () => {
     await expect
       .element(bug.getByTitle('Assigned to Bob Stone'))
       .toHaveTextContent('BS')
-    // D6: a parent row counts its open subtasks, like its board card.
+    // D57: a parent row counts its done subtasks, like its board card.
     await expect
-      .element(bug.getByTitle('1 of 2 subtasks open'))
-      .toHaveTextContent('1/2')
-    expect(row.getByTitle(/subtasks open/).elements()).toHaveLength(0)
+      .element(bug.getByTitle('2 of 3 subtasks done'))
+      .toHaveTextContent('2/3')
+    expect(row.getByTitle(/subtasks done/).elements()).toHaveLength(0)
   })
 
   it('shows two labels on a row, then how many more', async () => {
