@@ -110,6 +110,20 @@ pub struct StarredQuery {
     pub q: Option<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct IssueSearchQuery {
+    /// Case-insensitive text in the summary, an issue key (`WEB-12`) or a number (`12`).
+    #[serde(default)]
+    pub q: Option<String>,
+    /// 1 to 50; 20 when absent.
+    #[serde(default)]
+    pub limit: Option<i64>,
+    /// Also search archived projects.
+    #[serde(default)]
+    pub include_archived: bool,
+}
+
 /// A project key (`WEB`) or an issue key (`WEB-12`).
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]

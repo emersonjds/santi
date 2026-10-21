@@ -39,3 +39,19 @@ fn invite_spots_document_their_range() {
         "{max_uses}"
     );
 }
+
+#[test]
+fn operation_ids_are_unique() {
+    let spec = serde_json::to_value(santi_server::openapi()).unwrap();
+    let mut seen = std::collections::HashSet::new();
+    let mut repeated = Vec::new();
+    for operations in spec["paths"].as_object().unwrap().values() {
+        for operation in operations.as_object().unwrap().values() {
+            let id = operation["operationId"].as_str().unwrap_or_default();
+            if !seen.insert(id) {
+                repeated.push(id);
+            }
+        }
+    }
+    assert!(repeated.is_empty(), "{repeated:?}");
+}
