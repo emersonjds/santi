@@ -22,7 +22,7 @@ pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(my_projects))
         .routes(routes!(my_issues))
-        .routes(routes!(search_issues))
+        .routes(routes!(search_my_issues))
         .routes(routes!(my_recent))
         .routes(routes!(my_starred))
         .routes(routes!(star))
@@ -66,13 +66,13 @@ pub async fn my_issues(
         (status = 200, body = Vec<LinkedIssue>, description = "Issues in the caller's projects, never trashed ones and archived ones only on request, whose summary holds `q` or whose key or number `q` names; key matches first, then the most recently updated (SAN-206)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "Limit out of range, or `q` holds a NUL character")))]
-pub async fn search_issues(
+pub async fn search_my_issues(
     State(state): State<AppState>,
     user: CurrentUser,
     QueryParams(query): QueryParams<IssueSearchQuery>,
 ) -> Result<Json<Vec<LinkedIssue>>, AppError> {
     Ok(Json(
-        service::search_issues(&state.pool, &user, query).await?,
+        service::search_my_issues(&state.pool, &user, query).await?,
     ))
 }
 

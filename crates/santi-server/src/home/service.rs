@@ -37,7 +37,7 @@ pub async fn my_issues(
     Ok(offset_page(items, offset, limit))
 }
 
-pub async fn search_issues(
+pub async fn search_my_issues(
     pool: &PgPool,
     user: &CurrentUser,
     query: IssueSearchQuery,
