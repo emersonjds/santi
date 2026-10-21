@@ -293,9 +293,7 @@ async fn search_combines_filters_and_within_or_across_and(pool: PgPool) {
             ana.user_id
         ))
         .await;
-    let (_, unassigned) = ana
-        .get("/api/projects/SANTI/issues?unassigned=true")
-        .await;
+    let (_, unassigned) = ana.get("/api/projects/SANTI/issues?unassigned=true").await;
     let (_, mine_or_unassigned) = ana
         .get(&format!(
             "/api/projects/SANTI/issues?assignee={}&unassigned=true&label=ui",
