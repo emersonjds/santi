@@ -1,38 +1,61 @@
+import { formatDate } from './format-date'
+
 const MINUTE = 60_000
 const HOUR_MINUTES = 60
 const DAY_MINUTES = 1440
 
-export const zoneName = (instant: Date) =>
-  new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
+export const zoneName = (instant: Date, timeZone?: string) =>
+  new Intl.DateTimeFormat('en-US', { timeZoneName: 'short', timeZone })
     .formatToParts(instant)
     .find((part) => part.type === 'timeZoneName')!.value
 
-const day = (instant: Date) =>
-  instant.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+const day = (instant: Date, timeZone?: string) =>
+  formatDate(instant, { month: 'short', day: 'numeric' }, timeZone, 'en-US')
 
-const minuteOfDay = (instant: Date) =>
-  instant.getHours() * HOUR_MINUTES + instant.getMinutes()
+const minuteOfDay = (instant: Date, timeZone?: string) => {
+  const clock = formatDate(
+    instant,
+    { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' },
+    timeZone,
+    'en-US'
+  )
+  return Number(clock.slice(0, 2)) * HOUR_MINUTES + Number(clock.slice(3))
+}
 
 export const formatRange = (
   startsAt: string,
   endsAt: string,
   hourCycle = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
-  }).resolvedOptions().hourCycle
+  }).resolvedOptions().hourCycle,
+  timeZone?: string
 ) => {
   const start = new Date(startsAt)
   const end = new Date(endsAt)
-  const sameDay = start.toDateString() === end.toDateString()
-  if (minuteOfDay(start) === 0 && minuteOfDay(end) === DAY_MINUTES - 1)
-    return sameDay ? day(start) : `${day(start)} – ${day(end)}`
+  const date = (instant: Date) =>
+    formatDate(instant, { dateStyle: 'short' }, timeZone)
+  const sameDay = date(start) === date(end)
+  if (
+    minuteOfDay(start, timeZone) === 0 &&
+    minuteOfDay(end, timeZone) === DAY_MINUTES - 1
+  )
+    return sameDay
+      ? day(start, timeZone)
+      : `${day(start, timeZone)} – ${day(end, timeZone)}`
   const time = (instant: Date) =>
-    instant.toLocaleTimeString('en-US', {
-      hour: hourCycle === 'h11' || hourCycle === 'h12' ? 'numeric' : '2-digit',
-      minute: '2-digit',
-      hourCycle,
-    })
-  const until = sameDay ? time(end) : `${day(end)}, ${time(end)}`
-  return `${day(start)}, ${time(start)} – ${until} ${zoneName(end)}`
+    formatDate(
+      instant,
+      {
+        hour:
+          hourCycle === 'h11' || hourCycle === 'h12' ? 'numeric' : '2-digit',
+        minute: '2-digit',
+        hourCycle,
+      },
+      timeZone,
+      'en-US'
+    )
+  const until = sameDay ? time(end) : `${day(end, timeZone)}, ${time(end)}`
+  return `${day(start, timeZone)}, ${time(start)} – ${until} ${zoneName(end, timeZone)}`
 }
 
 export const timeLeft = (now: number, endsAt: string) => {
