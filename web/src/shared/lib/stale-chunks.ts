@@ -5,16 +5,23 @@ const CHUNK_ERROR =
   /dynamically imported module|module script failed|Unable to preload/i
 
 /** `location.reload` can't be stubbed (unforgeable); tests replace this one. */
-export const browser = { reload: () => location.reload() }
+export const browser = {
+  reload: () => location.reload(),
+  /** The entry script's hashed URL changes with every deploy. */
+  build: () =>
+    document.querySelector<HTMLScriptElement>('script[type="module"][src]')
+      ?.src ?? '',
+}
 
 export const isChunkError = (error: unknown) =>
   error instanceof Error && CHUNK_ERROR.test(error.message)
 
-// ponytail: once per tab session; a second deploy in the same session shows the error page until a manual reload.
+/** Reloads once per build: a newer deploy gets its own reload, a chunk missing from this build does not loop. */
 export const reloadOnce = () => {
   try {
-    if (sessionStorage.getItem(RELOADED)) return false
-    sessionStorage.setItem(RELOADED, '1')
+    const build = browser.build()
+    if (sessionStorage.getItem(RELOADED) === build) return false
+    sessionStorage.setItem(RELOADED, build)
   } catch {
     return false
   }

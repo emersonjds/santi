@@ -4,13 +4,14 @@ import {
   Link,
   useRouter,
 } from '@tanstack/react-router'
-import { isChunkError, reloadOnce } from '@/shared/lib/stale-chunks'
+import { browser, isChunkError, reloadOnce } from '@/shared/lib/stale-chunks'
 import { Button } from '@/shared/ui/button'
 import { SantiMark } from '@/shared/ui/santi-mark'
 
 export const ErrorPage = ({ error }: ErrorComponentProps) => {
   const router = useRouter()
-  const retry = () => void router.invalidate()
+  const retry = () =>
+    isChunkError(error) ? browser.reload() : void router.invalidate()
   useEffect(() => {
     if (isChunkError(error)) reloadOnce()
   }, [error])

@@ -29,6 +29,42 @@ describe('stale chunks after a deploy', () => {
     stop()
   })
 
+  it('reloads once more after each new deploy in the same session', () => {
+    const build = vi
+      .spyOn(browser, 'build')
+      .mockReturnValue('/assets/index-a.js')
+    const stop = listenForStaleChunks()
+
+    expect(preloadError().defaultPrevented).toBe(true)
+    build.mockReturnValue('/assets/index-b.js')
+    expect(preloadError().defaultPrevented).toBe(true)
+    expect(preloadError().defaultPrevented).toBe(false)
+    expect(reload).toHaveBeenCalledTimes(2)
+    stop()
+  })
+
+  it('reloads the page when Try again follows a chunk error', async () => {
+    inProjects()
+    const stub = globalThis.fetch
+    vi.stubGlobal('fetch', (request: Request) =>
+      routeOf(request) === 'GET /api/projects/WEB'
+        ? Promise.reject(
+            new TypeError(
+              'Failed to fetch dynamically imported module: /assets/board-1.js'
+            )
+          )
+        : stub(request)
+    )
+    const { screen } = await renderApp('/p/WEB/board')
+    await expect
+      .element(screen.getByRole('heading', { name: 'Something went wrong' }))
+      .toBeVisible()
+
+    await screen.getByRole('button', { name: 'Try again' }).click()
+
+    expect(reload).toHaveBeenCalledTimes(2)
+  })
+
   it('never reloads when session storage is blocked', () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new DOMException('blocked', 'SecurityError')
