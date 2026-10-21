@@ -26,7 +26,7 @@ import { useAddComment, useEditComment } from '@/entities/issue/issue-mutations'
 import { commentsQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
-import { sessionQuery } from '@/entities/session/session-query'
+import { sessionQuery, useTimeZone } from '@/entities/session/session-query'
 import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
 import {
   type Attachment,
@@ -329,6 +329,7 @@ const CommentItem = ({
   highlighted,
 }: CommentItemProps) => {
   const edit = useEditComment(projectKey, number)
+  const timeZone = useTimeZone()
   const [draft, setDraft] = useState(comment.body)
   const [deleting, setDeleting] = useState(false)
   const item = useRef<HTMLLIElement>(null)
@@ -397,10 +398,10 @@ const CommentItem = ({
               <PersonName name={author} className='font-medium' />{' '}
               <time
                 dateTime={comment.created_at}
-                title={fullDateTime(comment.created_at)}
+                title={fullDateTime(comment.created_at, timeZone)}
                 className='text-xs text-subtle-foreground'
               >
-                {commentTime(comment.created_at)}
+                {commentTime(comment.created_at, timeZone)}
               </time>
               {comment.edited_at && (
                 <>
@@ -411,7 +412,7 @@ const CommentItem = ({
                       (comment.edited_by_id != null &&
                         nameOf(comment.edited_by_id)) ||
                       comment.edited_by_name
-                    } · ${fullDateTime(comment.edited_at)}`}
+                    } · ${fullDateTime(comment.edited_at, timeZone)}`}
                   >
                     (edited)
                   </span>

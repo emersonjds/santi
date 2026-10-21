@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
 use chrono::{DateTime, Local, NaiveTime};
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use santi_types::boards::StatusCategory;
 use santi_types::issues::{IssueType, Priority};
+use santi_types::links::Relation;
 use santi_types::projects::{BoardType, ProjectState};
 use santi_types::sprints::{OpenIssuesDestination, SprintLength};
 
@@ -37,6 +38,8 @@ pub enum Command {
     Login,
     /// Show the signed-in user
     Whoami,
+    /// Change your password and sign out your other sessions (asked for, never an argument)
+    Password,
     #[command(subcommand)]
     Projects(ProjectsCommand),
     #[command(subcommand)]
@@ -76,7 +79,7 @@ pub enum Command {
     Report(ReportCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
     Plan(PlanArgs),
-    /// Search a project's issues by summary or key
+    /// Search a project's issues by summary text, or by number (`12` or `WEB-12`)
     Search {
         project: ProjectKey,
         text: String,
@@ -92,6 +95,13 @@ pub enum Command {
         /// Import without asking
         #[arg(long)]
         yes: bool,
+    },
+    /// Recreate projects from a `GET /api/me/export` file; a key that already exists is skipped
+    Restore {
+        file: PathBuf,
+        /// Only this project of the file
+        #[arg(long)]
+        project: Option<ProjectKey>,
     },
     /// Run the MCP server: stdio by default, Streamable HTTP with --http
     Mcp {
@@ -244,6 +254,20 @@ pub enum IssuesCommand {
         #[arg(long)]
         yes: bool,
     },
+    /// Link two issues: `link WEB-1 blocks WEB-2`
+    Link {
+        issue: IssueKey,
+        relation: RelationArg,
+        other: IssueKey,
+    },
+    /// Remove the link between two issues
+    Unlink {
+        issue: IssueKey,
+        other: IssueKey,
+        /// Which link, when the two issues have several
+        #[arg(long)]
+        relation: Option<RelationArg>,
+    },
     /// Attach files to an issue: at most 10 at once, 25 MB each, 100 per issue
     Attach {
         issue: IssueKey,
@@ -272,6 +296,32 @@ pub enum IssuesCommand {
         #[arg(long, requires = "delete")]
         yes: bool,
     },
+}
+
+/// `Relation` spelled for the command line.
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum RelationArg {
+    Blocks,
+    IsBlockedBy,
+    Relates,
+    Duplicates,
+    IsDuplicatedBy,
+    Clones,
+    IsClonedBy,
+}
+
+impl From<RelationArg> for Relation {
+    fn from(relation: RelationArg) -> Relation {
+        match relation {
+            RelationArg::Blocks => Relation::Blocks,
+            RelationArg::IsBlockedBy => Relation::IsBlockedBy,
+            RelationArg::Relates => Relation::Relates,
+            RelationArg::Duplicates => Relation::Duplicates,
+            RelationArg::IsDuplicatedBy => Relation::IsDuplicatedBy,
+            RelationArg::Clones => Relation::Clones,
+            RelationArg::IsClonedBy => Relation::IsClonedBy,
+        }
+    }
 }
 
 #[derive(Debug, Args)]

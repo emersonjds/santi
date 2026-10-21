@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue_comment (issue_id, author_id, body, created_at, edited_at, edited_by)\n         SELECT i.id, r.author_id, r.body, r.created_at,\n                CASE WHEN r.edited_by <> 0 THEN r.edited_at END, nullif(r.edited_by, 0)\n         FROM unnest($2::bigint[], $3::bigint[], $4::text[], $5::timestamptz[], $6::bigint[], $7::timestamptz[])\n              WITH ORDINALITY AS r(number, author_id, body, created_at, edited_by, edited_at, position)\n         JOIN issue i ON i.project_id = $1 AND i.number = r.number\n         ORDER BY r.position",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8Array",
+        "Int8Array",
+        "TextArray",
+        "TimestamptzArray",
+        "Int8Array",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "cf88eec4d5f6605ac2c873e7833195a3967f83c1ee30bbc18f615c507f0301a8"
+}

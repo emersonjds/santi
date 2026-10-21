@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE issue i SET updated_at = r.updated_at\n         FROM unnest($2::bigint[], $3::timestamptz[]) AS r(number, updated_at)\n         WHERE i.project_id = $1 AND i.number = r.number",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8Array",
+        "TimestamptzArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f3006a8382a703a532555ed86c9897871b4a082c94438d6e8b9155eaab10fa90"
+}

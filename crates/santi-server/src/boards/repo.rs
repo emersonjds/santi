@@ -298,6 +298,7 @@ pub async fn board_cards(
     conn: &mut PgConnection,
     project_id: i64,
     active_sprint_id: Option<i64>,
+    viewer_id: i64,
 ) -> Result<Vec<Card>, sqlx::Error> {
     sqlx::query_as!(
         Card,
@@ -307,7 +308,7 @@ pub async fn board_cards(
                   assignee.display_name AS "assignee_name?", i.reporter_id, i.points, i.labels,
                   p.key || '-' || parent.number AS parent_key, i.sprint_id,
                   sub.open_count AS "open_subtasks!", sub.total_count AS "total_subtasks!", i.rank,
-                  i.updated_at
+                  i.updated_at, blockers.keys AS "blocked_by!"
            FROM issue i
            JOIN project p ON p.id = i.project_id
            JOIN board b ON b.project_id = p.id
@@ -319,6 +320,15 @@ pub async fn board_cards(
                FROM issue child JOIN status child_status ON child_status.id = child.status_id
                WHERE child.parent_id = i.id AND child.issue_type = 'subtask'
            ) sub
+           CROSS JOIN LATERAL (
+               SELECT coalesce(array_agg(bp.key || '-' || blocker.number ORDER BY bp.key, blocker.number), '{}') AS keys
+               FROM issue_link bl
+               JOIN issue blocker ON blocker.id = bl.source_id
+               JOIN status bs ON bs.id = blocker.status_id AND bs.category <> 'done'
+               JOIN project bp ON bp.id = blocker.project_id AND bp.trashed_at IS NULL
+               JOIN member bm ON bm.project_id = bp.id AND bm.user_id = $3
+               WHERE bl.target_id = i.id AND bl.link_type = 'blocks'
+           ) blockers
            WHERE i.project_id = $1
              AND i.issue_type <> 'epic'
              AND (b.board_type = 'kanban' OR i.sprint_id = $2)
@@ -326,7 +336,8 @@ pub async fn board_cards(
                   OR i.done_at > now() - make_interval(days => b.done_window_days))
            ORDER BY i.rank"#,
         project_id,
-        active_sprint_id
+        active_sprint_id,
+        viewer_id
     )
     .fetch_all(&mut *conn)
     .await
@@ -338,6 +349,7 @@ pub async fn board_cards(
 pub async fn backlog_cards(
     conn: &mut PgConnection,
     project_id: i64,
+    viewer_id: i64,
 ) -> Result<Vec<Card>, sqlx::Error> {
     sqlx::query_as!(
         Card,
@@ -348,7 +360,7 @@ pub async fn backlog_cards(
                   p.key || '-' || parent.number AS parent_key,
                   CASE WHEN sprint.state = 'closed' THEN NULL ELSE i.sprint_id END AS sprint_id,
                   coalesce(sub.open_count, 0) AS "open_subtasks!", coalesce(sub.total_count, 0) AS "total_subtasks!", i.rank,
-                  i.updated_at
+                  i.updated_at, blockers.keys AS "blocked_by!"
            FROM issue i
            JOIN project p ON p.id = i.project_id
            JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL
@@ -362,11 +374,21 @@ pub async fn backlog_cards(
                WHERE child.project_id = $1 AND child.issue_type = 'subtask'
                GROUP BY child.parent_id
            ) sub ON sub.parent_id = i.id
+           CROSS JOIN LATERAL (
+               SELECT coalesce(array_agg(bp.key || '-' || blocker.number ORDER BY bp.key, blocker.number), '{}') AS keys
+               FROM issue_link bl
+               JOIN issue blocker ON blocker.id = bl.source_id
+               JOIN status bs ON bs.id = blocker.status_id AND bs.category <> 'done'
+               JOIN project bp ON bp.id = blocker.project_id AND bp.trashed_at IS NULL
+               JOIN member bm ON bm.project_id = bp.id AND bm.user_id = $2
+               WHERE bl.target_id = i.id AND bl.link_type = 'blocks'
+           ) blockers
            WHERE i.project_id = $1
              AND i.issue_type NOT IN ('epic', 'subtask')
              AND s.category <> 'done'
            ORDER BY i.rank"#,
-        project_id
+        project_id,
+        viewer_id
     )
     .fetch_all(&mut *conn)
     .await

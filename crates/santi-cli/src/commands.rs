@@ -2,16 +2,21 @@ use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Local, Utc};
+use santi_types::Problem;
 use santi_types::attachments::Attachment;
+use santi_types::auth::{AccountExport, ChangePassword};
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
     Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
     UpdateIssue,
 };
+use santi_types::links::IssueLink;
 use santi_types::notifications::{Notification, NotificationKind};
 use santi_types::people::{PersonProgress, TeamProgress};
-use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
+use santi_types::projects::{
+    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult,
+};
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -20,7 +25,7 @@ use crate::cli::{
     Cli, Command, CommentArgs, Filter, InvitesCommand, IssuesCommand, NotificationsCommand,
     PlanArgs, ProjectsCommand, ReportCommand, SprintsCommand,
 };
-use crate::client::{Client, IssueKey, ProjectKey};
+use crate::client::{Client, IssueKey, ProjectKey, relation_label};
 use crate::config::{self, Config};
 use crate::error::Error;
 use crate::sprint_time::{self, window_text};
@@ -47,6 +52,17 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
             show(json, &me, |me| {
                 format!("{} <{}>", me.display_name, me.email)
             })
+        }
+        Command::Password => {
+            let change = ChangePassword {
+                current: secret("Current password: ")?,
+                new: secret("New password: ")?,
+            };
+            if secret("Repeat new password: ")? != change.new {
+                return Err(Error::Usage("Passwords do not match.".into()));
+            }
+            let done = client.change_password(&change).await?;
+            show(json, &done, |done| password_text(done.signed_out))
         }
         Command::Projects(command) => projects(&client, command, json).await,
         Command::Issues(command) => issues(&client, command, json).await,
@@ -112,6 +128,7 @@ pub async fn run(cli: Cli) -> Result<(), Error> {
         }
         Command::Comment(args) => comment(&client, args, json).await,
         Command::Import { project, file, yes } => import(&client, &project, file, yes, json).await,
+        Command::Restore { file, project } => restore(&client, file, project, json).await,
         Command::Mcp { http, allowed_host } => match http {
             Some(address) => crate::mcp::serve_http(client, address, allowed_host).await,
             None => crate::mcp::serve_stdio(client).await,
@@ -215,7 +232,41 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
             let found = issue_page(client, &project, None, filter).await?;
             show(json, &found, page_text)
         }
-        IssuesCommand::Show { issue } => show(json, &client.issue(&issue).await?, issue_text),
+        IssuesCommand::Show { issue } => {
+            let (found, links) = tokio::join!(client.issue(&issue), client.links(&issue));
+            let shown = IssueWithLinks {
+                issue: found?,
+                links: links.unwrap_or_default(),
+            };
+            show(json, &shown, |shown| match shown.links.is_empty() {
+                true => issue_text(&shown.issue),
+                false => format!(
+                    "{}\n\n{}",
+                    issue_text(&shown.issue),
+                    links_text(&shown.links)
+                ),
+            })
+        }
+        IssuesCommand::Link {
+            issue,
+            relation,
+            other,
+        } => {
+            let link = client.link(&issue, relation.into(), &other).await?;
+            show(json, &link, |link| link_line(&issue, link))
+        }
+        IssuesCommand::Unlink {
+            issue,
+            other,
+            relation,
+        } => {
+            let link = client
+                .unlink(&issue, &other, relation.map(Into::into))
+                .await?;
+            show(json, &link, |link| {
+                format!("Unlinked {}", link_line(&issue, link))
+            })
+        }
         IssuesCommand::Create {
             project,
             summary,
@@ -562,6 +613,85 @@ async fn import(
     show(json, &result, result_text)
 }
 
+async fn restore(
+    client: &Client,
+    file: PathBuf,
+    only: Option<ProjectKey>,
+    json: bool,
+) -> Result<(), Error> {
+    let bytes = std::fs::read(&file)
+        .map_err(|error| Error::Usage(format!("{}: {error}", file.display())))?;
+    let export: AccountExport = serde_json::from_slice(&bytes)
+        .map_err(|error| Error::Usage(format!("not a santi export: {error}")))?;
+    let mut projects = export.projects;
+    if let Some(key) = only {
+        let keys: Vec<String> = projects
+            .iter()
+            .map(|found| found.project.key.clone())
+            .collect();
+        projects.retain(|found| found.project.key == key.as_str());
+        if projects.is_empty() {
+            return Err(Error::Usage(format!(
+                "no project {key} in {}; projects: {}",
+                file.display(),
+                keys.join(", ")
+            )));
+        }
+    }
+    let (mut answers, mut not_restored, mut failed) = (vec![], None, None);
+    for project in &projects {
+        let key = &project.project.key;
+        match client.restore_project(project).await {
+            Ok(result) => {
+                if !json {
+                    println!("{}", restored_text(&result));
+                }
+                not_restored = Some(printable(&result.not_restored));
+                answers.push(serde_json::to_value(result).expect("DTOs serialize"));
+            }
+            Err(Error::Api(problem)) if already_there(&problem) => {
+                if !json {
+                    println!("skipped {key}: a project with this key already exists");
+                }
+                answers.push(serde_json::json!({ "key": key, "skipped": "exists" }));
+            }
+            Err(error) => {
+                failed = Some(error);
+                break;
+            }
+        }
+    }
+    match (json, not_restored) {
+        (true, _) => println!(
+            "{}",
+            serde_json::to_string_pretty(&answers).expect("DTOs serialize")
+        ),
+        (false, Some(line)) => println!("{line}"),
+        (false, None) => {}
+    }
+    failed.map_or(Ok(()), Err)
+}
+
+/// The only refusal a restore skips; any other stops the run.
+fn already_there(problem: &Problem) -> bool {
+    problem.problem_type == "urn:santi:error:project-exists"
+}
+
+fn restored_text(result: &RestoreResult) -> String {
+    let mut text = vec![format!(
+        "restored {} ({} issues, {} sprints, {} comments)",
+        result.project.key, result.issues, result.sprints, result.comments
+    )];
+    text.extend(result.problems.iter().map(|problem| {
+        format!(
+            "  {}: {}",
+            printable(&problem.issue_key),
+            printable(&problem.message)
+        )
+    }));
+    text.join("\n")
+}
+
 /// The preview's suggestions, as the web importer pre-fills them.
 fn suggested_mapping(preview: &ImportPreview) -> ImportMapping {
     ImportMapping {
@@ -658,6 +788,28 @@ fn ask(question: &str) -> Result<String, Error> {
         .read_line(&mut answer)
         .map_err(|error| Error::Other(error.to_string()))?;
     Ok(answer.trim().to_string())
+}
+
+/// Without echo on a terminal; piped input keeps every character but the line break.
+fn secret(question: &str) -> Result<String, Error> {
+    eprint!("{question}");
+    std::io::stderr().flush().ok();
+    let mut answer = String::new();
+    let read = match std::io::stdin().is_terminal() {
+        true => rpassword::read_password().map(|typed| answer = typed),
+        false => std::io::stdin().lock().read_line(&mut answer).map(drop),
+    };
+    read.map_err(|error| Error::Other(error.to_string()))?;
+    Ok(answer.trim_end_matches(['\r', '\n']).to_string())
+}
+
+fn password_text(signed_out: i64) -> String {
+    let others = match signed_out {
+        0 => "No other sessions were".to_string(),
+        1 => "1 other session was".to_string(),
+        n => format!("{n} other sessions were"),
+    };
+    format!("Password changed. {others} signed out.")
 }
 
 fn confirm(question: &str) -> Result<bool, Error> {
@@ -794,6 +946,43 @@ fn issue_text(issue: &Issue) -> String {
         text.push_str(&plain_mentions(&issue.description));
     }
     text
+}
+
+#[derive(Serialize)]
+struct IssueWithLinks {
+    #[serde(flatten)]
+    issue: Issue,
+    links: Vec<IssueLink>,
+}
+
+fn link_line(issue: &IssueKey, link: &IssueLink) -> String {
+    format!(
+        "{issue} {} {}",
+        relation_label(link.relation),
+        link.issue.key
+    )
+}
+
+/// One line per link, grouped in the relation's display order; empty without links.
+fn links_text(links: &[IssueLink]) -> String {
+    if links.is_empty() {
+        return String::new();
+    }
+    let mut sorted: Vec<&IssueLink> = links.iter().collect();
+    sorted.sort_by_key(|link| link.relation);
+    let rows: Vec<String> = sorted
+        .iter()
+        .map(|link| {
+            format!(
+                "  {}: {} {} [{}]",
+                relation_label(link.relation),
+                link.issue.key,
+                printable(&link.issue.summary),
+                printable(&link.issue.status_name)
+            )
+        })
+        .collect();
+    format!("Links:\n{}", rows.join("\n"))
 }
 
 fn comments_text(comments: &[Comment], now: DateTime<Utc>) -> String {
@@ -1156,9 +1345,25 @@ fn problem_lines(problems: &[santi_types::imports::RowProblem]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use santi_types::projects::{InviteJoiner, MemberRole};
+    use santi_types::projects::{BoardType, InviteJoiner, MemberRole, RestoreProblem};
 
     use super::*;
+
+    #[test]
+    fn password_text_counts_the_other_sessions() {
+        assert_eq!(
+            password_text(0),
+            "Password changed. No other sessions were signed out."
+        );
+        assert_eq!(
+            password_text(1),
+            "Password changed. 1 other session was signed out."
+        );
+        assert_eq!(
+            password_text(3),
+            "Password changed. 3 other sessions were signed out."
+        );
+    }
 
     #[test]
     fn short_name_keeps_first_and_last_word() {
@@ -1229,6 +1434,41 @@ mod tests {
              \n\
              Make it so."
         );
+    }
+
+    #[test]
+    fn links_text_groups_by_relation_and_strips_terminal_controls() {
+        let link = |id: i64, relation: &str, key: &str, summary: &str, status: &str| {
+            serde_json::from_value::<IssueLink>(serde_json::json!({
+                "id": id, "relation": relation, "issue": {
+                    "key": key, "summary": summary, "status_id": 1, "status_name": status,
+                    "status_category": "todo", "priority": "medium", "assignee_id": null,
+                    "assignee_name": null, "issue_type": "task",
+                },
+            }))
+            .unwrap()
+        };
+        let links = [
+            link(1, "relates", "SAN-3", "Docs", "In Progress"),
+            link(2, "blocks", "SAN-2", "Ship", "To Do"),
+            link(
+                3,
+                "is_blocked_by",
+                "SAN-4",
+                "\u{202e}Evil\u{1b}[31m",
+                "Done",
+            ),
+            link(4, "blocks", "OPS-9", "Deploy", "To Do"),
+        ];
+        assert_eq!(
+            links_text(&links),
+            "Links:\n  \
+             blocks: SAN-2 Ship [To Do]\n  \
+             blocks: OPS-9 Deploy [To Do]\n  \
+             is blocked by: SAN-4 Evil[31m [Done]\n  \
+             relates to: SAN-3 Docs [In Progress]"
+        );
+        assert_eq!(links_text(&[]), "");
     }
 
     #[test]
@@ -1676,6 +1916,47 @@ mod tests {
         format!("http://{address}")
     }
 
+    /// Answers SAN-97 and fails its links with a 500.
+    async fn links_down_server() -> String {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let issue = serde_json::to_string(&issue()).unwrap();
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut buffer = [0; 4096];
+                let read = stream.read(&mut buffer).await.unwrap_or(0);
+                let request = String::from_utf8_lossy(&buffer[..read]).into_owned();
+                let (status, body) =
+                    match request.starts_with("GET /api/projects/SAN/issues/97/links") {
+                        true => ("500 Internal Server Error", "{}"),
+                        false => ("200 OK", issue.as_str()),
+                    };
+                let answer = format!(
+                    "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = stream.write_all(answer.as_bytes()).await;
+            }
+        });
+        format!("http://{address}")
+    }
+
+    #[tokio::test]
+    async fn issues_show_falls_back_to_no_links_when_they_cannot_be_read() {
+        let client = Client::new(&links_down_server().await, None).unwrap();
+        let shown = issues(
+            &client,
+            IssuesCommand::Show {
+                issue: "SAN-97".parse().unwrap(),
+            },
+            true,
+        )
+        .await;
+        assert!(shown.is_ok(), "{shown:?}");
+    }
+
     #[tokio::test]
     async fn a_download_cut_mid_body_keeps_the_old_file_and_leaves_no_partial_one() {
         let client = Client::new(&cut_download_server().await, None).unwrap();
@@ -1707,6 +1988,50 @@ mod tests {
         assert_eq!(
             std::fs::read(kept.path().join("report.pdf")).unwrap(),
             b"mine"
+        );
+    }
+
+    #[test]
+    fn only_an_existing_key_skips_a_project() {
+        let refusal = |problem_type: &str| Problem {
+            problem_type: problem_type.into(),
+            title: "Conflict".into(),
+            status: 409,
+            detail: "x".into(),
+            errors: vec![],
+        };
+        assert!(already_there(&refusal("urn:santi:error:project-exists")));
+        assert!(!already_there(&refusal("urn:santi:error:conflict")));
+    }
+
+    #[test]
+    fn restored_text_counts_then_lists_printable_problems() {
+        let result = RestoreResult {
+            project: Project {
+                id: 1,
+                key: "SHOP".into(),
+                name: "Shop".into(),
+                board_type: BoardType::Scrum,
+                role: MemberRole::Admin,
+                state: ProjectState::Active,
+                archived_at: None,
+                archived_by: None,
+                trashed_at: None,
+                trashed_by: None,
+                purge_at: None,
+            },
+            issues: 12,
+            sprints: 2,
+            comments: 5,
+            problems: vec![RestoreProblem {
+                issue_key: "SHOP-12".into(),
+                message: "assignee \u{1b}[31mgone\u{202e}, cleared".into(),
+            }],
+            not_restored: "Attachments are not in an export.".into(),
+        };
+        assert_eq!(
+            restored_text(&result),
+            "restored SHOP (12 issues, 2 sprints, 5 comments)\n  SHOP-12: assignee [31mgone, cleared"
         );
     }
 }

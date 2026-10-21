@@ -1,8 +1,8 @@
 use chrono::{DateTime, Duration, SubsecRound, Utc};
 use santi_types::auth::{
-    AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
-    LegalStatus, Login, PasswordResetPreview, ProjectExport, Register, ResetPassword, UpdateMe,
-    User,
+    AcceptLegal, AccountExport, ApiToken, ChangePassword, CreateToken, CreatedToken, DeleteAccount,
+    LegalDocuments, LegalStatus, Login, PasswordResetPreview, ProjectExport, Register,
+    ResetPassword, Session, SignedOut, UpdateMe, User,
 };
 use santi_types::issues::{Issue, IssueFilter, PageParams, StatusFilter};
 use santi_types::projects::{MemberRole, Project, ProjectState};
@@ -21,6 +21,7 @@ pub async fn register(
     pool: &PgPool,
     legal: &Legal,
     input: Register,
+    user_agent: Option<&str>,
 ) -> Result<(User, String), AppError> {
     let email = domain::normalize_email(&input.email)?;
     let display_name = domain::check_display_name(&input.display_name)?;
@@ -35,13 +36,17 @@ pub async fn register(
     if legal.required {
         record_acceptance(&mut tx, legal, user.id).await?;
     }
-    let session = start_session(&mut tx, user.id).await?;
+    let session = start_session(&mut tx, user.id, user_agent).await?;
     tx.commit().await?;
     Ok((user, session))
 }
 
 /// Unknown email and wrong password give the same error after the same argon2 work.
-pub async fn login(pool: &PgPool, input: Login) -> Result<(User, String), AppError> {
+pub async fn login(
+    pool: &PgPool,
+    input: Login,
+    user_agent: Option<&str>,
+) -> Result<(User, String), AppError> {
     let email = input.email.trim().to_lowercase();
     let mut conn = pool.acquire().await?;
     let found = repo::find_user_by_email(&mut conn, &email).await?;
@@ -55,7 +60,7 @@ pub async fn login(pool: &PgPool, input: Login) -> Result<(User, String), AppErr
         return Err(AppError::InvalidCredentials);
     };
     repo::delete_expired_sessions(&mut conn, user.id).await?;
-    let session = start_session(&mut conn, user.id).await?;
+    let session = start_session(&mut conn, user.id, user_agent).await?;
     let user = User {
         id: user.id,
         email: user.email,
@@ -284,6 +289,7 @@ pub async fn reset_password(
     pool: &PgPool,
     token: &str,
     input: ResetPassword,
+    user_agent: Option<&str>,
 ) -> Result<(User, String), AppError> {
     domain::check_password(&input.password)?;
     let mut tx = pool.begin().await?;
@@ -293,10 +299,74 @@ pub async fn reset_password(
     let password_hash = hash_in_background(input.password).await?;
     repo::set_password_hash(&mut tx, user_id, &password_hash).await?;
     repo::delete_sessions(&mut tx, user_id).await?;
-    let session = start_session(&mut tx, user_id).await?;
+    let session = start_session(&mut tx, user_id, user_agent).await?;
     let user = repo::find_user(&mut tx, user_id).await?;
     tx.commit().await?;
     Ok((user, session))
+}
+
+/// D60: `new` is checked by the handler first. Checks `current` outside any transaction, then stores the new hash only if the stored
+/// one is unchanged, ends every other session and kills reset links in one transaction.
+/// API tokens stay; a token caller ends every session.
+pub async fn change_password(
+    pool: &PgPool,
+    user: &CurrentUser,
+    input: ChangePassword,
+) -> Result<SignedOut, AppError> {
+    let mut conn = pool.acquire().await?;
+    let stored_hash = repo::find_password_hash(&mut conn, user.id).await?;
+    drop(conn);
+    if !verify_in_background(input.current, stored_hash.clone()).await? {
+        return Err(AppError::invalid(
+            "current",
+            "The current password is not right.",
+        ));
+    }
+    let password_hash = hash_in_background(input.new).await?;
+    let mut tx = pool.begin().await?;
+    if !repo::replace_password_hash(&mut tx, user.id, &stored_hash, &password_hash).await? {
+        return Err(AppError::conflict(
+            "password-changed",
+            "Your password changed meanwhile; try again.",
+        ));
+    }
+    let signed_out = repo::delete_other_sessions(&mut tx, user.id, user.token_id).await?;
+    repo::delete_password_resets(&mut tx, user.id).await?;
+    tx.commit().await?;
+    Ok(SignedOut { signed_out })
+}
+
+pub async fn list_sessions(pool: &PgPool, user: &CurrentUser) -> Result<Vec<Session>, AppError> {
+    let mut conn = pool.acquire().await?;
+    Ok(repo::list_sessions(&mut conn, user.id, user.token_id).await?)
+}
+
+/// The caller's own session ends from the account menu (`POST /api/auth/logout`).
+pub async fn delete_session(
+    pool: &PgPool,
+    user: &CurrentUser,
+    session_id: i64,
+) -> Result<(), AppError> {
+    if session_id == user.token_id {
+        return Err(AppError::invalid(
+            "id",
+            "Sign out this device from the account menu.",
+        ));
+    }
+    let mut conn = pool.acquire().await?;
+    if !repo::delete_user_session(&mut conn, user.id, session_id).await? {
+        return Err(AppError::NotFound);
+    }
+    Ok(())
+}
+
+pub async fn delete_other_sessions(
+    pool: &PgPool,
+    user: &CurrentUser,
+) -> Result<SignedOut, AppError> {
+    let mut conn = pool.acquire().await?;
+    let signed_out = repo::delete_other_sessions(&mut conn, user.id, user.token_id).await?;
+    Ok(SignedOut { signed_out })
 }
 
 pub fn legal_documents(legal: &Legal) -> LegalDocuments {
@@ -373,10 +443,22 @@ async fn record_acceptance(
     Ok(())
 }
 
-async fn start_session(conn: &mut PgConnection, user_id: i64) -> Result<String, AppError> {
+async fn start_session(
+    conn: &mut PgConnection,
+    user_id: i64,
+    user_agent: Option<&str>,
+) -> Result<String, AppError> {
     let token = domain::new_secret();
     let expires_at = Utc::now() + Duration::days(domain::SESSION_DAYS);
-    repo::insert_session(conn, user_id, &domain::hash_token(&token), expires_at).await?;
+    let client = domain::device_label(user_agent);
+    repo::insert_session(
+        conn,
+        user_id,
+        &domain::hash_token(&token),
+        expires_at,
+        &client,
+    )
+    .await?;
     Ok(token)
 }
 

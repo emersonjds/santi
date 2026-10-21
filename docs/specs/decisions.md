@@ -668,3 +668,25 @@ Options: A) done/total on every chip plus a non-blocking offer when the last sub
 Winner: A (product, ia, ux) — progress reads the same way in the issue view, on cards and in the backlog; the offer is a toast with a Move button, so nobody is stopped by a modal and nothing moves without a click.
 - The offer appears once per change that closes the last open subtask, from the subtask list or the board; Move sends the parent to the board's first done status.
 - Moving a parent stays silent and never closes its subtasks (D6 unchanged there).
+
+## D58 — A restored project starts with its restorer only (SAN-99; follows D55)
+Context: a santi export names members, assignees, reporters and comment authors by user id. Restoring them as they were would let anyone add strangers to a project and post as them, the path D55 closed.
+Options: A) only the caller joins; other people become the caller or are cleared, and the answer lists them by name B) keep ids of users who exist on the instance C) map people by email
+Winner: A — consent stays with invite links and no one can be impersonated; B reopens D55 and leaks which ids exist, C needs emails the export does not carry and would still add people without asking.
+- The answer lists every replaced person with the name from the file, so the admin knows whom to invite and reassign.
+## D59 — Typed issue links, visible only where the viewer can see both ends (SAN-157)
+Context: issues need typed relations (blocks, relates to, duplicates, clones) across projects, without telling anyone that an issue they cannot open exists.
+Options: A) one row per link with a derived inverse label, filtered per viewer B) two rows per link (one per direction) C) links only inside one project
+Winner: A (product, ia, ux; ia and ux on visibility) — one row cannot drift out of sync; per-viewer filtering hides links to projects the viewer does not belong to, with no count; C would block the common "blocked by the platform team" case.
+- Four types with inverses: blocks / is blocked by, relates to (symmetric), duplicates / is duplicated by, clones / is cloned by.
+- Creating a link needs edit rights on the issue and membership of the other issue's project; deleting an issue removes its links.
+- A pair of issues carries each type at most once, in either direction: "A blocks B" refuses a later "B blocks A" (no mutual blocks, duplicates or clones).
+- Cards show "Blocked" while a visible blocker is not done.
+
+## D60 — Sessions show a device label and last activity, never the raw user agent or the address (SAN-198)
+Context: people need to see where they are signed in and end sessions they do not recognise; storing more than that is personal data santi does not need (LGPD/GDPR minimisation).
+Options: A) a short device label parsed at sign-in plus sign-in and last-activity times B) the raw User-Agent and IP address C) sign-in time only
+Winner: A (product, ia, ux) — enough to recognise a device, nothing that locates the person; B keeps data with no use for a small team, C cannot tell two laptops apart.
+- Last activity is refreshed at most every 10 minutes per session, inside the token lookup; API token rows keep their creation time there (only sessions show last activity). A read-only database would fail that refresh, so a read replica needs it switched off first (scale strategy).
+- Changing the password ends every other session; API tokens stay until revoked from their own list.
+- An API token may change the password (the CLI signs in only with tokens); the current password is always required, so a leaked token alone cannot do it.

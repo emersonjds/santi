@@ -131,6 +131,11 @@ the account and every project it administers as JSON, which works as an extra co
 | `SANTI_ADDR` | `127.0.0.1:8080` (`0.0.0.0:8080` in the image) | address the server listens on |
 | `SANTI_WEB_DIR` | `web/dist` (`/srv/santi/web` in the image) | built web UI to serve at `/` |
 | `SANTI_DB_POOL` | twice the cores, 10–50 | database connections |
+| `SANTI_REQUEST_TIMEOUT_SECS` | `30` | an API request still running after this answers 503 `busy` with `Retry-After: 1`; attachment uploads and downloads, imports and restore are exempt |
+| `SANTI_DB_STATEMENT_TIMEOUT_MS` | `15000` | `statement_timeout` of every database connection; a statement cut by it answers 503 `busy`. Imports and restore raise it to 5 minutes inside their transactions; migrations run without it |
+| `SANTI_DB_ACQUIRE_TIMEOUT_MS` | `5000` | how long a request waits for a free database connection before answering 503 `busy` with `Retry-After: 1` |
+| `RUST_LOG` | `info` | log filter, e.g. `warn` or `info,santi_server=debug` |
+| `SANTI_LOG_FORMAT` | `json` | `json` writes one JSON object per line to stdout (one per request: method, route template, status, `latency_ms`, request id, user id); `pretty` writes readable lines |
 | `SANTI_ATTACHMENTS_DIR` | `./data/attachments` (`/data/attachments` in the image, the `santi-attachments` volume in compose) | where attachments are stored when no bucket is set |
 | `SANTI_S3_BUCKET`, `SANTI_S3_ENDPOINT`, `SANTI_S3_REGION`, `SANTI_S3_ACCESS_KEY_ID`, `SANTI_S3_SECRET_ACCESS_KEY` | unset | store attachments in an S3-compatible bucket (S3, R2, MinIO, Railway) with path-style requests; set all five or none, a partial set stops the server at startup. `SANTI_S3_ENDPOINT` is an origin such as `https://storage.example.com`; the web app's image policy allows it. Add a bucket lifecycle rule that aborts incomplete multipart uploads after 1 day (`AbortIncompleteMultipartUpload`) |
 

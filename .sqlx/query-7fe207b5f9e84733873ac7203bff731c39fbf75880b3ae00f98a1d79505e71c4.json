@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sprint_issue (sprint_id, issue_id, added_after_start, points_at_start, outcome, points_at_close)\n         SELECT s.id, i.id, false, i.points,\n                CASE WHEN s.state = 'closed' THEN\n                     CASE WHEN i.done_at IS NULL THEN 'not_completed' ELSE 'completed' END END,\n                CASE WHEN s.state = 'closed' THEN i.points END\n         FROM issue i JOIN sprint s ON s.id = i.sprint_id AND s.state <> 'future'\n         WHERE i.project_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7fe207b5f9e84733873ac7203bff731c39fbf75880b3ae00f98a1d79505e71c4"
+}
