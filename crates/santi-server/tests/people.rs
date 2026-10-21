@@ -45,6 +45,43 @@ async fn scrum_counts_the_active_sprint_per_person(pool: PgPool) {
         json!({ "summary": "backlog", "assignee_id": bob.user_id, "status_id": doing }),
     )
     .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "sub", "issue_type": "subtask", "parent": "SANTI-1",
+                "assignee_id": bob.user_id, "status_id": doing }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "Epic", "issue_type": "epic", "assignee_id": bob.user_id,
+                "status_id": doing }),
+    )
+    .await;
+    sqlx::query("UPDATE issue SET sprint_id = $1 WHERE issue_type = 'epic'")
+        .bind(sprint["id"].as_i64())
+        .execute(&pool)
+        .await
+        .unwrap();
+    let (_, blocked) = ana
+        .post(
+            "/api/projects/SANTI/statuses",
+            json!({ "name": "Blocked", "category": "in_progress" }),
+        )
+        .await;
+    let blocked_url = format!("/api/projects/SANTI/statuses/{}", blocked["id"]);
+    let doing_column = ana.column_id("SANTI", "In Progress").await;
+    ana.put(
+        &blocked_url,
+        json!({ "name": "Blocked", "column_id": doing_column }),
+    )
+    .await;
+    ana.create_issue(
+        "SANTI",
+        json!({ "summary": "off the board", "assignee_id": bob.user_id,
+                "status_id": blocked["id"], "sprint_id": sprint["id"] }),
+    )
+    .await;
+    ana.put(&blocked_url, json!({ "name": "Blocked" })).await;
     let (status, started) = ana
         .post(
             &format!("/api/projects/SANTI/sprints/{}/start", sprint["id"]),
@@ -69,7 +106,7 @@ async fn scrum_counts_the_active_sprint_per_person(pool: PgPool) {
     assert_eq!(rows[0]["done"], tally(1, 5.0));
     assert_eq!(rows[0]["stuck"], 1);
     assert_eq!(rows[1]["user_id"], bob.user_id);
-    assert_eq!(rows[1]["in_progress"], tally(2, 1.0));
+    assert_eq!(rows[1]["in_progress"], tally(3, 1.0));
     assert_eq!(rows[1]["to_do"], tally(0, 0.0));
     assert_eq!(rows[1]["stuck"], 0);
     assert_eq!(rows[2]["user_id"], Value::Null);
