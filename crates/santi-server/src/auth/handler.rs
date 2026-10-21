@@ -273,7 +273,8 @@ pub async fn reset_password(
     responses(
         (status = 200, body = SignedOut, description = "Password changed; every other session ended (all of them for an API token caller). API tokens stay (D60)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "Wrong current password (`current`); new one breaks the rules or equals the current one (`new`)"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "The password changed meanwhile; try again"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Wrong current password (`current`); new one breaks the rules or equals the current one (`new`, checked first and spends no attempt)"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Too many password attempts for this account or address (D44); wait `Retry-After` seconds")))]
 pub async fn change_password(
     State(state): State<AppState>,
@@ -281,6 +282,7 @@ pub async fn change_password(
     user: CurrentUser,
     JsonBody(input): JsonBody<ChangePassword>,
 ) -> Result<Json<SignedOut>, AppError> {
+    domain::check_new_password(&input.current, &input.new)?;
     state
         .limits
         .check(Action::Reauthenticate, address, Some(user.id))?;

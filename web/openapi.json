@@ -680,8 +680,18 @@
               }
             }
           },
+          "409": {
+            "description": "The password changed meanwhile; try again",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
-            "description": "Wrong current password (`current`); new one breaks the rules or equals the current one (`new`)",
+            "description": "Wrong current password (`current`); new one breaks the rules or equals the current one (`new`, checked first and spends no attempt)",
             "content": {
               "application/problem+json": {
                 "schema": {

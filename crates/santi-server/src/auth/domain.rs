@@ -52,6 +52,18 @@ pub fn check_password_field(field: &str, password: &str) -> Result<(), AppError>
     Ok(())
 }
 
+/// D60: rules on `new` that need no argon2, checked before an attempt is spent.
+pub fn check_new_password(current: &str, new: &str) -> Result<(), AppError> {
+    check_password_field("new", new)?;
+    if new == current {
+        return Err(AppError::invalid(
+            "new",
+            "Choose a password different from the current one.",
+        ));
+    }
+    Ok(())
+}
+
 pub fn check_terms(accepted: bool) -> Result<(), AppError> {
     if !accepted {
         return Err(AppError::invalid(
@@ -232,6 +244,31 @@ fn header_text(headers: &HeaderMap, name: impl axum::http::header::AsHeaderName)
 mod tests {
     use super::*;
     use axum::http::{HeaderMap, HeaderValue, Method, header};
+
+    #[test]
+    fn a_new_password_follows_the_rules_and_differs_from_the_current_one() {
+        let message = |result: Result<(), AppError>| match result {
+            Err(AppError::Validation(errors)) => {
+                (errors[0].field.clone(), errors[0].message.clone())
+            }
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(
+            message(check_new_password("a long passphrase", "short")),
+            ("new".into(), "must have 10 to 128 characters".into())
+        );
+        assert_eq!(
+            message(check_new_password("a long passphrase", "a long passphrase")),
+            (
+                "new".into(),
+                "Choose a password different from the current one.".into()
+            )
+        );
+        assert_eq!(
+            check_new_password("a long passphrase", "another passphrase"),
+            Ok(())
+        );
+    }
 
     #[test]
     fn email_is_trimmed_and_lowercased() {
