@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT t.user_id, p.id AS \"project_id?\", p.key AS \"project_key?\", b.id AS \"board_id?\",\n                  b.board_type AS \"board_type?: BoardType\", m.role AS \"role?: MemberRole\",\n                  p.archived_at IS NOT NULL AS \"archived?\"\n           FROM auth_token t\n           LEFT JOIN project p ON p.key = $2 AND p.trashed_at IS NULL\n           LEFT JOIN member m ON m.project_id = p.id AND m.user_id = t.user_id\n           LEFT JOIN board b ON b.project_id = m.project_id\n           WHERE t.token_hash = $1 AND (t.expires_at IS NULL OR t.expires_at > now())",
+  "query": "WITH touched AS (\n             UPDATE auth_token SET last_used_at = now()\n             WHERE token_hash = $1 AND kind = 'session' AND expires_at > now()\n               AND last_used_at < now() - interval '10 minutes')\n           SELECT t.user_id, p.id AS \"project_id?\", p.key AS \"project_key?\", b.id AS \"board_id?\",\n                  b.board_type AS \"board_type?: BoardType\", m.role AS \"role?: MemberRole\",\n                  p.archived_at IS NOT NULL AS \"archived?\"\n           FROM auth_token t\n           LEFT JOIN project p ON p.key = $2 AND p.trashed_at IS NULL\n           LEFT JOIN member m ON m.project_id = p.id AND m.user_id = t.user_id\n           LEFT JOIN board b ON b.project_id = m.project_id\n           WHERE t.token_hash = $1 AND (t.expires_at IS NULL OR t.expires_at > now())",
   "describe": {
     "columns": [
       {
@@ -92,5 +92,5 @@
       null
     ]
   },
-  "hash": "cb7e0a047acc360c135ac6b99699dd0273628c5db22230372d9e8e4a73bb20dc"
+  "hash": "8d99902d26616eba2e01d9106f698b781c3848cca00d4daabb3c9d4594fa32f9"
 }

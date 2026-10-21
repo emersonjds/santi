@@ -41,12 +41,13 @@ pub fn normalize_email(email: &str) -> Result<String, AppError> {
 }
 
 pub fn check_password(password: &str) -> Result<(), AppError> {
+    check_password_field("password", password)
+}
+
+pub fn check_password_field(field: &str, password: &str) -> Result<(), AppError> {
     let length = password.chars().count();
     if !(10..=128).contains(&length) {
-        return Err(AppError::invalid(
-            "password",
-            "must have 10 to 128 characters",
-        ));
+        return Err(AppError::invalid(field, "must have 10 to 128 characters"));
     }
     Ok(())
 }
@@ -117,6 +118,40 @@ pub fn verify_password(password: &str, stored_hash: &str) -> bool {
     Argon2::default()
         .verify_password(password.as_bytes(), stored_hash)
         .is_ok()
+}
+
+/// D60: "Chrome on macOS" from a User-Agent; the header itself is never kept. Order matters:
+/// Chromium browsers also say "Chrome", Android says "Linux", iOS says "Mac OS X".
+pub fn device_label(user_agent: Option<&str>) -> String {
+    let agent = user_agent.unwrap_or_default();
+    if agent.starts_with("santi-cli/") {
+        return "santi CLI".into();
+    }
+    let has = |marks: &[&str]| marks.iter().any(|mark| agent.contains(mark));
+    let browser = [
+        (&["Edg/", "EdgA/", "EdgiOS/"][..], "Edge"),
+        (&["OPR/", "Opera"], "Opera"),
+        (&["Firefox/", "FxiOS/"], "Firefox"),
+        (&["Chrome/", "CriOS/"], "Chrome"),
+        (&["Safari/"], "Safari"),
+    ]
+    .into_iter()
+    .find_map(|(marks, name)| has(marks).then_some(name));
+    let system = [
+        (&["CrOS"][..], "ChromeOS"),
+        (&["Android"], "Android"),
+        (&["iPhone", "iPad", "iPod"], "iOS"),
+        (&["Macintosh", "Mac OS X"], "macOS"),
+        (&["Windows"], "Windows"),
+        (&["Linux"], "Linux"),
+    ]
+    .into_iter()
+    .find_map(|(marks, name)| has(marks).then_some(name));
+    match (browser, system) {
+        (Some(browser), Some(system)) => format!("{browser} on {system}"),
+        (Some(name), None) | (None, Some(name)) => name.into(),
+        (None, None) => "Unknown device".into(),
+    }
 }
 
 pub fn dummy_password_hash() -> String {
@@ -365,6 +400,56 @@ mod tests {
                 "{value}"
             );
         }
+    }
+
+    #[test]
+    fn device_label_names_the_browser_and_system_only() {
+        for (user_agent, label) in [
+            (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+                "Chrome on macOS",
+            ),
+            (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
+                "Edge on Windows",
+            ),
+            (
+                "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0",
+                "Firefox on Linux",
+            ),
+            (
+                "Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1",
+                "Safari on iOS",
+            ),
+            (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Safari/605.1.15",
+                "Safari on macOS",
+            ),
+            (
+                "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
+                "Chrome on Android",
+            ),
+            (
+                "Mozilla/5.0 (iPad; CPU OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0 Mobile/15E148 Safari/604.1",
+                "Chrome on iOS",
+            ),
+            (
+                "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+                "Chrome on ChromeOS",
+            ),
+            (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 OPR/114.0.0.0",
+                "Opera on Windows",
+            ),
+            ("santi-cli/0.22.0", "santi CLI"),
+            ("Mozilla/5.0 (Windows NT 10.0)", "Windows"),
+            ("Firefox/131.0", "Firefox"),
+            ("curl/8.7.1", "Unknown device"),
+            ("", "Unknown device"),
+        ] {
+            assert_eq!(device_label(Some(user_agent)), label, "{user_agent}");
+        }
+        assert_eq!(device_label(None), "Unknown device");
     }
 
     #[test]

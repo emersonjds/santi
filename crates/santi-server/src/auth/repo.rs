@@ -1,5 +1,7 @@
 use chrono::{DateTime, Utc};
-use santi_types::auth::{ApiToken, InviteUse, LegalAcceptance, PasswordResetPreview, Theme, User};
+use santi_types::auth::{
+    ApiToken, InviteUse, LegalAcceptance, PasswordResetPreview, Session, Theme, User,
+};
 use sqlx::PgConnection;
 
 use super::domain::{AGE_DECLARATION, PRIVACY_VERSION, TERMS_VERSION};
@@ -87,12 +89,15 @@ pub async fn insert_session(
     user_id: i64,
     token_hash: &[u8],
     expires_at: DateTime<Utc>,
+    client: &str,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "INSERT INTO auth_token (user_id, kind, token_hash, expires_at) VALUES ($1, 'session', $2, $3)",
+        "INSERT INTO auth_token (user_id, kind, token_hash, expires_at, client)
+         VALUES ($1, 'session', $2, $3, $4)",
         user_id,
         token_hash,
-        expires_at
+        expires_at,
+        client
     )
     .execute(&mut *conn)
     .await?;
@@ -122,14 +127,21 @@ pub async fn delete_session(conn: &mut PgConnection, token_id: i64) -> Result<()
     Ok(())
 }
 
+/// D60: a session's last activity is refreshed in the same statement, at most every 10 minutes.
 pub async fn find_by_token(
     conn: &mut PgConnection,
     token_hash: &[u8],
 ) -> Result<Option<CurrentUser>, sqlx::Error> {
     sqlx::query_as!(
         CurrentUser,
-        "SELECT user_id AS id, id AS token_id FROM auth_token
-         WHERE token_hash = $1 AND (expires_at IS NULL OR expires_at > now())",
+        r#"WITH found AS (
+             SELECT id, user_id FROM auth_token
+             WHERE token_hash = $1 AND (expires_at IS NULL OR expires_at > now())),
+           touched AS (
+             UPDATE auth_token t SET last_used_at = now() FROM found
+             WHERE t.id = found.id AND t.kind = 'session'
+               AND t.last_used_at < now() - interval '10 minutes')
+           SELECT user_id AS "id!", id AS "token_id!" FROM found"#,
         token_hash
     )
     .fetch_optional(&mut *conn)
@@ -251,6 +263,60 @@ pub async fn set_password_hash(
     Ok(())
 }
 
+/// Live sessions of the user, most recent activity first; `current` marks `token_id`.
+pub async fn list_sessions(
+    conn: &mut PgConnection,
+    user_id: i64,
+    token_id: i64,
+) -> Result<Vec<Session>, sqlx::Error> {
+    sqlx::query_as!(
+        Session,
+        r#"SELECT id, COALESCE(client, 'Unknown device') AS "client!", created_at, last_used_at,
+                  id = $2 AS "current!"
+           FROM auth_token
+           WHERE user_id = $1 AND kind = 'session' AND expires_at > now()
+           ORDER BY last_used_at DESC, id DESC"#,
+        user_id,
+        token_id
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// Returns false when no session with this id belongs to the user.
+pub async fn delete_user_session(
+    conn: &mut PgConnection,
+    user_id: i64,
+    session_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "DELETE FROM auth_token WHERE id = $1 AND user_id = $2 AND kind = 'session'",
+        session_id,
+        user_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(result.rows_affected() == 1)
+}
+
+/// Ends every session of the user but `keep`; returns how many live ones it ended. API tokens stay.
+pub async fn delete_other_sessions(
+    conn: &mut PgConnection,
+    user_id: i64,
+    keep: i64,
+) -> Result<i64, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"WITH gone AS (
+             DELETE FROM auth_token WHERE user_id = $1 AND kind = 'session' AND id <> $2
+             RETURNING expires_at)
+           SELECT count(*) FILTER (WHERE expires_at > now()) AS "count!" FROM gone"#,
+        user_id,
+        keep
+    )
+    .fetch_one(&mut *conn)
+    .await
+}
+
 /// Signs the account out everywhere; API tokens stay.
 pub async fn delete_sessions(conn: &mut PgConnection, user_id: i64) -> Result<(), sqlx::Error> {
     sqlx::query!(
@@ -262,13 +328,17 @@ pub async fn delete_sessions(conn: &mut PgConnection, user_id: i64) -> Result<()
     Ok(())
 }
 
+/// Inside a transaction, also locks the account until it ends.
 pub async fn find_password_hash(
     conn: &mut PgConnection,
     user_id: i64,
 ) -> Result<String, sqlx::Error> {
-    sqlx::query_scalar!("SELECT password_hash FROM app_user WHERE id = $1", user_id)
-        .fetch_one(&mut *conn)
-        .await
+    sqlx::query_scalar!(
+        "SELECT password_hash FROM app_user WHERE id = $1 FOR UPDATE",
+        user_id
+    )
+    .fetch_one(&mut *conn)
+    .await
 }
 
 /// D45: the projects the user belongs to, locked so roles cannot change underneath the departure.

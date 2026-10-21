@@ -132,6 +132,31 @@ pub struct ApiToken {
     pub created_at: DateTime<Utc>,
 }
 
+/// A signed-in browser (D60). `client` is a device label ("Chrome on macOS"), never the raw
+/// user agent; `current` marks the caller's own session.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct Session {
+    pub id: i64,
+    pub client: String,
+    pub created_at: DateTime<Utc>,
+    pub last_used_at: DateTime<Utc>,
+    pub current: bool,
+}
+
+/// No `Debug`: passwords never reach a log.
+#[derive(Clone, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ChangePassword {
+    pub current: String,
+    pub new: String,
+}
+
+/// How many other sessions a password change or a bulk sign-out ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+pub struct SignedOut {
+    pub signed_out: i64,
+}
+
 /// Deleting the account asks for the password again.
 #[derive(Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]

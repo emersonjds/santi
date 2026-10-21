@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT password_hash FROM app_user WHERE id = $1",
+  "query": "SELECT password_hash FROM app_user WHERE id = $1 FOR UPDATE",
   "describe": {
     "columns": [
       {
@@ -24,5 +24,5 @@
       false
     ]
   },
-  "hash": "7d2b05cf9df8f43fa1e4a267e103005a2c89852163d15eec7192f1763b1ba503"
+  "hash": "0da5c18c323d4179864a3fa422475aae20c959da3910848b9deafba8943e61a6"
 }
