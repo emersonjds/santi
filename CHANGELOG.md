@@ -10,9 +10,15 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-10-21
+
+> santi is now AGPL-3.0 with a trademark policy, on refreshed dependencies.
+
 ### Changed
 
 - **License**: santi is now licensed under the GNU Affero General Public License v3.0 (AGPL-3.0-only), with a [trademark policy](TRADEMARK.md) for the name and logo (D61).
+- Web dependencies updated within the bundle budget (TanStack Query and Router, Prettier 3.9, ESLint, typescript-eslint and others); React 19.3, zod 4.6, react-hook-form 7.90, lucide-react 1.59 and sonner 2.0.8 are held back until there is room (SAN-204) or a fix.
+- CI actions updated (checkout 7, docker login 4, buildx 4, build-push 7, pnpm setup 6) and base images refreshed (busybox 1.38, distroless); the image stays on Node 24 LTS.
 
 ### Upgrade notes
 
@@ -818,7 +824,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.24.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.25.0...HEAD
+[0.25.0]: https://github.com/emersonjds/santi/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/emersonjds/santi/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/emersonjds/santi/compare/v0.23.0...v0.24.0
 [0.23.0]: https://github.com/emersonjds/santi/compare/v0.22.0...v0.23.0
