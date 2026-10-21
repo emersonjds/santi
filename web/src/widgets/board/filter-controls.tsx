@@ -10,7 +10,7 @@ import { LabelChip } from '@/entities/issue/label-chip'
 import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
-import { UserAvatar } from '@/entities/user/user-avatar'
+import { UnassignedAvatar, UserAvatar } from '@/entities/user/user-avatar'
 import { fullName } from '@/shared/lib/initials'
 import { Input } from '@/shared/ui/input'
 import { NativeSelect } from '@/shared/ui/native-select'
@@ -31,6 +31,9 @@ const HERE = { to: '.' } as const
 
 type FilterProps = { projectKey: string; search: BoardSearch }
 
+const AVATAR_TOGGLE =
+  'shrink-0 rounded-full p-1 ring-2 ring-transparent outline-none hover:z-10 focus-visible:ring-ring aria-pressed:z-10 aria-pressed:ring-primary md:p-0.5'
+
 const useMe = () => useSuspenseQuery(sessionQuery).data
 
 export const AssigneeToggles = ({ projectKey, search }: FilterProps) => {
@@ -49,7 +52,7 @@ export const AssigneeToggles = ({ projectKey, search }: FilterProps) => {
           role='button'
           aria-pressed={assignee.includes(member.user_id)}
           aria-label={`Issues of ${fullName(member.display_name)}`}
-          className='shrink-0 rounded-full p-1 ring-2 ring-transparent outline-none hover:z-10 focus-visible:ring-ring aria-pressed:z-10 aria-pressed:ring-primary md:p-0.5'
+          className={AVATAR_TOGGLE}
         >
           <UserAvatar
             name={member.display_name}
@@ -57,6 +60,19 @@ export const AssigneeToggles = ({ projectKey, search }: FilterProps) => {
           />
         </Link>
       ))}
+      <Link
+        {...HERE}
+        search={(prev) => ({
+          ...prev,
+          unassigned: search.unassigned ? undefined : true,
+        })}
+        role='button'
+        aria-pressed={search.unassigned === true}
+        aria-label='Unassigned issues'
+        className={AVATAR_TOGGLE}
+      >
+        <UnassignedAvatar className='size-9 md:size-8' />
+      </Link>
     </div>
   )
 }
