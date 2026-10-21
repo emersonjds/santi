@@ -354,6 +354,20 @@ pub fn like_pattern(text: Option<&str>) -> Option<String> {
     Some(format!("%{escaped}%"))
 }
 
+/// SAN-214: the issue number a search names, as `12` or this project's `KEY-12` (any case).
+pub fn search_number(project_key: &str, text: Option<&str>) -> Option<i64> {
+    let text = text?.trim();
+    let digits = match text.split_once('-') {
+        Some((key, digits)) if key.eq_ignore_ascii_case(project_key) => digits,
+        Some(_) => return None,
+        None => text,
+    };
+    if digits.is_empty() || !digits.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    digits.parse().ok()
+}
+
 /// The filter in the shape the search query binds.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchQuery {
@@ -364,6 +378,7 @@ pub struct SearchQuery {
     pub parent_numbers: Vec<i64>,
     pub no_parent: bool,
     pub pattern: Option<String>,
+    pub number: Option<i64>,
     pub updated_since: Option<DateTime<Utc>>,
     pub categories: Vec<StatusCategory>,
 }
@@ -396,6 +411,7 @@ pub fn to_search_query(
         parent_numbers,
         no_parent: filter.parent.iter().any(|key| key == NO_PARENT),
         pattern: like_pattern(filter.q.as_deref()),
+        number: search_number(project_key, filter.q.as_deref()),
         updated_since: updated_since(filter.recently_updated, now),
         categories: Vec::new(),
     })
@@ -704,6 +720,21 @@ mod tests {
         );
         assert_eq!(like_pattern(Some("  ")), None);
         assert_eq!(like_pattern(None), None);
+    }
+
+    #[test]
+    fn search_text_names_an_issue_number_only_as_a_bare_number_or_this_projects_key() {
+        assert_eq!(search_number("SAN", Some("12")), Some(12));
+        assert_eq!(search_number("SAN", Some("san-12")), Some(12));
+        assert_eq!(search_number("SAN", Some(" SAN-12 ")), Some(12));
+        assert_eq!(search_number("SAN", Some("SAN-012")), Some(12));
+        assert_eq!(search_number("SAN", Some("OPS-12")), None);
+        assert_eq!(search_number("SAN", Some("SAN-")), None);
+        assert_eq!(search_number("SAN", Some("SAN")), None);
+        assert_eq!(search_number("SAN", Some("12a")), None);
+        assert_eq!(search_number("SAN", Some("+12")), None);
+        assert_eq!(search_number("SAN", Some("99999999999999999999")), None);
+        assert_eq!(search_number("SAN", None), None);
     }
 
     #[test]

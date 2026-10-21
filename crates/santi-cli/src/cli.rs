@@ -77,7 +77,7 @@ pub enum Command {
     Report(ReportCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
     Plan(PlanArgs),
-    /// Search a project's issues by summary or key
+    /// Search a project's issues by summary text, or by number (`12` or `WEB-12`)
     Search {
         project: ProjectKey,
         text: String,
