@@ -6,13 +6,17 @@ import { projectQuery } from '@/entities/project/project-queries'
 import { WriteLock } from '@/entities/project/write-lock'
 import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { DangerZone } from './danger-zone'
 
 // Lazy: dnd-kit rides with the editor, outside the route's first-visit JS (D39).
 const LayoutEditor = lazy(() =>
   import('@/features/board-settings/layout-editor').then((module) => ({
     default: module.LayoutEditor,
   }))
+)
+
+// Lazy: the lifecycle confirmations bring the Radix dialog stack (D39).
+const DangerZone = lazy(() =>
+  import('./danger-zone').then((module) => ({ default: module.DangerZone }))
 )
 
 const LINK =
@@ -31,7 +35,9 @@ export const BoardSettingsPage = () => {
           <BoardSettings projectKey={key} kanban={kanban} />
         </WriteLock>
       )}
-      <DangerZone project={project} />
+      <Suspense fallback={<Skeleton className='h-40' />}>
+        <DangerZone project={project} />
+      </Suspense>
     </div>
   )
 }
