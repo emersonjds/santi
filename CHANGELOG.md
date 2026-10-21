@@ -10,10 +10,53 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-10-21
+
+> Dark theme, a People tab for leads, subtasks you update in place, and a published Docker image.
+
+### Added
+
+- **Dark theme**: Light, Dark or System from the account page, applied before the first paint and
+  saved on your account, so every browser you sign in to follows it.
+- **Account page** (the account menu item is now "Account"): edit your display name in place and
+  pick your time zone from a searchable list; sprint dates, sprint reports, token and invite dates
+  follow it.
+- **People tab** for every project: one row per person for the running sprint or the Kanban
+  board, with done/total issues and points, a to do / in progress / done bar and "Stuck ×N" for
+  work in progress with no update in 3 days. A row opens that person's issues, with a link to the
+  board filtered to them. CLI `santi report people <KEY>`, MCP `get_team_progress`.
+- **Unassigned filter**: a dashed avatar after the members on the board and backlog filter bars.
+- **Subtasks in the issue view** change status, priority and assignee in place, the header shows
+  "N of M done" with a bar, and finishing the last open subtask offers to move the parent to Done.
+- **CLI paging**: `santi issues list` and `santi search` take `--cursor <id>` or `--all`.
+- **Docker image** published to `ghcr.io/emersonjds/santi` on every release; `compose.yaml` pulls
+  it instead of building, `compose.build.yaml` builds your checkout.
+- **Pricing and sustainability** section in the README.
+
+### Changed
+
+- Subtask chips on cards and backlog rows read done/total ("2 of 3 subtasks done").
+- On a phone, backlog rows show one whole label plus "+N" instead of cutting labels mid-word.
+- The sidebar keeps the project key beside its name; the star has its own colour token.
+- A wrong JSON type for a field (`{"theme": 5}`) answers 422 naming the field, like a wrong value.
+- Importing an export with points on subtasks now says the points are not kept.
+- After a second deploy in the same tab, a page whose code moved reloads once instead of showing
+  an error; Try again on that error reloads the page.
+
+### Removed
+
+- `POST /api/projects/{key}/members`: it revealed which emails have accounts. Invite links are the
+  way into a project.
+
 ### Upgrade notes
 
-- `POST /api/projects/{key}/members` is removed: it revealed which emails have accounts. Add
-  people with invite links.
+- Migration `0028_user_preferences` adds `theme` and `time_zone` to accounts (no table rewrite).
+- `POST /api/projects/{key}/members` answers 405; use invite links.
+- `compose.yaml` now runs `ghcr.io/emersonjds/santi:${SANTI_VERSION:-latest}` and binds santi to
+  127.0.0.1. To build from source, add `-f compose.build.yaml`. Put an HTTPS proxy in front for any
+  other host (the session cookie is `Secure`).
+- New API: `PATCH /api/me`, `GET /api/projects/{key}/people`, `unassigned=true` on board, backlog
+  and search filters; `User` gains `theme` and `time_zone`.
 
 ## [0.22.0] - 2026-10-19
 
@@ -723,7 +766,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.22.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.23.0...HEAD
+[0.23.0]: https://github.com/emersonjds/santi/compare/v0.22.0...v0.23.0
 [0.22.0]: https://github.com/emersonjds/santi/compare/v0.21.1...v0.22.0
 [0.21.1]: https://github.com/emersonjds/santi/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/emersonjds/santi/compare/v0.20.0...v0.21.0
