@@ -9,7 +9,7 @@ import {
   projectQuery,
   projectsQuery,
 } from '@/entities/project/project-queries'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { useTimeZone } from '@/entities/session/session-query'
 import { api, dataOrThrow, hasStatus } from '@/shared/api/client'
 import { formatDate } from '@/shared/lib/format-date'
 import { Button } from '@/shared/ui/button'

@@ -26,8 +26,7 @@ import { useAddComment, useEditComment } from '@/entities/issue/issue-mutations'
 import { commentsQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
-import { sessionQuery } from '@/entities/session/session-query'
-import { useTimeZone } from '@/entities/session/use-time-zone'
+import { sessionQuery, useTimeZone } from '@/entities/session/session-query'
 import { PersonName, UserAvatar } from '@/entities/user/user-avatar'
 import {
   type Attachment,

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { formatRange, timeLeft } from './sprint-dates'
+import {
+  formatRange,
+  instantToZonedWallTime,
+  timeLeft,
+  zonedWallTimeToInstant,
+} from './sprint-dates'
 
 const at = (day: number, hours: number, minutes = 0) =>
   new Date(2026, 9, day, hours, minutes).toISOString()
@@ -71,5 +76,37 @@ describe('time left', () => {
     [before(-3 * 1440), 'Overdue by 3 days'],
   ])('turns overdue at the end: %d', (now, text) => {
     expect(timeLeft(now, end)).toEqual({ overdue: true, text })
+  })
+})
+
+describe('zoned wall time', () => {
+  it.each([
+    ['2026-10-21', '09:00', 'Pacific/Auckland', '2026-10-20T20:00:00.000Z'],
+    ['2026-03-29', '01:30', 'Europe/Berlin', '2026-03-29T00:30:00.000Z'],
+    ['2026-03-29', '03:30', 'Europe/Berlin', '2026-03-29T01:30:00.000Z'],
+    ['2026-04-05', '01:00', 'Pacific/Auckland', '2026-04-04T12:00:00.000Z'],
+    ['2026-04-05', '09:00', 'Pacific/Auckland', '2026-04-04T21:00:00.000Z'],
+    ['2026-10-16', '09:05', undefined, '2026-10-16T13:05:00.000Z'],
+  ])('%s %s in %s is %s and back', (day, time, zone, instant) => {
+    expect(zonedWallTimeToInstant(day, time, zone).toISOString()).toBe(instant)
+    expect(instantToZonedWallTime(new Date(instant), zone)).toEqual({
+      day,
+      time,
+    })
+  })
+
+  it('moves a time the clocks skip forward by the gap', () => {
+    expect(
+      zonedWallTimeToInstant('2026-03-29', '02:30', 'Europe/Berlin')
+    ).toEqual(new Date('2026-03-29T01:30:00Z'))
+  })
+
+  it('reads midnight as 00:00', () => {
+    expect(
+      instantToZonedWallTime(
+        new Date('2026-10-20T11:00:00Z'),
+        'Pacific/Auckland'
+      )
+    ).toEqual({ day: '2026-10-21', time: '00:00' })
   })
 })
