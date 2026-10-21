@@ -1027,6 +1027,9 @@ fn people_text(progress: &TeamProgress) -> String {
         (None, true) => return "No sprint is running or the board is empty.".into(),
     };
     let mut text = vec![scope];
+    if progress.people.is_empty() {
+        text.push("This sprint has no issues yet.".into());
+    }
     text.extend(progress.people.iter().map(person_line));
     text.join("\n")
 }
@@ -1037,7 +1040,9 @@ fn person_line(person: &PersonProgress) -> String {
         .as_deref()
         .map_or("Unassigned".into(), printable);
     let issues = person.to_do.issues + person.in_progress.issues + person.done.issues;
-    let points = person.to_do.points + person.in_progress.points + person.done.points;
+    let points = ((person.to_do.points + person.in_progress.points + person.done.points) * 100.0)
+        .round()
+        / 100.0;
     let stuck = match person.stuck {
         0 => String::new(),
         stuck => format!("  stuck {stuck}"),
@@ -1596,7 +1601,7 @@ mod tests {
             person(None, None, 2, 0),
         ]);
         assert_eq!(
-            people_text(&progress(sprint, rows.clone())),
+            people_text(&progress(sprint.clone(), rows.clone())),
             format!(
                 "#4 Sprint 4 (active) {}\n\
                  AnaLima  1/3 issues  3/5.5 pts  stuck 2\n\
@@ -1617,6 +1622,20 @@ mod tests {
             people_text(&progress(serde_json::Value::Null, serde_json::json!([]))),
             "No sprint is running or the board is empty."
         );
+        let empty_sprint = people_text(&progress(sprint.clone(), serde_json::json!([])));
+        assert!(empty_sprint.starts_with("#4 Sprint 4 (active) "));
+        assert_eq!(
+            empty_sprint.lines().nth(1),
+            Some("This sprint has no issues yet.")
+        );
+        let tenths = serde_json::json!([{
+            "user_id": 1, "name": "Ana",
+            "to_do": { "issues": 1, "points": 0.1 },
+            "in_progress": { "issues": 1, "points": 0.2 },
+            "done": { "issues": 0, "points": 0.0 },
+            "stuck": 0,
+        }]);
+        assert!(people_text(&progress(sprint, tenths)).ends_with("\nAna  0/2 issues  0/0.3 pts"));
     }
 
     /// Answers the attachment list of WEB-1 (one file, id 5), then a download of it that
