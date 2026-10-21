@@ -313,6 +313,32 @@ async fn search_combines_filters_and_within_or_across_and(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn search_matches_summary_words_or_an_exact_issue_number(pool: PgPool) {
+    let ana = project(pool).await;
+    for number in 1..=120 {
+        let summary = match number {
+            5 => "Release 12 notes",
+            7 => "Login fails",
+            _ => "Chore",
+        };
+        ana.create_issue("SANTI", json!({ "summary": summary }))
+            .await;
+    }
+
+    let (_, words) = ana.get("/api/projects/SANTI/issues?q=login").await;
+    let (_, key) = ana.get("/api/projects/SANTI/issues?q=santi-12").await;
+    let (_, number) = ana.get("/api/projects/SANTI/issues?q=12").await;
+    let (_, project_key) = ana.get("/api/projects/SANTI/issues?q=SANTI").await;
+    let (_, other_key) = ana.get("/api/projects/SANTI/issues?q=OPS-12").await;
+
+    assert_eq!(keys(&words), ["SANTI-7"]);
+    assert_eq!(keys(&key), ["SANTI-12"]);
+    assert_eq!(keys(&number), ["SANTI-5", "SANTI-12"]);
+    assert_eq!(keys(&project_key), Vec::<String>::new());
+    assert_eq!(keys(&other_key), Vec::<String>::new());
+}
+
+#[sqlx::test]
 async fn search_filters_by_parent_and_pages(pool: PgPool) {
     let ana = project(pool).await;
     ana.create_issue("SANTI", json!({ "summary": "Epic", "issue_type": "epic" }))
