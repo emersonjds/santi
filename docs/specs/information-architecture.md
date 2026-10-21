@@ -35,7 +35,7 @@ Top bar (every signed-in page), left to right:
 | santi mark | yes | links to `/` |
 | Search field | yes, project pages only | placeholder "Search KEY"; Enter → `/p/{key}/search?q=`. Hidden outside a project. Global search: later (reinstated → P10) |
 | + Create | yes | purple, the one solid button in the bar; `c` opens it (UI-32) |
-| Account menu (avatar) | yes | name, email, API tokens, keyboard shortcuts (`?`), log out |
+| Account menu (avatar) | yes | name, email, Account (`/account`, SAN-93), keyboard shortcuts (`?`), log out |
 | Notifications, help | later | no notifications in v1; reinstated → SAN-54 (notifications), P10 (help) |
 
 Sidebar, top to bottom:
@@ -93,7 +93,7 @@ Pages
 | `GET /p/{key}/search` | search results (`?q`, `type`, `status` category, `assignee`, `recently_updated`) | built |
 | `GET /p/{key}/settings` | board settings: columns, statuses, done window (admins); danger zone (everyone, SAN-70) | built |
 | `GET /p/{key}/settings/members` | members, roles, invite links | new (moves off the project page) |
-| `GET /account` | profile and API tokens | built |
+| `GET /account` | profile, preferences (theme, SAN-93), API tokens, your data | built |
 
 Create issue has no route: + Create or `c` opens a dialog.
 
@@ -122,7 +122,7 @@ overlay (modal, sheet, menu).
 | Settings — board | project header | — | Columns (order, rename, WIP max kanban, delete), Statuses (name, category, column, unmapped pool), Done window (kanban); then the Danger zone | delete-column target picker; danger-zone confirms | Add column | Add status |
 | Settings — danger zone | (end of Settings) | — | rows, label + one-line description left, button right (stacked under 640px): Archive project (outline, admins, active projects), Delete project (destructive, admins: "Moves to trash for 60 days; you can restore it."), Leave project (outline, everyone; disabled for the last admin with the reason as its description) | Archive and Leave: confirm; Delete: type the project key | — | after Archive / Delete: land on `/projects`, toast "Archived {KEY}" / "Moved {KEY} to trash" with Undo for 8 s; Leave: home, "You left {name}." |
 | Settings — members | project header | — | member rows (avatar, name, email, role select, remove); invite link box | — | Create invite link | change role, remove |
-| Account | "Account" | — | profile (read only); API tokens (name, created, revoke) | token shown once | Create token | Revoke, Log out |
+| Account | "Account" | — | profile (read only); preferences: theme Light / Dark / System, applied at once and saved to the account (SAN-93); API tokens (name, created, revoke) | token shown once | Create token | Revoke, Log out |
 
 Project header (board, backlog, settings): project avatar (initial on brand tint), name, board
 type badge (Scrum / Kanban), active sprint name + "n days left" (scrum; overdue badge, D15),
@@ -241,13 +241,13 @@ Follows ui-layout "Responsive". IA specifics:
 | 9 | Settings: board and members pages | new card |
 | 10 | Account page with API tokens | new card (needed before the CLI ships, E3) |
 | 11 | Home "Assigned to me"; Recent; global search | later; reinstated → SAN-72, SAN-73, P10 |
-| 12 | Dark theme switched on and checked screen by screen | later; reinstated → P10 |
+| 12 | Dark theme switched on and checked screen by screen | switched on in SAN-93 (Preferences on `/account`); screen-by-screen check in SAN-93 review |
 
 ## Resolved questions (orchestrator, 2026-10-15)
 
 The owner delegated these calls; defaults chosen to keep v1 small.
 
-1. Dark theme: tokens defined, switched off in v1 (item 12). Reinstated → P10.
+1. Dark theme: tokens defined, switched off in v1 (item 12). Switched on in SAN-93.
 2. New issues land at the bottom of the backlog, as `create_issue` already does; UI-36 "top of backlog" is dropped for v1. Reinstated → P7.
 3. Home "Assigned to me" and sidebar "Recent" stay later (item 11). Reinstated → SAN-72, SAN-73.
 4. Account page with API tokens is v1 and gets its own card before the CLI ships.

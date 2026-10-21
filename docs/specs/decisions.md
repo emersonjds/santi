@@ -635,3 +635,13 @@ Winner: A — a Railway bucket is cheaper than a volume and does not pin the ser
 - Limits: 25 MB per file, 100 per issue, 10 per request. Members attach; uploader or admin deletes.
 - Comment and create-form files upload after the comment or issue exists (`comment_id` on the attachment); no draft storage on the server.
 - Full rules: `docs/specs/cards/SAN-158.md`.
+
+## D54 — Personal preferences live on the account, the server is the source of truth (SAN-93)
+Context: the dark tokens (D36) had no switch, and dates rendered in whatever zone the browser had.
+Options: A) theme and time zone on `app_user`, edited through `PATCH /api/me`, mirrored to the browser B) browser-only preferences in local storage C) a separate preferences table and endpoint
+Winner: A — the choice follows the person across browsers and reaches the CLI and MCP later; two columns do not earn a table of their own. Accepted: a pre-paint script (`web/public/theme.js`) reads the last choice from local storage so nothing flashes, and the server value replaces it once `/api/me` loads.
+- Theme: `light`, `dark` or `system` (default). Time zone: an IANA name, or null for the browser zone; aliases `chrono-tz` accepts (such as `US/Eastern`) are stored as given.
+- Bearer API tokens may change the profile and preferences, the same as they may delete the account: a token acts with all of its owner's rights.
+- Erasing an account (D45) resets both to their defaults.
+- Rendering in the account zone starts with the backlog, sprint reports and account dates; the rest of the SPA follows in SAN-197.
+- Full rules: `docs/specs/cards/SAN-93.md`.

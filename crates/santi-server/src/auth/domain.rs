@@ -83,6 +83,14 @@ pub fn check_display_name(name: &str) -> Result<String, AppError> {
     Ok(name.to_string())
 }
 
+pub fn check_time_zone(zone: &str) -> Result<String, AppError> {
+    reject_nul("time_zone", zone)?;
+    let zone: chrono_tz::Tz = zone
+        .parse()
+        .map_err(|_| AppError::invalid("time_zone", "must be an IANA time zone"))?;
+    Ok(zone.name().to_string())
+}
+
 /// 32 random bytes as lowercase hex.
 pub fn new_secret() -> String {
     let mut bytes = [0u8; 32];
@@ -236,6 +244,18 @@ mod tests {
         assert_eq!(check_display_name("  Ana ").unwrap(), "Ana");
         assert!(check_display_name("   ").is_err());
         assert!(check_display_name(&"x".repeat(101)).is_err());
+    }
+
+    #[test]
+    fn time_zone_must_be_a_known_iana_name() {
+        assert_eq!(
+            check_time_zone("Pacific/Auckland").unwrap(),
+            "Pacific/Auckland"
+        );
+        assert_eq!(check_time_zone("UTC").unwrap(), "UTC");
+        assert!(check_time_zone("Mars/Olympus").is_err());
+        assert!(check_time_zone("").is_err());
+        assert!(check_time_zone("UTC\0").is_err());
     }
 
     #[test]

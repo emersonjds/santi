@@ -2,6 +2,10 @@ mod common;
 
 use axum::http::{Method, StatusCode, header};
 use common::{PASSWORD, TestApp, body_json, json_request};
+use santi_server::auth::extract::CurrentUser;
+use santi_server::auth::service;
+use santi_server::error::AppError;
+use santi_types::auth::{Theme, UpdateMe};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
@@ -282,19 +286,50 @@ async fn the_address_an_erased_account_gets_cannot_be_squatted(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
+    let preferences = json!({ "theme": "dark", "time_zone": "Pacific/Auckland" });
+    ana.patch("/api/me", preferences).await;
     let (deleted, _, _) = delete_account(&ana, PASSWORD).await;
 
     assert_eq!(refused, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
     assert_eq!(problem["errors"][0]["field"], "email");
     assert_eq!(deleted, StatusCode::NO_CONTENT);
-    let erased: (String, bool) =
-        sqlx::query_as("SELECT email, deleted_at IS NOT NULL FROM app_user WHERE id = $1")
+    let erased: (String, bool, String, Option<String>) = sqlx::query_as(
+        "SELECT email, deleted_at IS NOT NULL, theme::text, time_zone FROM app_user WHERE id = $1",
+    )
+    .bind(ana.user_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(!erased.0.contains('@'), "{}", erased.0);
+    assert!(erased.1);
+    assert_eq!(erased.2, "system");
+    assert_eq!(erased.3, None);
+}
+
+#[sqlx::test]
+async fn a_rename_racing_the_erase_cannot_restore_the_name(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let caller = CurrentUser {
+        id: ana.user_id,
+        token_id: 0,
+    };
+    delete_account(&ana, PASSWORD).await;
+
+    let rename = UpdateMe {
+        display_name: Some("Ana Lima".into()),
+        theme: Some(Theme::Dark),
+        time_zone: Some(Some("Pacific/Auckland".into())),
+    };
+    let result = service::update_me(&pool, &caller, rename).await;
+
+    assert_eq!(result.unwrap_err(), AppError::Unauthorized);
+    let row: (String, String, Option<String>) =
+        sqlx::query_as("SELECT display_name, theme::text, time_zone FROM app_user WHERE id = $1")
             .bind(ana.user_id)
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert!(!erased.0.contains('@'), "{}", erased.0);
-    assert!(erased.1);
+    assert_eq!(row, ("Deleted user".into(), "system".into(), None));
 }
 
 #[sqlx::test]

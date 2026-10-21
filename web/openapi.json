@@ -394,6 +394,53 @@
             }
           }
         }
+      },
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "operationId": "update_me",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMe"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The account after the change; absent fields stay as they are",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Blank or over 100 characters (`display_name`), unknown theme (`theme`) or a zone outside the IANA database (`time_zone`)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/me/export": {
@@ -8509,6 +8556,14 @@
           }
         }
       },
+      "Theme": {
+        "type": "string",
+        "enum": [
+          "light",
+          "dark",
+          "system"
+        ]
+      },
       "TypeFound": {
         "type": "object",
         "required": [
@@ -8664,6 +8719,36 @@
         },
         "additionalProperties": false
       },
+      "UpdateMe": {
+        "type": "object",
+        "description": "Absent fields stay as they are; `\"time_zone\": null` goes back to the browser's zone.",
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "theme": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Theme"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_zone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IANA name, e.g. `Pacific/Auckland`."
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateSprint": {
         "type": "object",
         "required": [
@@ -8718,7 +8803,8 @@
         "required": [
           "id",
           "email",
-          "display_name"
+          "display_name",
+          "theme"
         ],
         "properties": {
           "display_name": {
@@ -8730,6 +8816,16 @@
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "theme": {
+            "$ref": "#/components/schemas/Theme"
+          },
+          "time_zone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone."
           }
         }
       },

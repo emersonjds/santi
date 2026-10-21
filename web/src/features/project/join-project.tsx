@@ -9,7 +9,9 @@ import {
   projectQuery,
   projectsQuery,
 } from '@/entities/project/project-queries'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import { api, dataOrThrow, hasStatus } from '@/shared/api/client'
+import { formatDate } from '@/shared/lib/format-date'
 import { Button } from '@/shared/ui/button'
 import { RootError } from '@/shared/ui/root-error'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -68,6 +70,7 @@ const JoinButton = ({ token }: { token: string }) => {
 /** What the link offers (project, role, inviter, expiry), then the one action; a dead link says why. */
 export const JoinProject = ({ token }: { token: string }) => {
   const { data: invite, error } = useQuery(invitePreviewQuery(token))
+  const timeZone = useTimeZone()
   if (error)
     return (
       <RootError
@@ -90,9 +93,7 @@ export const JoinProject = ({ token }: { token: string }) => {
           <Row label='Role'>{ROLE_LABEL[invite.role]}</Row>
           <Row label='Invited by'>{invite.inviter_name}</Row>
           <Row label='Expires'>
-            {new Date(invite.expires_at).toLocaleDateString(undefined, {
-              dateStyle: 'medium',
-            })}
+            {formatDate(invite.expires_at, { dateStyle: 'medium' }, timeZone)}
           </Row>
         </dl>
         {invite.max_uses > 1 && (
