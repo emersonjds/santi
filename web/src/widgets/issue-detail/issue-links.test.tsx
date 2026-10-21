@@ -4,12 +4,10 @@ import { page, userEvent } from 'vitest/browser'
 import type { Card, IssueLink, Relation } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
-  OPS,
   WEB,
   WEB_BACKLOG,
   WEB_BOARD,
   inProjects,
-  issue,
   problem,
   routeOf,
 } from '@/test/stub-api'
@@ -44,32 +42,18 @@ const withLinks = (links: IssueLink[]) => ({
   [LINKS]: { status: 200, body: links },
 })
 
-/** Issue search per project: WEB answers its three issues to any text but "zzz", OPS one. */
+const SEARCH = 'GET /api/me/issues/search'
+
+/** One search across the viewer's projects: four issues to any text but "zzz". */
 const searchable = {
-  'GET /api/projects/WEB/issues': {
+  [SEARCH]: {
     status: 200,
-    body: (request: Request) => {
-      const q = new URL(request.url).searchParams.get('q')
-      return {
-        items:
-          q && q !== 'zzz'
-            ? ['WEB-1', 'WEB-2', 'WEB-3'].map((key) =>
-                issue({ key, summary: `Login ${key}` })
-              )
-            : [],
-        next_cursor: null,
-      }
-    },
-  },
-  'GET /api/projects/OPS/issues': {
-    status: 200,
-    body: (request: Request) => ({
-      items:
-        new URL(request.url).searchParams.get('q') === 'zzz'
-          ? []
-          : [issue({ key: 'OPS-1', summary: 'Login OPS-1' })],
-      next_cursor: null,
-    }),
+    body: (request: Request) =>
+      new URL(request.url).searchParams.get('q') === 'zzz'
+        ? []
+        : ['WEB-1', 'WEB-2', 'WEB-3', 'OPS-1'].map(
+            (key) => link(0, 'relates', key, { summary: `Login ${key}` }).issue
+          ),
   },
 }
 
@@ -204,20 +188,14 @@ describe('linked issues (SAN-157)', () => {
       .toHaveFocus()
   })
 
-  it('searches only the projects open for change', async () => {
-    const requests = inProjects({
-      ...searchable,
-      'GET /api/projects': {
-        status: 200,
-        body: [WEB, { ...OPS, state: 'archived' }],
-      },
-    })
+  it('searches every project of the viewer in one request', async () => {
+    const requests = inProjects(searchable)
     const { screen } = await renderApp('/p/WEB/issues/1')
 
     const section = await openPicker(screen, 'login')
 
     await expect
-      .element(section.getByRole('option', { name: /WEB-3/ }))
+      .element(section.getByRole('option', { name: /OPS-1/ }))
       .toBeVisible()
     expect(
       section
@@ -225,7 +203,12 @@ describe('linked issues (SAN-157)', () => {
         .getByRole('option')
         .elements()
         .map((option) => option.textContent)
-    ).toEqual(['WEB-2Login WEB-2', 'WEB-3Login WEB-3'])
+    ).toEqual(['WEB-2Login WEB-2', 'WEB-3Login WEB-3', 'OPS-1Login OPS-1'])
+    expect(
+      requests
+        .filter((request) => routeOf(request) === SEARCH)
+        .map((request) => new URL(request.url).searchParams.get('q'))
+    ).toEqual(['login'])
     expect(requests.map(routeOf)).not.toContain('GET /api/projects/OPS/issues')
   })
 
