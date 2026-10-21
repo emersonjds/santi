@@ -82,6 +82,10 @@ describe('account page', () => {
     await create(screen, '   ')
 
     await expect.element(screen.getByText('Enter a name.')).toBeVisible()
+    await create(screen, 'x'.repeat(101))
+    await expect
+      .element(screen.getByText('Use at most 100 characters.'))
+      .toBeVisible()
     expect(requests.map(routeOf)).not.toContain('POST /api/tokens')
   })
 

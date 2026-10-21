@@ -6,7 +6,7 @@ export type Theme = User['theme']
 const KEY = 'santi-theme'
 const BAR = { light: '#ffffff', dark: '#0f0f0e' }
 
-export const isTheme = (value: unknown): value is Theme =>
+const isTheme = (value: unknown): value is Theme =>
   value === 'light' || value === 'dark' || value === 'system'
 
 export const readStoredTheme = (): Theme => {
