@@ -3576,7 +3576,7 @@ export interface operations {
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary or the key, ignoring case. */
+                /** @description Text matched in the summary, ignoring case, or an issue number given as `12` or `SANTI-12`. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
@@ -3645,7 +3645,7 @@ export interface operations {
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary or the key, ignoring case. */
+                /** @description Text matched in the summary, ignoring case, or an issue number given as `12` or `SANTI-12`. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
@@ -4332,7 +4332,7 @@ export interface operations {
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
                 parent?: string[];
-                /** @description Free text matched against the summary or the key, ignoring case. */
+                /** @description Text matched in the summary, ignoring case, or an issue number given as `12` or `SANTI-12`. */
                 q?: string;
                 /** @description Only issues updated in the last 24 hours (SB-26, D18). */
                 recently_updated?: boolean;
