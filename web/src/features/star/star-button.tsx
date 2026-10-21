@@ -26,11 +26,11 @@ const StarToggle = ({
     onClick={onToggle}
     className={cn(
       'relative z-10 grid size-11 shrink-0 place-items-center rounded-md text-subtle-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-8',
-      starred && 'text-warning',
+      starred && 'text-star',
       className
     )}
   >
-    <Star className={cn('size-4', starred && 'fill-current')} aria-hidden />
+    <Star className={cn('size-4', starred && 'fill-star')} aria-hidden />
   </button>
 )
 

@@ -51,6 +51,7 @@
   --points: #3f2cb0;
   --points-bg: #ece8fb;
   --warning: #92400e;
+  --star: #92400e;
   --warning-bg: #fef3c7;
   /* SAN-35 (D36 amendment): hover row, avatar tones, select chevron. */
   --hover: #eef0f3;
@@ -136,6 +137,7 @@
   --points: #c4b8f5;
   --points-bg: #2c2075;
   --warning: #fbbf24;
+  --star: #fbbf24;
   --warning-bg: #3a2a0a;
   --hover: #33302d;
   --avatar-1: #2c2075;
@@ -222,6 +224,7 @@
   --color-points-bg: var(--points-bg);
   --color-warning: var(--warning);
   --color-warning-bg: var(--warning-bg);
+  --color-star: var(--star);
   --color-hover: var(--hover);
   --color-avatar-1: var(--avatar-1);
   --color-avatar-1-foreground: var(--avatar-1-foreground);
