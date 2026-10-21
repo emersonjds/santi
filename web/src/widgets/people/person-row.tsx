@@ -73,7 +73,7 @@ const PersonIssues = ({
                     key: projectKey,
                     number: String(issueNumber(card.key)),
                   }}
-                  className='flex min-h-11 items-center gap-2 rounded-md px-2 text-sm hover:bg-hover'
+                  className='grid min-h-11 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 text-sm hover:bg-hover sm:flex sm:py-0'
                 >
                   <span className='shrink-0 text-muted-foreground'>
                     {card.key}
@@ -81,12 +81,14 @@ const PersonIssues = ({
                   <span className='min-w-0 flex-1 truncate'>
                     {card.summary}
                   </span>
-                  {status && <StatusPill status={status} />}
-                  {stuck && (
-                    <span className='shrink-0 text-xs text-muted-foreground'>
-                      {days} days since update
-                    </span>
-                  )}
+                  <span className='col-start-2 flex min-w-0 items-center gap-2 sm:contents'>
+                    {status && <StatusPill status={status} />}
+                    {stuck && (
+                      <span className='shrink-0 text-xs text-muted-foreground'>
+                        {days} days since update
+                      </span>
+                    )}
+                  </span>
                 </Link>
               </li>
             )
