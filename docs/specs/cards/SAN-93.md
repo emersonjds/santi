@@ -132,3 +132,15 @@ Dark variant (D36 dark tokens):
 - API: `PATCH /api/me` with `{ "theme": "blue" }`, `{ "time_zone": "Mars/Olympus" }` or `{ "display_name": "" }` → 422 naming the field; a valid patch returns the whole `User`; `GET /api/me` reflects it.
 - Every screen reviewed in dark at 1440 and 375 by ux from screenshots: board, backlog, issue, reports, account, login. Contrast of text and focus rings meets AA on the D36 dark surfaces.
 - `/account` within the 170 KB route budget; `pnpm typecheck`, `pnpm lint`, `pnpm test:coverage` (> 90 %), server gate green.
+
+## UX review 2026-10-21
+
+Findings 1-3 below (issue/reports/account rendering light in dark mode) were a capture error: the harness wrote `localStorage` while the account's saved theme was `system`, so the app correctly fell back to light. Withdrawn. Re-reviewed on the corrected 24-shot set (`PATCH /api/me` + `data-theme` asserted before each shot).
+
+| # | Screen | Width/theme | Finding | Severity | Fix |
+|---|---|---|---|---|---|
+| 1 | account | 1440 + 375 / dark | Confirmed: selected "Dark" segment reads lower-emphasis than its own track, not higher. `ThemeControl` (`theme-control.tsx`) uses `has-checked:bg-background`, and dark `--background` (`#0F0F0E`, canvas) is darker than the track's `--muted` (`#1A1918`), the opposite of the States table's "purple tint `#8B78E9`, pressed `#B8ABF1`, same tokens as the active nav item in dark." | should | Swap to `has-checked:bg-primary has-checked:text-primary-foreground` (dark `--primary: #8B78E9` / `--primary-foreground: #1B1348`), matching the sidebar's `--sidebar-primary`. Text contrast is still AA (light text on near-black), so not a blocker. |
+
+All other screens and states pass: board, backlog, issue, reports, login render dark correctly at 1440 and 375 (canvas `#0F0F0E`, card `#1A1918`, borders, focus rings, purple accents all present, no light-only leftovers). Account Preferences dark surfaces match spec (control `#1A1918`, popover token present, selected segment only off per finding 1). Light theme selected segment (white on light-grey track) is correctly visible, no change needed. Segmented control renders `h-11` (44px) below the `md` breakpoint at 375px in both themes — prior 44px concern (old finding 4) does not reproduce, closed.
+
+Verdict: ship after the one `should` fix above (or file as a fast-follow) — no blockers; dark mode is applied correctly on every reviewed screen.
