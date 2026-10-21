@@ -645,3 +645,14 @@ Winner: A — the choice follows the person across browsers and reaches the CLI 
 - Erasing an account (D45) resets both to their defaults.
 - Rendering in the account zone starts with the backlog, sprint reports and account dates; the rest of the SPA follows in SAN-197.
 - Full rules: `docs/specs/cards/SAN-93.md`.
+
+## D56 — Business model: free self-host, paid hosting and services (SAN-189)
+Context: a company evaluating santi asked who pays for the server and the maintenance (2026-10-20). The answer must be public before the launch so "free, open source" stays honest.
+Options: A) open source with paid hosting, licensed add-ons and services B) open core (paid features in a closed edition) C) donations only D) hosted only
+Winner: A (owner) — one codebase keeps the maintenance cost of one person and the trust of the community; B doubles testing and hides features, C does not pay for infrastructure, D gives up the self-hosting funnel.
+- Self-host: free and complete forever, no user or project limits. The santi brand stays in the product; the organization name is the customer's brand.
+- Hosted: Free (5 people, 1 project, 1 GB of attachments) and Team (flat price per workspace, around US$ 19 a month, unlimited people). Billing waits for the first team that asks to pay.
+- Add-ons (white-label, single sign-on) unlock with an offline signed license key with an expiry, which also serves trials (SAN-191); an expired key switches the add-on off and never locks data.
+- Infrastructure stays on Railway (US$ 20 a month today) until a paying customer needs another region or the total passes about US$ 60.
+- Marketing never presents santi as a free copy of another product and uses vendor names only in the importer docs. The investigator no longer observes the reference tracker; gaps are covered from public documentation and the product agent.
+- Relicensing to AGPL-3.0 with a trademark policy is proposed in SAN-190 and waits for the owner.
