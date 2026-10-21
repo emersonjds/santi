@@ -3,6 +3,7 @@ import { page, userEvent } from 'vitest/browser'
 import type { Backlog, BacklogSection } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
+  ALICE,
   WEB_BACKLOG,
   card,
   inProjects,
@@ -188,6 +189,34 @@ describe('backlog page', () => {
       .element(active.getByRole('timer'))
       .toHaveTextContent(/^Overdue by \d+ days$/)
     await expect.element(active).toHaveTextContent('Mar 2 – Mar 16')
+  })
+
+  it("dates a sprint in the account's time zone", async () => {
+    inProjects({
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: backlogOf(
+          {
+            ...ACTIVE,
+            sprint: {
+              ...ACTIVE.sprint!,
+              starts_at: '2026-03-02T05:00:00Z',
+              ends_at: '2026-03-17T03:59:00Z',
+            },
+          },
+          NO_SPRINT
+        ),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await expect
+      .element(screen.getByRole('region', { name: 'Sprint 4' }))
+      .toHaveTextContent(/Mar 2, .* – Mar 17, /)
   })
 
   it('collapses a section from its header', async () => {

@@ -1,7 +1,8 @@
 use chrono::{DateTime, Duration, SubsecRound, Utc};
 use santi_types::auth::{
     AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
-    LegalStatus, Login, PasswordResetPreview, ProjectExport, Register, ResetPassword, User,
+    LegalStatus, Login, PasswordResetPreview, ProjectExport, Register, ResetPassword, UpdateMe,
+    User,
 };
 use santi_types::issues::{Issue, IssueFilter, PageParams, StatusFilter};
 use santi_types::projects::{MemberRole, Project, ProjectState};
@@ -59,6 +60,8 @@ pub async fn login(pool: &PgPool, input: Login) -> Result<(User, String), AppErr
         id: user.id,
         email: user.email,
         display_name: user.display_name,
+        theme: user.theme,
+        time_zone: user.time_zone,
     };
     Ok((user, session))
 }
@@ -73,6 +76,33 @@ pub async fn logout(pool: &PgPool, user: &CurrentUser) -> Result<(), AppError> {
 pub async fn me(pool: &PgPool, user: &CurrentUser) -> Result<User, AppError> {
     let mut conn = pool.acquire().await?;
     Ok(repo::find_user(&mut conn, user.id).await?)
+}
+
+pub async fn update_me(
+    pool: &PgPool,
+    user: &CurrentUser,
+    input: UpdateMe,
+) -> Result<User, AppError> {
+    let display_name = input
+        .display_name
+        .as_deref()
+        .map(domain::check_display_name)
+        .transpose()?;
+    let time_zone = match input.time_zone {
+        Some(Some(zone)) => Some(Some(domain::check_time_zone(&zone)?)),
+        Some(None) => Some(None),
+        None => None,
+    };
+    let mut conn = pool.acquire().await?;
+    repo::update_user(
+        &mut conn,
+        user.id,
+        display_name.as_deref(),
+        input.theme,
+        time_zone.as_ref().map(Option::as_deref),
+    )
+    .await?
+    .ok_or(AppError::Unauthorized)
 }
 
 pub async fn create_token(

@@ -113,7 +113,7 @@ export interface paths {
         delete: operations["delete_account"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["update_me"];
         trace?: never;
     };
     "/api/me/export": {
@@ -2001,6 +2001,8 @@ export interface components {
              */
             suggested_status_id?: number | null;
         };
+        /** @enum {string} */
+        Theme: "light" | "dark" | "system";
         TypeFound: {
             /** Format: int64 */
             count: number;
@@ -2046,6 +2048,13 @@ export interface components {
             sprint_id?: number | null;
             summary?: string | null;
         };
+        /** @description Absent fields stay as they are; `"time_zone": null` goes back to the browser's zone. */
+        UpdateMe: {
+            display_name?: string | null;
+            theme?: components["schemas"]["Theme"] | null;
+            /** @description IANA name, e.g. `Pacific/Auckland`. */
+            time_zone?: string | null;
+        };
         UpdateSprint: {
             /** Format: date-time */
             ends_at?: string | null;
@@ -2067,6 +2076,9 @@ export interface components {
             email: string;
             /** Format: int64 */
             id: number;
+            theme: components["schemas"]["Theme"];
+            /** @description IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone. */
+            time_zone?: string | null;
         };
         Velocity: {
             /**
@@ -2421,6 +2433,47 @@ export interface operations {
             };
             /** @description Too many password attempts for this account (D44); wait `Retry-After` seconds */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMe"];
+            };
+        };
+        responses: {
+            /** @description The account after the change; absent fields stay as they are */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`) or a zone outside the IANA database (`time_zone`) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
