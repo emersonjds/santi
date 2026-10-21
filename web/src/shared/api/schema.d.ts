@@ -148,6 +148,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/issues/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["search_my_issues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me/legal": {
         parameters: {
             query?: never;
@@ -2765,6 +2781,50 @@ export interface operations {
                 };
             };
             /** @description Limit out of range */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    search_my_issues: {
+        parameters: {
+            query?: {
+                /** @description Case-insensitive text in the summary, an issue key (`WEB-12`) or a number (`12`). */
+                q?: string;
+                /** @description 1 to 50; 20 when absent. */
+                limit?: number;
+                /** @description Also search archived projects. */
+                include_archived?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issues in the caller's projects, never trashed ones and archived ones only on request, whose summary holds `q` or whose key or number `q` names; key matches first, then the most recently updated (SAN-206) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedIssue"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Limit out of range, or `q` holds a NUL character */
             422: {
                 headers: {
                     [name: string]: unknown;
