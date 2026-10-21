@@ -441,6 +441,32 @@ describe('sidebar projects', () => {
       .toBeInTheDocument()
     expect(star('Website')).toBe('1')
     expect(star('Operations')).toBe('0')
+    const filled = sidebar(screen)
+      .getByRole('button', { name: 'Star Website' })
+      .element()
+    expect(filled).toHaveClass('text-star')
+    expect(filled.querySelector('svg')).toHaveClass('fill-star')
+  })
+
+  it('keeps the key right after a short name in a wide sidebar', async () => {
+    await page.viewport(1280, 800)
+    inProjects()
+    const { screen } = await renderApp('/')
+
+    const key = sidebar(screen)
+      .getByRole('link', { name: /Website/ })
+      .getByText('WEB', { exact: true })
+    await expect.element(key).toBeVisible()
+    const name = document.createRange()
+    name.selectNodeContents(
+      key.element().previousElementSibling ?? key.element()
+    )
+    expect(name.toString()).toBe('Website')
+    const gap =
+      key.element().getBoundingClientRect().left -
+      name.getBoundingClientRect().right
+    expect(gap).toBeLessThanOrEqual(8)
+    await page.viewport(414, 896)
   })
 
   it('falls back to recent and starred when the stored view is unreadable', async () => {
@@ -676,6 +702,11 @@ describe('sidebar project row', () => {
     const leave = menu.getByRole('menuitem', { name: 'Leave project' })
     await expect.element(leave).toHaveAttribute('aria-disabled', 'true')
     await expect.element(leave).toHaveAccessibleDescription(LAST_ADMIN)
+    await expect.element(leave).toHaveAttribute('title', LAST_ADMIN)
+    await expect
+      .element(menu.getByText('You are the last admin', { exact: true }))
+      .toBeVisible()
+    expect(menu.getByText(LAST_ADMIN).elements()).toHaveLength(0)
   })
 
   it('gives a member star, copy link, settings and leave', async () => {
