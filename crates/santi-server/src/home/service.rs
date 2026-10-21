@@ -1,12 +1,15 @@
-use santi_types::home::{HomeExport, HomeIssue, HomeView, ItemKind, MyItem, MyProject};
+use santi_types::home::{
+    HomeExport, HomeIssue, HomeView, IssueSearchQuery, ItemKind, MyItem, MyProject,
+};
 use santi_types::issues::{Page, PageParams};
+use santi_types::links::LinkedIssue;
 use sqlx::PgPool;
 
 use super::domain::{self, StarTarget};
 use super::repo;
 use crate::auth::extract::CurrentUser;
-use crate::error::AppError;
-use crate::issues::domain::like_pattern;
+use crate::error::{AppError, reject_nul};
+use crate::issues::domain::{like_pattern, search_key};
 use crate::members::Member;
 use crate::pagination;
 
@@ -32,6 +35,28 @@ pub async fn my_issues(
     let mut conn = pool.acquire().await?;
     let items = repo::my_issues(&mut conn, user.id, view, offset, limit + 1).await?;
     Ok(offset_page(items, offset, limit))
+}
+
+pub async fn search_issues(
+    pool: &PgPool,
+    user: &CurrentUser,
+    query: IssueSearchQuery,
+) -> Result<Vec<LinkedIssue>, AppError> {
+    let limit = domain::search_limit(query.limit)?;
+    let q = query.q.as_deref();
+    reject_nul("q", q.unwrap_or_default())?;
+    let (project_key, number) = search_key(q).unzip();
+    let mut conn = pool.acquire().await?;
+    Ok(repo::search_issues(
+        &mut conn,
+        user.id,
+        like_pattern(q).as_deref(),
+        project_key.flatten().as_deref(),
+        number,
+        query.include_archived,
+        limit,
+    )
+    .await?)
 }
 
 pub async fn my_recent(
