@@ -558,6 +558,78 @@
         }
       }
     },
+    "/api/me/issues/search": {
+      "get": {
+        "tags": [
+          "home"
+        ],
+        "operationId": "search_my_issues",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive text in the summary, an issue key (`WEB-12`) or a number (`12`).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "1 to 50; 20 when absent.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "include_archived",
+            "in": "query",
+            "description": "Also search archived projects.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issues in the caller's projects, never trashed ones and archived ones only on request, whose summary holds `q` or whose key or number `q` names; key matches first, then the most recently updated (SAN-206)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LinkedIssue"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Limit out of range, or `q` holds a NUL character",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/me/legal": {
       "get": {
         "tags": [

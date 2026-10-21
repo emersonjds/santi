@@ -69,7 +69,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     assert_eq!(response.status(), StatusCode::OK);
     let cookie = session_cookie(&response);
 
-    let budgets: [Budget; 30] = [
+    let budgets: [Budget; 31] = [
         (
             "board",
             Method::GET,
@@ -147,6 +147,14 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
             "unread count",
             Method::GET,
             "/api/notifications/unread-count",
+            None,
+            2,
+            StatusCode::OK,
+        ),
+        (
+            "issue search across projects",
+            Method::GET,
+            "/api/me/issues/search?q=search%20index",
             None,
             2,
             StatusCode::OK,

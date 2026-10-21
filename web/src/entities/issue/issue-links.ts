@@ -6,7 +6,6 @@ import {
 import {
   type CreateLink,
   type IssueLink,
-  type Project,
   type Relation,
   api,
   dataOrThrow,
@@ -42,32 +41,16 @@ export const linksQuery = (projectKey: string, number: number) =>
       ),
   })
 
-// ponytail: one request per project the viewer belongs to; a cross-project search endpoint replaces it when the list grows long.
-export const linkCandidatesQuery = (
-  projects: Pick<Project, 'key' | 'state'>[],
-  q: string
-) => {
-  const projectKeys = projects
-    .filter((project) => project.state !== 'archived')
-    .map((project) => project.key)
-  return queryOptions({
-    queryKey: ['link-candidates', projectKeys, q],
+/** SAN-206: one search across the viewer's projects; the server leaves archived ones out. */
+export const linkCandidatesQuery = (q: string) =>
+  queryOptions({
+    queryKey: ['link-candidates', q],
     queryFn: async () =>
-      (
-        await Promise.all(
-          projectKeys.map(
-            async (key) =>
-              dataOrThrow(
-                await api.GET('/api/projects/{key}/issues', {
-                  params: { path: { key }, query: { q, limit: 10 } },
-                })
-              ).items
-          )
-        )
-      ).flat(),
+      dataOrThrow(
+        await api.GET('/api/me/issues/search', { params: { query: { q } } })
+      ),
     enabled: q !== '',
   })
-}
 
 /** Both ends' link lists, and the blocked markers on both projects' boards and backlogs. */
 const useRefreshLinks = () => {

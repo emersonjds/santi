@@ -12,7 +12,6 @@ import {
   useRemoveLink,
 } from '@/entities/issue/issue-links'
 import { StatusPill } from '@/entities/issue/status-pill'
-import { projectsQuery } from '@/entities/project/project-queries'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import { type IssueLink, type Relation, hasStatus } from '@/shared/api/client'
 import { useDebouncedValue } from '@/shared/lib/use-debounced-value'
@@ -104,9 +103,8 @@ const AddLink = ({
   const [relation, setRelation] = useState<Relation>('blocks')
   const [text, setText] = useState('')
   const q = useDebouncedValue(text.trim(), SEARCH_DELAY)
-  const { data: projects = [] } = useQuery(projectsQuery)
   const { data: found } = useQuery({
-    ...linkCandidatesQuery(projects, q),
+    ...linkCandidatesQuery(q),
     placeholderData: (previous) => previous,
   })
   const options = found?.filter((issue) => !exclude.has(issue.key))
