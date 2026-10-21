@@ -13,7 +13,7 @@ Owner 2026-10-20. SAN-93 (8 points) splits into three slices; this brief covers 
 ## Scope
 
 Server (slice `auth`, same files as the token endpoints):
-- Migration: `app_user.theme text NOT NULL DEFAULT 'system' CHECK (theme IN ('light','dark','system'))`, `app_user.time_zone text NULL` (IANA name; NULL means the browser zone). Down migration drops both.
+- Migration: `app_user.theme text NOT NULL DEFAULT 'system' CHECK (theme IN ('light','dark','system'))`, `app_user.time_zone text NULL` (IANA name; NULL means the browser zone). Forward-only, like every migration in the repo; on Postgres 17 the constant default adds no rewrite.
 - `User` gains `theme` and `time_zone`. New `PATCH /api/me { display_name?, theme?, time_zone? }` returns the updated `User`. 422 on an unknown theme, a time zone that `chrono-tz` does not know, or a blank or over-long display name (same bounds as register). Erased accounts answer like any other request from a dead session.
 - OpenAPI regenerated; `web/openapi.json` and `schema.d.ts` committed.
 
