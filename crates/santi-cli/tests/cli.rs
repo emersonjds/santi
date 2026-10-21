@@ -1166,3 +1166,45 @@ fn issue_listings_page_by_cursor_or_follow_every_page() {
     let found = ["search", "PAG", "Paged", "--limit", "2", "--all"];
     assert_eq!(keys(&json(santi.with(&token).args(found))).len(), 5);
 }
+
+#[test]
+fn restore_recreates_each_project_of_an_export_then_skips_existing_keys() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+    server().project(&token, "BAK", "scrum");
+    run(&["issues", "create", "BAK", "--summary", "Keep me"]).success();
+    run(&["issues", "create", "BAK", "--summary", "Me too"]).success();
+    run(&["sprints", "create", "BAK", "--goal", "Ship"]).success();
+    let dir = tempfile::tempdir().unwrap();
+    let file = dir.path().join("export.json");
+    let export = server().get(&token, "/api/me/export");
+    std::fs::write(&file, export.to_string()).unwrap();
+    let file = file.to_str().unwrap();
+    run(&["projects", "trash", "BAK", "--yes"]).success();
+    run(&["projects", "purge", "BAK", "--yes"]).success();
+
+    run(&["restore", file])
+        .success()
+        .stdout(contains("restored BAK (2 issues, 1 sprints, 0 comments)"))
+        .stdout(contains("not restored"));
+    run(&["issues", "list", "BAK"])
+        .success()
+        .stdout(contains("BAK-1").and(contains("Me too")));
+    run(&["restore", file]).success().stdout(contains(
+        "skipped BAK: a project with this key already exists",
+    ));
+    let answers = json(
+        santi
+            .with(&token)
+            .args(["restore", file, "--project", "bak"]),
+    );
+    assert_eq!(answers, json!([{ "key": "BAK", "skipped": "exists" }]));
+    run(&["restore", file, "--project", "NOPE"])
+        .code(2)
+        .stderr(contains("no project NOPE").and(contains("BAK")));
+    std::fs::write(dir.path().join("csv.json"), "[1, 2]").unwrap();
+    run(&["restore", dir.path().join("csv.json").to_str().unwrap()])
+        .code(2)
+        .stderr(contains("not a santi export: "));
+}

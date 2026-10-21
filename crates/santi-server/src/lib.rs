@@ -13,6 +13,7 @@ pub mod people;
 pub mod projects;
 pub mod rate_limit;
 pub mod reports;
+pub mod restore;
 pub mod seed;
 pub mod sprints;
 pub mod storage;
@@ -164,6 +165,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(reports::handler::router())
         .merge(people::handler::router())
         .merge(imports::handler::router())
+        .merge(restore::handler::router())
         .merge(home::handler::router())
         .merge(notifications::handler::router())
         .merge(attachments::handler::router())

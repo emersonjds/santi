@@ -668,3 +668,9 @@ Options: A) done/total on every chip plus a non-blocking offer when the last sub
 Winner: A (product, ia, ux) — progress reads the same way in the issue view, on cards and in the backlog; the offer is a toast with a Move button, so nobody is stopped by a modal and nothing moves without a click.
 - The offer appears once per change that closes the last open subtask, from the subtask list or the board; Move sends the parent to the board's first done status.
 - Moving a parent stays silent and never closes its subtasks (D6 unchanged there).
+
+## D58 — A restored project starts with its restorer only (SAN-99; follows D55)
+Context: a santi export names members, assignees, reporters and comment authors by user id. Restoring them as they were would let anyone add strangers to a project and post as them, the path D55 closed.
+Options: A) only the caller joins; other people become the caller or are cleared, and the answer lists them by name B) keep ids of users who exist on the instance C) map people by email
+Winner: A — consent stays with invite links and no one can be impersonated; B reopens D55 and leaks which ids exist, C needs emails the export does not carry and would still add people without asking.
+- The answer lists every replaced person with the name from the file, so the admin knows whom to invite and reassign.
