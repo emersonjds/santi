@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/emersonjds/santi/actions/workflows/ci.yml"><img src="https://github.com/emersonjds/santi/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="https://github.com/emersonjds/santi/releases/latest"><img src="https://img.shields.io/github/v/release/emersonjds/santi?label=release" alt="Latest release"></a>
-  <a href="#license"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="License: MIT OR Apache-2.0"></a>
+  <a href="#license"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue" alt="License: AGPL-3.0"></a>
 </p>
 
 <p align="center">
@@ -265,6 +265,9 @@ attachments bucket). Hosting and services fund the work, never features locked o
 
 ## License
 
-Licensed under either of [Apache License 2.0](LICENSE-APACHE) or [MIT](LICENSE-MIT), at your
-option. The web UI started from [shadcn-admin](https://github.com/satnaing/shadcn-admin) (MIT);
+santi is licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0-only).
+Use it, change it and run it for your team freely; if you offer a modified santi to others over a
+network, publish your changes under the same license. Versions up to 0.24.1 were released under
+MIT OR Apache-2.0 and stay available under those terms. The name and logo are covered by the
+[trademark policy](TRADEMARK.md). The web UI started from [shadcn-admin](https://github.com/satnaing/shadcn-admin) (MIT);
 its notice is in [web/LICENSE-shadcn-admin](web/LICENSE-shadcn-admin).
