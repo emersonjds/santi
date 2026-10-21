@@ -2,9 +2,8 @@ import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { sessionQuery } from '@/entities/session/session-query'
 import { api, dataOrThrow } from '@/shared/api/client'
-import { type Theme, applyTheme, isTheme } from '@/shared/lib/theme'
+import { type Theme, applyTheme } from '@/shared/lib/theme'
 import { cn } from '@/shared/lib/utils'
-import { RadioGroup, RadioGroupItem } from '@/shared/ui/radio-group'
 
 const THEMES = [
   { value: 'light', label: 'Light' },
@@ -41,28 +40,29 @@ export const ThemeControl = ({ saved }: { saved: Theme }) => {
       <span id='theme-label' className='text-sm font-medium'>
         Theme
       </span>
-      <RadioGroup
+      <div
+        role='radiogroup'
         aria-labelledby='theme-label'
         aria-describedby='theme-status'
-        value={choice}
-        onValueChange={(value) => {
-          if (isTheme(value)) choose(value)
-        }}
         className='grid grid-cols-3 gap-1 rounded-lg border bg-muted p-1'
       >
         {THEMES.map((theme) => (
           <label
             key={theme.value}
-            className='relative flex h-11 cursor-pointer items-center justify-center rounded-md text-sm font-medium text-muted-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring has-data-[state=checked]:bg-background has-data-[state=checked]:text-foreground has-data-[state=checked]:shadow-xs md:h-9'
+            className='relative flex h-11 cursor-pointer items-center justify-center rounded-md text-sm font-medium text-muted-foreground has-checked:bg-background has-checked:text-foreground has-checked:shadow-xs has-focus-visible:ring-2 has-focus-visible:ring-ring md:h-9'
           >
-            <RadioGroupItem
+            <input
+              type='radio'
+              name='theme'
               value={theme.value}
-              className='absolute inset-0 size-auto cursor-pointer opacity-0'
+              checked={choice === theme.value}
+              onChange={() => choose(theme.value)}
+              className='absolute inset-0 cursor-pointer appearance-none opacity-0'
             />
             {theme.label}
           </label>
         ))}
-      </RadioGroup>
+      </div>
       <p
         id='theme-status'
         role='status'
