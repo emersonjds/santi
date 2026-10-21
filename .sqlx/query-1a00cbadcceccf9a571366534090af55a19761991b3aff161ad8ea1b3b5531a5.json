@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE app_user\n         SET email = 'erased:' || id, deleted_at = now(), display_name = 'Deleted user',\n             password_hash = '!', time_zone = NULL, theme = 'system'\n         WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1a00cbadcceccf9a571366534090af55a19761991b3aff161ad8ea1b3b5531a5"
+}

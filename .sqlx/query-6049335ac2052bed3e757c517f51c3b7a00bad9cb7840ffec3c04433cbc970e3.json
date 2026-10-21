@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE app_user\n           SET display_name = COALESCE($2, display_name), theme = COALESCE($3, theme),\n               time_zone = CASE WHEN $4 THEN $5 ELSE time_zone END\n           WHERE id = $1\n           RETURNING id, email, display_name, theme AS \"theme: Theme\", time_zone",
+  "query": "UPDATE app_user\n           SET display_name = COALESCE($2, display_name), theme = COALESCE($3, theme),\n               time_zone = CASE WHEN $4 THEN $5 ELSE time_zone END\n           WHERE id = $1 AND deleted_at IS NULL\n           RETURNING id, email, display_name, theme AS \"theme: Theme\", time_zone",
   "describe": {
     "columns": [
       {
@@ -76,5 +76,5 @@
       true
     ]
   },
-  "hash": "87b1fccbad6d7ff1de85919546a01e44a5c18c087929e873decccd9eca04c324"
+  "hash": "6049335ac2052bed3e757c517f51c3b7a00bad9cb7840ffec3c04433cbc970e3"
 }

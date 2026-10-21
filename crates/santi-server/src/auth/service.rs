@@ -94,14 +94,15 @@ pub async fn update_me(
         None => None,
     };
     let mut conn = pool.acquire().await?;
-    Ok(repo::update_user(
+    repo::update_user(
         &mut conn,
         user.id,
         display_name.as_deref(),
         input.theme,
         time_zone.as_ref().map(Option::as_deref),
     )
-    .await?)
+    .await?
+    .ok_or(AppError::Unauthorized)
 }
 
 pub async fn create_token(

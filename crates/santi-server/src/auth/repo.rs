@@ -57,20 +57,20 @@ pub async fn find_user(conn: &mut PgConnection, user_id: i64) -> Result<User, sq
     .await
 }
 
-/// `None` leaves a field as it is; `Some(None)` clears the zone.
+/// `None` leaves a field as it is; `Some(None)` clears the zone. An erased user gets `Ok(None)`.
 pub async fn update_user(
     conn: &mut PgConnection,
     user_id: i64,
     display_name: Option<&str>,
     theme: Option<Theme>,
     time_zone: Option<Option<&str>>,
-) -> Result<User, sqlx::Error> {
+) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
         r#"UPDATE app_user
            SET display_name = COALESCE($2, display_name), theme = COALESCE($3, theme),
                time_zone = CASE WHEN $4 THEN $5 ELSE time_zone END
-           WHERE id = $1
+           WHERE id = $1 AND deleted_at IS NULL
            RETURNING id, email, display_name, theme AS "theme: Theme", time_zone"#,
         user_id,
         display_name,
@@ -78,7 +78,7 @@ pub async fn update_user(
         time_zone.is_some(),
         time_zone.flatten()
     )
-    .fetch_one(&mut *conn)
+    .fetch_optional(&mut *conn)
     .await
 }
 
@@ -363,7 +363,7 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     sqlx::query!(
         "UPDATE app_user
          SET email = 'erased:' || id, deleted_at = now(), display_name = 'Deleted user',
-             password_hash = '!'
+             password_hash = '!', time_zone = NULL, theme = 'system'
          WHERE id = $1",
         user_id
     )
