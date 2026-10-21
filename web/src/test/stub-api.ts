@@ -23,8 +23,7 @@ type Reply = {
   status: number
   body?: unknown
   until?:
-    | Promise<unknown>
-    | ((request: Request) => Promise<unknown> | undefined)
+    Promise<unknown> | ((request: Request) => Promise<unknown> | undefined)
 }
 
 /** Answers `fetch` by `"METHOD /path"`; unknown calls get a 404 problem. Returns the requests seen. */
