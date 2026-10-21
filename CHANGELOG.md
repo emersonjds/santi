@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- **License**: santi is now licensed under the GNU Affero General Public License v3.0 (AGPL-3.0-only), with a [trademark policy](TRADEMARK.md) for the name and logo (D61).
+
+### Upgrade notes
+
+- Self-hosting and internal use are unaffected. If you offer a modified santi to others over a network, publish your changes under AGPL-3.0. Versions up to 0.24.1 stay available under MIT OR Apache-2.0.
+
 ## [0.24.1] - 2026-10-21
 
 > A security patch with updated TLS and archive dependencies, HSTS, and one search for the link picker.

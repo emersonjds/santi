@@ -27,4 +27,4 @@ Component tests run in Vitest browser mode (Chromium). Install it once with
 
 Built on [shadcn-admin](https://github.com/satnaing/shadcn-admin) by Sat Naing, MIT, imported at
 commit `e16c87f` (v2.2.1); its notice is kept in `LICENSE-shadcn-admin`. santi's own code is
-MIT OR Apache-2.0.
+AGPL-3.0-only (see `../LICENSE`).
