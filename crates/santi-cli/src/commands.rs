@@ -2,6 +2,7 @@ use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 
 use chrono::{DateTime, Local, Utc};
+use santi_types::Problem;
 use santi_types::attachments::Attachment;
 use santi_types::auth::AccountExport;
 use santi_types::boards::{Backlog, BoardView, Card};
@@ -602,7 +603,7 @@ async fn restore(
                 not_restored = Some(printable(&result.not_restored));
                 answers.push(serde_json::to_value(result).expect("DTOs serialize"));
             }
-            Err(Error::Api(problem)) if problem.status == 409 => {
+            Err(Error::Api(problem)) if already_there(&problem) => {
                 if !json {
                     println!("skipped {key}: a project with this key already exists");
                 }
@@ -623,6 +624,11 @@ async fn restore(
         (false, None) => {}
     }
     failed.map_or(Ok(()), Err)
+}
+
+/// The only refusal a restore skips; any other stops the run.
+fn already_there(problem: &Problem) -> bool {
+    problem.problem_type == "urn:santi:error:project-exists"
 }
 
 fn restored_text(result: &RestoreResult) -> String {
@@ -1786,6 +1792,19 @@ mod tests {
             std::fs::read(kept.path().join("report.pdf")).unwrap(),
             b"mine"
         );
+    }
+
+    #[test]
+    fn only_an_existing_key_skips_a_project() {
+        let refusal = |problem_type: &str| Problem {
+            problem_type: problem_type.into(),
+            title: "Conflict".into(),
+            status: 409,
+            detail: "x".into(),
+            errors: vec![],
+        };
+        assert!(already_there(&refusal("urn:santi:error:project-exists")));
+        assert!(!already_there(&refusal("urn:santi:error:conflict")));
     }
 
     #[test]
