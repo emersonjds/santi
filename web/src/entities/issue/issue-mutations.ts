@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { attachmentsQuery } from '@/entities/attachment/attachments'
+import { peopleQuery } from '@/entities/project/project-queries'
 import {
   type Backlog,
   type BoardSettings,
@@ -48,15 +49,19 @@ import {
 } from './issue-queries'
 import { statusesOf } from './statuses'
 
-const useBoardWrite = <Variables>(
+const useBoardWrite = <Variables, Result = unknown>(
   projectKey: string,
-  write: (variables: Variables) => Promise<unknown>,
+  write: (variables: Variables) => Promise<Result>,
   change: (board: BoardView, variables: Variables) => BoardView,
   failure: (variables: Variables) => string
 ) =>
   useOptimisticWrite({
     queryKey: boardsKey(projectKey),
-    refresh: [backlogKey(projectKey), issuesKey(projectKey)],
+    refresh: [
+      backlogKey(projectKey),
+      issuesKey(projectKey),
+      peopleQuery(projectKey).queryKey,
+    ],
     write,
     change,
     failure,
@@ -112,7 +117,7 @@ const statusFor = (
 
 export const useMoveIssue = (projectKey: string) => {
   const queryClient = useQueryClient()
-  return useBoardWrite<Move>(
+  return useBoardWrite<Move, Issue>(
     projectKey,
     async ({ card, toColumnId, after, before, statusId }) => {
       const status_id =
@@ -160,7 +165,11 @@ export const useUpdateIssue = (projectKey: string) =>
 export const useUpdateRow = (projectKey: string) =>
   useOptimisticWrite<Backlog, CardUpdate>({
     queryKey: backlogKey(projectKey),
-    refresh: [boardsKey(projectKey), issuesKey(projectKey)],
+    refresh: [
+      boardsKey(projectKey),
+      issuesKey(projectKey),
+      peopleQuery(projectKey).queryKey,
+    ],
     write: async ({ card, change }) =>
       dataOrThrow(
         await api.PATCH('/api/projects/{key}/issues/{number}', {
@@ -170,6 +179,58 @@ export const useUpdateRow = (projectKey: string) =>
       ),
     change: (backlog, { card, shown }) => patchRow(backlog, card.key, shown),
     failure: ({ card }) => `Couldn't update ${card.key}`,
+  })
+
+const patchSubtask = (subtasks: Issue[], key: string, shown: Partial<Issue>) =>
+  subtasks.map((subtask) =>
+    subtask.key === key ? { ...subtask, ...shown } : subtask
+  )
+
+const subtaskViews = (projectKey: string, parentKey: string) => ({
+  queryKey: subtasksQuery(projectKey, parentKey).queryKey,
+  refresh: [
+    boardsKey(projectKey),
+    backlogKey(projectKey),
+    issuesKey(projectKey),
+    peopleQuery(projectKey).queryKey,
+  ],
+})
+
+export type SubtaskMove = { subtask: Issue; status_id: number }
+
+/** SAN-156: a subtask row's status, through the move API (D4 keeps the rank). */
+export const useMoveSubtask = (projectKey: string, parentKey: string) =>
+  useOptimisticWrite<Issue[], SubtaskMove>({
+    ...subtaskViews(projectKey, parentKey),
+    write: async ({ subtask, status_id }) =>
+      dataOrThrow(
+        await api.POST('/api/projects/{key}/issues/{number}/move', {
+          params: { path: { key: projectKey, number: subtask.number } },
+          body: { status_id },
+        })
+      ),
+    change: (subtasks, { subtask, status_id }) =>
+      patchSubtask(subtasks, subtask.key, { status_id }),
+    failure: () => 'Could not change the status.',
+  })
+
+/** SAN-156: a subtask row's priority or assignee, as the row fields' `useUpdate`. */
+export const useUpdateSubtask = (projectKey: string, parentKey: string) =>
+  useOptimisticWrite<Issue[], CardUpdate>({
+    ...subtaskViews(projectKey, parentKey),
+    write: async ({ card, change }) =>
+      dataOrThrow(
+        await api.PATCH('/api/projects/{key}/issues/{number}', {
+          params: { path: { key: projectKey, number: issueNumber(card.key) } },
+          body: change,
+        })
+      ),
+    change: (subtasks, { card, shown }) =>
+      patchSubtask(subtasks, card.key, shown),
+    failure: ({ change }) =>
+      'assignee_id' in change
+        ? 'Could not change the assignee.'
+        : 'Could not change the priority.',
   })
 
 /** D40: the issue leaves every board and the backlog at once, and comes back if the server refuses. */
@@ -301,6 +362,9 @@ export const useEditIssue = (projectKey: string, issue: Issue) => {
         queryClient.invalidateQueries({ queryKey: issueKey, exact: true }),
         queryClient.invalidateQueries({ queryKey: boards }),
         queryClient.invalidateQueries({ queryKey: backlogKey(projectKey) }),
+        queryClient.invalidateQueries({
+          queryKey: peopleQuery(projectKey).queryKey,
+        }),
       ]),
   })
 }

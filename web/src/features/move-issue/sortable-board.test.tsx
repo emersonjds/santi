@@ -1,8 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
+import type { Card } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { WEB_SETTINGS, inProjects, problem, routeOf } from '@/test/stub-api'
+import {
+  WEB_BOARD,
+  WEB_PEOPLE,
+  WEB_SETTINGS,
+  inProjects,
+  issue,
+  problem,
+  routeOf,
+} from '@/test/stub-api'
 
 const MOVE = 'POST /api/projects/WEB/issues/1/move'
 
@@ -33,6 +42,52 @@ const bodyOf = async (requests: Request[], route: string) =>
     .find((request) => routeOf(request) === route)
     ?.clone()
     .json()
+
+const parentFetches = (requests: Request[]) =>
+  requests.filter(
+    (request) =>
+      routeOf(request) === 'GET /api/projects/WEB/issues' &&
+      new URL(request.url).searchParams.has('parent')
+  ).length
+
+const boardWith = (patch: Record<string, Partial<Card>>) => ({
+  'GET /api/projects/WEB/board': {
+    status: 200,
+    body: {
+      ...WEB_BOARD,
+      columns: WEB_BOARD.columns.map((column) => ({
+        ...column,
+        cards: column.cards.map((each) => ({ ...each, ...patch[each.key] })),
+      })),
+    },
+  },
+})
+
+const movedTo = (key: string, status_id: number) => ({
+  status: 200,
+  body: issue({ key, summary: key, status_id }),
+})
+
+const doneSubtask = (key: string) =>
+  issue({
+    key,
+    summary: key,
+    issue_type: 'subtask',
+    parent_key: 'WEB-2',
+    status_id: 30,
+  })
+
+const DONE_SUBTASKS = {
+  'GET /api/projects/WEB/issues': {
+    status: 200,
+    body: {
+      items: [doneSubtask('WEB-3'), doneSubtask('WEB-8')],
+      next_cursor: null,
+    },
+  },
+}
+
+const settle = () => new Promise((resolve) => setTimeout(resolve, 300))
 
 describe('moving cards by drag and drop', () => {
   beforeEach(() => page.viewport(1280, 800))
@@ -169,5 +224,120 @@ describe('moving cards by drag and drop', () => {
       )
       .toBeVisible()
     expect(requests.map(routeOf)).not.toContain(MOVE)
+  })
+
+  it('offers to finish the parent once a move takes its last open subtask to done (SB-22)', async () => {
+    const requests = inProjects({
+      ...DONE_SUBTASKS,
+      'POST /api/projects/WEB/issues/3/move': movedTo('WEB-3', 30),
+      'POST /api/projects/WEB/issues/2/move': { status: 200, body: {} },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await dragWithKeys(screen, 'WEB-3', 'ArrowRight')
+
+    await expect
+      .element(screen.getByText('All subtasks are done. Move WEB-2 to Done?'))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Move', exact: true }).click()
+    await expect
+      .poll(() => bodyOf(requests, 'POST /api/projects/WEB/issues/2/move'))
+      .toEqual({ status_id: 30 })
+  })
+
+  it('keeps the offer when another drag follows before the move lands', async () => {
+    let answer = () => {}
+    const requests = inProjects({
+      ...DONE_SUBTASKS,
+      'POST /api/projects/WEB/issues/3/move': {
+        ...movedTo('WEB-3', 30),
+        until: new Promise<void>((resolve) => (answer = resolve)),
+      },
+      [MOVE]: movedTo('WEB-1', 20),
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await dragWithKeys(screen, 'WEB-3', 'ArrowRight')
+    await dragWithKeys(screen, 'WEB-1', 'ArrowRight')
+    await expect.poll(() => countOf(requests, MOVE)).toBe(1)
+    answer()
+
+    await expect
+      .element(screen.getByText('All subtasks are done. Move WEB-2 to Done?'))
+      .toBeVisible()
+  })
+
+  it('never offers for a card under an epic', async () => {
+    const requests = inProjects({
+      ...DONE_SUBTASKS,
+      ...boardWith({ 'WEB-3': { issue_type: 'story', parent_key: 'WEB-9' } }),
+      'POST /api/projects/WEB/issues/3/move': movedTo('WEB-3', 30),
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await dragWithKeys(screen, 'WEB-3', 'ArrowRight')
+    await expect
+      .poll(() => countOf(requests, 'POST /api/projects/WEB/issues/3/move'))
+      .toBe(1)
+    await settle()
+
+    expect(parentFetches(requests)).toBe(0)
+    expect(screen.getByText(/All subtasks are done/).elements()).toHaveLength(0)
+  })
+
+  it('never offers when the parent itself moves', async () => {
+    const requests = inProjects({
+      ...DONE_SUBTASKS,
+      ...boardWith({
+        'WEB-3': { issue_type: 'story', parent_key: null, total_subtasks: 2 },
+      }),
+      'POST /api/projects/WEB/issues/3/move': movedTo('WEB-3', 30),
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await dragWithKeys(screen, 'WEB-3', 'ArrowRight')
+    await expect
+      .poll(() => countOf(requests, 'POST /api/projects/WEB/issues/3/move'))
+      .toBe(1)
+    await settle()
+
+    expect(parentFetches(requests)).toBe(0)
+    expect(screen.getByText(/All subtasks are done/).elements()).toHaveLength(0)
+  })
+
+  it.each([
+    ['reorders it within its column', 'ArrowDown', 10],
+    ['moves it to a column that is not done', 'ArrowRight', 20],
+  ])(
+    'does not look at the siblings when a subtask %s',
+    async (_, arrow, status) => {
+      const requests = inProjects({
+        ...DONE_SUBTASKS,
+        ...boardWith({
+          'WEB-1': { issue_type: 'subtask', parent_key: 'WEB-2' },
+        }),
+        [MOVE]: movedTo('WEB-1', status),
+      })
+      const { screen } = await renderApp('/p/WEB/board')
+
+      await dragWithKeys(screen, 'WEB-1', arrow)
+      await expect.poll(() => countOf(requests, MOVE)).toBe(1)
+      await settle()
+
+      expect(parentFetches(requests)).toBe(0)
+    }
+  )
+
+  it('marks the People tab stale after a move', async () => {
+    inProjects({ [MOVE]: movedTo('WEB-1', 20) })
+    const { screen, queryClient } = await renderApp('/p/WEB/board')
+    const people = ['projects', 'WEB', 'people']
+    queryClient.setQueryData(people, WEB_PEOPLE)
+
+    await dragWithKeys(screen, 'WEB-1', 'ArrowRight')
+
+    await expect
+      .poll(() => queryClient.getQueryState(people)?.isInvalidated)
+      .toBe(true)
   })
 })
