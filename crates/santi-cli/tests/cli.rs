@@ -960,6 +960,50 @@ fn sprints_report_prints_text_and_json() {
 }
 
 #[test]
+fn report_people_prints_one_row_per_assignee() {
+    let santi = Santi::new();
+    let admin = server().user();
+    let bob = server().user();
+    server().project(&admin, "PPL", "scrum");
+    server().member(&admin, "PPL", &bob);
+    santi
+        .with(&admin)
+        .args(["report", "people", "PPL"])
+        .assert()
+        .success()
+        .stdout("No sprint is running or the board is empty.\n");
+    let sprint = server().post(&admin, "/api/projects/PPL/sprints", json!({}));
+    for (token, points) in [(&admin, 3), (&bob, 2)] {
+        let id = server().get(token, "/api/me")["id"].clone();
+        let issue = json!({ "summary": "Ship", "assignee_id": id, "points": points, "sprint_id": sprint["id"] });
+        server().post(&admin, "/api/projects/PPL/issues", issue);
+    }
+    let path = format!("/api/projects/PPL/sprints/{}/start", sprint["id"]);
+    server().post(&admin, &path, json!({}));
+    let bob_name = server().get(&bob, "/api/me")["display_name"].clone();
+
+    santi
+        .with(&admin)
+        .args(["report", "people", "ppl"])
+        .assert()
+        .success()
+        .stdout(contains(format!("#{} ", sprint["id"])))
+        .stdout(contains(format!(
+            "{}  0/1 issues  0/2 pts\n",
+            bob_name.as_str().unwrap()
+        )))
+        .stdout(contains("  0/1 issues  0/3 pts"));
+    let people = json(santi.with(&admin).args(["report", "people", "PPL"]));
+    assert_eq!(people, server().get(&admin, "/api/projects/PPL/people"));
+    assert_eq!(people["people"].as_array().unwrap().len(), 2);
+    santi
+        .with(&admin)
+        .args(["report", "people", "NOPE"])
+        .assert()
+        .failure();
+}
+
+#[test]
 fn import_previews_then_asks_before_writing() {
     let santi = Santi::new();
     let token = server().user();

@@ -1576,6 +1576,15 @@
             }
           },
           {
+            "name": "unassigned",
+            "in": "query",
+            "description": "Issues with no assignee; OR-combined with `assignee`.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "type",
             "in": "query",
             "required": false,
@@ -1706,6 +1715,15 @@
                 "type": "integer",
                 "format": "int64"
               }
+            }
+          },
+          {
+            "name": "unassigned",
+            "in": "query",
+            "description": "Issues with no assignee; OR-combined with `assignee`.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -2650,6 +2668,15 @@
                 "type": "integer",
                 "format": "int64"
               }
+            }
+          },
+          {
+            "name": "unassigned",
+            "in": "query",
+            "description": "Issues with no assignee; OR-combined with `assignee`.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
             }
           },
           {
@@ -4131,6 +4158,55 @@
           },
           "409": {
             "description": "`last-admin`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/people": {
+      "get": {
+        "tags": [
+          "people"
+        ],
+        "operationId": "team_progress",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issues and points per assignee and status category, with stuck counts: the active sprint on Scrum, the board on Kanban",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamProgress"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7878,6 +7954,45 @@
           }
         }
       },
+      "PersonProgress": {
+        "type": "object",
+        "required": [
+          "to_do",
+          "in_progress",
+          "done",
+          "stuck"
+        ],
+        "properties": {
+          "done": {
+            "$ref": "#/components/schemas/Tally"
+          },
+          "in_progress": {
+            "$ref": "#/components/schemas/Tally"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "stuck": {
+            "type": "integer",
+            "format": "int64",
+            "description": "In progress with no update for 3 days or more."
+          },
+          "to_do": {
+            "$ref": "#/components/schemas/Tally"
+          },
+          "user_id": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Null for the Unassigned row."
+          }
+        }
+      },
       "PreviewUpload": {
         "type": "object",
         "description": "`multipart/form-data` body of the preview.",
@@ -8553,6 +8668,51 @@
             ],
             "format": "int64",
             "description": "Same name in this project, else its first status of the same category."
+          }
+        }
+      },
+      "Tally": {
+        "type": "object",
+        "required": [
+          "issues",
+          "points"
+        ],
+        "properties": {
+          "issues": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "points": {
+            "type": "number",
+            "format": "double",
+            "description": "Unestimated issues count as 0."
+          }
+        }
+      },
+      "TeamProgress": {
+        "type": "object",
+        "description": "Who is doing what: the active sprint on Scrum, the board on Kanban (done window applied).",
+        "required": [
+          "people"
+        ],
+        "properties": {
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonProgress"
+            },
+            "description": "Most stuck first, then most in progress, then by name; Unassigned last."
+          },
+          "sprint": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Sprint",
+                "description": "The active sprint; null on Kanban and on Scrum with no sprint running (then `people` is empty)."
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },

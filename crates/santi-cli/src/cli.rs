@@ -72,6 +72,8 @@ pub enum Command {
     },
     #[command(subcommand)]
     Sprints(SprintsCommand),
+    #[command(subcommand)]
+    Report(ReportCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
     Plan(PlanArgs),
     /// Search a project's issues by summary or key
@@ -373,6 +375,12 @@ pub enum SprintsCommand {
     },
     /// A started sprint's report: completed, not completed and removed issues
     Report { project: ProjectKey, sprint: i64 },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ReportCommand {
+    /// Who is doing what, per assignee: the active sprint on Scrum, the board on Kanban
+    People { project: ProjectKey },
 }
 
 /// Parses a snake_case value the way the API spells it (`in_progress`, `bug`).

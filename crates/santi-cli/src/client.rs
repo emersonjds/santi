@@ -14,6 +14,7 @@ use santi_types::issues::{
     StatusFilter, UpdateComment, UpdateIssue,
 };
 use santi_types::notifications::Notification;
+use santi_types::people::TeamProgress;
 use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
 use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
@@ -339,6 +340,11 @@ impl Client {
             Method::GET,
             &["projects", project.as_str(), "sprints", &id, "report"],
         );
+        self.send(request).await
+    }
+
+    pub async fn team_progress(&self, project: &ProjectKey) -> Result<TeamProgress, Error> {
+        let request = self.request(Method::GET, &["projects", project.as_str(), "people"]);
         self.send(request).await
     }
 

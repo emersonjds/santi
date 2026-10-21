@@ -708,6 +708,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{key}/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["team_progress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/reports/sprints": {
         parameters: {
             query?: never;
@@ -1769,6 +1785,22 @@ export interface components {
             member_id?: number | null;
             name: string;
         };
+        PersonProgress: {
+            done: components["schemas"]["Tally"];
+            in_progress: components["schemas"]["Tally"];
+            name?: string | null;
+            /**
+             * Format: int64
+             * @description In progress with no update for 3 days or more.
+             */
+            stuck: number;
+            to_do: components["schemas"]["Tally"];
+            /**
+             * Format: int64
+             * @description Null for the Unassigned row.
+             */
+            user_id?: number | null;
+        };
         /** @description `multipart/form-data` body of the preview. */
         PreviewUpload: {
             /**
@@ -1996,6 +2028,21 @@ export interface components {
              * @description Same name in this project, else its first status of the same category.
              */
             suggested_status_id?: number | null;
+        };
+        Tally: {
+            /** Format: int64 */
+            issues: number;
+            /**
+             * Format: double
+             * @description Unestimated issues count as 0.
+             */
+            points: number;
+        };
+        /** @description Who is doing what: the active sprint on Scrum, the board on Kanban (done window applied). */
+        TeamProgress: {
+            /** @description Most stuck first, then most in progress, then by name; Unassigned last. */
+            people: components["schemas"]["PersonProgress"][];
+            sprint?: components["schemas"]["Sprint"] | null;
         };
         /** @enum {string} */
         Theme: "light" | "dark" | "system";
@@ -3348,6 +3395,8 @@ export interface operations {
             query?: {
                 /** @description Assignee user ids. */
                 assignee?: number[];
+                /** @description Issues with no assignee; OR-combined with `assignee`. */
+                unassigned?: boolean;
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
@@ -3415,6 +3464,8 @@ export interface operations {
             query?: {
                 /** @description Assignee user ids. */
                 assignee?: number[];
+                /** @description Issues with no assignee; OR-combined with `assignee`. */
+                unassigned?: boolean;
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
@@ -4100,6 +4151,8 @@ export interface operations {
             query?: {
                 /** @description Assignee user ids. */
                 assignee?: number[];
+                /** @description Issues with no assignee; OR-combined with `assignee`. */
+                unassigned?: boolean;
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
@@ -5126,6 +5179,45 @@ export interface operations {
             };
             /** @description `last-admin` */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    team_progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issues and points per assignee and status category, with stuck counts: the active sprint on Scrum, the board on Kanban */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamProgress"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
