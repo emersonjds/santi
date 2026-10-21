@@ -650,4 +650,4 @@ Winner: A — the choice follows the person across browsers and reaches the CLI 
 Context: `POST /api/projects/{key}/members` added an existing account by email. Any admin (anyone can create a project) could learn which emails have accounts from its answers and add strangers without their consent; no screen, CLI command or MCP tool used it.
 Options: A) remove it B) keep it with a uniform answer and a consent step C) rate limit it
 Winner: A — invite links (single or group) already cover adding people, with the person's consent; B rebuilds invites under another name, C only slows the probing.
-- Registration still answers 409 for a taken email (D45, rate limited per address); it becomes uniform when email verification lands.
+- Registration still answers 409 for a taken email (D22, rate limited per address); it becomes uniform when email verification lands.

@@ -67,6 +67,10 @@ async fn non_members_and_unknown_keys_get_not_found(pool: PgPool) {
         bob.get("/api/projects/SANTI").await.0,
         StatusCode::NOT_FOUND
     );
+    assert_eq!(
+        bob.get("/api/projects/SANTI/members").await.0,
+        StatusCode::NOT_FOUND
+    );
     assert_eq!(ana.get("/api/projects/NOPE").await.0, StatusCode::NOT_FOUND);
     assert_eq!(ana.get("/api/projects/SANTI").await.0, StatusCode::OK);
 }

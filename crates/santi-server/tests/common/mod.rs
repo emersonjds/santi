@@ -215,5 +215,7 @@ impl TestApp {
         let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
         let (status, joined) = member.post(&accept, json!(null)).await;
         assert_eq!(status, StatusCode::OK, "{joined}");
+        assert_eq!(joined["key"], key);
+        assert_eq!(joined["role"], role);
     }
 }
