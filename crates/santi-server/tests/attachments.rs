@@ -126,13 +126,7 @@ async fn team(pool: PgPool, storage: Storage) -> (TestApp, TestApp, TestApp) {
     let ana = anonymous.another_user("ana@example.com").await;
     ana.create_project("SANTI", "kanban").await;
     let bob = ana.another_user("bob@example.com").await;
-    let (status, _) = ana
-        .post(
-            "/api/projects/SANTI/members",
-            json!({ "email": "bob@example.com", "role": "member" }),
-        )
-        .await;
-    assert_eq!(status, StatusCode::CREATED);
+    ana.add_member("SANTI", &bob, "member").await;
     let carl = ana.another_user("carl@example.com").await;
     carl.create_project("CARL", "kanban").await;
     ana.create_issue("SANTI", json!({ "summary": "Needs files" }))

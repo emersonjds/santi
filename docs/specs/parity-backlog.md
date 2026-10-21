@@ -270,7 +270,7 @@ first ten minutes, then the rest. Existing cards that also belong early in that 
 | PB-107 | OR-17 | Invite policy: anyone, approved domains, request only, no one | Partial | Orgs | S | PB-99 | SAN-69 |
 | PB-108 | OR-18 | Reusable invitation link, 30 days, turn off or regenerate | Different (one-time, 7 days) | Orgs | S | — | SAN-69 |
 | PB-109 | OR-20 | Access requests queue | Missing | Orgs | M | SAN-68 | SAN-69 |
-| PB-110 | OR-21, coverage group 4 | Add people already in the org by email from the members page | Partial (`POST /members` unused by the SPA) | Orgs | S | — | SAN-69 |
+| PB-110 | OR-21, coverage group 4 | Add people already in the org by email from the members page | Dropped (SAN-182, D55): invite links only | Orgs | S | — | SAN-69 |
 | PB-111 | OR-27, OR-28, OR-34 | Viewer, guest and integration roles with the reference rights | Partial (admin, member) | Access | M | — | SAN-66 |
 | PB-112 | OR-30 | Custom roles; roles add up | Missing | Access | M | PB-111 | SAN-66 |
 | PB-113 | SP-15 | Completing a sprint needs admin or manage-sprints | Deferred | Access | S | PB-111 | SAN-66 |

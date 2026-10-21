@@ -3,7 +3,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use santi_types::Problem;
 use santi_types::projects::{
-    AddMember, CreateInvite, Invite, InviteInfo, InvitePreview, MemberInfo, Project, SetRole,
+    CreateInvite, Invite, InviteInfo, InvitePreview, MemberInfo, Project, SetRole,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -17,7 +17,7 @@ use crate::rate_limit::{Action, ClientIp};
 
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
-        .routes(routes!(list_members, add_member))
+        .routes(routes!(list_members))
         .routes(routes!(set_role, remove_member))
         .routes(routes!(list_invites, create_invite))
         .routes(routes!(revoke_invite))
@@ -36,23 +36,6 @@ pub async fn list_members(
     member: Member,
 ) -> Result<Json<Vec<MemberInfo>>, AppError> {
     Ok(Json(service::list_members(&state.pool, &member).await?))
-}
-
-#[utoipa::path(post, path = "/api/projects/{key}/members", tag = "members", request_body = AddMember,
-    params(("key" = String, Path, description = "Project key")),
-    responses(
-        (status = 201, body = MemberInfo),
-        (status = 403, body = Problem, content_type = "application/problem+json"),
-        (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45)"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "No account uses this email")))]
-pub async fn add_member(
-    State(state): State<AppState>,
-    member: Member,
-    JsonBody(input): JsonBody<AddMember>,
-) -> Result<(StatusCode, Json<MemberInfo>), AppError> {
-    let added = service::add_member(&state.pool, &state.legal, &member, input).await?;
-    Ok((StatusCode::CREATED, Json(added)))
 }
 
 #[utoipa::path(put, path = "/api/projects/{key}/members/{user_id}", tag = "members", request_body = SetRole,
