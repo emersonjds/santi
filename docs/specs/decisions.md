@@ -674,3 +674,11 @@ Context: a santi export names members, assignees, reporters and comment authors 
 Options: A) only the caller joins; other people become the caller or are cleared, and the answer lists them by name B) keep ids of users who exist on the instance C) map people by email
 Winner: A — consent stays with invite links and no one can be impersonated; B reopens D55 and leaks which ids exist, C needs emails the export does not carry and would still add people without asking.
 - The answer lists every replaced person with the name from the file, so the admin knows whom to invite and reassign.
+## D59 — Typed issue links, visible only where the viewer can see both ends (SAN-157)
+Context: issues need typed relations (blocks, relates to, duplicates, clones) across projects, without telling anyone that an issue they cannot open exists.
+Options: A) one row per link with a derived inverse label, filtered per viewer B) two rows per link (one per direction) C) links only inside one project
+Winner: A (product, ia, ux; ia and ux on visibility) — one row cannot drift out of sync; per-viewer filtering hides links to projects the viewer does not belong to, with no count; C would block the common "blocked by the platform team" case.
+- Four types with inverses: blocks / is blocked by, relates to (symmetric), duplicates / is duplicated by, clones / is cloned by.
+- Creating a link needs edit rights on the issue and membership of the other issue's project; deleting an issue removes its links.
+- A pair of issues carries each type at most once, in either direction: "A blocks B" refuses a later "B blocks A" (no mutual blocks, duplicates or clones).
+- Cards show "Blocked" while a visible blocker is not done.

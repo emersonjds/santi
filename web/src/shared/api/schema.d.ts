@@ -644,6 +644,38 @@ export interface paths {
         patch: operations["edit_comment"];
         trace?: never;
     };
+    "/api/projects/{key}/issues/{number}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list_links"];
+        put?: never;
+        post: operations["create_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/issues/{number}/links/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_link"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{key}/issues/{number}/move": {
         parameters: {
             query?: never;
@@ -1135,6 +1167,8 @@ export interface components {
             /** Format: int64 */
             assignee_id?: number | null;
             assignee_name?: string | null;
+            /** @description Keys of the issues blocking this one that are not done and the viewer can open (D59). */
+            blocked_by?: string[];
             /** Format: int64 */
             column_id: number;
             /** Format: int64 */
@@ -1240,6 +1274,11 @@ export interface components {
              */
             status_id?: number | null;
             summary: string;
+        };
+        CreateLink: {
+            /** @description The other issue's key, like `OPS-12`; it may be in another project the caller belongs to. */
+            issue: string;
+            relation: components["schemas"]["Relation"];
         };
         CreateProject: {
             board_type: components["schemas"]["BoardType"];
@@ -1495,6 +1534,12 @@ export interface components {
              */
             worked_at?: string | null;
         };
+        IssueLink: {
+            /** Format: int64 */
+            id: number;
+            issue: components["schemas"]["LinkedIssue"];
+            relation: components["schemas"]["Relation"];
+        };
         /** @enum {string} */
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
         /** @enum {string} */
@@ -1520,6 +1565,20 @@ export interface components {
             privacy_version: string;
             required: boolean;
             terms_version: string;
+        };
+        /** @description The other end of a link. */
+        LinkedIssue: {
+            /** Format: int64 */
+            assignee_id?: number | null;
+            assignee_name?: string | null;
+            issue_type: components["schemas"]["IssueType"];
+            key: string;
+            priority: components["schemas"]["Priority"];
+            status_category: components["schemas"]["StatusCategory"];
+            /** Format: int64 */
+            status_id: number;
+            status_name: string;
+            summary: string;
         };
         Login: {
             email: string;
@@ -1891,6 +1950,11 @@ export interface components {
             email: string;
             password: string;
         };
+        /**
+         * @description How the other issue relates to this one, read from this issue (D59); declared in display order.
+         * @enum {string}
+         */
+        Relation: "blocks" | "is_blocked_by" | "relates" | "duplicates" | "is_duplicated_by" | "clones" | "is_cloned_by";
         ReorderColumns: {
             column_ids: number[];
         };
@@ -5003,6 +5067,162 @@ export interface operations {
                 };
             };
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    list_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Links read from this issue, by relation (blocks, is blocked by, relates, duplicates, is duplicated by, clones, is cloned by) then key; links to issues the caller cannot open are left out, uncounted (D59) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueLink"][];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    create_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLink"];
+            };
+        };
+        responses: {
+            /** @description Linked; the other issue shows the inverse relation */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssueLink"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description This issue, or the other one, does not exist or is in a project the caller is not a member of */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`: this issue's project or the other issue's */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `issue` is not an issue key, is this issue, or already has this link with it in either direction */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    delete_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description Issue number, the N of KEY-N */
+                number: number;
+                /** @description Link id */
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed from both issues */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description No such link on this issue, or its other issue is one the caller cannot open */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`: this issue's project or the other issue's */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -119,7 +119,7 @@ overlay (modal, sheet, menu).
 | Board | project header | filter bar | columns; uppercase name, count, WIP `n/max` (kanban); cards | issue modal, card menu, start/complete dialogs | + Create (top bar), inline "Create issue" at column foot | Complete sprint (header, scrum), Settings link (admin) |
 | Backlog | project header | filter bar + Epics toggle | sprint sections, then "Backlog" section | epic panel (right, pushes the list), issue modal, row menu | Create sprint | Start / Complete per sprint, inline create per section |
 | People | project header; "People" + sprint name and dates (scrum) or "Kanban board", sticky | — | one row per person (avatar, name, "Stuck ×N", done/total issues and points, stacked to do / in progress / done bar), Unassigned last; a row expands to that person's issues (key, summary, status, days since update when stuck) and "Show on board" (SAN-173) | — | expand a person | Show on board; Go to Backlog when no sprint runs |
-| Issue (page or modal) | type glyph, key, parent key, summary | — | main: description, subtasks (+ Add subtask), comments; details: status button, assignee, reporter, priority, points, sprint, labels, parent, dates | status menu, pickers | status button | Assign to me, Copy link, Open as page (modal only), Close |
+| Issue (page or modal) | type glyph, key, parent key, summary | — | main: description, subtasks (+ Add subtask), linked issues grouped by relation (+ Link issue, shortcut `l`, SAN-157), comments; details: status button, assignee, reporter, priority, points, sprint, labels, parent, dates | status menu, pickers | status button | Assign to me, Copy link, Open as page (modal only), Close |
 | Create issue (modal) | "Create issue" | — | project, type, summary, description, assignee, points, sprint | — | Create | Create another (keep open), Cancel |
 | Search | "Search" + query | filter bar | result rows: type, key, summary, status chip, assignee | issue modal | — | refine filters |
 | Settings — board | project header | — | Columns (order, rename, WIP max kanban, delete), Statuses (name, category, column, unmapped pool), Done window (kanban); then the Danger zone | delete-column target picker; danger-zone confirms | Add column | Add status |
@@ -141,7 +141,7 @@ Type, Label, Epic dropdowns, "Filters (n)" with Clear. AND across kinds, OR with
 (swimlanes): later (SB-29 dropped; reinstated → P1).
 
 Card: type glyph, key, summary (2 lines), points pill, priority glyph (urgent only colored),
-avatar; subtasks add a parent-key chip; parents show `open/total` subtasks (D6). Card menu
+avatar; subtasks add a parent-key chip; parents show `open/total` subtasks (D6); a "Blocked" marker when an issue that is not done blocks it, the blockers in its title (SAN-157; backlog rows too). Card menu
 ("…"): Move to…, Assign to me / Assign…, Set priority, Copy issue key, Delete (D40: admins and
 the reporter, behind a confirm naming its subtasks and comments). Drop slot: dashed outline at the target position.
 
