@@ -3,6 +3,7 @@ import { type Locator, page } from 'vitest/browser'
 import type { Sprint, SprintTotals } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
+  ALICE,
   WEB,
   inProjects,
   problem,
@@ -88,6 +89,22 @@ describe('reports page', () => {
     const goal = rows.first().getByTitle(GOAL)
     await expect.element(goal).toHaveTextContent(GOAL)
     await expect.element(goal).toHaveClass('truncate')
+  })
+
+  it("dates each sprint in the account's time zone", async () => {
+    inProjects({
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+      [HISTORY]: page1(CLOSED),
+      [VELOCITY]: VELOCITY_OK,
+    })
+    const { screen } = await renderApp('/p/WEB/reports')
+
+    await expect
+      .element(sprints(screen).getByRole('listitem').first())
+      .toHaveTextContent(/Sep 1, .* – Sep 15, /)
   })
 
   it('opens a sprint report from anywhere on its row', async () => {

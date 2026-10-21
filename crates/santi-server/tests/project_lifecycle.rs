@@ -5,16 +5,6 @@ use common::{TestApp, body_json, json_request};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
-async fn join(admin: &TestApp, key: &str, email: &str, role: &str) {
-    let (status, body) = admin
-        .post(
-            &format!("/api/projects/{key}/members"),
-            json!({ "email": email, "role": role }),
-        )
-        .await;
-    assert_eq!(status, StatusCode::CREATED, "{body}");
-}
-
 fn keys(projects: &Value) -> Vec<&str> {
     projects
         .as_array()
@@ -29,7 +19,7 @@ async fn team(pool: PgPool) -> (TestApp, TestApp) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     ana.create_project("SANTI", "scrum").await;
-    join(&ana, "SANTI", "bob@example.com", "member").await;
+    ana.add_member("SANTI", &bob, "member").await;
     ana.create_sprint("SANTI").await;
     ana.create_issue("SANTI", json!({ "summary": "Ship it" }))
         .await;
@@ -144,11 +134,6 @@ async fn an_archived_project_is_read_only_except_stars_visits_and_leaving(pool: 
             Method::POST,
             "/api/projects/SANTI/statuses".into(),
             json!({ "name": "Blocked", "category": "todo" }),
-        ),
-        (
-            Method::POST,
-            "/api/projects/SANTI/members".into(),
-            json!({ "email": "carl@example.com", "role": "member" }),
         ),
         (
             Method::PUT,
@@ -622,7 +607,7 @@ async fn invites_to_an_archived_or_trashed_project_cannot_be_used(pool: PgPool) 
 async fn a_member_leaves_a_project_but_cannot_remove_others(pool: PgPool) {
     let (ana, bob) = team(pool).await;
     let carl = ana.another_user("carl@example.com").await;
-    join(&ana, "SANTI", "carl@example.com", "member").await;
+    ana.add_member("SANTI", &carl, "member").await;
 
     let (removes_carl, _) = bob
         .delete(&format!("/api/projects/SANTI/members/{}", carl.user_id))
@@ -642,7 +627,7 @@ async fn the_export_lists_archived_and_trashed_projects_with_their_state(pool: P
     let bob = ana.another_user("bob@example.com").await;
     for key in ["ARC", "BIN", "LIVE"] {
         ana.create_project(key, "scrum").await;
-        join(&ana, key, "bob@example.com", "member").await;
+        ana.add_member(key, &bob, "member").await;
     }
     ana.post("/api/projects/ARC/archive", json!(null)).await;
     ana.post("/api/projects/BIN/trash", json!(null)).await;

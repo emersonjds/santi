@@ -20,7 +20,7 @@ test('an API token signs in a client until it is revoked', async ({
   ).toBeVisible()
 
   await page.getByRole('button', { name: 'Account' }).click()
-  await page.getByRole('menuitem', { name: 'API tokens' }).click()
+  await page.getByRole('menuitem', { name: 'Account' }).click()
   await page.getByLabel('Token name').fill('cli')
   await page.getByRole('button', { name: 'Create token' }).click()
   const token = await page.getByLabel('New token').inputValue()

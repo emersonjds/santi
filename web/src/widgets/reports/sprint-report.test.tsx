@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import type { Sprint, SprintReport, SprintTotals } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import { inProjects, problem, sprintReport } from '@/test/stub-api'
+import { ALICE, inProjects, problem, sprintReport } from '@/test/stub-api'
 
 const HISTORY = 'GET /api/projects/WEB/reports/sprints'
 const report = (id: number) => `GET /api/projects/WEB/sprints/${id}/report`
@@ -63,6 +63,21 @@ describe('sprint report', () => {
     await expect.element(header).toHaveTextContent('Committed8')
     await expect.element(header).toHaveTextContent('Completed5')
     await expect.element(header).not.toHaveTextContent('In progress')
+  })
+
+  it("dates the sprint in the account's time zone", async () => {
+    inProjects({
+      ...THREE_SPRINTS,
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/reports/3')
+
+    await expect
+      .element(screen.getByRole('region', { name: 'Sprint 3' }))
+      .toHaveTextContent(/Sep 1, .* – Sep 15, /)
   })
 
   it('tells a running sprint apart', async () => {

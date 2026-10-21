@@ -75,7 +75,7 @@ The CLI and the MCP server are HTTP clients of the API, authenticated with a per
 API token. The same MCP server therefore works against a local or a remote instance.
 Every manual action maps to an MCP tool and a CLI subcommand:
 
-`create_project`, `add_member`, `create_issue`, `update_issue`, `move_issue`
+`create_project`, `create_issue`, `update_issue`, `move_issue`
 (status and rank), `comment`, `search_issues`, `get_board`, `get_backlog`,
 `create_sprint`, `start_sprint`, `complete_sprint`.
 

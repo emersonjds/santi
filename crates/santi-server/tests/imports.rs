@@ -71,13 +71,7 @@ async fn team(pool: PgPool, board_type: &str) -> (TestApp, TestApp) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     ana.create_project("SANTI", board_type).await;
     let bob = ana.another_user("bob@example.com").await;
-    let (status, _) = ana
-        .post(
-            "/api/projects/SANTI/members",
-            json!({ "email": "bob@example.com", "role": "member" }),
-        )
-        .await;
-    assert_eq!(status, StatusCode::CREATED);
+    ana.add_member("SANTI", &bob, "member").await;
     (ana, bob)
 }
 
@@ -600,7 +594,7 @@ async fn files_with_too_many_different_values_are_refused_quickly(pool: PgPool) 
     );
     assert_eq!(
         problem["errors"][0]["message"],
-        "the file has more than 500 different statuses; split it or merge statuses first"
+        "the file has more than 500 different sprints; split it or merge sprints first"
     );
     assert!(
         elapsed < Duration::from_secs(2),

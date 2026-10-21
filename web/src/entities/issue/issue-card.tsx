@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { ListTree } from 'lucide-react'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
+import { cn } from '@/shared/lib/utils'
 import { issueNumber } from './board-query'
 import { PriorityGlyph, TypeGlyph } from './issue-glyphs'
 import { LabelChip } from './label-chip'
@@ -18,43 +19,81 @@ export const EmptySlot = () => (
   </li>
 )
 
-/** D6: a parent's `open/total` subtasks, on its board card and backlog row. */
-export const SubtaskCount = ({ card }: { card: Card }) =>
-  card.total_subtasks > 0 && (
-    <span
-      className='inline-flex items-center gap-1 rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'
-      title={`${card.open_subtasks} of ${card.total_subtasks} subtasks open`}
-    >
-      <ListTree className='size-3.5' aria-hidden='true' />
-      {card.open_subtasks}/{card.total_subtasks}
-    </span>
+/** D57: a parent's `done/total` subtasks, on its board card and backlog row. */
+export const SubtaskCount = ({ card }: { card: Card }) => {
+  const done = card.total_subtasks - card.open_subtasks
+  return (
+    card.total_subtasks > 0 && (
+      <span
+        className='inline-flex items-center gap-1 rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums'
+        title={`${done} of ${card.total_subtasks} subtasks done`}
+      >
+        <ListTree className='size-3.5' aria-hidden='true' />
+        {done}/{card.total_subtasks}
+      </span>
+    )
   )
+}
 
-/** SAN-101: two labels on one line, then how many more; the rest on hover. */
-export const LabelChips = ({ labels }: { labels: string[] }) => {
+/** SAN-101: two labels on one line, then how many more; the rest on hover. `oneOnPhone` (SAN-122): one whole label below md. */
+export const LabelChips = ({
+  labels,
+  oneOnPhone = false,
+}: {
+  labels: string[]
+  oneOnPhone?: boolean
+}) => {
   if (labels.length === 0) return null
   const rest = labels.slice(2)
+  const phoneRest = labels.slice(1)
   return (
-    <span className='flex min-w-0 items-center gap-1'>
-      {labels.slice(0, 2).map((label) => (
+    <span
+      className={cn(
+        'flex min-w-0 items-center gap-1',
+        oneOnPhone && 'max-md:shrink-0'
+      )}
+    >
+      {labels.slice(0, 2).map((label, index) => (
         <LabelChip
           key={label}
           size='compact'
           name={label}
-          className='min-w-9'
+          className={cn(
+            'min-w-9',
+            oneOnPhone && (index === 0 ? 'max-md:shrink-0' : 'max-md:hidden')
+          )}
         />
       ))}
+      {oneOnPhone && phoneRest.length > 0 && (
+        <MoreLabels labels={phoneRest} className='md:hidden' />
+      )}
       {rest.length > 0 && (
-        <span
-          title={rest.join(', ')}
-          className='shrink-0 text-xs text-muted-foreground tabular-nums'
-        >
-          +{rest.length}
-        </span>
+        <MoreLabels
+          labels={rest}
+          className={cn(oneOnPhone && 'max-md:hidden')}
+        />
       )}
     </span>
   )
 }
+
+const MoreLabels = ({
+  labels,
+  className,
+}: {
+  labels: string[]
+  className?: string
+}) => (
+  <span
+    title={labels.join(', ')}
+    className={cn(
+      'shrink-0 text-xs text-muted-foreground tabular-nums',
+      className
+    )}
+  >
+    +{labels.length}
+  </span>
+)
 
 const pointsLabel = (points?: number | null) =>
   points == null ? 'No points' : `${points} points`

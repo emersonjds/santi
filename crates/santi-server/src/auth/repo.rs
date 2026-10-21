@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use santi_types::auth::{ApiToken, InviteUse, LegalAcceptance, PasswordResetPreview, User};
+use santi_types::auth::{ApiToken, InviteUse, LegalAcceptance, PasswordResetPreview, Theme, User};
 use sqlx::PgConnection;
 
 use super::domain::{AGE_DECLARATION, PRIVACY_VERSION, TERMS_VERSION};
@@ -9,6 +9,8 @@ pub struct UserWithHash {
     pub id: i64,
     pub email: String,
     pub display_name: String,
+    pub theme: Theme,
+    pub time_zone: Option<String>,
     pub password_hash: String,
 }
 
@@ -20,8 +22,8 @@ pub async fn insert_user(
 ) -> Result<User, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, $2, $3)
-         RETURNING id, email, display_name",
+        r#"INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, $2, $3)
+           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone"#,
         email,
         display_name,
         password_hash
@@ -36,8 +38,8 @@ pub async fn find_user_by_email(
 ) -> Result<Option<UserWithHash>, sqlx::Error> {
     sqlx::query_as!(
         UserWithHash,
-        "SELECT id, email, display_name, password_hash FROM app_user
-         WHERE email = $1 AND deleted_at IS NULL",
+        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone, password_hash
+           FROM app_user WHERE email = $1 AND deleted_at IS NULL"#,
         email
     )
     .fetch_optional(&mut *conn)
@@ -47,10 +49,36 @@ pub async fn find_user_by_email(
 pub async fn find_user(conn: &mut PgConnection, user_id: i64) -> Result<User, sqlx::Error> {
     sqlx::query_as!(
         User,
-        "SELECT id, email, display_name FROM app_user WHERE id = $1",
+        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone
+           FROM app_user WHERE id = $1"#,
         user_id
     )
     .fetch_one(&mut *conn)
+    .await
+}
+
+/// `None` leaves a field as it is; `Some(None)` clears the zone. An erased user gets `Ok(None)`.
+pub async fn update_user(
+    conn: &mut PgConnection,
+    user_id: i64,
+    display_name: Option<&str>,
+    theme: Option<Theme>,
+    time_zone: Option<Option<&str>>,
+) -> Result<Option<User>, sqlx::Error> {
+    sqlx::query_as!(
+        User,
+        r#"UPDATE app_user
+           SET display_name = COALESCE($2, display_name), theme = COALESCE($3, theme),
+               time_zone = CASE WHEN $4 THEN $5 ELSE time_zone END
+           WHERE id = $1 AND deleted_at IS NULL
+           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone"#,
+        user_id,
+        display_name,
+        theme as Option<Theme>,
+        time_zone.is_some(),
+        time_zone.flatten()
+    )
+    .fetch_optional(&mut *conn)
     .await
 }
 
@@ -335,7 +363,7 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     sqlx::query!(
         "UPDATE app_user
          SET email = 'erased:' || id, deleted_at = now(), display_name = 'Deleted user',
-             password_hash = '!'
+             password_hash = '!', time_zone = NULL, theme = 'system'
          WHERE id = $1",
         user_id
     )

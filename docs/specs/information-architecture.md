@@ -35,7 +35,7 @@ Top bar (every signed-in page), left to right:
 | santi mark | yes | links to `/` |
 | Search field | yes, project pages only | placeholder "Search KEY"; Enter → `/p/{key}/search?q=`. Hidden outside a project. Global search: later (reinstated → P10) |
 | + Create | yes | purple, the one solid button in the bar; `c` opens it (UI-32) |
-| Account menu (avatar) | yes | name, email, API tokens, keyboard shortcuts (`?`), log out |
+| Account menu (avatar) | yes | name, email, Account (`/account`, SAN-93), keyboard shortcuts (`?`), log out |
 | Notifications, help | later | no notifications in v1; reinstated → SAN-54 (notifications), P10 (help) |
 
 Sidebar, top to bottom:
@@ -61,6 +61,7 @@ current project (ui-layout OQ-7: both).
 | Board | yes | everyone |
 | Backlog | yes, scrum only | everyone |
 | Reports | yes, scrum only | everyone |
+| People | yes, after Reports (after Board on kanban) | everyone (SAN-173) |
 | Settings | yes | everyone (edits need admin) |
 | Summary, List, Calendar, Releases | later | reinstated → P5 (Summary, List, Calendar), SAN-55 (Releases) |
 
@@ -69,7 +70,7 @@ Tabs are fixed in v1 (UI-8 reordering: later; reinstated → P5).
 ## 3. URL map
 
 Conventions: page routes are `/p/{key}/…` (API stays `/api/projects/{key}/…`). Filters are query
-params (D18): `q`, `assignee` (repeatable, `me` allowed), `type`, `label`, `epic` (parent key).
+params (D18): `q`, `assignee` (repeatable, `me` allowed), `unassigned=true` (OR with `assignee`, SAN-173), `type`, `label`, `epic` (parent key).
 
 SPA (D37): the page routes below are TanStack Router client routes; redirects (`303` in the table)
 are client redirects. The server keeps `/api/*`, `/openapi.json`, `/docs`, `/health` and the built
@@ -89,11 +90,12 @@ Pages
 | `GET /p/{key}` | `303` → `/p/{key}/board` | built |
 | `GET /p/{key}/board` | board (+ `?column={id}` at 375px) | built |
 | `GET /p/{key}/backlog` | backlog (+ `?panel=epics`); kanban → `303` board | built |
+| `GET /p/{key}/people` | people: per-assignee progress of the running sprint (scrum) or the board (kanban), SAN-173 | built |
 | `GET /p/{key}/issues/{n}` | issue: full page; from board, backlog or search a modal with the URL masked to this path | built |
 | `GET /p/{key}/search` | search results (`?q`, `type`, `status` category, `assignee`, `recently_updated`) | built |
 | `GET /p/{key}/settings` | board settings: columns, statuses, done window (admins); danger zone (everyone, SAN-70) | built |
 | `GET /p/{key}/settings/members` | members, roles, invite links | new (moves off the project page) |
-| `GET /account` | profile and API tokens | built |
+| `GET /account` | profile, preferences (theme, SAN-93), API tokens, your data | built |
 
 Create issue has no route: + Create or `c` opens a dialog.
 
@@ -116,13 +118,14 @@ overlay (modal, sheet, menu).
 | New project | "New project" | — | name, key (derived, editable), board type Scrum/Kanban with one-line help | — | Create project | Cancel |
 | Board | project header | filter bar | columns; uppercase name, count, WIP `n/max` (kanban); cards | issue modal, card menu, start/complete dialogs | + Create (top bar), inline "Create issue" at column foot | Complete sprint (header, scrum), Settings link (admin) |
 | Backlog | project header | filter bar + Epics toggle | sprint sections, then "Backlog" section | epic panel (right, pushes the list), issue modal, row menu | Create sprint | Start / Complete per sprint, inline create per section |
+| People | project header; "People" + sprint name and dates (scrum) or "Kanban board", sticky | — | one row per person (avatar, name, "Stuck ×N", done/total issues and points, stacked to do / in progress / done bar), Unassigned last; a row expands to that person's issues (key, summary, status, days since update when stuck) and "Show on board" (SAN-173) | — | expand a person | Show on board; Go to Backlog when no sprint runs |
 | Issue (page or modal) | type glyph, key, parent key, summary | — | main: description, subtasks (+ Add subtask), comments; details: status button, assignee, reporter, priority, points, sprint, labels, parent, dates | status menu, pickers | status button | Assign to me, Copy link, Open as page (modal only), Close |
 | Create issue (modal) | "Create issue" | — | project, type, summary, description, assignee, points, sprint | — | Create | Create another (keep open), Cancel |
 | Search | "Search" + query | filter bar | result rows: type, key, summary, status chip, assignee | issue modal | — | refine filters |
 | Settings — board | project header | — | Columns (order, rename, WIP max kanban, delete), Statuses (name, category, column, unmapped pool), Done window (kanban); then the Danger zone | delete-column target picker; danger-zone confirms | Add column | Add status |
 | Settings — danger zone | (end of Settings) | — | rows, label + one-line description left, button right (stacked under 640px): Archive project (outline, admins, active projects), Delete project (destructive, admins: "Moves to trash for 60 days; you can restore it."), Leave project (outline, everyone; disabled for the last admin with the reason as its description) | Archive and Leave: confirm; Delete: type the project key | — | after Archive / Delete: land on `/projects`, toast "Archived {KEY}" / "Moved {KEY} to trash" with Undo for 8 s; Leave: home, "You left {name}." |
 | Settings — members | project header | — | member rows (avatar, name, email, role select, remove); invite link box | — | Create invite link | change role, remove |
-| Account | "Account" | — | profile (read only); API tokens (name, created, revoke) | token shown once | Create token | Revoke, Log out |
+| Account | "Account" | — | profile (read only); preferences: theme Light / Dark / System, applied at once and saved to the account (SAN-93); API tokens (name, created, revoke) | token shown once | Create token | Revoke, Log out |
 
 Project header (board, backlog, settings): project avatar (initial on brand tint), name, board
 type badge (Scrum / Kanban), active sprint name + "n days left" (scrum; overdue badge, D15),
@@ -132,7 +135,8 @@ read-only." with Unarchive for admins (44px on phone). Inline "Create issue" is 
 + Create preselects another project; any other write answers 409 `project-archived` and its
 detail shows in the error toast. A trashed project is the not-found page for everyone.
 
-Filter bar (board, backlog, search): search box, assignee avatars (click toggles; "Only mine"),
+Filter bar (board, backlog, search): search box, assignee avatars then a dashed Unassigned avatar
+(click toggles, OR together; "Only mine"),
 Type, Label, Epic dropdowns, "Filters (n)" with Clear. AND across kinds, OR within (D3). Group by
 (swimlanes): later (SB-29 dropped; reinstated → P1).
 
@@ -241,13 +245,13 @@ Follows ui-layout "Responsive". IA specifics:
 | 9 | Settings: board and members pages | new card |
 | 10 | Account page with API tokens | new card (needed before the CLI ships, E3) |
 | 11 | Home "Assigned to me"; Recent; global search | later; reinstated → SAN-72, SAN-73, P10 |
-| 12 | Dark theme switched on and checked screen by screen | later; reinstated → P10 |
+| 12 | Dark theme switched on and checked screen by screen | switched on in SAN-93 (Preferences on `/account`); screen-by-screen check in SAN-93 review |
 
 ## Resolved questions (orchestrator, 2026-10-15)
 
 The owner delegated these calls; defaults chosen to keep v1 small.
 
-1. Dark theme: tokens defined, switched off in v1 (item 12). Reinstated → P10.
+1. Dark theme: tokens defined, switched off in v1 (item 12). Switched on in SAN-93.
 2. New issues land at the bottom of the backlog, as `create_issue` already does; UI-36 "top of backlog" is dropped for v1. Reinstated → P7.
 3. Home "Assigned to me" and sidebar "Recent" stay later (item 11). Reinstated → SAN-72, SAN-73.
 4. Account page with API tokens is v1 and gets its own card before the CLI ships.

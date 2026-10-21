@@ -2,6 +2,10 @@ mod common;
 
 use axum::http::{Method, StatusCode, header};
 use common::{PASSWORD, TestApp, body_json, json_request};
+use santi_server::auth::extract::CurrentUser;
+use santi_server::auth::service;
+use santi_server::error::AppError;
+use santi_types::auth::{Theme, UpdateMe};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
@@ -19,14 +23,6 @@ async fn delete_account(app: &TestApp, password: &str) -> (StatusCode, Value, Op
         .get(header::SET_COOKIE)
         .map(|value| value.to_str().unwrap().to_string());
     (status, body_json(response).await, cookie)
-}
-
-async fn join(admin: &TestApp, key: &str, email: &str, role: &str) {
-    let body = json!({ "email": email, "role": role });
-    let (status, member) = admin
-        .post(&format!("/api/projects/{key}/members"), body)
-        .await;
-    assert_eq!(status, StatusCode::CREATED, "{member}");
 }
 
 #[sqlx::test]
@@ -51,7 +47,7 @@ async fn the_export_holds_the_account_and_every_project_it_admins(pool: PgPool) 
     bob.create_project("BOB", "kanban").await;
     bob.create_issue("BOB", json!({ "summary": "Bob's secret plan" }))
         .await;
-    join(&bob, "BOB", "ana@example.com", "member").await;
+    bob.add_member("BOB", &ana, "member").await;
 
     let response = ana
         .send(json_request(
@@ -91,7 +87,7 @@ async fn the_export_holds_the_home_stars_visits_and_history(pool: PgPool) {
     let bob = ana.another_user("bob@example.com").await;
     bob.create_project("BOB", "kanban").await;
     bob.create_issue("BOB", json!({ "summary": "Bob's" })).await;
-    join(&bob, "BOB", "ana@example.com", "member").await;
+    bob.add_member("BOB", &ana, "member").await;
     let visit = ana
         .browser_post("ana@example.com", "/api/projects/BOB/visit")
         .await;
@@ -239,11 +235,11 @@ async fn projects_outlive_the_account_only_when_others_use_them(pool: PgPool) {
     let carol = ana.another_user("carol@example.com").await;
     ana.create_project("SOLO", "scrum").await;
     ana.create_project("TEAM", "scrum").await;
-    join(&ana, "TEAM", "bob@example.com", "member").await;
-    join(&ana, "TEAM", "carol@example.com", "member").await;
+    ana.add_member("TEAM", &bob, "member").await;
+    ana.add_member("TEAM", &carol, "member").await;
     ana.create_project("DUO", "kanban").await;
-    join(&ana, "DUO", "carol@example.com", "admin").await;
-    join(&ana, "DUO", "bob@example.com", "member").await;
+    ana.add_member("DUO", &carol, "admin").await;
+    ana.add_member("DUO", &bob, "member").await;
     let body = json!({ "summary": "Ana's task", "assignee_id": ana.user_id });
     ana.create_issue("TEAM", body).await;
     ana.post(
@@ -290,38 +286,61 @@ async fn the_address_an_erased_account_gets_cannot_be_squatted(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
+    let preferences = json!({ "theme": "dark", "time_zone": "Pacific/Auckland" });
+    ana.patch("/api/me", preferences).await;
     let (deleted, _, _) = delete_account(&ana, PASSWORD).await;
 
     assert_eq!(refused, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
     assert_eq!(problem["errors"][0]["field"], "email");
     assert_eq!(deleted, StatusCode::NO_CONTENT);
-    let erased: (String, bool) =
-        sqlx::query_as("SELECT email, deleted_at IS NOT NULL FROM app_user WHERE id = $1")
+    let erased: (String, bool, String, Option<String>) = sqlx::query_as(
+        "SELECT email, deleted_at IS NOT NULL, theme::text, time_zone FROM app_user WHERE id = $1",
+    )
+    .bind(ana.user_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(!erased.0.contains('@'), "{}", erased.0);
+    assert!(erased.1);
+    assert_eq!(erased.2, "system");
+    assert_eq!(erased.3, None);
+}
+
+#[sqlx::test]
+async fn a_rename_racing_the_erase_cannot_restore_the_name(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    let caller = CurrentUser {
+        id: ana.user_id,
+        token_id: 0,
+    };
+    delete_account(&ana, PASSWORD).await;
+
+    let rename = UpdateMe {
+        display_name: Some("Ana Lima".into()),
+        theme: Some(Theme::Dark),
+        time_zone: Some(Some("Pacific/Auckland".into())),
+    };
+    let result = service::update_me(&pool, &caller, rename).await;
+
+    assert_eq!(result.unwrap_err(), AppError::Unauthorized);
+    let row: (String, String, Option<String>) =
+        sqlx::query_as("SELECT display_name, theme::text, time_zone FROM app_user WHERE id = $1")
             .bind(ana.user_id)
             .fetch_one(&pool)
             .await
             .unwrap();
-    assert!(!erased.0.contains('@'), "{}", erased.0);
-    assert!(erased.1);
+    assert_eq!(row, ("Deleted user".into(), "system".into(), None));
 }
 
 #[sqlx::test]
-async fn erased_accounts_are_never_found_added_or_heirs(pool: PgPool) {
+async fn erased_accounts_are_never_heirs(pool: PgPool) {
     let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
     let carol = ana.another_user("carol@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     delete_account(&carol, PASSWORD).await;
     ana.create_project("TEAM", "scrum").await;
     ana.create_project("GHOST", "kanban").await;
-    for email in [
-        format!("deleted-{}@deleted.invalid", carol.user_id),
-        format!("erased:{}", carol.user_id),
-    ] {
-        let body = json!({ "email": email, "role": "admin" });
-        let (status, _) = ana.post("/api/projects/TEAM/members", body).await;
-        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{email}");
-    }
-    join(&ana, "TEAM", "bob@example.com", "member").await;
+    ana.add_member("TEAM", &bob, "member").await;
     for key in ["TEAM", "GHOST"] {
         sqlx::query(
             "INSERT INTO member (project_id, user_id, role)

@@ -10,6 +10,12 @@ describe('sprint ranges', () => {
     expect(formatRange(at(16, 0), at(16, 23, 59))).toBe('Oct 16')
   })
 
+  it("names the browser's zone for one this browser does not know", () => {
+    expect(formatRange(at(16, 9), at(16, 22), 'h23', 'Mars/Olympus')).toBe(
+      'Oct 16, 09:00 – 22:00 EDT'
+    )
+  })
+
   it('shows the times and the zone otherwise, in the hour cycle of the locale', () => {
     expect(formatRange(at(16, 9), at(16, 22), 'h23')).toBe(
       'Oct 16, 09:00 – 22:00 EDT'
@@ -22,6 +28,21 @@ describe('sprint ranges', () => {
     )
     expect(formatRange(at(16, 9), at(16, 22))).toBe(
       'Oct 16, 9:00 AM – 10:00 PM EDT'
+    )
+  })
+
+  it("reads days and times in the account's zone when given one", () => {
+    const auckland = 'Pacific/Auckland'
+    expect(
+      formatRange(
+        '2026-09-30T11:00:00Z',
+        '2026-10-14T10:59:00Z',
+        'h23',
+        auckland
+      )
+    ).toBe('Oct 1 – Oct 14')
+    expect(formatRange(at(16, 9), at(16, 22), 'h23', auckland)).toBe(
+      'Oct 17, 02:00 – 15:00 GMT+13'
     )
   })
 })

@@ -74,6 +74,12 @@ export default [
     gzip: true,
   },
   {
+    name: 'initial JS, /account',
+    path: firstVisit(SHELL, split('_authenticated/account.tsx')),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
     name: 'initial JS, /p/KEY/board (project page)',
     path: firstVisit(
       SHELL,
@@ -132,6 +138,16 @@ export default [
       SHELL,
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/reports/index.tsx')
+    ),
+    limit: '170 KB',
+    gzip: true,
+  },
+  {
+    name: 'initial JS, /p/KEY/people',
+    path: firstVisit(
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/people.tsx')
     ),
     limit: '170 KB',
     gzip: true,

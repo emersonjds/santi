@@ -21,6 +21,7 @@
   <a href="#cli-and-mcp">CLI and MCP</a> ·
   <a href="#api">API</a> ·
   <a href="docs/deploy/railway.md">Deploy</a> ·
+  <a href="#pricing-and-sustainability">Pricing</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
@@ -90,7 +91,7 @@ You need Docker with Compose ([Docker Desktop](https://www.docker.com/products/d
 ```bash
 git clone https://github.com/emersonjds/santi.git
 cd santi
-docker compose up -d        # first run builds the image, a few minutes
+docker compose up -d        # pulls the published image
 ```
 
 Open <http://localhost:8080>, choose **Create account**, then **New project**. The database lives
@@ -104,8 +105,10 @@ docker compose down -v          # stop and delete the data
 
 To host it for a team, see [Deploy on Railway](docs/deploy/railway.md).
 
-Change the ports with `SANTI_PORT` (default 8080) and `SANTI_DB_PORT` (default 5440, bound to
-localhost only), e.g. `SANTI_PORT=9000 docker compose up -d`.
+Change the ports with `SANTI_PORT` (default 8080) and `SANTI_DB_PORT` (default 5440); both are
+bound to localhost only, so a server puts an HTTPS reverse proxy in front (see below), e.g.
+`SANTI_PORT=9000 docker compose up -d`. Pin a release with `SANTI_VERSION=0.23.0`; build from the
+checkout with `docker compose -f compose.yaml -f compose.build.yaml up -d --build`.
 
 **Browsers:** the session cookie is `Secure`. Chrome, Edge and Firefox accept it on
 `http://localhost`; Safari does not, so on plain HTTP sign in with one of the others or put HTTPS
@@ -237,6 +240,23 @@ which uses the committed `.sqlx/` query data instead.
 [CONTRIBUTING.md](CONTRIBUTING.md) has the full setup, the quality gate and the workflow. Please
 read the [Code of Conduct](CODE_OF_CONDUCT.md); report vulnerabilities as described in
 [SECURITY.md](SECURITY.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+
+## Pricing and sustainability
+
+santi is free and open source, and every feature ships in the open code. What costs money is
+running it for someone else.
+
+| | Who it is for | Price |
+|---|---|---|
+| Self-host | teams with a server of their own | free, complete, no user or project limits; you pay only your own infrastructure |
+| Hosted, Free | small teams trying santi | free: up to 5 people, 1 project, 1 GB of attachments |
+| Hosted, Team | teams that would rather not run a server | one flat monthly price per workspace (planned around US$ 19), unlimited people and projects |
+| Add-ons | companies | white-label (your brand instead of santi's) and single sign-on, licensed on top of the same code |
+| Services | teams moving from another tracker | migration and support, quoted per case |
+
+The hosted plans are not open yet; self-hosting works today ([Quick start](#quick-start)). The
+public instance that runs santi's own backlog costs about US$ 20 a month (app, PostgreSQL and the
+attachments bucket). Hosting and services fund the work, never features locked out of the code.
 
 ## License
 

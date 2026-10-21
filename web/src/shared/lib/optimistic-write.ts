@@ -5,24 +5,24 @@ import {
 } from '@tanstack/react-query'
 import { toast } from './toast'
 
-type OptimisticWrite<View, Variables> = {
+type OptimisticWrite<View, Variables, Result> = {
   /** The caches patched at once and rolled back on failure. */
   queryKey: QueryKey
   /** Other views the write changes, refetched once it settles. */
   refresh?: QueryKey[]
-  write: (variables: Variables) => Promise<unknown>
+  write: (variables: Variables) => Promise<Result>
   change: (view: View, variables: Variables) => View
   failure: (variables: Variables) => string
 }
 
 /** D37 optimistic write. */
-export const useOptimisticWrite = <View, Variables>({
+export const useOptimisticWrite = <View, Variables, Result = unknown>({
   queryKey,
   refresh,
   write,
   change,
   failure,
-}: OptimisticWrite<View, Variables>) => {
+}: OptimisticWrite<View, Variables, Result>) => {
   const queryClient = useQueryClient()
   const laterWritePending = () =>
     queryClient.isMutating({ mutationKey: queryKey }) > 1

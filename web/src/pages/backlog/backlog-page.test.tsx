@@ -3,6 +3,7 @@ import { page, userEvent } from 'vitest/browser'
 import type { Backlog, BacklogSection } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
+  ALICE,
   WEB_BACKLOG,
   card,
   inProjects,
@@ -104,14 +105,15 @@ describe('backlog page', () => {
     await expect
       .element(bug.getByTitle('Assigned to Bob Stone'))
       .toHaveTextContent('BS')
-    // D6: a parent row counts its open subtasks, like its board card.
+    // D57: a parent row counts its done subtasks, like its board card.
     await expect
-      .element(bug.getByTitle('1 of 2 subtasks open'))
-      .toHaveTextContent('1/2')
-    expect(row.getByTitle(/subtasks open/).elements()).toHaveLength(0)
+      .element(bug.getByTitle('2 of 3 subtasks done'))
+      .toHaveTextContent('2/3')
+    expect(row.getByTitle(/subtasks done/).elements()).toHaveLength(0)
   })
 
   it('shows two labels on a row, then how many more', async () => {
+    await page.viewport(1440, 900)
     withBacklog(
       backlogOf(
         {
@@ -144,6 +146,43 @@ describe('backlog page', () => {
     await expect
       .element(bug.getByText('+1', { exact: true }))
       .toHaveAttribute('title', 'api')
+    await page.viewport(414, 896)
+  })
+
+  it('shows one whole label on a phone row, then how many more', async () => {
+    await page.viewport(375, 800)
+    withBacklog(
+      backlogOf(
+        {
+          ...ACTIVE,
+          cards: ACTIVE.cards.map((each) =>
+            each.key === 'WEB-2'
+              ? { ...each, labels: ['regression', 'docs', 'api'] }
+              : each
+          ),
+        },
+        PLANNED,
+        EMPTY,
+        NO_SPRINT
+      )
+    )
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    const bug = screen
+      .getByRole('region', { name: 'Sprint 4' })
+      .getByRole('listitem')
+      .nth(1)
+    const first = bug.getByTitle('regression', { exact: true })
+    await expect.element(first).toBeVisible()
+    const chip = first.element()
+    expect(chip.scrollWidth).toBeLessThanOrEqual(chip.clientWidth)
+    await expect
+      .element(bug.getByTitle('docs', { exact: true }))
+      .not.toBeVisible()
+    await expect
+      .element(bug.getByText('+2', { exact: true }))
+      .toHaveAttribute('title', 'docs, api')
+    await page.viewport(414, 896)
   })
 
   it('lets a planned sprint start only when no other runs and it holds an issue', async () => {
@@ -188,6 +227,34 @@ describe('backlog page', () => {
       .element(active.getByRole('timer'))
       .toHaveTextContent(/^Overdue by \d+ days$/)
     await expect.element(active).toHaveTextContent('Mar 2 – Mar 16')
+  })
+
+  it("dates a sprint in the account's time zone", async () => {
+    inProjects({
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+      'GET /api/projects/WEB/backlog': {
+        status: 200,
+        body: backlogOf(
+          {
+            ...ACTIVE,
+            sprint: {
+              ...ACTIVE.sprint!,
+              starts_at: '2026-03-02T05:00:00Z',
+              ends_at: '2026-03-17T03:59:00Z',
+            },
+          },
+          NO_SPRINT
+        ),
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/backlog')
+
+    await expect
+      .element(screen.getByRole('region', { name: 'Sprint 4' }))
+      .toHaveTextContent(/Mar 2, .* – Mar 17, /)
   })
 
   it('collapses a section from its header', async () => {
