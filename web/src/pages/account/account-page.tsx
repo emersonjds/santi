@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
+import { ChangePasswordForm } from '@/features/account/change-password-form'
 import { DeleteAccountButton } from '@/features/account/delete-account-button'
 import { DisplayNameField } from '@/features/account/display-name-field'
 import { ExportDataButton } from '@/features/account/export-data-button'
+import { SessionsList } from '@/features/account/sessions-list'
 import { ThemeControl } from '@/features/account/theme-control'
 import { TimeZoneControl } from '@/features/account/time-zone-control'
 import { CreateTokenForm } from '@/features/api-token/create-token-form'
@@ -81,6 +83,18 @@ export const AccountPage = () => {
         </h2>
         <ThemeControl saved={user.theme} />
         <TimeZoneControl saved={user.time_zone} />
+      </section>
+      <section aria-labelledby='security' className='grid gap-4'>
+        <h2
+          id='security'
+          tabIndex={-1}
+          className='text-lg font-semibold outline-none'
+        >
+          Security
+        </h2>
+        <ChangePasswordForm />
+        <h3 className='font-medium'>Sessions</h3>
+        <SessionsList headingId='security' />
       </section>
       <section aria-labelledby='tokens' className='grid gap-4'>
         <div className='grid gap-1'>

@@ -16,13 +16,18 @@ pub struct InviteGrant {
 
 /// D28 + D39: the caller's token and membership in one round trip. `None` = unknown or expired
 /// token (401); `Some(None)` = signed in but not a member of `project_key`, or it is trashed (404).
+/// A session's last activity is refreshed at most every 10 minutes (D60).
 pub async fn find_member_by_token(
     conn: &mut PgConnection,
     project_key: &str,
     token_hash: &[u8],
 ) -> Result<Option<Option<Member>>, sqlx::Error> {
     let row = sqlx::query!(
-        r#"SELECT t.user_id, p.id AS "project_id?", p.key AS "project_key?", b.id AS "board_id?",
+        r#"WITH touched AS (
+             UPDATE auth_token SET last_used_at = now()
+             WHERE token_hash = $1 AND kind = 'session' AND expires_at > now()
+               AND last_used_at < now() - interval '10 minutes')
+           SELECT t.user_id, p.id AS "project_id?", p.key AS "project_key?", b.id AS "board_id?",
                   b.board_type AS "board_type?: BoardType", m.role AS "role?: MemberRole",
                   p.archived_at IS NOT NULL AS "archived?"
            FROM auth_token t
