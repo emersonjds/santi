@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 34] = [
+const TOOLS: [&str; 36] = [
     "add_attachment",
     "add_comment",
     "archive_project",
@@ -29,6 +29,7 @@ const TOOLS: [&str; 34] = [
     "get_issue",
     "get_sprint_report",
     "get_team_progress",
+    "link_issues",
     "list_attachments",
     "list_comments",
     "list_epics",
@@ -47,8 +48,65 @@ const TOOLS: [&str; 34] = [
     "start_sprint",
     "trash_project",
     "unarchive_project",
+    "unlink_issues",
     "update_issue",
 ];
+
+#[test]
+fn stdio_links_issues_shows_them_on_get_issue_and_unlinks() {
+    let token = server().user();
+    server().project(&token, "MLK", "kanban");
+    for summary in ["Source", "Target"] {
+        server().post(
+            &token,
+            "/api/projects/MLK/issues",
+            json!({ "summary": summary }),
+        );
+    }
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let mut command = santi(&config);
+        command.env("SANTI_TOKEN", &token);
+        let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        let tools = client.list_all_tools().await.unwrap();
+        let hints = |name: &str| {
+            let tool = tools.iter().find(|tool| tool.name == name).unwrap();
+            tool.annotations.clone().unwrap()
+        };
+        assert_eq!(hints("link_issues").destructive_hint, Some(false));
+        assert_eq!(hints("unlink_issues").destructive_hint, Some(true));
+
+        let link = ok(
+            &client,
+            "link_issues",
+            json!({ "issue": "MLK-1", "relation": "blocks", "other": "MLK-2" }),
+        )
+        .await;
+        assert_eq!(link["issue"]["key"], "MLK-2");
+        let target = ok(&client, "get_issue", json!({ "issue": "MLK-2" })).await;
+        assert_eq!(target["key"], "MLK-2");
+        assert_eq!(target["links"][0]["relation"], "is_blocked_by");
+        assert_eq!(target["links"][0]["issue"]["key"], "MLK-1");
+
+        let removed = ok(
+            &client,
+            "unlink_issues",
+            json!({ "issue": "MLK-2", "other": "MLK-1" }),
+        )
+        .await;
+        assert_eq!(removed["id"], link["id"]);
+        let missing = rejected(
+            &client,
+            "unlink_issues",
+            json!({ "issue": "MLK-2", "other": "MLK-1", "relation": "is_blocked_by" }),
+        )
+        .await;
+        assert_eq!(missing, "no link between MLK-2 and MLK-1");
+        let source = ok(&client, "get_issue", json!({ "issue": "MLK-1" })).await;
+        assert_eq!(source["links"], json!([]));
+        client.cancel().await.unwrap();
+    });
+}
 
 fn santi(config: &tempfile::TempDir) -> tokio::process::Command {
     let mut command = tokio::process::Command::new(env!("CARGO_BIN_EXE_santi"));

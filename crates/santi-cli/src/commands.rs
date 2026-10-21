@@ -11,6 +11,7 @@ use santi_types::issues::{
     Comment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams, StatusFilter,
     UpdateIssue,
 };
+use santi_types::links::IssueLink;
 use santi_types::notifications::{Notification, NotificationKind};
 use santi_types::people::{PersonProgress, TeamProgress};
 use santi_types::projects::{
@@ -24,7 +25,7 @@ use crate::cli::{
     Cli, Command, CommentArgs, Filter, InvitesCommand, IssuesCommand, NotificationsCommand,
     PlanArgs, ProjectsCommand, ReportCommand, SprintsCommand,
 };
-use crate::client::{Client, IssueKey, ProjectKey};
+use crate::client::{Client, IssueKey, ProjectKey, relation_label};
 use crate::config::{self, Config};
 use crate::error::Error;
 use crate::sprint_time::{self, window_text};
@@ -220,7 +221,41 @@ async fn issues(client: &Client, command: IssuesCommand, json: bool) -> Result<(
             let found = issue_page(client, &project, None, filter).await?;
             show(json, &found, page_text)
         }
-        IssuesCommand::Show { issue } => show(json, &client.issue(&issue).await?, issue_text),
+        IssuesCommand::Show { issue } => {
+            let (found, links) = tokio::join!(client.issue(&issue), client.links(&issue));
+            let shown = IssueWithLinks {
+                issue: found?,
+                links: links?,
+            };
+            show(json, &shown, |shown| match shown.links.is_empty() {
+                true => issue_text(&shown.issue),
+                false => format!(
+                    "{}\n\n{}",
+                    issue_text(&shown.issue),
+                    links_text(&shown.links)
+                ),
+            })
+        }
+        IssuesCommand::Link {
+            issue,
+            relation,
+            other,
+        } => {
+            let link = client.link(&issue, relation.into(), &other).await?;
+            show(json, &link, |link| link_line(&issue, link))
+        }
+        IssuesCommand::Unlink {
+            issue,
+            other,
+            relation,
+        } => {
+            let link = client
+                .unlink(&issue, &other, relation.map(Into::into))
+                .await?;
+            show(json, &link, |link| {
+                format!("Unlinked {}", link_line(&issue, link))
+            })
+        }
         IssuesCommand::Create {
             project,
             summary,
@@ -880,6 +915,43 @@ fn issue_text(issue: &Issue) -> String {
     text
 }
 
+#[derive(Serialize)]
+struct IssueWithLinks {
+    #[serde(flatten)]
+    issue: Issue,
+    links: Vec<IssueLink>,
+}
+
+fn link_line(issue: &IssueKey, link: &IssueLink) -> String {
+    format!(
+        "{issue} {} {}",
+        relation_label(link.relation),
+        link.issue.key
+    )
+}
+
+/// One line per link, grouped in the relation's display order; empty without links.
+fn links_text(links: &[IssueLink]) -> String {
+    if links.is_empty() {
+        return String::new();
+    }
+    let mut sorted: Vec<&IssueLink> = links.iter().collect();
+    sorted.sort_by_key(|link| link.relation);
+    let rows: Vec<String> = sorted
+        .iter()
+        .map(|link| {
+            format!(
+                "  {}: {} {} [{}]",
+                relation_label(link.relation),
+                link.issue.key,
+                printable(&link.issue.summary),
+                printable(&link.issue.status_name)
+            )
+        })
+        .collect();
+    format!("Links:\n{}", rows.join("\n"))
+}
+
 fn comments_text(comments: &[Comment], now: DateTime<Utc>) -> String {
     if comments.is_empty() {
         return "(no comments)".into();
@@ -1313,6 +1385,41 @@ mod tests {
              \n\
              Make it so."
         );
+    }
+
+    #[test]
+    fn links_text_groups_by_relation_and_strips_terminal_controls() {
+        let link = |id: i64, relation: &str, key: &str, summary: &str, status: &str| {
+            serde_json::from_value::<IssueLink>(serde_json::json!({
+                "id": id, "relation": relation, "issue": {
+                    "key": key, "summary": summary, "status_id": 1, "status_name": status,
+                    "status_category": "todo", "priority": "medium", "assignee_id": null,
+                    "assignee_name": null, "issue_type": "task",
+                },
+            }))
+            .unwrap()
+        };
+        let links = [
+            link(1, "relates", "SAN-3", "Docs", "In Progress"),
+            link(2, "blocks", "SAN-2", "Ship", "To Do"),
+            link(
+                3,
+                "is_blocked_by",
+                "SAN-4",
+                "\u{202e}Evil\u{1b}[31m",
+                "Done",
+            ),
+            link(4, "blocks", "OPS-9", "Deploy", "To Do"),
+        ];
+        assert_eq!(
+            links_text(&links),
+            "Links:\n  \
+             blocks: SAN-2 Ship [To Do]\n  \
+             blocks: OPS-9 Deploy [To Do]\n  \
+             is blocked by: SAN-4 Evil[31m [Done]\n  \
+             relates to: SAN-3 Docs [In Progress]"
+        );
+        assert_eq!(links_text(&[]), "");
     }
 
     #[test]

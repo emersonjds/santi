@@ -13,6 +13,7 @@ use santi_types::issues::{
     Comment, CreateComment, CreateIssue, Issue, IssueFilter, MoveIssue, Page, PageParams,
     StatusFilter, UpdateComment, UpdateIssue,
 };
+use santi_types::links::{CreateLink, IssueLink, Relation};
 use santi_types::notifications::Notification;
 use santi_types::people::TeamProgress;
 use santi_types::projects::{
@@ -251,6 +252,61 @@ impl Client {
         let id = id.to_string();
         self.send(self.issue_request(Method::DELETE, key, &["comments", &id]))
             .await
+    }
+
+    pub async fn links(&self, key: &IssueKey) -> Result<Vec<IssueLink>, Error> {
+        self.send(self.issue_request(Method::GET, key, &["links"]))
+            .await
+    }
+
+    pub async fn link(
+        &self,
+        key: &IssueKey,
+        relation: Relation,
+        other: &IssueKey,
+    ) -> Result<IssueLink, Error> {
+        let request = self.issue_request(Method::POST, key, &["links"]);
+        let body = CreateLink {
+            relation,
+            issue: other.to_string(),
+        };
+        self.send(request.json(&body)).await
+    }
+
+    /// Deletes the one link from `key` to `other`, of `relation` when given; the API deletes by id.
+    pub async fn unlink(
+        &self,
+        key: &IssueKey,
+        other: &IssueKey,
+        relation: Option<Relation>,
+    ) -> Result<IssueLink, Error> {
+        let other_key = other.to_string();
+        let mut found: Vec<IssueLink> = self
+            .links(key)
+            .await?
+            .into_iter()
+            .filter(|link| {
+                link.issue.key == other_key && relation.is_none_or(|wanted| link.relation == wanted)
+            })
+            .collect();
+        let link = match found.len() {
+            0 => return Err(Error::Other(format!("no link between {key} and {other}"))),
+            1 => found.remove(0),
+            count => {
+                let relations: Vec<&str> = found
+                    .iter()
+                    .map(|link| relation_label(link.relation))
+                    .collect();
+                return Err(Error::Usage(format!(
+                    "{key} has {count} links to {other} ({}); name the relation",
+                    relations.join(", ")
+                )));
+            }
+        };
+        let id = link.id.to_string();
+        self.send::<()>(self.issue_request(Method::DELETE, key, &["links", &id]))
+            .await?;
+        Ok(link)
     }
 
     /// Every comment, oldest first, following the cursor to the last page.
@@ -568,6 +624,19 @@ impl FromStr for IssueKey {
 impl fmt::Display for IssueKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}-{}", self.project, self.number)
+    }
+}
+
+/// How `relation` reads in a sentence: "WEB-1 is blocked by WEB-2".
+pub fn relation_label(relation: Relation) -> &'static str {
+    match relation {
+        Relation::Blocks => "blocks",
+        Relation::IsBlockedBy => "is blocked by",
+        Relation::Relates => "relates to",
+        Relation::Duplicates => "duplicates",
+        Relation::IsDuplicatedBy => "is duplicated by",
+        Relation::Clones => "clones",
+        Relation::IsClonedBy => "is cloned by",
     }
 }
 
