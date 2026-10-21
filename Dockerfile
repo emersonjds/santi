@@ -2,7 +2,7 @@
 # One image, one origin (D38): the SPA build is served by the server from SANTI_WEB_DIR.
 # No BuildKit cache mounts: Railway's builder rejects cache ids without its service prefix.
 
-FROM node:24-trixie-slim AS web
+FROM node:24-trixie-slim@sha256:a6155384446670e9719bdc4fd0ebe4d4b29fb32a8d6aa523da3547a6cfbcf22c AS web
 WORKDIR /web
 RUN corepack enable
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
@@ -22,7 +22,7 @@ ARG VITE_HOSTING_REGION
 ARG VITE_LEGAL_VENUE
 RUN pnpm build
 
-FROM rust:slim-trixie AS server
+FROM rust:slim-trixie@sha256:00544ccc9431a2fe93e65185d21381b0a039342f5cefcf84fbddac273c9e573d AS server
 WORKDIR /src
 ENV SQLX_OFFLINE=true CARGO_PROFILE_RELEASE_STRIP=true
 COPY . .
@@ -31,9 +31,9 @@ RUN cargo build --release --locked -p santi-server --bin santi-server \
     && mkdir -p /data/attachments
 
 # Static busybox gives the distroless image a wget for the healthcheck.
-FROM busybox:1.37-musl AS busybox
+FROM busybox:1.37-musl@sha256:5cec3fc171c87218698e85a52af7087de727372aae264a787b8112901a5b0092 AS busybox
 
-FROM gcr.io/distroless/cc-debian13:nonroot
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:b7e81cb1af38d9345680e68bcf564d388f96304e25222030fc8c051faf8565b3
 COPY --from=busybox /bin/busybox /usr/local/bin/wget
 COPY --from=server /santi-server /usr/local/bin/santi-server
 COPY --from=web /web/dist /srv/santi/web
