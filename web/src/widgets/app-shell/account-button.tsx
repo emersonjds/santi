@@ -1,11 +1,11 @@
 import type { ComponentProps } from 'react'
-import { useSignedInUser } from '@/entities/session/use-signed-in-user'
+import { useRouteContext } from '@tanstack/react-router'
 import { UserAvatar } from '@/entities/user/user-avatar'
 import { fullName } from '@/shared/lib/initials'
 import { Button } from '@/shared/ui/button'
 
 export const AccountButton = (props: ComponentProps<typeof Button>) => {
-  const user = useSignedInUser()
+  const { user } = useRouteContext({ from: '/_authenticated' })
 
   return (
     <Button

@@ -1,7 +1,6 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouteContext } from '@tanstack/react-router'
 import { Keyboard, LogOut, MessageSquare, UserRound } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
-import { useSignedInUser } from '@/entities/session/use-signed-in-user'
 import { fullName } from '@/shared/lib/initials'
 import { FEEDBACK_URL } from '@/shared/lib/links'
 import {
@@ -15,7 +14,7 @@ import {
 import { AccountButton } from './account-button'
 
 export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
-  const user = useSignedInUser()
+  const { user } = useRouteContext({ from: '/_authenticated' })
   const signOut = useSignOut()
 
   return (

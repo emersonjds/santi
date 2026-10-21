@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { sessionQuery } from '@/entities/session/session-query'
 import { api, dataOrThrow } from '@/shared/api/client'
@@ -18,6 +19,7 @@ const problemOf = (name: string) => {
 /** SAN-93: saves the name on blur or Enter when it changed; Escape puts the saved one back. */
 export const DisplayNameField = ({ saved }: { saved: string }) => {
   const queryClient = useQueryClient()
+  const router = useRouter()
   const input = useRef<HTMLInputElement>(null)
   const lastSaved = useRef(saved)
   const [text, setText] = useState(saved)
@@ -28,6 +30,8 @@ export const DisplayNameField = ({ saved }: { saved: string }) => {
     onSuccess: (user) => {
       lastSaved.current = user.display_name
       queryClient.setQueryData(sessionQuery.queryKey, user)
+      // The shell reads the user from the route context, set once by beforeLoad.
+      void router.invalidate()
     },
     onError: () => input.current?.focus(),
   })
