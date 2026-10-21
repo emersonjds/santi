@@ -6,7 +6,7 @@ use std::time::Duration;
 use reqwest::multipart::{Form, Part};
 use reqwest::{Method, RequestBuilder, Response, Url};
 use santi_types::attachments::Attachment;
-use santi_types::auth::User;
+use santi_types::auth::{ProjectExport, User};
 use santi_types::boards::{Backlog, BoardSettings, BoardView};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult};
 use santi_types::issues::{
@@ -15,7 +15,9 @@ use santi_types::issues::{
 };
 use santi_types::notifications::Notification;
 use santi_types::people::TeamProgress;
-use santi_types::projects::{CreateProject, InviteInfo, MemberInfo, Project, ProjectState};
+use santi_types::projects::{
+    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult,
+};
 use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
 use serde::Serialize;
@@ -104,6 +106,11 @@ impl Client {
     pub async fn create_project(&self, project: &CreateProject) -> Result<Project, Error> {
         let request = self.request(Method::POST, &["projects"]);
         self.send(request.json(project)).await
+    }
+
+    pub async fn restore_project(&self, export: &ProjectExport) -> Result<RestoreResult, Error> {
+        let request = self.request(Method::POST, &["projects", "restore"]);
+        self.send(request.json(export)).await
     }
 
     /// `archive`, `unarchive`, `trash` or `restore`.
