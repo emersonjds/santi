@@ -125,6 +125,9 @@ pub struct Card {
     pub total_subtasks: i64,
     pub rank: String,
     pub updated_at: DateTime<Utc>,
+    /// Keys of the issues blocking this one that are not done and the viewer can open (D59).
+    #[serde(default)]
+    pub blocked_by: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ToSchema)]

@@ -453,6 +453,7 @@ mod tests {
             total_subtasks: 0,
             rank: format!("{id}"),
             updated_at: now(),
+            blocked_by: vec![],
         }
     }
 
