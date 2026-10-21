@@ -352,7 +352,7 @@ Leaving and the last admin
 
 ## santi today
 
-santi has global users, global projects, project members with admin or member role, add-by-email
+santi has global users, global projects, project members with admin or member role, joined through invite links
 for existing accounts, and one-time invite links. No organization, site, group, viewer role or
 access level.
 
@@ -369,11 +369,11 @@ access level.
 | OR-11 | Not applicable: no board id in URLs. |
 | OR-12 | Unknown: lower-case key in page paths not checked here. |
 | OR-13 | Different: unknown keys and non-members both get 404 (D28), no not-found page naming the key. |
-| OR-14, OR-15, OR-16 | Different: invites are links, not emails (no SMTP); one role per invite (admin or member); no pending-user entry in the member list. Adding by email works only for existing accounts. |
+| OR-14, OR-15, OR-16 | Different: invites are links, not emails (no SMTP); one role per invite (admin or member); no pending-user entry in the member list. |
 | OR-17 | Partial: only project admins create invites or add members. |
 | OR-18 | Different: links are per project, work once, expire in 7 days; a used link answers 410. |
 | OR-19, OR-20 | Missing: no approved domains, no access requests. |
-| OR-21 | Different: an admin can add any existing account by email; strangers need a link. |
+| OR-21 | Different: everyone joins through an invite link; adding an existing account by email was removed (SAN-182, D55) because it revealed which emails have accounts. |
 | OR-22 | Same: emails are unique; no account merge. |
 | OR-23, OR-24, OR-25, OR-26 | Missing: no instance-wide admin of any kind; project admin is the top role. |
 | OR-27, OR-28 | Partial: admin and member exist with fixed rights (IA §9); no viewer, guest or integration role. Members may also run sprints, as in the reference. |
