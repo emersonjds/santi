@@ -227,11 +227,7 @@ describe('linked issues (SAN-157)', () => {
     await section.getByRole('option', { name: /WEB-2/ }).click()
 
     await expect
-      .element(
-        section.getByText(
-          'Could not link the issues: these issues already have this link.'
-        )
-      )
+      .element(section.getByText('These issues are already linked.'))
       .toBeVisible()
     await expect
       .element(section.getByRole('combobox', { name: 'Issue to link' }))
