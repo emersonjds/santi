@@ -5,6 +5,7 @@ import { invitesQuery } from '@/entities/invite/invite-queries'
 import { commentTime } from '@/entities/issue/comment-time'
 import { timeAgo } from '@/entities/issue/time-ago'
 import { ROLE_LABEL } from '@/entities/project/labels'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import type { InviteInfo } from '@/shared/api/client'
 import { ReadOnly } from '@/shared/lib/read-only'
 import { Button } from '@/shared/ui/button'
@@ -21,6 +22,7 @@ const InviteRow = ({
   invite: InviteInfo
 }) => {
   const summary = `invite-${invite.id}`
+  const timeZone = useTimeZone()
   const row = useRef<HTMLLIElement>(null)
   const nextFocus = () => {
     const revoke = (element: Element | null | undefined) =>
@@ -66,7 +68,7 @@ const InviteRow = ({
                 dateTime={person.joined_at}
                 className='text-muted-foreground'
               >
-                {commentTime(person.joined_at)}
+                {commentTime(person.joined_at, timeZone)}
               </time>
             </li>
           ))}

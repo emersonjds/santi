@@ -5,6 +5,7 @@ import { page, userEvent } from 'vitest/browser'
 import type { Comment } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
+  ALICE,
   MEMBERS,
   WEB,
   WEB_COMMENTS,
@@ -119,6 +120,38 @@ describe('issue detail', () => {
     await expect
       .element(comment)
       .toHaveTextContent('Draft is in the shared doc.')
+  })
+
+  it("dates the issue and its comments in the account's time zone", async () => {
+    const evening = '2026-03-01T20:00:00Z' // Mar 2, 09:00 in Auckland
+    inProjects({
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+      'GET /api/projects/WEB/issues/1': {
+        status: 200,
+        body: { ...WEB_ISSUE, created_at: evening },
+      },
+      'GET /api/projects/WEB/issues/1/comments': {
+        status: 200,
+        body: {
+          items: [{ ...WEB_COMMENTS[0], created_at: evening }],
+          next_cursor: null,
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    const full = /^Mar 2, 2026, 9:00\sAM$/
+    await expect
+      .element(screen.getByRole('region', { name: 'Details' }).getByTitle(full))
+      .toBeVisible()
+    const comment = screen
+      .getByRole('region', { name: 'Comments' })
+      .getByRole('article')
+    await expect.element(comment).toHaveTextContent(/Mar 2(?!\d)/)
+    await expect.element(comment.getByTitle(full)).toBeVisible()
   })
 
   it('renders the description and comments as Markdown with mention chips', async () => {
