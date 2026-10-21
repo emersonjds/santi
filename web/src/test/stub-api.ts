@@ -289,7 +289,7 @@ export const WEB_BOARD: BoardView = {
         assignee_id: 2,
         assignee_name: 'Bob Stone',
         open_subtasks: 1,
-        total_subtasks: 2,
+        total_subtasks: 3,
       }),
     ]),
     column(2, 'In progress', [

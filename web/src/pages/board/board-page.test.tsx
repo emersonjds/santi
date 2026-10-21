@@ -35,8 +35,8 @@ describe('board page', () => {
     await expect.element(bug.getByText('Urgent priority')).toBeInTheDocument()
     await expect.element(bug.getByLabelText('3 points')).toBeVisible()
     await expect
-      .element(bug.getByTitle('1 of 2 subtasks open'))
-      .toHaveTextContent('1/2')
+      .element(bug.getByTitle('2 of 3 subtasks done'))
+      .toHaveTextContent('2/3')
     await expect
       .element(bug.getByTitle('Assigned to Bob Stone'))
       .toHaveTextContent('BS')
