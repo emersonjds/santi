@@ -23,12 +23,14 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import {
+  type Move,
   moveCard,
   planMove,
   recount,
   statusMove,
 } from '@/entities/issue/board-cache'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
+import { useOfferToFinishParent } from '@/entities/issue/finish-parent'
 import { CARD_LIST, EmptySlot } from '@/entities/issue/issue-card'
 import { useMoveIssue } from '@/entities/issue/issue-mutations'
 import { CATEGORY, type Status, statusesOf } from '@/entities/issue/statuses'
@@ -271,6 +273,14 @@ export const SortableBoard = ({
   renderCard,
 }: SortableBoardProps) => {
   const move = useMoveIssue(projectKey)
+  const offerToFinish = useOfferToFinishParent(projectKey)
+  const send = (plan: Move) =>
+    move.mutate(plan, {
+      onSuccess: () => {
+        const parent = plan.card.parent_key
+        if (parent) void offerToFinish(parent, plan.card.status_id)
+      },
+    })
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const [drag, setDrag] = useState<Drag | null>(null)
   const pending = drag?.base === board ? drag : null
@@ -317,7 +327,7 @@ export const SortableBoard = ({
         lanes: lanesOf(moveCard(board, plan)),
         held: null,
       })
-      return move.mutate(plan)
+      return send(plan)
     }
     const final = placed(lanes[to], held, target.id)
     const toIndex = final.findIndex((card) => card.key === held.key)
@@ -325,7 +335,7 @@ export const SortableBoard = ({
     if (held.column_id === to && before?.[toIndex]?.key === held.key)
       return setDrag(null)
     setDrag({ base: board, lanes: { ...lanes, [to]: final }, held: null })
-    move.mutate(planMove(board, held, to, toIndex))
+    send(planMove(board, held, to, toIndex))
   }
 
   return (

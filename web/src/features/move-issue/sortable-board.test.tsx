@@ -2,7 +2,13 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
-import { WEB_SETTINGS, inProjects, problem, routeOf } from '@/test/stub-api'
+import {
+  WEB_SETTINGS,
+  inProjects,
+  issue,
+  problem,
+  routeOf,
+} from '@/test/stub-api'
 
 const MOVE = 'POST /api/projects/WEB/issues/1/move'
 
@@ -169,5 +175,35 @@ describe('moving cards by drag and drop', () => {
       )
       .toBeVisible()
     expect(requests.map(routeOf)).not.toContain(MOVE)
+  })
+
+  it('offers to finish the parent once a move takes its last open subtask to done (SB-22)', async () => {
+    const done = (key: string) =>
+      issue({
+        key,
+        summary: key,
+        issue_type: 'subtask',
+        parent_key: 'WEB-2',
+        status_id: 30,
+      })
+    const requests = inProjects({
+      'POST /api/projects/WEB/issues/3/move': { status: 200, body: {} },
+      'GET /api/projects/WEB/issues': {
+        status: 200,
+        body: { items: [done('WEB-3'), done('WEB-8')], next_cursor: null },
+      },
+      'POST /api/projects/WEB/issues/2/move': { status: 200, body: {} },
+    })
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await dragWithKeys(screen, 'WEB-3', 'ArrowRight')
+
+    await expect
+      .element(screen.getByText('All subtasks are done. Move WEB-2 to Done?'))
+      .toBeVisible()
+    await screen.getByRole('button', { name: 'Move', exact: true }).click()
+    await expect
+      .poll(() => bodyOf(requests, 'POST /api/projects/WEB/issues/2/move'))
+      .toEqual({ status_id: 30 })
   })
 })
