@@ -20,6 +20,7 @@ const GROUPS = [
       ['⌘ K', 'Jump to a project'],
       ['g b', 'Go to the board'],
       ['g l', 'Go to the backlog'],
+      ['l', 'Link the open issue to another'],
       ['?', 'Show these shortcuts'],
     ],
   },
