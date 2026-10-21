@@ -9,6 +9,7 @@ import { membersQuery } from '@/entities/project/project-queries'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import type { Card } from '@/shared/api/client'
 import { useHeldEditor } from '@/shared/lib/held-editor'
+import { lockedSelect, useReadOnly } from '@/shared/lib/read-only'
 
 type RowFieldProps = {
   card: Card
@@ -137,6 +138,7 @@ export const RowAssignee = ({
   useUpdate = useUpdateRow,
 }: RowFieldProps) => {
   const update = useUpdate(projectKey)
+  const note = useReadOnly()
   const { data: members = [] } = useQuery(membersQuery(projectKey))
   return (
     <span
@@ -161,6 +163,7 @@ export const RowAssignee = ({
             shown: { assignee_id, assignee_name },
           })
         }}
+        {...lockedSelect(note)}
         className='absolute inset-0 cursor-pointer appearance-none opacity-0'
       >
         <option value=''>Unassigned</option>
@@ -181,6 +184,7 @@ export const RowPriority = ({
   useUpdate = useUpdateRow,
 }: RowFieldProps) => {
   const update = useUpdate(projectKey)
+  const note = useReadOnly()
   return (
     <span
       className={`${HIT} size-6 rounded-md focus-within:ring-2 focus-within:ring-ring`}
@@ -195,6 +199,7 @@ export const RowPriority = ({
           if (isPriority(priority))
             update.mutate({ card, change: { priority }, shown: { priority } })
         }}
+        {...lockedSelect(note)}
         className='absolute inset-0 cursor-pointer appearance-none opacity-0'
       >
         {Object.entries(PRIORITY_LABEL).map(([value, label]) => (

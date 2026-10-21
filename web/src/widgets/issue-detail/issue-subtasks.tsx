@@ -6,7 +6,7 @@ import { RowAssignee, RowPriority } from '@/features/edit-row/row-fields'
 import { cardOf } from '@/entities/issue/board-cache'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { useOfferToFinishParent } from '@/entities/issue/finish-parent'
-import { PriorityGlyph, TypeGlyph } from '@/entities/issue/issue-glyphs'
+import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import {
   useCreateIssue,
   useMoveSubtask,
@@ -14,13 +14,11 @@ import {
 } from '@/entities/issue/issue-mutations'
 import { subtasksQuery } from '@/entities/issue/issue-queries'
 import { CATEGORY, statusesById } from '@/entities/issue/statuses'
-import { AssigneeAvatar } from '@/entities/user/user-avatar'
 import {
   type BoardSettings,
   type Issue,
   fieldMessage,
 } from '@/shared/api/client'
-import { useReadOnly } from '@/shared/lib/read-only'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
@@ -28,17 +26,15 @@ import { NativeSelect } from '@/shared/ui/native-select'
 
 type SubtaskRowProps = {
   subtask: Issue
-  subtasks: Issue[]
   parentKey: string
   projectKey: string
   settings?: BoardSettings
-  onStatusMoved: (from: number, subtasksAfter: Issue[]) => void
+  onStatusMoved: (from: number, to: number) => void
 }
 
 /** SAN-156: one line on wide screens; on a phone the controls take a second line. */
 const SubtaskRow = ({
   subtask,
-  subtasks,
   parentKey,
   projectKey,
   settings,
@@ -46,7 +42,6 @@ const SubtaskRow = ({
 }: SubtaskRowProps) => {
   const move = useMoveSubtask(projectKey, parentKey)
   const update = useUpdateSubtask(projectKey, parentKey)
-  const locked = useReadOnly() !== undefined
   const category = statusesById(settings).get(subtask.status_id)?.category
   const card = {
     ...cardOf(subtask, 0),
@@ -54,15 +49,11 @@ const SubtaskRow = ({
   }
   const fields = { card, projectKey, useUpdate: () => update }
 
-  const changeStatus = (status_id: number) => {
-    const after = subtasks.map((each) =>
-      each.key === subtask.key ? { ...each, status_id } : each
-    )
+  const changeStatus = (status_id: number) =>
     move.mutate(
       { subtask, status_id },
-      { onSuccess: () => onStatusMoved(subtask.status_id, after) }
+      { onSuccess: () => onStatusMoved(subtask.status_id, status_id) }
     )
-  }
 
   return (
     <li className='grid grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 px-3 py-2 text-sm transition-colors duration-150 hover:bg-hover md:flex md:min-h-11 md:py-1'>
@@ -107,18 +98,8 @@ const SubtaskRow = ({
             />
           )}
         </span>
-        {locked ? (
-          <PriorityGlyph priority={subtask.priority} />
-        ) : (
-          <RowPriority {...fields} />
-        )}
-        {locked ? (
-          subtask.assignee_name && (
-            <AssigneeAvatar name={subtask.assignee_name} />
-          )
-        ) : (
-          <RowAssignee {...fields} />
-        )}
+        <RowPriority {...fields} />
+        <RowAssignee {...fields} />
       </span>
     </li>
   )
@@ -186,12 +167,11 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
           <SubtaskRow
             key={subtask.key}
             subtask={subtask}
-            subtasks={subtasks}
             parentKey={issue.key}
             projectKey={projectKey}
             settings={settings}
-            onStatusMoved={(from, after) =>
-              void offerToFinish(issue.key, from, after)
+            onStatusMoved={(from, to) =>
+              void offerToFinish(issue.key, from, to)
             }
           />
         ))}
