@@ -309,6 +309,9 @@ async fn patching_me_names_the_invalid_field(pool: PgPool) {
         (json!({ "theme": "blue" }), "theme"),
         (json!({ "time_zone": "Mars/Olympus" }), "time_zone"),
         (json!({ "display_name": "" }), "display_name"),
+        (json!({ "theme": 5 }), "theme"),
+        (json!({ "theme": true }), "theme"),
+        (json!({ "time_zone": "Pacific/Auck\u{0}land" }), "time_zone"),
     ] {
         let (status, problem) = app.patch("/api/me", body).await;
 
@@ -343,6 +346,55 @@ async fn patching_me_needs_a_session(pool: PgPool) {
     let (status, _) = app.patch("/api/me", json!({ "theme": "dark" })).await;
 
     assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test]
+async fn a_truncated_patch_is_a_bad_request(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+    let request = Request::patch("/api/me")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(
+            header::AUTHORIZATION,
+            format!("Bearer {}", app.token.as_deref().unwrap()),
+        )
+        .body(Body::from(r#"{"theme":"#))
+        .unwrap();
+
+    let response = app.send(request).await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test]
+async fn patching_me_cross_site_with_a_cookie_is_forbidden(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
+    let cookie = session_cookie(&register(&app, "ana@example.com", PASSWORD).await);
+    let mut request = json_request(
+        Method::PATCH,
+        "/api/me",
+        None,
+        Some(json!({ "theme": "dark" })),
+    );
+    let headers = request.headers_mut();
+    headers.insert(header::COOKIE, cookie.parse().unwrap());
+    headers.insert(header::ORIGIN, "https://evil.example".parse().unwrap());
+
+    let response = app.send(request).await;
+    let me = app.send(with_cookie(Method::GET, "/api/me", &cookie)).await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(body_json(me).await["theme"], "system");
+}
+
+/// D54: a token acts with all of its owner's rights.
+#[sqlx::test]
+async fn an_api_token_can_patch_me(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+
+    let (status, me) = app.patch("/api/me", json!({ "theme": "light" })).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(me["theme"], "light");
 }
 
 #[sqlx::test]

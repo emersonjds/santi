@@ -204,23 +204,17 @@ impl From<sqlx::Error> for AppError {
 /// SQLSTATE 22021, raised for a NUL character in text.
 const UNTRANSLATABLE_CHARACTER: &str = "22021";
 
-/// Valid JSON of the wrong shape (an unknown field, a wrong type) is a 422 naming the problem;
-/// anything else (broken syntax, wrong content type) stays a 400.
+/// Broken syntax or a wrong content type; valid JSON of the wrong shape goes through [`wrong_shape`].
 impl From<JsonRejection> for AppError {
     fn from(rejection: JsonRejection) -> Self {
-        match rejection {
-            JsonRejection::JsonDataError(error) => wrong_shape(&error.body_text()),
-            rejection => AppError::BadRequest(rejection.body_text()),
-        }
+        AppError::BadRequest(rejection.body_text())
     }
 }
 
-/// axum prefixes serde's reason, and serde names the Rust type a non-object body should have been.
-fn wrong_shape(text: &str) -> AppError {
-    let mut reason = text
-        .strip_prefix("Failed to deserialize the JSON body into the target type: ")
-        .unwrap_or(text)
-        .to_string();
+/// Valid JSON of the wrong shape (an unknown field, a wrong type) is a 422 naming the problem.
+/// serde names the Rust type a non-object body should have been.
+pub(crate) fn wrong_shape(text: &str) -> AppError {
+    let mut reason = text.to_string();
     for rust_type in ["expected struct ", "expected internally tagged enum "] {
         if let Some((before, after)) = reason.split_once(rust_type) {
             let rest = after.split_once(' ').map_or("", |(_, rest)| rest);
@@ -233,12 +227,11 @@ fn wrong_shape(text: &str) -> AppError {
         .iter()
         .find_map(|marker| reason.split_once(marker)?.1.split_once('`'))
         .map(|(name, _)| name)
-        // serde_path_to_error prefixes a bad value with its path: "theme: unknown variant `blue`".
+        // serde_path_to_error prefixes a bad value with its path: "ids[1]: invalid type".
         .or_else(|| {
-            reason
-                .split_once(": ")
-                .map(|(path, _)| path)
-                .filter(|path| !path.contains(' '))
+            let (path, _) = reason.split_once(": ")?;
+            let key = path.split(['.', '[']).next()?;
+            (!key.is_empty() && !key.contains(' ')).then_some(key)
         })
         .unwrap_or("body")
         .to_string();
@@ -323,6 +316,29 @@ mod tests {
         let response = AppError::Internal("boom".into()).into_response();
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    #[test]
+    fn a_wrong_shape_names_only_the_top_level_key() {
+        for (text, field) in [
+            (
+                "parent.child: invalid type: integer `5`, expected a string",
+                "parent",
+            ),
+            ("ids[1]: invalid type: string \"x\", expected i64", "ids"),
+            (
+                "m.<b>evil</b>: invalid type: integer `5`, expected a string",
+                "m",
+            ),
+            ("m.a b: invalid type: integer `5`, expected a string", "m"),
+            ("[0]: invalid type: integer `5`, expected a string", "body"),
+            ("theme: unknown variant `blue`, expected `light`", "theme"),
+        ] {
+            let AppError::WrongShape(error) = super::wrong_shape(text) else {
+                panic!("{text}");
+            };
+            assert_eq!(error.field, field, "{text}");
+        }
     }
 
     #[test]
