@@ -690,3 +690,11 @@ Winner: A (product, ia, ux) — enough to recognise a device, nothing that locat
 - Last activity is refreshed at most every 10 minutes per session, inside the token lookup; API token rows keep their creation time there (only sessions show last activity). A read-only database would fail that refresh, so a read replica needs it switched off first (scale strategy).
 - Changing the password ends every other session; API tokens stay until revoked from their own list.
 - An API token may change the password (the CLI signs in only with tokens); the current password is always required, so a leaked token alone cannot do it.
+
+## D61 — AGPL-3.0 and a trademark policy (SAN-190; follows D56, amends the licence line of D37)
+Context: D56 funds santi through hosting and services. Under MIT OR Apache-2.0 anyone can host santi for others and keep their changes closed.
+Options: A) AGPL-3.0-only plus a trademark policy B) keep MIT OR Apache-2.0 C) a source-available licence (BSL, SSPL)
+Winner: A (owner, 2026-10-21) — still open source, self-hosting and internal company use stay free and unaffected, and whoever offers a modified santi over a network publishes the changes; C is not open source and would cost the community's trust.
+- Releases up to 0.24.1 remain available under MIT OR Apache-2.0; AGPL-3.0-only applies from the next release.
+- `TRADEMARK.md` governs the name and logo: run it and call it santi; rename a modified version you distribute or host; never imply you are the official project. It limits use of the marks, not what the licence allows with the code.
+- The owner is the only author so far, so the change needs no other consent; new contributions come in under AGPL-3.0-only (CONTRIBUTING).
