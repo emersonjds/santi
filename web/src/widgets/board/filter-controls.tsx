@@ -80,13 +80,15 @@ export const AssigneeToggles = ({ projectKey, search }: FilterProps) => {
 export const OnlyMineToggle = ({ search }: { search: BoardSearch }) => {
   const me = useMe()
   const assignee = search.assignee ?? []
-  const onlyMine = assignee.length === 1 && assignee[0] === me?.id
+  const onlyMine =
+    assignee.length === 1 && assignee[0] === me?.id && !search.unassigned
   return (
     <Link
       {...HERE}
       search={(prev) => ({
         ...prev,
         assignee: onlyMine || !me ? undefined : [me.id],
+        unassigned: undefined,
       })}
       role='button'
       aria-pressed={onlyMine}

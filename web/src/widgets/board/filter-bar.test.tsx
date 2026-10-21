@@ -75,6 +75,21 @@ describe('board filter bar', () => {
       .toEqual({ assignee: [2] })
   })
 
+  it('does not show my issues as chosen while unassigned ones are in the filter', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/p/WEB/board')
+    const mine = screen.getByRole('button', { name: 'Only my issues' })
+
+    await mine.click()
+    await expect.element(mine).toHaveAttribute('aria-pressed', 'true')
+    await screen.getByRole('button', { name: 'Unassigned issues' }).click()
+    await expect.element(mine).toHaveAttribute('aria-pressed', 'false')
+    await mine.click()
+
+    await expect.element(mine).toHaveAttribute('aria-pressed', 'true')
+    expect(router.state.location.search).not.toHaveProperty('unassigned')
+  })
+
   it('puts the same person filter on the backlog', async () => {
     const requests = inProjects()
     const { screen, router } = await renderApp('/p/WEB/backlog')
