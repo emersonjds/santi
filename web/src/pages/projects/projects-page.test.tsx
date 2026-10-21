@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Project } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
-import {
-  MY_OPS,
-  MY_WEB,
-  inProjects,
-  routeOf,
-  signedIn,
-} from '@/test/stub-api'
+import { MY_OPS, MY_WEB, inProjects, routeOf, signedIn } from '@/test/stub-api'
 
 const HOUR = 3_600_000
 const DAY = 24 * HOUR
@@ -106,9 +100,7 @@ describe('projects page', () => {
     await expect
       .element(rows.nth(1).getByText('Emerson Silva', { exact: true }))
       .toHaveAttribute('title', 'Emerson Junior Daniel Silva')
-    await expect
-      .element(rows.nth(2))
-      .toHaveTextContent(/Website.*WEB.*Scrum$/)
+    await expect.element(rows.nth(2)).toHaveTextContent(/Website.*WEB.*Scrum$/)
   })
 
   it('unstars a project at once', async () => {
