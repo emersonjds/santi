@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
+import { userEvent } from 'vitest/browser'
+import { applyTheme } from '@/shared/lib/theme'
 import { renderApp } from '@/test/render-app'
-import { problem, routeOf, signedIn } from '@/test/stub-api'
+import { ALICE, problem, routeOf, signedIn } from '@/test/stub-api'
 
 const LAPTOP = { id: 3, name: 'laptop', created_at: '2026-10-01T12:00:00Z' }
 const CI = { id: 4, name: 'ci', created_at: '2026-10-02T12:00:00Z' }
@@ -12,13 +14,32 @@ const create = async (screen: RenderResult, name: string) => {
   await screen.getByRole('button', { name: 'Create token' }).click()
 }
 
+/** After `signedIn`: the first PATCH waits for `release`, then fails; later ones save their body. */
+const firstSaveFailsLate = () => {
+  const answer = globalThis.fetch
+  const sent: Request[] = []
+  let release = () => {}
+  const held = new Promise<void>((resolve) => (release = resolve))
+  vi.stubGlobal('fetch', async (request: Request) => {
+    if (routeOf(request) !== 'PATCH /api/me') return answer(request)
+    sent.push(request)
+    if (sent.length > 1) {
+      const fields: object = await request.clone().json()
+      return Response.json({ ...ALICE, ...fields })
+    }
+    await held
+    return Response.json(problem(500, 'Boom.'), { status: 500 })
+  })
+  return { sent, release }
+}
+
 describe('account page', () => {
-  it('opens from the account menu with the profile read only', async () => {
+  it('opens from the account menu with the email read only', async () => {
     signedIn({ 'GET /api/tokens': { status: 200, body: [LAPTOP] } })
     const { screen, router } = await renderApp('/')
 
     await screen.getByRole('button', { name: 'Account' }).click()
-    await screen.getByRole('menuitem', { name: 'API tokens' }).click()
+    await screen.getByRole('menuitem', { name: 'Account' }).click()
 
     await expect.poll(() => router.state.location.pathname).toBe('/account')
     await expect
@@ -81,6 +102,10 @@ describe('account page', () => {
     await create(screen, '   ')
 
     await expect.element(screen.getByText('Enter a name.')).toBeVisible()
+    await create(screen, 'x'.repeat(101))
+    await expect
+      .element(screen.getByText('Use at most 100 characters.'))
+      .toBeVisible()
     expect(requests.map(routeOf)).not.toContain('POST /api/tokens')
   })
 
@@ -155,5 +180,318 @@ describe('account page', () => {
     await expect
       .element(confirm.getByText('The resource was not found.'))
       .toBeVisible()
+  })
+
+  it("dates a token in the account's time zone", async () => {
+    signedIn({
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+      'GET /api/tokens': { status: 200, body: [LAPTOP] },
+    })
+    const { screen } = await renderApp('/account')
+
+    const row = screen.getByRole('listitem').filter({ hasText: 'laptop' })
+    await expect.element(row.getByText('Created Oct 2, 2026')).toBeVisible()
+  })
+
+  describe('display name', () => {
+    const patches = (requests: Request[]) =>
+      requests.filter((request) => routeOf(request) === 'PATCH /api/me')
+
+    it('saves on blur and shows the new name in the account menu', async () => {
+      let answer = (_: unknown) => {}
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, display_name: 'Alice B' },
+          until: new Promise((resolve) => (answer = resolve)),
+        },
+      })
+      const { screen } = await renderApp('/account')
+      const name = screen.getByLabelText('Name', { exact: true })
+
+      await name.fill('Alice B')
+      await userEvent.tab()
+      await name.click()
+      await userEvent.keyboard('{Enter}')
+      answer(undefined)
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await userEvent.keyboard('{Enter}')
+      expect(patches(requests)).toHaveLength(1)
+      expect(await patches(requests)[0]?.json()).toEqual({
+        display_name: 'Alice B',
+      })
+      await screen.getByRole('button', { name: 'Account (Alice B)' }).click()
+      await expect
+        .element(screen.getByRole('menu').getByText('Alice B'))
+        .toBeVisible()
+    })
+
+    it('checks the name before saving and puts it back on Escape', async () => {
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+      })
+      const { screen } = await renderApp('/account')
+      const name = screen.getByLabelText('Name', { exact: true })
+
+      await name.fill('   ')
+      await userEvent.keyboard('{Enter}')
+      await expect.element(screen.getByText('Name is required.')).toBeVisible()
+      await expect.element(name).toHaveAttribute('aria-invalid', 'true')
+
+      await name.fill('x'.repeat(101))
+      await userEvent.keyboard('{Enter}')
+      await expect.element(screen.getByText('Name is too long.')).toBeVisible()
+      await expect.element(screen.getByText('101/100')).toBeVisible()
+
+      await userEvent.keyboard('{Escape}')
+      await expect.element(name).toHaveValue('Alice')
+      expect(screen.getByText('Name is too long.').elements()).toHaveLength(0)
+      expect(patches(requests)).toHaveLength(0)
+    })
+
+    it('counts an emoji as one character, as the server does', async () => {
+      const emoji = '🙂'.repeat(60)
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, display_name: emoji },
+        },
+      })
+      const { screen } = await renderApp('/account')
+
+      await screen.getByLabelText('Name', { exact: true }).fill(emoji)
+      await userEvent.keyboard('{Enter}')
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      expect(await patches(requests)[0]?.json()).toEqual({
+        display_name: emoji,
+      })
+    })
+
+    it('keeps the text and says so when the save fails', async () => {
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 500, body: problem(500, 'Boom.') },
+      })
+      const { screen } = await renderApp('/account')
+      const name = screen.getByLabelText('Name', { exact: true })
+
+      await name.fill('Alice B')
+      await userEvent.keyboard('{Enter}')
+
+      await expect
+        .element(screen.getByText('Could not save your name.'))
+        .toBeVisible()
+      await expect.element(name).toHaveValue('Alice B')
+      await expect.element(name).toHaveFocus()
+      expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
+  })
+
+  describe('time zone', () => {
+    const BROWSER = 'Browser time zone (America/New_York)'
+    const patchOf = (requests: Request[]) =>
+      requests.find((request) => routeOf(request) === 'PATCH /api/me')
+
+    it('finds a zone by typing and saves it', async () => {
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+        },
+      })
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+      await expect.element(trigger).toHaveTextContent(BROWSER)
+
+      await trigger.click()
+      const search = screen.getByRole('combobox', { name: 'Find a time zone' })
+      await search.fill('new york')
+      await expect
+        .element(
+          screen.getByRole('option', { name: 'America/New_York', exact: true })
+        )
+        .toBeVisible()
+      await search.fill('zzz')
+      await expect
+        .element(screen.getByText('No time zone matches.'))
+        .toBeVisible()
+      await search.fill('auck')
+      await screen.getByRole('option', { name: 'Pacific/Auckland' }).click()
+
+      await expect.element(trigger).toHaveTextContent('Pacific/Auckland')
+      expect(await patchOf(requests)?.json()).toEqual({
+        time_zone: 'Pacific/Auckland',
+      })
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+    })
+
+    it('goes back to the browser zone as no zone at all', async () => {
+      const requests = signedIn({
+        'GET /api/me': {
+          status: 200,
+          body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+        },
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 200, body: ALICE },
+      })
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+      await expect.element(trigger).toHaveTextContent('Pacific/Auckland')
+
+      await trigger.click()
+      await screen.getByRole('option', { name: BROWSER }).click()
+
+      await expect.element(trigger).toHaveTextContent(BROWSER)
+      expect(await patchOf(requests)?.json()).toEqual({ time_zone: null })
+    })
+
+    it('keeps the last pick when an earlier save fails after it', async () => {
+      signedIn({ 'GET /api/tokens': { status: 200, body: [] } })
+      const { sent, release } = firstSaveFailsLate()
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+      const pick = async (search: string, zone: string) => {
+        await trigger.click()
+        await screen
+          .getByRole('combobox', { name: 'Find a time zone' })
+          .fill(search)
+        await screen.getByRole('option', { name: zone }).click()
+        await expect.element(trigger).toHaveTextContent(zone)
+      }
+
+      await pick('auck', 'Pacific/Auckland')
+      await pick('tokyo', 'Asia/Tokyo')
+      expect(sent).toHaveLength(1)
+      release()
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await expect.element(trigger).toHaveTextContent('Asia/Tokyo')
+      expect(await sent[1]?.json()).toEqual({ time_zone: 'Asia/Tokyo' })
+    })
+
+    it('puts the saved zone back and says so when the save fails', async () => {
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 500, body: problem(500, 'Boom.') },
+      })
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+
+      await trigger.click()
+      await screen
+        .getByRole('combobox', { name: 'Find a time zone' })
+        .fill('auck')
+      await screen.getByRole('option', { name: 'Pacific/Auckland' }).click()
+
+      await expect
+        .element(screen.getByText('Could not save your time zone.'))
+        .toBeVisible()
+      await expect.element(trigger).toHaveTextContent(BROWSER)
+      expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
+
+    it('offers only the browser zone where the zone list is missing', async () => {
+      const list = Intl.supportedValuesOf
+      Reflect.deleteProperty(Intl, 'supportedValuesOf')
+      onTestFinished(() => {
+        Intl.supportedValuesOf = list
+      })
+      signedIn({ 'GET /api/tokens': { status: 200, body: [] } })
+      const { screen } = await renderApp('/account')
+
+      await screen.getByRole('button', { name: 'Time zone' }).click()
+
+      await expect
+        .element(screen.getByRole('option', { name: BROWSER }))
+        .toBeVisible()
+      expect(screen.getByRole('option').elements()).toHaveLength(1)
+    })
+  })
+
+  describe('theme', () => {
+    const theme = () => document.documentElement.dataset.theme
+
+    it('applies a choice at once and saves it', async () => {
+      onTestFinished(() => applyTheme('system'))
+      let answer = (_: unknown) => {}
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, theme: 'dark' },
+          until: new Promise((resolve) => (answer = resolve)),
+        },
+      })
+      const { screen } = await renderApp('/account')
+      const control = screen.getByRole('radiogroup', { name: 'Theme' })
+      await expect
+        .element(control.getByRole('radio', { name: 'System' }))
+        .toBeChecked()
+
+      await control.getByRole('radio', { name: 'Dark' }).click()
+
+      expect(theme()).toBe('dark')
+      const patch = requests.find(
+        (request) => routeOf(request) === 'PATCH /api/me'
+      )
+      expect(await patch?.json()).toEqual({ theme: 'dark' })
+      answer(undefined)
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await expect
+        .element(control.getByRole('radio', { name: 'Dark' }))
+        .toBeChecked()
+    })
+
+    it('reverts and says so when the save fails', async () => {
+      onTestFinished(() => applyTheme('system'))
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 500, body: problem(500, 'Boom.') },
+      })
+      const { screen } = await renderApp('/account')
+      const control = screen.getByRole('radiogroup', { name: 'Theme' })
+
+      await control.getByRole('radio', { name: 'Dark' }).click()
+
+      await expect
+        .element(screen.getByText('Could not save your theme.'))
+        .toBeVisible()
+      expect(theme()).toBe('light')
+      await expect
+        .element(control.getByRole('radio', { name: 'System' }))
+        .toBeChecked()
+      expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
+
+    it('keeps the last pick when an earlier save fails after it', async () => {
+      onTestFinished(() => applyTheme('system'))
+      signedIn({ 'GET /api/tokens': { status: 200, body: [] } })
+      const { sent, release } = firstSaveFailsLate()
+      const { screen } = await renderApp('/account')
+      const control = screen.getByRole('radiogroup', { name: 'Theme' })
+
+      await control.getByRole('radio', { name: 'Dark' }).click()
+      await control.getByRole('radio', { name: 'Light' }).click()
+      await expect
+        .element(control.getByRole('radio', { name: 'Light' }))
+        .toBeChecked()
+      expect(sent).toHaveLength(1)
+      release()
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await expect
+        .element(control.getByRole('radio', { name: 'Light' }))
+        .toBeChecked()
+      expect(theme()).toBe('light')
+      expect(await sent[1]?.json()).toEqual({ theme: 'light' })
+    })
   })
 })

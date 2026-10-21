@@ -37,6 +37,80 @@ describe('board filter bar', () => {
     expect(router.state.location.href).toMatch(/\?assignee=%5B2%5D$/)
   })
 
+  it('filters to unassigned issues from the dashed avatar after the members, with or without people', async () => {
+    const requests = inProjects()
+    const { screen, router } = await renderApp('/p/WEB/board')
+
+    const unassigned = screen.getByRole('button', { name: 'Unassigned issues' })
+    await expect.element(unassigned).toBeVisible()
+    const avatars = screen
+      .getByRole('group', { name: 'Filters' })
+      .getByRole('button')
+      .elements()
+      .map((each) => each.getAttribute('aria-label'))
+    expect(avatars.slice(0, 3)).toEqual([
+      'Issues of Alice',
+      'Issues of Bob Stone',
+      'Unassigned issues',
+    ])
+    await unassigned.click()
+
+    await expect.element(unassigned).toHaveAttribute('aria-pressed', 'true')
+    expect(router.state.location.search).toEqual({ unassigned: true })
+    await expect
+      .poll(() => boardQueries(requests))
+      .toContain('?unassigned=true')
+
+    await screen.getByRole('button', { name: 'Issues of Bob Stone' }).click()
+    await expect
+      .poll(() => boardQueries(requests))
+      .toContain('?assignee=2&unassigned=true')
+    await expect
+      .element(screen.getByRole('link', { name: 'Clear filters' }))
+      .toHaveTextContent('Clear filters (2)')
+
+    await unassigned.click()
+    await expect
+      .poll(() => router.state.location.search)
+      .toEqual({ assignee: [2] })
+  })
+
+  it('does not show my issues as chosen while unassigned ones are in the filter', async () => {
+    inProjects()
+    const { screen, router } = await renderApp('/p/WEB/board')
+    const mine = screen.getByRole('button', { name: 'Only my issues' })
+
+    await mine.click()
+    await expect.element(mine).toHaveAttribute('aria-pressed', 'true')
+    await screen.getByRole('button', { name: 'Unassigned issues' }).click()
+    await expect.element(mine).toHaveAttribute('aria-pressed', 'false')
+    await mine.click()
+
+    await expect.element(mine).toHaveAttribute('aria-pressed', 'true')
+    expect(router.state.location.search).not.toHaveProperty('unassigned')
+  })
+
+  it('puts the same person filter on the backlog', async () => {
+    const requests = inProjects()
+    const { screen, router } = await renderApp('/p/WEB/backlog')
+
+    await screen.getByRole('button', { name: 'Issues of Bob Stone' }).click()
+    await screen.getByRole('button', { name: 'Unassigned issues' }).click()
+
+    await expect
+      .poll(() => router.state.location.search)
+      .toEqual({ assignee: [2], unassigned: true })
+    await expect
+      .poll(() =>
+        requests
+          .filter(
+            (request) => routeOf(request) === 'GET /api/projects/WEB/backlog'
+          )
+          .map((request) => new URL(request.url).search)
+      )
+      .toContain('?assignee=2&unassigned=true')
+  })
+
   it('reads the filters back from a shared link', async () => {
     const requests = inProjects()
     const { screen } = await renderApp('/p/WEB/board?assignee=%5B2%5D')

@@ -1,20 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
 import { DeleteAccountButton } from '@/features/account/delete-account-button'
+import { DisplayNameField } from '@/features/account/display-name-field'
 import { ExportDataButton } from '@/features/account/export-data-button'
+import { ThemeControl } from '@/features/account/theme-control'
+import { TimeZoneControl } from '@/features/account/time-zone-control'
 import { CreateTokenForm } from '@/features/api-token/create-token-form'
 import { RevokeTokenButton } from '@/features/api-token/revoke-token-button'
 import {
   legalDocumentsQuery,
   useLegalRequired,
 } from '@/entities/session/legal-queries'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import { tokensQuery } from '@/entities/user/api-tokens'
+import { formatDate } from '@/shared/lib/format-date'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Skeleton } from '@/shared/ui/skeleton'
-
-const created = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' })
 
 type ReadOnlyFieldProps = { id: string; label: string; value: string }
 
@@ -32,6 +34,7 @@ const ReadOnlyField = ({ id, label, value }: ReadOnlyFieldProps) => (
 
 const TokenList = () => {
   const { data: tokens, error } = useQuery(tokensQuery)
+  const timeZone = useTimeZone()
   if (error) throw error
   if (!tokens) return <Skeleton className='h-11' />
   if (tokens.length === 0)
@@ -46,7 +49,8 @@ const TokenList = () => {
           <span className='grid min-w-0 flex-1'>
             <span className='truncate font-medium'>{token.name}</span>
             <span className='text-xs text-muted-foreground'>
-              Created {created(token.created_at)}
+              Created{' '}
+              {formatDate(token.created_at, { dateStyle: 'medium' }, timeZone)}
             </span>
           </span>
           <RevokeTokenButton token={token} />
@@ -68,12 +72,15 @@ export const AccountPage = () => {
         <h2 id='profile' className='text-lg font-semibold'>
           Profile
         </h2>
-        <ReadOnlyField
-          id='account-name'
-          label='Name'
-          value={user.display_name}
-        />
+        <DisplayNameField saved={user.display_name} />
         <ReadOnlyField id='account-email' label='Email' value={user.email} />
+      </section>
+      <section aria-labelledby='preferences' className='grid gap-4'>
+        <h2 id='preferences' className='text-lg font-semibold'>
+          Preferences
+        </h2>
+        <ThemeControl saved={user.theme} />
+        <TimeZoneControl saved={user.time_zone} />
       </section>
       <section aria-labelledby='tokens' className='grid gap-4'>
         <div className='grid gap-1'>

@@ -20,7 +20,6 @@ base on missing mention emails, [LIM] work item field limits, [LC] migration kno
 the 32,767 character cap, [ADF] document format reference (structure, mention, heading, code
 block, link mark), [API] REST v3 intro, issue comments group and OpenAPI file, [US] REST v3 user
 search (browse-permission search). Cross-refs: [UI] `ui-layout.md`, [OR] `organizations.md`.
-Raw text: `research/editor/` (git-ignored).
 
 ## Rules
 

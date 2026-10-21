@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { issueCount } from '@/entities/issue/labels'
 import { CATEGORY, type Category, type Status } from '@/entities/issue/statuses'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import { SprintCountdown } from '@/entities/sprint/sprint-countdown'
 import type { BacklogSection, Sprint } from '@/shared/api/client'
 import { lockedButton, useReadOnly } from '@/shared/lib/read-only'
@@ -54,9 +55,10 @@ const Dates = ({
   onAddDates: (sprint: Sprint) => void
 }) => {
   const note = useReadOnly()
+  const timeZone = useTimeZone()
   return sprint.starts_at && sprint.ends_at ? (
     <span className='text-sm text-muted-foreground'>
-      {formatRange(sprint.starts_at, sprint.ends_at)}
+      {formatRange(sprint.starts_at, sprint.ends_at, undefined, timeZone)}
     </span>
   ) : (
     <button

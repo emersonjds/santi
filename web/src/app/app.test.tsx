@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, onTestFinished, vi } from 'vitest'
+import { applyTheme } from '@/shared/lib/theme'
 import { renderApp } from '@/test/render-app'
 import {
   ALICE,
@@ -110,8 +111,12 @@ describe('app', () => {
       .toBeVisible()
   })
 
-  it('signs out from the account menu', async () => {
-    const requests = signedIn({ 'POST /api/auth/logout': { status: 204 } })
+  it('signs out from the account menu, leaving the theme to the device', async () => {
+    onTestFinished(() => applyTheme('system'))
+    const requests = signedIn({
+      'GET /api/me': { status: 200, body: { ...ALICE, theme: 'dark' } },
+      'POST /api/auth/logout': { status: 204 },
+    })
     const { screen, queryClient } = await renderApp('/')
 
     await screen.getByRole('button', { name: 'Account' }).click()
@@ -123,6 +128,8 @@ describe('app', () => {
       .toBeVisible()
     expect(requests.map(routeOf)).toContain('POST /api/auth/logout')
     expect(queryClient.getQueryData(['session'])).toBeNull()
+    expect(localStorage.getItem('santi-theme')).toBe('system')
+    expect(document.documentElement.dataset.theme).toBe('light')
   })
 
   it('stays signed in with a toast when the server refuses to sign out', async () => {
@@ -174,5 +181,16 @@ describe('app', () => {
     await expect
       .element(screen.getByRole('heading', { name: 'Sign in' }))
       .toBeVisible()
+  })
+
+  it('applies the theme saved on the account when the app loads', async () => {
+    onTestFinished(() => applyTheme('system'))
+    signedIn({
+      'GET /api/me': { status: 200, body: { ...ALICE, theme: 'dark' } },
+    })
+
+    await renderApp('/')
+
+    await expect.poll(() => document.documentElement.dataset.theme).toBe('dark')
   })
 })

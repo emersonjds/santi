@@ -4,6 +4,7 @@ import {
   formatPoints,
   sprintHistoryQuery,
 } from '@/entities/report/report-queries'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import type { SprintTotals } from '@/shared/api/client'
 import { formatRange } from '@/shared/lib/sprint-dates'
 import { Button } from '@/shared/ui/button'
@@ -34,6 +35,7 @@ type SprintRowProps = { totals: SprintTotals; projectKey: string }
 /** Stacked at 375px; from `sm` the totals take a column of their own. The name's link covers the row. */
 const SprintRow = ({ totals, projectKey }: SprintRowProps) => {
   const { sprint } = totals
+  const timeZone = useTimeZone()
   return (
     <li className='relative flex min-h-11 flex-col gap-1 bg-card px-3 py-2 text-sm hover:bg-hover sm:grid sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-x-6'>
       <div className='grid min-w-0 gap-0.5'>
@@ -48,7 +50,12 @@ const SprintRow = ({ totals, projectKey }: SprintRowProps) => {
           {sprint.state === 'active' && <InProgress />}
           {sprint.starts_at && sprint.ends_at && (
             <span className='text-muted-foreground'>
-              {formatRange(sprint.starts_at, sprint.ends_at)}
+              {formatRange(
+                sprint.starts_at,
+                sprint.ends_at,
+                undefined,
+                timeZone
+              )}
             </span>
           )}
         </div>

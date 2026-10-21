@@ -380,6 +380,7 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
         problems: Vec::new(),
     };
     let mut seen = HashSet::new();
+    let mut distinct = Distinct::default();
     for record in &table.records {
         let problem = |message: String| RowProblem {
             line: record.line,
@@ -406,36 +407,51 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
             export.problems.push(problem(message));
             continue;
         }
+        distinct.add(&row)?;
         export.rows.push(row);
     }
-    check_distinct(&export.rows)?;
     Ok(export)
 }
 
-fn check_distinct(rows: &[SourceRow]) -> Result<(), AppError> {
-    let kinds: [(&str, HashSet<&str>); 4] = [
-        (
-            "statuses",
-            rows.iter().map(|row| row.status.as_str()).collect(),
-        ),
-        (
-            "types",
-            rows.iter().map(|row| row.issue_type.as_str()).collect(),
-        ),
-        ("people", people(rows).collect()),
-        ("sprints", sprint_names(rows).collect()),
-    ];
-    for (kind, names) in kinds {
-        if names.len() > MAX_DISTINCT {
-            return Err(AppError::invalid(
+/// Distinct statuses, types, people and sprints seen so far; refuses the file as soon as one passes
+/// `MAX_DISTINCT`, so a huge file stops early instead of being read to the end.
+#[derive(Default)]
+struct Distinct {
+    statuses: HashSet<String>,
+    types: HashSet<String>,
+    people: HashSet<String>,
+    sprints: HashSet<String>,
+}
+
+impl Distinct {
+    fn add(&mut self, row: &SourceRow) -> Result<(), AppError> {
+        self.statuses.insert(row.status.clone());
+        self.types.insert(row.issue_type.clone());
+        for person in [&row.assignee, &row.reporter].into_iter().flatten() {
+            self.people.insert(person.clone());
+        }
+        for sprint in &row.sprints {
+            self.sprints.insert(sprint.clone());
+        }
+        let kinds = [
+            ("statuses", &self.statuses),
+            ("types", &self.types),
+            ("people", &self.people),
+            ("sprints", &self.sprints),
+        ];
+        match kinds
+            .into_iter()
+            .find(|(_, names)| names.len() > MAX_DISTINCT)
+        {
+            Some((kind, _)) => Err(AppError::invalid(
                 "file",
                 &format!(
                     "the file has more than {MAX_DISTINCT} different {kind}; split it or merge {kind} first"
                 ),
-            ));
+            )),
+            None => Ok(()),
         }
     }
-    Ok(())
 }
 
 fn people(rows: &[SourceRow]) -> impl Iterator<Item = &str> {
@@ -503,6 +519,14 @@ fn read_row(
         ImportSource::Linear if parent.is_some() => "Sub-issue".to_string(),
         ImportSource::Linear => "Issue".to_string(),
     };
+    if let (Some(points), IssueType::Subtask) = (points, type_from_name(&issue_type)) {
+        problems.push(RowProblem {
+            line: record.line,
+            message: format!(
+                "points {points} not kept: santi keeps points on stories, tasks and bugs, not subtasks"
+            ),
+        });
+    }
     SourceRow {
         line: record.line,
         key: columns.text(record, "key"),
@@ -1167,6 +1191,21 @@ mod tests {
         for (name, kind) in cases {
             assert_eq!(type_from_name(name), kind, "{name}");
         }
+    }
+
+    #[test]
+    fn points_on_a_subtask_are_reported_instead_of_dropped_silently() {
+        let with_points = JIRA.replace(
+            ",Sprint 2,,10002,Pay with card,,",
+            ",Sprint 2,,10002,Pay with card,3,",
+        );
+        assert_ne!(with_points, JIRA);
+
+        let export = read_export(&with_points).unwrap();
+
+        assert!(export.problems.iter().any(|problem| problem.line == 5
+            && problem.message
+                == "points 3 not kept: santi keeps points on stories, tasks and bugs, not subtasks"));
     }
 
     #[test]

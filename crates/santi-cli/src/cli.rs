@@ -72,6 +72,8 @@ pub enum Command {
     },
     #[command(subcommand)]
     Sprints(SprintsCommand),
+    #[command(subcommand)]
+    Report(ReportCommand),
     /// Plan an issue into a sprint, or send it back to the backlog
     Plan(PlanArgs),
     /// Search a project's issues by summary or key
@@ -329,6 +331,12 @@ pub struct Filter {
     /// 1 to 200
     #[arg(long)]
     pub limit: Option<i64>,
+    /// Start at this page (the cursor the previous page points to)
+    #[arg(long, conflicts_with = "all")]
+    pub cursor: Option<i64>,
+    /// Every page, not only the first
+    #[arg(long)]
+    pub all: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -367,6 +375,12 @@ pub enum SprintsCommand {
     },
     /// A started sprint's report: completed, not completed and removed issues
     Report { project: ProjectKey, sprint: i64 },
+}
+
+#[derive(Debug, Subcommand)]
+pub enum ReportCommand {
+    /// Who is doing what, per assignee: the active sprint on Scrum, the board on Kanban
+    People { project: ProjectKey },
 }
 
 /// Parses a snake_case value the way the API spells it (`in_progress`, `bug`).
@@ -848,6 +862,28 @@ mod tests {
         };
         assert_eq!(text, "login");
         assert_eq!(filter.status, [StatusCategory::InProgress]);
+    }
+
+    #[test]
+    fn issue_listings_page_by_cursor_or_take_all_but_not_both() {
+        let Command::Issues(IssuesCommand::List { filter, .. }) =
+            parse(&["santi", "issues", "list", "WEB", "--cursor", "40"])
+        else {
+            panic!("not issues list");
+        };
+        assert_eq!((filter.cursor, filter.all), (Some(40), false));
+        let Command::Search { filter, .. } = parse(&["santi", "search", "WEB", "x", "--all"])
+        else {
+            panic!("not search");
+        };
+        assert_eq!((filter.cursor, filter.all), (None, true));
+        for args in [
+            &["santi", "issues", "list", "WEB", "--all", "--cursor", "40"][..],
+            &["santi", "search", "WEB", "x", "--cursor", "40", "--all"],
+        ] {
+            let error = Cli::try_parse_from(args).unwrap_err();
+            assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
+        }
     }
 
     #[test]

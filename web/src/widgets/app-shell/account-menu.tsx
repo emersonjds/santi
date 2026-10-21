@@ -1,5 +1,5 @@
 import { Link, useRouteContext } from '@tanstack/react-router'
-import { Keyboard, KeyRound, LogOut, MessageSquare } from 'lucide-react'
+import { Keyboard, LogOut, MessageSquare, UserRound } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
 import { fullName } from '@/shared/lib/initials'
 import { FEEDBACK_URL } from '@/shared/lib/links'
@@ -34,8 +34,8 @@ export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className='h-11 md:h-8'>
           <Link to='/account'>
-            <KeyRound />
-            API tokens
+            <UserRound />
+            Account
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem className='h-11 md:h-8' onSelect={onShortcuts}>

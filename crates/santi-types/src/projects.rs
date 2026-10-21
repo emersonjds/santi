@@ -89,13 +89,6 @@ pub struct MemberInfo {
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
-pub struct AddMember {
-    pub email: String,
-    pub role: MemberRole,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-#[serde(deny_unknown_fields)]
 pub struct SetRole {
     pub role: MemberRole,
 }

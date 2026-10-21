@@ -107,5 +107,5 @@ test('an admin imports a Linear export into a kanban project, without sprints', 
   )
   await page.getByRole('link', { name: 'Open board' }).click()
   await expect(page.getByText('Ship onboarding')).toBeVisible()
-  await expect(page.getByTitle('1 of 1 subtasks open')).toBeVisible()
+  await expect(page.getByTitle('0 of 1 subtasks done')).toBeVisible()
 })

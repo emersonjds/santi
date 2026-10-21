@@ -305,22 +305,3 @@ async fn accepting_again_records_nothing_new_and_is_rate_limited(pool: PgPool) {
     }
     assert_eq!(answers.last(), Some(&StatusCode::TOO_MANY_REQUESTS));
 }
-
-#[sqlx::test]
-async fn adding_a_member_by_email_needs_their_current_acceptance(pool: PgPool) {
-    let off = router(pool.clone(), false);
-    let on = router(pool.clone(), true);
-    let (_, bob) = register(&off, "bob@example.com", json!({})).await;
-    let ana = TestApp::signed_in(pool, "ana@example.com").await;
-    ana.create_project("SANTI", "scrum").await;
-    let add = json!({ "email": "bob@example.com", "role": "member" });
-
-    let (refused, problem) = ana.post("/api/projects/SANTI/members", add.clone()).await;
-    let accept = json!({ "accept_terms": true, "confirm_age": true });
-    call(&on, Method::POST, "/api/me/legal", &bob, Some(accept)).await;
-    let (added, _) = ana.post("/api/projects/SANTI/members", add).await;
-
-    assert_eq!(refused, StatusCode::CONFLICT);
-    assert_eq!(problem["type"], "urn:santi:error:terms-not-accepted");
-    assert_eq!(added, StatusCode::CREATED);
-}

@@ -113,7 +113,7 @@ export interface paths {
         delete: operations["delete_account"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["update_me"];
         trace?: never;
     };
     "/api/me/export": {
@@ -685,7 +685,7 @@ export interface paths {
         };
         get: operations["list_members"];
         put?: never;
-        post: operations["add_member"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -703,6 +703,22 @@ export interface paths {
         put: operations["set_role"];
         post?: never;
         delete: operations["remove_member"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{key}/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["team_progress"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1004,10 +1020,6 @@ export interface components {
             other_projects: components["schemas"]["Project"][];
             projects: components["schemas"]["ProjectExport"][];
             user: components["schemas"]["User"];
-        };
-        AddMember: {
-            email: string;
-            role: components["schemas"]["MemberRole"];
         };
         ApiToken: {
             /** Format: date-time */
@@ -1773,6 +1785,22 @@ export interface components {
             member_id?: number | null;
             name: string;
         };
+        PersonProgress: {
+            done: components["schemas"]["Tally"];
+            in_progress: components["schemas"]["Tally"];
+            name?: string | null;
+            /**
+             * Format: int64
+             * @description In progress with no update for 3 days or more.
+             */
+            stuck: number;
+            to_do: components["schemas"]["Tally"];
+            /**
+             * Format: int64
+             * @description Null for the Unassigned row.
+             */
+            user_id?: number | null;
+        };
         /** @description `multipart/form-data` body of the preview. */
         PreviewUpload: {
             /**
@@ -2001,6 +2029,23 @@ export interface components {
              */
             suggested_status_id?: number | null;
         };
+        Tally: {
+            /** Format: int64 */
+            issues: number;
+            /**
+             * Format: double
+             * @description Unestimated issues count as 0.
+             */
+            points: number;
+        };
+        /** @description Who is doing what: the active sprint on Scrum, the board on Kanban (done window applied). */
+        TeamProgress: {
+            /** @description Most stuck first, then most in progress, then by name; Unassigned last. */
+            people: components["schemas"]["PersonProgress"][];
+            sprint?: components["schemas"]["Sprint"] | null;
+        };
+        /** @enum {string} */
+        Theme: "light" | "dark" | "system";
         TypeFound: {
             /** Format: int64 */
             count: number;
@@ -2046,6 +2091,13 @@ export interface components {
             sprint_id?: number | null;
             summary?: string | null;
         };
+        /** @description Absent fields stay as they are; `"time_zone": null` goes back to the browser's zone. */
+        UpdateMe: {
+            display_name?: string | null;
+            theme?: components["schemas"]["Theme"] | null;
+            /** @description IANA name, e.g. `Pacific/Auckland`. */
+            time_zone?: string | null;
+        };
         UpdateSprint: {
             /** Format: date-time */
             ends_at?: string | null;
@@ -2067,6 +2119,9 @@ export interface components {
             email: string;
             /** Format: int64 */
             id: number;
+            theme: components["schemas"]["Theme"];
+            /** @description IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone. */
+            time_zone?: string | null;
         };
         Velocity: {
             /**
@@ -2421,6 +2476,47 @@ export interface operations {
             };
             /** @description Too many password attempts for this account (D44); wait `Retry-After` seconds */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMe"];
+            };
+        };
+        responses: {
+            /** @description The account after the change; absent fields stay as they are */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`) or a zone outside the IANA database (`time_zone`) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3299,6 +3395,8 @@ export interface operations {
             query?: {
                 /** @description Assignee user ids. */
                 assignee?: number[];
+                /** @description Issues with no assignee; OR-combined with `assignee`. */
+                unassigned?: boolean;
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
@@ -3366,6 +3464,8 @@ export interface operations {
             query?: {
                 /** @description Assignee user ids. */
                 assignee?: number[];
+                /** @description Issues with no assignee; OR-combined with `assignee`. */
+                unassigned?: boolean;
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
@@ -4051,6 +4151,8 @@ export interface operations {
             query?: {
                 /** @description Assignee user ids. */
                 assignee?: number[];
+                /** @description Issues with no assignee; OR-combined with `assignee`. */
+                unassigned?: boolean;
                 type?: components["schemas"]["IssueType"][];
                 label?: string[];
                 /** @description Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent. */
@@ -4977,66 +5079,6 @@ export interface operations {
             };
         };
     };
-    add_member: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Project key */
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddMember"];
-            };
-        };
-        responses: {
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MemberInfo"];
-                };
-            };
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Already a member, or `terms-not-accepted`: that account has not accepted the current Terms of Use and Privacy Policy (D45) */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description No account uses this email */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
     set_role: {
         parameters: {
             query?: never;
@@ -5137,6 +5179,45 @@ export interface operations {
             };
             /** @description `last-admin` */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    team_progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Issues and points per assignee and status category, with stuck counts: the active sprint on Scrum, the board on Kanban */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamProgress"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

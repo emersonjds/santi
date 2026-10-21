@@ -22,6 +22,7 @@ import { Route as AuthenticatedProjectsNewRouteImport } from './routes/_authenti
 import { Route as AuthenticatedPKeyIndexRouteImport } from './routes/_authenticated/p/$key/index'
 import { Route as AuthenticatedPKeyBacklogRouteImport } from './routes/_authenticated/p/$key/backlog'
 import { Route as AuthenticatedPKeyBoardRouteImport } from './routes/_authenticated/p/$key/board'
+import { Route as AuthenticatedPKeyPeopleRouteImport } from './routes/_authenticated/p/$key/people'
 import { Route as AuthenticatedPKeySearchRouteImport } from './routes/_authenticated/p/$key/search'
 import { Route as AuthenticatedPKeyIssuesNumberRouteImport } from './routes/_authenticated/p/$key/issues/$number'
 import { Route as AuthenticatedPKeyReportsIndexRouteImport } from './routes/_authenticated/p/$key/reports/index'
@@ -97,6 +98,11 @@ const AuthenticatedPKeyBoardRoute = AuthenticatedPKeyBoardRouteImport.update({
   path: '/board',
   getParentRoute: () => AuthenticatedPKeyRouteRoute,
 } as any)
+const AuthenticatedPKeyPeopleRoute = AuthenticatedPKeyPeopleRouteImport.update({
+  id: '/people',
+  path: '/people',
+  getParentRoute: () => AuthenticatedPKeyRouteRoute,
+} as any)
 const AuthenticatedPKeySearchRoute = AuthenticatedPKeySearchRouteImport.update({
   id: '/search',
   path: '/search',
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
   '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
+  '/p/$key/people': typeof AuthenticatedPKeyPeopleRoute
   '/p/$key/search': typeof AuthenticatedPKeySearchRoute
   '/p/$key/': typeof AuthenticatedPKeyIndexRoute
   '/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
   '/p/$key/board': typeof AuthenticatedPKeyBoardRoute
+  '/p/$key/people': typeof AuthenticatedPKeyPeopleRoute
   '/p/$key/search': typeof AuthenticatedPKeySearchRoute
   '/p/$key': typeof AuthenticatedPKeyIndexRoute
   '/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
@@ -194,6 +202,7 @@ export interface FileRoutesById {
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/p/$key/backlog': typeof AuthenticatedPKeyBacklogRoute
   '/_authenticated/p/$key/board': typeof AuthenticatedPKeyBoardRoute
+  '/_authenticated/p/$key/people': typeof AuthenticatedPKeyPeopleRoute
   '/_authenticated/p/$key/search': typeof AuthenticatedPKeySearchRoute
   '/_authenticated/p/$key/': typeof AuthenticatedPKeyIndexRoute
   '/_authenticated/p/$key/issues/$number': typeof AuthenticatedPKeyIssuesNumberRoute
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/p/$key/backlog'
     | '/p/$key/board'
+    | '/p/$key/people'
     | '/p/$key/search'
     | '/p/$key/'
     | '/p/$key/issues/$number'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/p/$key/backlog'
     | '/p/$key/board'
+    | '/p/$key/people'
     | '/p/$key/search'
     | '/p/$key'
     | '/p/$key/issues/$number'
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/_authenticated/projects/'
     | '/_authenticated/p/$key/backlog'
     | '/_authenticated/p/$key/board'
+    | '/_authenticated/p/$key/people'
     | '/_authenticated/p/$key/search'
     | '/_authenticated/p/$key/'
     | '/_authenticated/p/$key/issues/$number'
@@ -370,6 +382,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPKeyBoardRouteImport
       parentRoute: typeof AuthenticatedPKeyRouteRoute
     }
+    '/_authenticated/p/$key/people': {
+      id: '/_authenticated/p/$key/people'
+      path: '/people'
+      fullPath: '/p/$key/people'
+      preLoaderRoute: typeof AuthenticatedPKeyPeopleRouteImport
+      parentRoute: typeof AuthenticatedPKeyRouteRoute
+    }
     '/_authenticated/p/$key/search': {
       id: '/_authenticated/p/$key/search'
       path: '/search'
@@ -425,6 +444,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedPKeyRouteRouteChildren {
   AuthenticatedPKeyBacklogRoute: typeof AuthenticatedPKeyBacklogRoute
   AuthenticatedPKeyBoardRoute: typeof AuthenticatedPKeyBoardRoute
+  AuthenticatedPKeyPeopleRoute: typeof AuthenticatedPKeyPeopleRoute
   AuthenticatedPKeySearchRoute: typeof AuthenticatedPKeySearchRoute
   AuthenticatedPKeyIndexRoute: typeof AuthenticatedPKeyIndexRoute
   AuthenticatedPKeyIssuesNumberRoute: typeof AuthenticatedPKeyIssuesNumberRoute
@@ -439,6 +459,7 @@ const AuthenticatedPKeyRouteRouteChildren: AuthenticatedPKeyRouteRouteChildren =
   {
     AuthenticatedPKeyBacklogRoute: AuthenticatedPKeyBacklogRoute,
     AuthenticatedPKeyBoardRoute: AuthenticatedPKeyBoardRoute,
+    AuthenticatedPKeyPeopleRoute: AuthenticatedPKeyPeopleRoute,
     AuthenticatedPKeySearchRoute: AuthenticatedPKeySearchRoute,
     AuthenticatedPKeyIndexRoute: AuthenticatedPKeyIndexRoute,
     AuthenticatedPKeyIssuesNumberRoute: AuthenticatedPKeyIssuesNumberRoute,
