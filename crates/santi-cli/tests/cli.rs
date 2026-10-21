@@ -1074,3 +1074,51 @@ fn project_lifecycle_from_archive_to_purge() {
         .stdout("(none)\n");
     run(&["projects", "list", "--state", "gone"]).failure();
 }
+
+#[test]
+fn issue_listings_page_by_cursor_or_follow_every_page() {
+    let santi = Santi::new();
+    let token = server().user();
+    server().project(&token, "PAG", "kanban");
+    for n in 1..=5 {
+        let issue = json!({ "summary": format!("Paged {n}") });
+        server().post(&token, "/api/projects/PAG/issues", issue);
+    }
+    let keys = |page: &Value| -> Vec<String> {
+        let items = page["items"].as_array().unwrap();
+        items.iter().map(|issue| issue["key"].to_string()).collect()
+    };
+
+    let first = json(
+        santi
+            .with(&token)
+            .args(["issues", "list", "PAG", "--limit", "2"]),
+    );
+    let cursor = first["next_cursor"].as_i64().unwrap().to_string();
+    santi
+        .with(&token)
+        .args(["issues", "list", "PAG", "--limit", "2"])
+        .assert()
+        .success()
+        .stdout(contains(format!(
+            "\n… more issues not shown; see them with --cursor {cursor}"
+        )));
+    let list = ["issues", "list", "PAG", "--limit", "2", "--cursor", &cursor];
+    let second = json(santi.with(&token).args(list));
+    assert_eq!(second["items"].as_array().unwrap().len(), 2);
+    assert!(keys(&second).iter().all(|key| !keys(&first).contains(key)));
+
+    let every = ["issues", "list", "PAG", "--limit", "2", "--all"];
+    let all = json(santi.with(&token).args(every));
+    assert_eq!(keys(&all).len(), 5);
+    assert_eq!(all["next_cursor"], Value::Null);
+    santi
+        .with(&token)
+        .args(every)
+        .assert()
+        .success()
+        .stdout(contains("Paged 1").and(contains("Paged 5")))
+        .stdout(contains("more issues").not());
+    let found = ["search", "PAG", "Paged", "--limit", "2", "--all"];
+    assert_eq!(keys(&json(santi.with(&token).args(found))).len(), 5);
+}
