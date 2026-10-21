@@ -18,6 +18,12 @@ describe('formatDate', () => {
     ).toBe('Oct 2, 2026')
   })
 
+  it("falls back to the browser's zone for one this browser does not know", () => {
+    expect(formatDate(NOON_UTC, { dateStyle: 'medium' }, 'Mars/Olympus')).toBe(
+      'Oct 1, 2026'
+    )
+  })
+
   it('takes a locale', () => {
     expect(formatDate(NOON_UTC, { dateStyle: 'medium' }, 'UTC', 'pt-BR')).toBe(
       '1 de out. de 2026'
