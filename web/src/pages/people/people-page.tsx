@@ -67,7 +67,7 @@ export const PeoplePage = () => {
           onRetry={() => void people.refetch()}
         />
       )
-    if (!people.data) return <PeopleSkeleton />
+    if (!people.data || !project) return <PeopleSkeleton />
     if (scrum && !sprint)
       return (
         <Notice>

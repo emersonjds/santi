@@ -112,7 +112,8 @@ export const PersonRow = ({ person, projectKey }: PersonProps) => {
   const id = useId()
   const name = person.name ? fullName(person.name) : 'Unassigned'
   const { to_do, in_progress, done } = person
-  const points = to_do.points + in_progress.points + done.points
+  const points =
+    Math.round((to_do.points + in_progress.points + done.points) * 100) / 100
   return (
     <li>
       <button

@@ -187,6 +187,32 @@ describe('people page', () => {
       .toHaveAttribute('href', '/p/WEB/backlog')
   })
 
+  it("rounds a person's total points", async () => {
+    const [first] = WEB_PEOPLE.people
+    inProjects({
+      [PEOPLE]: {
+        status: 200,
+        body: {
+          ...WEB_PEOPLE,
+          people: [
+            {
+              ...first,
+              stuck: 0,
+              to_do: { issues: 1, points: 0.1 },
+              in_progress: { issues: 1, points: 0.2 },
+              done: { issues: 0, points: 0 },
+            },
+          ],
+        },
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/people')
+
+    await expect
+      .element(rowList(screen).getByRole('button'))
+      .toHaveTextContent('0/2 issues · 0/0.3 pts')
+  })
+
   it('says a running sprint has no issues yet', async () => {
     inProjects({
       [PEOPLE]: { status: 200, body: { ...WEB_PEOPLE, people: [] } },
