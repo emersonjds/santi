@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { forgetSession } from '@/entities/session/require-session'
 import { api } from '@/shared/api/client'
+import { applyTheme } from '@/shared/lib/theme'
 import { toast } from '@/shared/lib/toast'
 
 export const useSignOut = () => {
@@ -15,6 +16,7 @@ export const useSignOut = () => {
       .catch(() => false)
     if (!signedOut) return toast.error("Couldn't sign out. Try again.")
     forgetSession(queryClient)
+    applyTheme('system')
     await navigate({ to: '/login' })
   }
 }

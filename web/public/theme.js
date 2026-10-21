@@ -4,13 +4,16 @@
   var BAR = { light: '#ffffff', dark: '#0f0f0e' }
   var media = matchMedia('(prefers-color-scheme: dark)')
 
+  var last = 'system'
+
   var stored = function () {
     try {
       var value = localStorage.getItem(KEY)
-      return value === 'light' || value === 'dark' ? value : 'system'
+      last = value === 'light' || value === 'dark' ? value : 'system'
     } catch (error) {
-      return 'system'
+      // storage blocked since load: keep the last choice read
     }
+    return last
   }
 
   var apply = function () {
