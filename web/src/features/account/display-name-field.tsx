@@ -12,7 +12,7 @@ const MAX_LENGTH = 100
 
 const problemOf = (name: string) => {
   if (name === '') return 'Name is required.'
-  if (name.length > MAX_LENGTH) return 'Name is too long.'
+  if ([...name].length > MAX_LENGTH) return 'Name is too long.'
   return undefined
 }
 
@@ -44,7 +44,7 @@ export const DisplayNameField = ({ saved }: { saved: string }) => {
     if (!problem && name !== lastSaved.current) save.mutate(name)
   }
 
-  const length = text.trim().length
+  const length = [...text.trim()].length
   const message =
     invalid ?? (save.isError ? 'Could not save your name.' : undefined)
 
