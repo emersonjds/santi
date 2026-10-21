@@ -418,7 +418,9 @@ describe('sidebar projects', () => {
     const { screen } = await renderApp('/p/OPS/board')
 
     await expect
-      .element(sidebar(screen).getByRole('button', { name: 'Toggle Operations' }))
+      .element(
+        sidebar(screen).getByRole('button', { name: 'Toggle Operations' })
+      )
       .toBeVisible()
     expect(rows(sublist(screen, 'Starred'))).toEqual(['Website'])
     expect(sublist(screen, 'Recent').elements()).toEqual([])
@@ -430,7 +432,9 @@ describe('sidebar projects', () => {
 
     const star = (name: string) =>
       getComputedStyle(
-        sidebar(screen).getByRole('button', { name: `Star ${name}` }).element()
+        sidebar(screen)
+          .getByRole('button', { name: `Star ${name}` })
+          .element()
       ).opacity
     await expect
       .element(sidebar(screen).getByRole('button', { name: 'Star Website' }))
