@@ -11,11 +11,10 @@ look (logo, icons, colors, type, copy) is santi's own.
 
 ## Sources
 
-`observed`: [O] `research/ui-layout/for-you-outline.txt`. `documented`: [N]
-`what-is-the-new-navigation-in-jira.txt`, [B] `use-your-scrum-backlog.txt`, [A]
-`use-active-sprints.txt`, [C] `create-an-issue-and-a-sub-task.txt`, [K]
-`use-keyboard-shortcuts.txt`, [P] `navigate-jira-with-your-keyboard.txt`, [F]
-`configure-field-layout-in-the-work-item.txt`, [SB] `docs/specs/behavior/scrum-board.md`.
+`observed`: [O] live outline of the home hub. `documented` (public product docs): [N] the
+navigation overview, [B] the scrum backlog, [A] active sprints, [C] creating an issue and a
+sub-task, [K] keyboard shortcuts, [P] keyboard navigation, [F] the work item field layout;
+[SB] `docs/specs/behavior/scrum-board.md`.
 Sidebar (SAN-73): `observed` [S] sidebar text on project, board and directory pages in three
 sessions, [Y] disclosure states on the home hub, [Z] live session on an issue page at 1280px and
 375px with flyouts, menus and customize opened by click and key. `documented`: [R] recent work
