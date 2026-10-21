@@ -4,6 +4,7 @@ pub mod boards;
 pub mod home;
 pub mod imports;
 pub mod issues;
+pub mod links;
 pub mod notifications;
 pub mod people;
 pub mod projects;

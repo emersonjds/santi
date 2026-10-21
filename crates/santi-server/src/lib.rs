@@ -6,6 +6,7 @@ pub mod extract;
 pub mod home;
 pub mod imports;
 pub mod issues;
+pub mod links;
 pub mod members;
 pub mod notifications;
 pub mod pagination;
@@ -167,6 +168,7 @@ fn api() -> OpenApiRouter<AppState> {
         .merge(home::handler::router())
         .merge(notifications::handler::router())
         .merge(attachments::handler::router())
+        .merge(links::handler::router())
 }
 
 /// The API contract, built without a database; `web/openapi.json` is its committed snapshot (D38).

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.summary,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, s.column_id AS \"column_id!\", i.assignee_id,\n                  assignee.display_name AS \"assignee_name?\", i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id,\n                  sub.open_count AS \"open_subtasks!\", sub.total_count AS \"total_subtasks!\", i.rank,\n                  i.updated_at\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           JOIN board b ON b.project_id = p.id\n           JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id\n           CROSS JOIN LATERAL (\n               SELECT count(*) AS total_count, count(*) FILTER (WHERE child_status.category <> 'done') AS open_count\n               FROM issue child JOIN status child_status ON child_status.id = child.status_id\n               WHERE child.parent_id = i.id AND child.issue_type = 'subtask'\n           ) sub\n           WHERE i.project_id = $1\n             AND i.issue_type <> 'epic'\n             AND (b.board_type = 'kanban' OR i.sprint_id = $2)\n             AND (b.board_type = 'scrum' OR i.done_at IS NULL OR b.done_window_days IS NULL\n                  OR i.done_at > now() - make_interval(days => b.done_window_days))\n           ORDER BY i.rank",
+  "query": "SELECT i.id, p.key || '-' || i.number AS \"key!\", i.summary,\n                  i.issue_type AS \"issue_type: IssueType\", i.priority AS \"priority: Priority\",\n                  i.status_id, s.column_id AS \"column_id!\", i.assignee_id,\n                  assignee.display_name AS \"assignee_name?\", i.reporter_id, i.points, i.labels,\n                  p.key || '-' || parent.number AS parent_key, i.sprint_id,\n                  sub.open_count AS \"open_subtasks!\", sub.total_count AS \"total_subtasks!\", i.rank,\n                  i.updated_at, blockers.keys AS \"blocked_by!\"\n           FROM issue i\n           JOIN project p ON p.id = i.project_id\n           JOIN board b ON b.project_id = p.id\n           JOIN status s ON s.id = i.status_id AND s.column_id IS NOT NULL\n           LEFT JOIN issue parent ON parent.id = i.parent_id\n           LEFT JOIN app_user assignee ON assignee.id = i.assignee_id\n           CROSS JOIN LATERAL (\n               SELECT count(*) AS total_count, count(*) FILTER (WHERE child_status.category <> 'done') AS open_count\n               FROM issue child JOIN status child_status ON child_status.id = child.status_id\n               WHERE child.parent_id = i.id AND child.issue_type = 'subtask'\n           ) sub\n           CROSS JOIN LATERAL (\n               SELECT coalesce(array_agg(bp.key || '-' || blocker.number ORDER BY bp.key, blocker.number), '{}') AS keys\n               FROM issue_link bl\n               JOIN issue blocker ON blocker.id = bl.source_id\n               JOIN status bs ON bs.id = blocker.status_id AND bs.category <> 'done'\n               JOIN project bp ON bp.id = blocker.project_id AND bp.trashed_at IS NULL\n               JOIN member bm ON bm.project_id = bp.id AND bm.user_id = $3\n               WHERE bl.target_id = i.id AND bl.link_type = 'blocks'\n           ) blockers\n           WHERE i.project_id = $1\n             AND i.issue_type <> 'epic'\n             AND (b.board_type = 'kanban' OR i.sprint_id = $2)\n             AND (b.board_type = 'scrum' OR i.done_at IS NULL OR b.done_window_days IS NULL\n                  OR i.done_at > now() - make_interval(days => b.done_window_days))\n           ORDER BY i.rank",
   "describe": {
     "columns": [
       {
@@ -180,10 +180,17 @@
             "name": "updated_at"
           }
         }
+      },
+      {
+        "ordinal": 18,
+        "name": "blocked_by!",
+        "type_info": "TextArray",
+        "origin": "Expression"
       }
     ],
     "parameters": {
       "Left": [
+        "Int8",
         "Int8",
         "Int8"
       ]
@@ -206,8 +213,9 @@
       null,
       null,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "bcf072e9dfc122ef30298e1dd03e24863874aa9fbdb0c8c438fa10310bcdbece"
+  "hash": "973fce84a29edabae0561cc625c79dcd28fd686b6dc7f5ecd682d040f693f3e2"
 }

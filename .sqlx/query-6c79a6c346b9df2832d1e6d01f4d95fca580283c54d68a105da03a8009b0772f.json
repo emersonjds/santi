@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM issue_link l\n         USING issue o, project p, member m\n         WHERE l.id = $3 AND (l.source_id = $2 OR l.target_id = $2)\n           AND o.id = CASE WHEN l.source_id = $2 THEN l.target_id ELSE l.source_id END\n           AND p.id = o.project_id AND p.trashed_at IS NULL\n           AND m.project_id = p.id AND m.user_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6c79a6c346b9df2832d1e6d01f4d95fca580283c54d68a105da03a8009b0772f"
+}
