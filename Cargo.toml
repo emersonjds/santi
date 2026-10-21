@@ -39,6 +39,8 @@ toml = "1"
 object_store = { version = "0.14", features = ["aws"] }
 futures-util = { version = "0.3", default-features = false }
 uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
