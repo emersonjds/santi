@@ -118,7 +118,9 @@ test(`INP stays under ${INP_BUDGET} ms on a ${ISSUES}-issue backlog`, async ({
     .getByRole('button', { name: 'Start sprint' })
     .click()
   await expect(
-    page.getByRole('dialog', { name: 'Start Sprint 1' }).getByLabel('Start date')
+    page
+      .getByRole('dialog', { name: 'Start Sprint 1' })
+      .getByLabel('Start date')
   ).toBeVisible()
   const dialog = await worstInteraction(page, 'open the start sprint dialog')
 
