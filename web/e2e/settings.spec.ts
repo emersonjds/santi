@@ -74,14 +74,25 @@ test('an admin adds a Review column with a WIP limit and maps a new status into 
   await expect(chip).toBeVisible()
   await expect(zone).toBeVisible()
   const from = await chip.boundingBox()
-  const to = await zone.boundingBox()
-  if (!from || !to) throw new Error('nothing to drag')
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  if (!from) throw new Error('nothing to drag')
+  const x = from.x + from.width / 2
+  const y = from.y + from.height / 2
+  await page.mouse.move(x, y)
   await page.mouse.down()
+  // dnd-kit's pointer sensor starts the drag only after a few pixels of travel.
+  await page.mouse.move(x + 12, y + 12, { steps: 4 })
+  const to = await zone.boundingBox()
+  if (!to) throw new Error('nowhere to drop')
+  const mapped = page.waitForResponse(
+    (response) =>
+      response.request().method() !== 'GET' &&
+      response.url().includes('/api/projects/')
+  )
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
     steps: 12,
   })
   await page.mouse.up()
+  expect((await mapped).ok()).toBe(true)
   await expect(zone).toContainText('In review')
 
   await page.reload()
