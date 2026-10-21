@@ -54,7 +54,8 @@ pub fn team_progress(sprint: Option<Sprint>, rows: Vec<TallyRow>) -> TeamProgres
             person.user_id.is_none(),
             Reverse(person.stuck),
             Reverse(person.in_progress.issues),
-            person.name.clone(),
+            person.name.as_deref().map(str::to_lowercase),
+            person.user_id,
         )
     });
     TeamProgress { sprint, people }
@@ -123,5 +124,24 @@ mod tests {
         );
 
         assert_eq!(order(&progress), [Some(1), Some(2), Some(3), Some(4), None]);
+    }
+
+    #[test]
+    fn names_sort_ignoring_case_and_ties_fall_back_to_the_user_id() {
+        let named = |user_id: i64, name: &str| TallyRow {
+            name: Some(name.into()),
+            ..row(Some(user_id), StatusCategory::Todo, 1, 0)
+        };
+        let progress = team_progress(
+            None,
+            vec![
+                named(2, "Zed"),
+                named(1, "bob"),
+                named(9, "Deleted user"),
+                named(8, "Deleted user"),
+            ],
+        );
+
+        assert_eq!(order(&progress), [Some(1), Some(8), Some(9), Some(2)]);
     }
 }
