@@ -1,8 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { listenForStaleChunks } from '@/shared/lib/stale-chunks'
 import { App } from './app'
 import { createApp } from './create-app'
-import { listenForStaleChunks } from '@/shared/lib/stale-chunks'
 import './styles/index.css'
 
 listenForStaleChunks()

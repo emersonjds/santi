@@ -17,7 +17,11 @@ import {
 import { LeaveProjectButton } from '@/features/project/member-controls'
 import { useStarProject } from '@/features/star/use-star'
 import { BOARD_TYPE_LABEL } from '@/entities/project/labels'
-import { LAST_ADMIN, leaveRules } from '@/entities/project/leave-rules'
+import {
+  LAST_ADMIN,
+  LAST_ADMIN_SHORT,
+  leaveRules,
+} from '@/entities/project/leave-rules'
 import { membersQuery } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
 import type { MyProject } from '@/shared/api/client'
@@ -62,7 +66,6 @@ export const ProjectActions = ({
   const { own, lastAdmin } = leaveRules(project.role, members, me?.id)
   const star = useStarProject()
   const admin = project.role === 'admin'
-  const reasonId = `leave-reason-${project.key}`
   const state = {
     projectKey: project.key,
     projectName: project.name,
@@ -143,18 +146,15 @@ export const ProjectActions = ({
           <DropdownMenuItem
             className={ROW}
             disabled={!own || lastAdmin}
-            aria-describedby={lastAdmin ? reasonId : undefined}
+            title={lastAdmin ? LAST_ADMIN : undefined}
             onSelect={() => setDialog('leave')}
           >
             <LogOut />
             Leave project
           </DropdownMenuItem>
           {lastAdmin && (
-            <p
-              id={reasonId}
-              className='px-2 pb-1.5 text-xs text-muted-foreground'
-            >
-              {LAST_ADMIN}
+            <p className='px-2 pb-1.5 text-xs text-muted-foreground'>
+              {LAST_ADMIN_SHORT}
             </p>
           )}
           <DropdownMenuSeparator />

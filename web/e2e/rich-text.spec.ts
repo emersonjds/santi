@@ -129,11 +129,17 @@ test('a comment mentions a member picked with the keyboard and posts with Mod-En
   await page.keyboard.type('Over to @ad')
   await pickMention(page)
   await page.keyboard.type(' now')
+  const posted = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' &&
+      response.url().endsWith('/comments')
+  )
   await page.keyboard.press('ControlOrMeta+Enter')
 
   const comments = page.getByRole('region', { name: 'Comments' })
   const chip = comments.getByRole('article').locator('[data-mention]')
   await expect(chip).toContainText('@Ada')
+  expect((await posted).ok()).toBe(true)
   await page.reload()
   await expect(chip).toContainText('@Ada')
   await expect(comments.getByRole('article')).toContainText('now')

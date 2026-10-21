@@ -10,6 +10,7 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run --browser.headless",
     "test:coverage": "vitest run --coverage --browser.headless",
     "gen:api": "openapi-typescript openapi.json -o src/shared/api/schema.d.ts",

@@ -30,8 +30,8 @@ import { Skeleton } from '@/shared/ui/skeleton'
 
 type SearchResultsProps = { projectKey: string; search: IssueSearch }
 
-const CATEGORIES = Object.keys(CATEGORY).filter(
-  (value): value is Category => Object.hasOwn(CATEGORY, value)
+const CATEGORIES = Object.keys(CATEGORY).filter((value): value is Category =>
+  Object.hasOwn(CATEGORY, value)
 )
 
 const capitalized = (text: string) => text[0].toUpperCase() + text.slice(1)
