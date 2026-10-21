@@ -72,45 +72,22 @@ async fn non_members_and_unknown_keys_get_not_found(pool: PgPool) {
 }
 
 #[sqlx::test]
-async fn admin_adds_a_member_by_email(pool: PgPool) {
+async fn members_are_not_added_by_email(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
-    let bob = ana.another_user("bob@example.com").await;
+    ana.another_user("bob@example.com").await;
     ana.create_project("SANTI", "scrum").await;
 
-    let (status, added) = ana
+    let (add, _) = ana
         .post(
             "/api/projects/SANTI/members",
-            json!({ "email": "BOB@example.com", "role": "member" }),
+            json!({ "email": "bob@example.com", "role": "member" }),
         )
         .await;
-    let (_, members) = bob.get("/api/projects/SANTI/members").await;
+    let (list, members) = ana.get("/api/projects/SANTI/members").await;
 
-    assert_eq!(status, StatusCode::CREATED);
-    assert_eq!(added["user_id"], bob.user_id);
-    assert_eq!(members.as_array().unwrap().len(), 2);
-}
-
-#[sqlx::test]
-async fn adding_unknown_or_existing_members_fails(pool: PgPool) {
-    let ana = TestApp::signed_in(pool, "ana@example.com").await;
-    ana.create_project("SANTI", "scrum").await;
-
-    let (unknown, problem) = ana
-        .post(
-            "/api/projects/SANTI/members",
-            json!({ "email": "zed@example.com", "role": "member" }),
-        )
-        .await;
-    let (existing, _) = ana
-        .post(
-            "/api/projects/SANTI/members",
-            json!({ "email": "ana@example.com", "role": "member" }),
-        )
-        .await;
-
-    assert_eq!(unknown, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(problem["errors"][0]["field"], "email");
-    assert_eq!(existing, StatusCode::CONFLICT);
+    assert_eq!(add, StatusCode::METHOD_NOT_ALLOWED);
+    assert_eq!(list, StatusCode::OK);
+    assert_eq!(members.as_array().unwrap().len(), 1);
 }
 
 #[sqlx::test]
@@ -118,25 +95,14 @@ async fn members_cannot_manage_membership(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     ana.create_project("SANTI", "scrum").await;
-    ana.post(
-        "/api/projects/SANTI/members",
-        json!({ "email": "bob@example.com", "role": "member" }),
-    )
-    .await;
+    ana.add_member("SANTI", &bob, "member").await;
 
-    let (add, problem) = bob
-        .post(
-            "/api/projects/SANTI/members",
-            json!({ "email": "ana@example.com", "role": "admin" }),
-        )
-        .await;
-    let (invite, _) = bob
+    let (invite, problem) = bob
         .post("/api/projects/SANTI/invites", json!({ "role": "member" }))
         .await;
 
-    assert_eq!(add, StatusCode::FORBIDDEN);
-    assert_eq!(problem["type"], "urn:santi:error:forbidden");
     assert_eq!(invite, StatusCode::FORBIDDEN);
+    assert_eq!(problem["type"], "urn:santi:error:forbidden");
 }
 
 #[sqlx::test]
@@ -158,11 +124,7 @@ async fn admin_changes_roles_and_removes_members(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     let bob = ana.another_user("bob@example.com").await;
     ana.create_project("SANTI", "scrum").await;
-    ana.post(
-        "/api/projects/SANTI/members",
-        json!({ "email": "bob@example.com", "role": "member" }),
-    )
-    .await;
+    ana.add_member("SANTI", &bob, "member").await;
     let bob_url = format!("/api/projects/SANTI/members/{}", bob.user_id);
 
     let (_, promoted) = ana.put(&bob_url, json!({ "role": "admin" })).await;
@@ -579,11 +541,7 @@ async fn only_admins_see_and_revoke_invites(pool: PgPool) {
     let bob = ana.another_user("bob@example.com").await;
     let eve = ana.another_user("eve@example.com").await;
     ana.create_project("SANTI", "scrum").await;
-    ana.post(
-        "/api/projects/SANTI/members",
-        json!({ "email": "bob@example.com", "role": "member" }),
-    )
-    .await;
+    ana.add_member("SANTI", &bob, "member").await;
     new_invite(&ana, "SANTI", json!({ "role": "member" })).await;
     let revoke = format!(
         "/api/projects/SANTI/invites/{}",

@@ -201,3 +201,19 @@ impl TestApp {
         sprint
     }
 }
+
+impl TestApp {
+    /// Brings `member` into project `key` with an invite link, the only way people join.
+    pub async fn add_member(&self, key: &str, member: &TestApp, role: &str) {
+        let (status, invite) = self
+            .post(
+                &format!("/api/projects/{key}/invites"),
+                json!({ "role": role }),
+            )
+            .await;
+        assert_eq!(status, StatusCode::CREATED, "{invite}");
+        let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
+        let (status, joined) = member.post(&accept, json!(null)).await;
+        assert_eq!(status, StatusCode::OK, "{joined}");
+    }
+}
