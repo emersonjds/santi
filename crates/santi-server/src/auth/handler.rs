@@ -6,7 +6,7 @@ use axum::response::IntoResponse;
 use santi_types::Problem;
 use santi_types::auth::{
     AcceptLegal, AccountExport, ApiToken, CreateToken, CreatedToken, DeleteAccount, LegalDocuments,
-    LegalStatus, Login, PasswordResetPreview, Register, ResetPassword, User,
+    LegalStatus, Login, PasswordResetPreview, Register, ResetPassword, UpdateMe, User,
 };
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
@@ -23,7 +23,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         .routes(routes!(register))
         .routes(routes!(login))
         .routes(routes!(logout))
-        .routes(routes!(me, delete_account))
+        .routes(routes!(me, update_me, delete_account))
         .routes(routes!(export_account))
         .routes(routes!(legal_documents))
         .routes(routes!(legal_status, accept_legal))
@@ -91,6 +91,19 @@ pub async fn logout(
         (status = 401, body = Problem, content_type = "application/problem+json")))]
 pub async fn me(State(state): State<AppState>, user: CurrentUser) -> Result<Json<User>, AppError> {
     Ok(Json(service::me(&state.pool, &user).await?))
+}
+
+#[utoipa::path(patch, path = "/api/me", tag = "auth", request_body = UpdateMe,
+    responses(
+        (status = 200, body = User, description = "The account after the change; absent fields stay as they are"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Blank or over 100 characters (`display_name`), unknown theme (`theme`) or a zone outside the IANA database (`time_zone`)")))]
+pub async fn update_me(
+    State(state): State<AppState>,
+    user: CurrentUser,
+    JsonBody(input): JsonBody<UpdateMe>,
+) -> Result<Json<User>, AppError> {
+    Ok(Json(service::update_me(&state.pool, &user, input).await?))
 }
 
 #[utoipa::path(get, path = "/api/legal", tag = "auth",

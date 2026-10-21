@@ -232,7 +232,15 @@ fn wrong_shape(text: &str) -> AppError {
     let field = ["unknown field `", "missing field `"]
         .iter()
         .find_map(|marker| reason.split_once(marker)?.1.split_once('`'))
-        .map_or("body", |(name, _)| name)
+        .map(|(name, _)| name)
+        // serde_path_to_error prefixes a bad value with its path: "theme: unknown variant `blue`".
+        .or_else(|| {
+            reason
+                .split_once(": ")
+                .map(|(path, _)| path)
+                .filter(|path| !path.contains(' '))
+        })
+        .unwrap_or("body")
         .to_string();
     AppError::WrongShape(FieldError {
         field,
