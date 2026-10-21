@@ -61,6 +61,7 @@ current project (ui-layout OQ-7: both).
 | Board | yes | everyone |
 | Backlog | yes, scrum only | everyone |
 | Reports | yes, scrum only | everyone |
+| People | yes, after Reports (after Board on kanban) | everyone (SAN-173) |
 | Settings | yes | everyone (edits need admin) |
 | Summary, List, Calendar, Releases | later | reinstated → P5 (Summary, List, Calendar), SAN-55 (Releases) |
 
@@ -69,7 +70,7 @@ Tabs are fixed in v1 (UI-8 reordering: later; reinstated → P5).
 ## 3. URL map
 
 Conventions: page routes are `/p/{key}/…` (API stays `/api/projects/{key}/…`). Filters are query
-params (D18): `q`, `assignee` (repeatable, `me` allowed), `type`, `label`, `epic` (parent key).
+params (D18): `q`, `assignee` (repeatable, `me` allowed), `unassigned=true` (OR with `assignee`, SAN-173), `type`, `label`, `epic` (parent key).
 
 SPA (D37): the page routes below are TanStack Router client routes; redirects (`303` in the table)
 are client redirects. The server keeps `/api/*`, `/openapi.json`, `/docs`, `/health` and the built
@@ -89,6 +90,7 @@ Pages
 | `GET /p/{key}` | `303` → `/p/{key}/board` | built |
 | `GET /p/{key}/board` | board (+ `?column={id}` at 375px) | built |
 | `GET /p/{key}/backlog` | backlog (+ `?panel=epics`); kanban → `303` board | built |
+| `GET /p/{key}/people` | people: per-assignee progress of the running sprint (scrum) or the board (kanban), SAN-173 | built |
 | `GET /p/{key}/issues/{n}` | issue: full page; from board, backlog or search a modal with the URL masked to this path | built |
 | `GET /p/{key}/search` | search results (`?q`, `type`, `status` category, `assignee`, `recently_updated`) | built |
 | `GET /p/{key}/settings` | board settings: columns, statuses, done window (admins); danger zone (everyone, SAN-70) | built |
@@ -116,6 +118,7 @@ overlay (modal, sheet, menu).
 | New project | "New project" | — | name, key (derived, editable), board type Scrum/Kanban with one-line help | — | Create project | Cancel |
 | Board | project header | filter bar | columns; uppercase name, count, WIP `n/max` (kanban); cards | issue modal, card menu, start/complete dialogs | + Create (top bar), inline "Create issue" at column foot | Complete sprint (header, scrum), Settings link (admin) |
 | Backlog | project header | filter bar + Epics toggle | sprint sections, then "Backlog" section | epic panel (right, pushes the list), issue modal, row menu | Create sprint | Start / Complete per sprint, inline create per section |
+| People | project header; "People" + sprint name and dates (scrum) or "Kanban board", sticky | — | one row per person (avatar, name, "Stuck ×N", done/total issues and points, stacked to do / in progress / done bar), Unassigned last; a row expands to that person's issues (key, summary, status, days since update when stuck) and "Show on board" (SAN-173) | — | expand a person | Show on board; Go to Backlog when no sprint runs |
 | Issue (page or modal) | type glyph, key, parent key, summary | — | main: description, subtasks (+ Add subtask), comments; details: status button, assignee, reporter, priority, points, sprint, labels, parent, dates | status menu, pickers | status button | Assign to me, Copy link, Open as page (modal only), Close |
 | Create issue (modal) | "Create issue" | — | project, type, summary, description, assignee, points, sprint | — | Create | Create another (keep open), Cancel |
 | Search | "Search" + query | filter bar | result rows: type, key, summary, status chip, assignee | issue modal | — | refine filters |
@@ -132,7 +135,8 @@ read-only." with Unarchive for admins (44px on phone). Inline "Create issue" is 
 + Create preselects another project; any other write answers 409 `project-archived` and its
 detail shows in the error toast. A trashed project is the not-found page for everyone.
 
-Filter bar (board, backlog, search): search box, assignee avatars (click toggles; "Only mine"),
+Filter bar (board, backlog, search): search box, assignee avatars then a dashed Unassigned avatar
+(click toggles, OR together; "Only mine"),
 Type, Label, Epic dropdowns, "Filters (n)" with Clear. AND across kinds, OR within (D3). Group by
 (swimlanes): later (SB-29 dropped; reinstated → P1).
 
