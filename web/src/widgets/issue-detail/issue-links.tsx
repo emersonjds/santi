@@ -24,6 +24,7 @@ import {
   CommandItem,
   CommandList,
 } from '@/shared/ui/command'
+import { LoadFailed } from '@/shared/ui/load-failed'
 import { NativeSelect } from '@/shared/ui/native-select'
 import { Skeleton } from '@/shared/ui/skeleton'
 
@@ -105,10 +106,7 @@ const AddLink = ({
   const q = useDebouncedValue(text.trim(), SEARCH_DELAY)
   const { data: projects = [] } = useQuery(projectsQuery)
   const { data: found } = useQuery({
-    ...linkCandidatesQuery(
-      projects.map((project) => project.key),
-      q
-    ),
+    ...linkCandidatesQuery(projects, q),
     placeholderData: (previous) => previous,
   })
   const options = found?.filter((issue) => !exclude.has(issue.key))
@@ -143,45 +141,50 @@ const AddLink = ({
             </option>
           ))}
         </NativeSelect>
-        <Command
-          shouldFilter={false}
-          className='h-auto border **:data-[slot=command-input-wrapper]:h-11 md:**:data-[slot=command-input-wrapper]:h-9'
-        >
-          <CommandInput
-            aria-label='Issue to link'
-            placeholder='Search by key or summary'
-            className='text-base md:text-sm'
-            value={text}
-            onValueChange={setText}
-          />
-          {q && options && (
-            <CommandList>
-              <CommandEmpty>No issue found.</CommandEmpty>
-              {options.map((issue) => (
-                <CommandItem
-                  key={issue.key}
-                  value={issue.key}
-                  onSelect={pick}
-                  className='min-h-11 md:min-h-9'
-                >
-                  <span className='text-subtle-foreground tabular-nums'>
-                    {issue.key}
-                  </span>
-                  <span className='truncate'>{issue.summary}</span>
-                </CommandItem>
-              ))}
-            </CommandList>
+        <div className='flex items-start gap-2'>
+          <Command
+            shouldFilter={false}
+            className='h-auto flex-1 border **:data-[slot=command-input-wrapper]:h-11 md:**:data-[slot=command-input-wrapper]:h-9'
+          >
+            <CommandInput
+              aria-label='Issue to link'
+              placeholder='Search by key or summary'
+              className='text-base md:text-sm'
+              value={text}
+              onValueChange={setText}
+            />
+            {q && options && (
+              <CommandList>
+                <CommandEmpty>No issue found.</CommandEmpty>
+                {options.map((issue) => (
+                  <CommandItem
+                    key={issue.key}
+                    value={issue.key}
+                    onSelect={pick}
+                    className='min-h-11 md:min-h-9'
+                  >
+                    <span className='text-subtle-foreground tabular-nums'>
+                      {issue.key}
+                    </span>
+                    <span className='truncate'>{issue.summary}</span>
+                  </CommandItem>
+                ))}
+              </CommandList>
+            )}
+          </Command>
+          {create.isPending && (
+            <Loader2
+              aria-hidden='true'
+              className='mt-3 size-4 shrink-0 animate-spin md:mt-2.5'
+            />
           )}
-        </Command>
+        </div>
         <Button
           type='button'
           variant='ghost'
           className='h-11 justify-self-start md:h-9'
           onClick={onClose}
         >
-          {create.isPending && (
-            <Loader2 aria-hidden='true' className='animate-spin' />
-          )}
           Cancel
         </Button>
       </fieldset>
@@ -200,9 +203,12 @@ type IssueLinksProps = { projectKey: string; number: number }
 
 /** SAN-157: links grouped by relation, after Subtasks and before Comments. */
 export const IssueLinks = ({ projectKey, number }: IssueLinksProps) => {
-  const { data: links = [], isPending } = useQuery(
-    linksQuery(projectKey, number)
-  )
+  const {
+    data: links = [],
+    isPending,
+    isError,
+    refetch,
+  } = useQuery(linksQuery(projectKey, number))
   const remove = useRemoveLink(projectKey, number)
   const [adding, setAdding] = useState(false)
   const sectionRef = useRef<HTMLElement>(null)
@@ -272,6 +278,13 @@ export const IssueLinks = ({ projectKey, number }: IssueLinksProps) => {
           <Skeleton className='h-11 w-full' />
           <Skeleton className='h-11 w-full' />
         </div>
+      )}
+      {isError && (
+        <LoadFailed
+          message='Could not load the links.'
+          action='Try again'
+          onRetry={() => void refetch()}
+        />
       )}
       {groups.map((group) => (
         <div key={group.label} className='grid gap-1'>

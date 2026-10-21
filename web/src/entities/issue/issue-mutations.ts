@@ -41,6 +41,7 @@ import {
   epicsQuery,
   issueNumber,
 } from './board-query'
+import { LINKS } from './issue-links'
 import {
   commentsQuery,
   issueQuery,
@@ -274,6 +275,7 @@ export const useDeleteIssue = (projectKey: string) => {
         queryKey: issueQuery(projectKey, issueNumber(key)).queryKey,
         exact: true,
       })
+      void queryClient.invalidateQueries({ queryKey: LINKS })
       toast.success(`${key} deleted`)
     },
     onSettled: () =>
