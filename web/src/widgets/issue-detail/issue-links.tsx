@@ -14,12 +14,7 @@ import {
 import { StatusPill } from '@/entities/issue/status-pill'
 import { projectsQuery } from '@/entities/project/project-queries'
 import { AssigneeAvatar } from '@/entities/user/user-avatar'
-import {
-  type IssueLink,
-  type Relation,
-  fieldMessage,
-  hasStatus,
-} from '@/shared/api/client'
+import { type IssueLink, type Relation, hasStatus } from '@/shared/api/client'
 import { useDebouncedValue } from '@/shared/lib/use-debounced-value'
 import { Button } from '@/shared/ui/button'
 import {
@@ -193,7 +188,7 @@ const AddLink = ({
       {create.error && (
         <p className='text-sm text-destructive'>
           {hasStatus(create.error, 422)
-            ? `Could not link the issues: ${fieldMessage(create.error)}.`
+            ? 'These issues are already linked.'
             : 'Could not link the issues.'}
         </p>
       )}
