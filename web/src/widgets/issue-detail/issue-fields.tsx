@@ -2,6 +2,7 @@ import { type ReactNode, useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { LabelsPicker } from '@/features/edit-labels/labels-picker'
 import { boardSettingsQuery, epicsQuery } from '@/entities/issue/board-query'
+import { fullDateTime } from '@/entities/issue/comment-time'
 import { PriorityGlyph } from '@/entities/issue/issue-glyphs'
 import {
   type IssueChange,
@@ -21,6 +22,7 @@ import {
   sprintsQuery,
 } from '@/entities/project/project-queries'
 import { sessionQuery } from '@/entities/session/session-query'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import { PersonName } from '@/entities/user/user-avatar'
 import { type Issue, fieldMessage } from '@/shared/api/client'
 import { fullName, shortName } from '@/shared/lib/initials'
@@ -85,7 +87,7 @@ const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
 )
 
 const When = ({ iso }: { iso: string }) => (
-  <time dateTime={iso} title={new Date(iso).toLocaleString()}>
+  <time dateTime={iso} title={fullDateTime(iso, useTimeZone())}>
     {timeAgo(iso)}
   </time>
 )

@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
 import {
+  ALICE,
   MY_OPS,
   MY_WEB,
   homeIssue,
@@ -127,6 +128,30 @@ describe('home', () => {
     await expect
       .element(screen.getByLabelText('Summary'))
       .toHaveValue('Write the release notes')
+  })
+
+  it("draws the day line in the account's time zone", async () => {
+    vi.useFakeTimers({ toFake: ['Date'], shouldAdvanceTime: true })
+    vi.setSystemTime(new Date('2026-10-21T12:00:00Z')) // Oct 22, 01:00 in Auckland
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    inProjects({
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+      'GET /api/me/issues': byView({
+        recommended: [{ ...LOGIN, at: '2026-10-21T10:30:00Z' }],
+      }),
+    })
+    const { screen } = await renderApp('/')
+
+    const panel = screen.getByRole('tabpanel', { name: 'Recommended' })
+    await expect
+      .element(panel.getByRole('heading', { name: 'Yesterday' }))
+      .toBeVisible()
+    expect(panel.getByRole('heading', { name: 'Today' }).elements()).toEqual([])
   })
 
   it('switches tabs through the URL and counts what is assigned', async () => {
