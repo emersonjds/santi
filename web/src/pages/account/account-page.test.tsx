@@ -14,6 +14,25 @@ const create = async (screen: RenderResult, name: string) => {
   await screen.getByRole('button', { name: 'Create token' }).click()
 }
 
+/** After `signedIn`: the first PATCH waits for `release`, then fails; later ones save their body. */
+const firstSaveFailsLate = () => {
+  const answer = globalThis.fetch
+  const sent: Request[] = []
+  let release = () => {}
+  const held = new Promise<void>((resolve) => (release = resolve))
+  vi.stubGlobal('fetch', async (request: Request) => {
+    if (routeOf(request) !== 'PATCH /api/me') return answer(request)
+    sent.push(request)
+    if (sent.length > 1) {
+      const fields: object = await request.clone().json()
+      return Response.json({ ...ALICE, ...fields })
+    }
+    await held
+    return Response.json(problem(500, 'Boom.'), { status: 500 })
+  })
+  return { sent, release }
+}
+
 describe('account page', () => {
   it('opens from the account menu with the email read only', async () => {
     signedIn({ 'GET /api/tokens': { status: 200, body: [LAPTOP] } })
@@ -334,6 +353,30 @@ describe('account page', () => {
       expect(await patchOf(requests)?.json()).toEqual({ time_zone: null })
     })
 
+    it('keeps the last pick when an earlier save fails after it', async () => {
+      signedIn({ 'GET /api/tokens': { status: 200, body: [] } })
+      const { sent, release } = firstSaveFailsLate()
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+      const pick = async (search: string, zone: string) => {
+        await trigger.click()
+        await screen
+          .getByRole('combobox', { name: 'Find a time zone' })
+          .fill(search)
+        await screen.getByRole('option', { name: zone }).click()
+        await expect.element(trigger).toHaveTextContent(zone)
+      }
+
+      await pick('auck', 'Pacific/Auckland')
+      await pick('tokyo', 'Asia/Tokyo')
+      expect(sent).toHaveLength(1)
+      release()
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await expect.element(trigger).toHaveTextContent('Asia/Tokyo')
+      expect(await sent[1]?.json()).toEqual({ time_zone: 'Asia/Tokyo' })
+    })
+
     it('puts the saved zone back and says so when the save fails', async () => {
       signedIn({
         'GET /api/tokens': { status: 200, body: [] },
@@ -426,6 +469,29 @@ describe('account page', () => {
         .element(control.getByRole('radio', { name: 'System' }))
         .toBeChecked()
       expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
+
+    it('keeps the last pick when an earlier save fails after it', async () => {
+      onTestFinished(() => applyTheme('system'))
+      signedIn({ 'GET /api/tokens': { status: 200, body: [] } })
+      const { sent, release } = firstSaveFailsLate()
+      const { screen } = await renderApp('/account')
+      const control = screen.getByRole('radiogroup', { name: 'Theme' })
+
+      await control.getByRole('radio', { name: 'Dark' }).click()
+      await control.getByRole('radio', { name: 'Light' }).click()
+      await expect
+        .element(control.getByRole('radio', { name: 'Light' }))
+        .toBeChecked()
+      expect(sent).toHaveLength(1)
+      release()
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await expect
+        .element(control.getByRole('radio', { name: 'Light' }))
+        .toBeChecked()
+      expect(theme()).toBe('light')
+      expect(await sent[1]?.json()).toEqual({ theme: 'light' })
     })
   })
 })

@@ -23,14 +23,20 @@ export const TimeZoneControl = ({
   const queryClient = useQueryClient()
   const [choice, setChoice] = useState(saved)
   const lastSaved = useRef(saved)
+  const picked = useRef(saved)
   const save = useMutation({
+    scope: { id: 'me' },
     mutationFn: async (time_zone: string | null) =>
       dataOrThrow(await api.PATCH('/api/me', { body: { time_zone } })),
     onSuccess: (user) => {
       lastSaved.current = user.time_zone ?? null
       queryClient.setQueryData(sessionQuery.queryKey, user)
     },
-    onError: () => setChoice(lastSaved.current),
+    onError: (_, zone) => {
+      if (zone !== picked.current) return
+      picked.current = lastSaved.current
+      setChoice(lastSaved.current)
+    },
   })
   const browser = `Browser time zone (${Intl.DateTimeFormat().resolvedOptions().timeZone})`
   const Icon = save.isPending ? Loader2 : ChevronsUpDown
@@ -60,6 +66,7 @@ export const TimeZoneControl = ({
           current={choice}
           trigger={trigger(false)}
           onPick={(zone) => {
+            picked.current = zone
             setChoice(zone)
             save.mutate(zone)
           }}
