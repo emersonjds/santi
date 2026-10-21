@@ -54,6 +54,7 @@ pub async fn import(
     let export = in_background(move || domain::read_file(&file)).await??;
     let (export, plan) = plan(pool, member, export, mapping).await?;
     let mut tx = pool.begin().await?;
+    crate::timeouts::allow_long_statements(&mut tx).await?;
     let count = plan.issues.len() as i64;
     let (first_number, state) = repo::take_issue_numbers(&mut tx, member.project_id, count).await?;
     projects::domain::check_active(state)?;
@@ -62,6 +63,7 @@ pub async fn import(
     let mut created = HashSet::with_capacity(plan.issues.len());
     for batch in domain::insert_order(&plan.issues).chunks(BATCH_SIZE) {
         let mut tx = pool.begin().await?;
+        crate::timeouts::allow_long_statements(&mut tx).await?;
         let state = projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: ranks are taken in order
         projects::domain::check_active(state)?;
         let mut rank = issues::repo::last_rank(&mut tx, member.project_id).await?;
@@ -132,6 +134,7 @@ async fn finish(
     created: &HashSet<String>,
 ) -> Result<(), AppError> {
     let mut tx = pool.begin().await?;
+    crate::timeouts::allow_long_statements(&mut tx).await?;
     let state = projects::repo::lock_project(&mut tx, member.project_id).await?;
     projects::domain::check_active(state)?;
     let mut rank = issues::repo::last_rank(&mut tx, member.project_id).await?;

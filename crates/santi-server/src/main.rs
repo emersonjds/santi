@@ -18,10 +18,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Ok(size) => size.parse()?,
         Err(_) => (cores * 2).clamp(10, 50),
     };
-    let pool = sqlx::postgres::PgPoolOptions::new()
-        .max_connections(pool_size)
-        .connect(&database_url)
-        .await?;
+    // SAN-213
+    let (timeouts, warnings) = santi_server::timeouts::from_env(|name| std::env::var(name).ok());
+    for warning in warnings {
+        tracing::warn!("{warning}");
+    }
+    let pool = santi_server::timeouts::pool(database_url.parse()?, pool_size, &timeouts);
     santi_server::migrate(&pool).await?;
     // D44: Railway's edge is one proxy appending to X-Forwarded-For; locally there is none.
     let trusted_proxies = match std::env::var("SANTI_TRUSTED_PROXIES") {
@@ -83,6 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 limits,
                 legal: std::sync::Arc::new(legal),
                 storage,
+                request_timeout: timeouts.request,
             },
             Some(std::path::Path::new(&web_dir)),
         )
