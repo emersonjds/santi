@@ -4,6 +4,7 @@ import { page, userEvent } from 'vitest/browser'
 import type { Card, IssueLink, Relation } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import {
+  OPS,
   WEB,
   WEB_BACKLOG,
   WEB_BOARD,
@@ -201,6 +202,92 @@ describe('linked issues (SAN-157)', () => {
     await expect
       .element(section.getByRole('button', { name: 'Link issue' }))
       .toHaveFocus()
+  })
+
+  it('searches only the projects open for change', async () => {
+    const requests = inProjects({
+      ...searchable,
+      'GET /api/projects': {
+        status: 200,
+        body: [WEB, { ...OPS, state: 'archived' }],
+      },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    const section = await openPicker(screen, 'login')
+
+    await expect
+      .element(section.getByRole('option', { name: /WEB-3/ }))
+      .toBeVisible()
+    expect(
+      section
+        .getByRole('listbox')
+        .getByRole('option')
+        .elements()
+        .map((option) => option.textContent)
+    ).toEqual(['WEB-2Login WEB-2', 'WEB-3Login WEB-3'])
+    expect(requests.map(routeOf)).not.toContain('GET /api/projects/OPS/issues')
+  })
+
+  it('says the links did not load and tries again', async () => {
+    const links = { status: 500, body: problem(500, 'Boom.') }
+    inProjects({ [LINKS]: links })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    const section = sectionOf(screen)
+    await expect
+      .element(section.getByText('Could not load the links.'))
+      .toBeVisible()
+    Object.assign(links, { status: 200, body: [link(3, 'blocks', 'WEB-3')] })
+    await section.getByRole('button', { name: 'Try again' }).click()
+
+    await expect
+      .element(section.getByRole('link', { name: 'Work on WEB-3' }))
+      .toBeVisible()
+    await expect
+      .element(section.getByText('Could not load the links.'))
+      .not.toBeInTheDocument()
+  })
+
+  it('spins beside the picker while linking and keeps Cancel plain', async () => {
+    inProjects({
+      ...searchable,
+      [CREATE]: { status: 201, until: new Promise(() => {}) },
+    })
+    const { screen } = await renderApp('/p/WEB/issues/1')
+
+    const section = await openPicker(screen, 'login')
+    await section.getByRole('option', { name: /WEB-2/ }).click()
+
+    const form = section.element().querySelector('form')
+    await expect.poll(() => form?.getAttribute('aria-busy')).toBe('true')
+    const cancel = section.getByRole('button', { name: 'Cancel' }).element()
+    const spinner = section.element().querySelector('.animate-spin')
+    expect(cancel.textContent).toBe('Cancel')
+    expect(cancel.querySelector('svg')).toBeNull()
+    expect(
+      spinner?.parentElement?.contains(
+        section.getByRole('combobox', { name: 'Issue to link' }).element()
+      )
+    ).toBe(true)
+  })
+
+  it('leaves the cached link lists stale once an issue is deleted', async () => {
+    inProjects({ 'DELETE /api/projects/WEB/issues/1': { status: 204 } })
+    const { queryClient, screen } = await renderApp('/p/WEB/issues/1')
+    queryClient.setQueryData(['links', 'WEB-2'], [link(5, 'blocks', 'WEB-1')])
+
+    await screen.getByRole('button', { name: 'More actions' }).click()
+    await screen.getByRole('menuitem', { name: 'Delete' }).click()
+    await screen
+      .getByRole('alertdialog', { name: 'Delete WEB-1?' })
+      .getByRole('button', { name: 'Delete issue' })
+      .click()
+
+    await expect.element(screen.getByText('WEB-1 deleted')).toBeVisible()
+    expect(queryClient.getQueryState(['links', 'WEB-2'])?.isInvalidated).toBe(
+      true
+    )
   })
 
   it('says when no issue matches', async () => {

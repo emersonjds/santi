@@ -6,6 +6,7 @@ import {
 import {
   type CreateLink,
   type IssueLink,
+  type Project,
   type Relation,
   api,
   dataOrThrow,
@@ -25,7 +26,7 @@ export const RELATIONS = {
   is_cloned_by: 'is cloned by',
 } satisfies Record<Relation, string>
 
-const LINKS = ['links'] as const
+export const LINKS = ['links'] as const
 
 export const projectOf = (issueKey: string) =>
   issueKey.slice(0, issueKey.lastIndexOf('-'))
@@ -42,8 +43,14 @@ export const linksQuery = (projectKey: string, number: number) =>
   })
 
 // ponytail: one request per project the viewer belongs to; a cross-project search endpoint replaces it when the list grows long.
-export const linkCandidatesQuery = (projectKeys: string[], q: string) =>
-  queryOptions({
+export const linkCandidatesQuery = (
+  projects: Pick<Project, 'key' | 'state'>[],
+  q: string
+) => {
+  const projectKeys = projects
+    .filter((project) => project.state !== 'archived')
+    .map((project) => project.key)
+  return queryOptions({
     queryKey: ['link-candidates', projectKeys, q],
     queryFn: async () =>
       (
@@ -60,6 +67,7 @@ export const linkCandidatesQuery = (projectKeys: string[], q: string) =>
       ).flat(),
     enabled: q !== '',
   })
+}
 
 /** Both ends' link lists, and the blocked markers on both projects' boards and backlogs. */
 const useRefreshLinks = () => {
