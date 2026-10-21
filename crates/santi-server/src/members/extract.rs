@@ -29,6 +29,7 @@ impl FromRequestParts<AppState> for Member {
         let member = found
             .ok_or(AppError::Unauthorized)?
             .ok_or(AppError::NotFound)?;
+        tracing::Span::current().record("user_id", member.user_id);
         let route = parts
             .extensions
             .get::<MatchedPath>()
