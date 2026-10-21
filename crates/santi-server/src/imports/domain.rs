@@ -380,6 +380,7 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
         problems: Vec::new(),
     };
     let mut seen = HashSet::new();
+    let mut distinct = Distinct::default();
     for record in &table.records {
         let problem = |message: String| RowProblem {
             line: record.line,
@@ -406,36 +407,51 @@ pub fn read_export(text: &str) -> Result<Export, AppError> {
             export.problems.push(problem(message));
             continue;
         }
+        distinct.add(&row)?;
         export.rows.push(row);
     }
-    check_distinct(&export.rows)?;
     Ok(export)
 }
 
-fn check_distinct(rows: &[SourceRow]) -> Result<(), AppError> {
-    let kinds: [(&str, HashSet<&str>); 4] = [
-        (
-            "statuses",
-            rows.iter().map(|row| row.status.as_str()).collect(),
-        ),
-        (
-            "types",
-            rows.iter().map(|row| row.issue_type.as_str()).collect(),
-        ),
-        ("people", people(rows).collect()),
-        ("sprints", sprint_names(rows).collect()),
-    ];
-    for (kind, names) in kinds {
-        if names.len() > MAX_DISTINCT {
-            return Err(AppError::invalid(
+/// Distinct statuses, types, people and sprints seen so far; refuses the file as soon as one passes
+/// `MAX_DISTINCT`, so a huge file stops early instead of being read to the end.
+#[derive(Default)]
+struct Distinct {
+    statuses: HashSet<String>,
+    types: HashSet<String>,
+    people: HashSet<String>,
+    sprints: HashSet<String>,
+}
+
+impl Distinct {
+    fn add(&mut self, row: &SourceRow) -> Result<(), AppError> {
+        self.statuses.insert(row.status.clone());
+        self.types.insert(row.issue_type.clone());
+        for person in [&row.assignee, &row.reporter].into_iter().flatten() {
+            self.people.insert(person.clone());
+        }
+        for sprint in &row.sprints {
+            self.sprints.insert(sprint.clone());
+        }
+        let kinds = [
+            ("statuses", &self.statuses),
+            ("types", &self.types),
+            ("people", &self.people),
+            ("sprints", &self.sprints),
+        ];
+        match kinds
+            .into_iter()
+            .find(|(_, names)| names.len() > MAX_DISTINCT)
+        {
+            Some((kind, _)) => Err(AppError::invalid(
                 "file",
                 &format!(
                     "the file has more than {MAX_DISTINCT} different {kind}; split it or merge {kind} first"
                 ),
-            ));
+            )),
+            None => Ok(()),
         }
     }
-    Ok(())
 }
 
 fn people(rows: &[SourceRow]) -> impl Iterator<Item = &str> {
