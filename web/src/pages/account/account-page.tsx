@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
 import { DeleteAccountButton } from '@/features/account/delete-account-button'
+import { DisplayNameField } from '@/features/account/display-name-field'
 import { ExportDataButton } from '@/features/account/export-data-button'
 import { ThemeControl } from '@/features/account/theme-control'
 import { CreateTokenForm } from '@/features/api-token/create-token-form'
@@ -70,11 +71,7 @@ export const AccountPage = () => {
         <h2 id='profile' className='text-lg font-semibold'>
           Profile
         </h2>
-        <ReadOnlyField
-          id='account-name'
-          label='Name'
-          value={user.display_name}
-        />
+        <DisplayNameField saved={user.display_name} />
         <ReadOnlyField id='account-email' label='Email' value={user.email} />
       </section>
       <section aria-labelledby='preferences' className='grid gap-4'>
