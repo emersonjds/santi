@@ -28,8 +28,9 @@ santi needs PostgreSQL 17. Start only the database from `compose.yaml` (on macOS
     cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
     sqlx migrate run --source crates/santi-server/migrations
 
-`docker compose up -d` without a service name also builds and starts santi itself on 8080, which
-then holds the port `cargo run -p santi-server` wants.
+`docker compose up -d` without a service name also starts the published santi image on 8080, which
+then holds the port `cargo run -p santi-server` wants. To run your checkout in a container, add the
+build override: `docker compose -f compose.yaml -f compose.build.yaml up -d --build`.
 
 Tests create a throwaway database per test (`#[sqlx::test]`). After changing any SQL, refresh the
 offline query data with `scripts/sqlx-prepare.sh` (a fresh empty database, the same plans CI sees;
