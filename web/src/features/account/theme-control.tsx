@@ -16,20 +16,25 @@ export const ThemeControl = ({ saved }: { saved: Theme }) => {
   const queryClient = useQueryClient()
   const [choice, setChoice] = useState(saved)
   const lastSaved = useRef(saved)
+  const picked = useRef(saved)
   const save = useMutation({
+    scope: { id: 'me' },
     mutationFn: async (theme: Theme) =>
       dataOrThrow(await api.PATCH('/api/me', { body: { theme } })),
     onSuccess: (user) => {
       lastSaved.current = user.theme
       queryClient.setQueryData(sessionQuery.queryKey, user)
     },
-    onError: () => {
+    onError: (_, theme) => {
+      if (theme !== picked.current) return
+      picked.current = lastSaved.current
       setChoice(lastSaved.current)
       applyTheme(lastSaved.current)
     },
   })
 
   const choose = (theme: Theme) => {
+    picked.current = theme
     setChoice(theme)
     applyTheme(theme)
     save.mutate(theme)
