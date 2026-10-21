@@ -139,7 +139,9 @@ export const RowAssignee = ({
   const update = useUpdate(projectKey)
   const { data: members = [] } = useQuery(membersQuery(projectKey))
   return (
-    <span className='relative z-10 grid size-6 shrink-0 place-items-center rounded-full focus-within:ring-2 focus-within:ring-ring'>
+    <span
+      className={`${HIT} size-6 rounded-full focus-within:ring-2 focus-within:ring-ring`}
+    >
       {card.assignee_name ? (
         <AssigneeAvatar name={card.assignee_name} />
       ) : (
