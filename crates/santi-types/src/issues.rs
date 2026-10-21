@@ -288,7 +288,7 @@ pub struct IssueFilter {
     /// Parent issue keys, e.g. an epic's `SANTI-3`; `none` matches issues without a parent.
     #[serde(default)]
     pub parent: Vec<String>,
-    /// Free text matched against the summary or the key, ignoring case.
+    /// Text matched in the summary, ignoring case, or an issue number given as `12` or `SANTI-12`.
     #[serde(default)]
     pub q: Option<String>,
     /// Only issues updated in the last 24 hours (SB-26, D18).
