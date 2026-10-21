@@ -24,6 +24,21 @@ describe('sprint ranges', () => {
       'Oct 16, 9:00 AM – 10:00 PM EDT'
     )
   })
+
+  it("reads days and times in the account's zone when given one", () => {
+    const auckland = 'Pacific/Auckland'
+    expect(
+      formatRange(
+        '2026-09-30T11:00:00Z',
+        '2026-10-14T10:59:00Z',
+        'h23',
+        auckland
+      )
+    ).toBe('Oct 1 – Oct 14')
+    expect(formatRange(at(16, 9), at(16, 22), 'h23', auckland)).toBe(
+      'Oct 17, 02:00 – 15:00 GMT+13'
+    )
+  })
 })
 
 describe('time left', () => {

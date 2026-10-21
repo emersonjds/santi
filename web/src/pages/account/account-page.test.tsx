@@ -162,6 +162,20 @@ describe('account page', () => {
       .toBeVisible()
   })
 
+  it("dates a token in the account's time zone", async () => {
+    signedIn({
+      'GET /api/me': {
+        status: 200,
+        body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+      },
+      'GET /api/tokens': { status: 200, body: [LAPTOP] },
+    })
+    const { screen } = await renderApp('/account')
+
+    const row = screen.getByRole('listitem').filter({ hasText: 'laptop' })
+    await expect.element(row.getByText('Created Oct 2, 2026')).toBeVisible()
+  })
+
   describe('theme', () => {
     const theme = () => document.documentElement.dataset.theme
 
