@@ -4006,7 +4006,7 @@
             }
           },
           "422": {
-            "description": "`issue` is not an issue key, is this issue, or already has this link with it (either direction for `relates`)",
+            "description": "`issue` is not an issue key, is this issue, or already has this link with it in either direction",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4079,7 +4079,7 @@
             }
           },
           "409": {
-            "description": "`project-archived`",
+            "description": "`project-archived`: this issue's project or the other issue's",
             "content": {
               "application/problem+json": {
                 "schema": {

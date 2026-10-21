@@ -5170,7 +5170,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `issue` is not an issue key, is this issue, or already has this link with it (either direction for `relates`) */
+            /** @description `issue` is not an issue key, is this issue, or already has this link with it in either direction */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5221,7 +5221,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `project-archived` */
+            /** @description `project-archived`: this issue's project or the other issue's */
             409: {
                 headers: {
                     [name: string]: unknown;

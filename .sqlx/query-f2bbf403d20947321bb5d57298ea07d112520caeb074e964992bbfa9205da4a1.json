@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT l.id, l.link_type, l.source_id = $2 AS \"is_source!\",\n                  p.key || '-' || o.number AS \"key!\", o.summary, o.status_id,\n                  s.name AS status_name, s.category AS \"status_category: StatusCategory\",\n                  o.priority AS \"priority: Priority\", o.assignee_id,\n                  assignee.display_name AS \"assignee_name?\", o.issue_type AS \"issue_type: IssueType\"\n           FROM issue_link l\n           JOIN issue o ON o.id = CASE WHEN l.source_id = $2 THEN l.target_id ELSE l.source_id END\n           JOIN project p ON p.id = o.project_id AND p.trashed_at IS NULL\n           JOIN member m ON m.project_id = p.id AND m.user_id = $1\n           JOIN status s ON s.id = o.status_id\n           LEFT JOIN app_user assignee ON assignee.id = o.assignee_id\n           WHERE (l.source_id = $2 OR l.target_id = $2) AND ($3::bigint IS NULL OR l.id = $3)\n           ORDER BY p.key, o.number",
+  "query": "SELECT l.id, l.link_type, l.source_id = $2 AS \"is_source!\",\n                  p.key || '-' || o.number AS \"key!\", o.summary, o.status_id,\n                  s.name AS status_name, s.category AS \"status_category: StatusCategory\",\n                  o.priority AS \"priority: Priority\", o.assignee_id,\n                  assignee.display_name AS \"assignee_name?\", o.issue_type AS \"issue_type: IssueType\",\n                  p.archived_at IS NOT NULL AS \"other_archived!\"\n           FROM issue_link l\n           JOIN issue o ON o.id = CASE WHEN l.source_id = $2 THEN l.target_id ELSE l.source_id END\n           JOIN project p ON p.id = o.project_id AND p.trashed_at IS NULL\n           JOIN member m ON m.project_id = p.id AND m.user_id = $1\n           JOIN status s ON s.id = o.status_id\n           LEFT JOIN app_user assignee ON assignee.id = o.assignee_id\n           WHERE (l.source_id = $2 OR l.target_id = $2) AND ($3::bigint IS NULL OR l.id = $3)\n           ORDER BY p.key, o.number",
   "describe": {
     "columns": [
       {
@@ -124,6 +124,12 @@
             "name": "issue_type"
           }
         }
+      },
+      {
+        "ordinal": 12,
+        "name": "other_archived!",
+        "type_info": "Bool",
+        "origin": "Expression"
       }
     ],
     "parameters": {
@@ -145,8 +151,9 @@
       false,
       true,
       false,
-      false
+      false,
+      null
     ]
   },
-  "hash": "479a9d4904bb643f160759bd74af8e993b06e563d0d13a147875d903ea0a2a7c"
+  "hash": "f2bbf403d20947321bb5d57298ea07d112520caeb074e964992bbfa9205da4a1"
 }

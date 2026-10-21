@@ -142,13 +142,13 @@ async fn links_list_by_relation_then_key(pool: PgPool) {
 #[sqlx::test]
 async fn self_links_bad_keys_and_unknown_issues_are_refused(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
-    project_with_issues(&ana, "SANTI", "scrum", 1).await;
+    project_with_issues(&ana, "SANTI", "scrum", 2).await;
 
     let (itself, self_problem) = link(&ana, "SANTI-1", "blocks", "SANTI-1").await;
     let (malformed, malformed_problem) = link(&ana, "SANTI-1", "blocks", "nonsense").await;
     let (unknown, _) = link(&ana, "SANTI-1", "blocks", "SANTI-99").await;
     let (no_project, _) = link(&ana, "SANTI-1", "blocks", "NOPE-1").await;
-    let (bad_relation, _) = link(&ana, "SANTI-1", "causes", "SANTI-1").await;
+    let (bad_relation, relation_problem) = link(&ana, "SANTI-1", "causes", "SANTI-2").await;
 
     assert_eq!(itself, StatusCode::UNPROCESSABLE_ENTITY);
     assert_eq!(refused_field(&self_problem), "issue");
@@ -157,6 +157,28 @@ async fn self_links_bad_keys_and_unknown_issues_are_refused(pool: PgPool) {
     assert_eq!(unknown, StatusCode::NOT_FOUND);
     assert_eq!(no_project, StatusCode::NOT_FOUND);
     assert_eq!(bad_relation, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(refused_field(&relation_problem), "relation");
+}
+
+#[sqlx::test]
+async fn a_pair_carries_each_directed_type_once_in_either_direction(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    project_with_issues(&ana, "SANTI", "scrum", 2).await;
+    link(&ana, "SANTI-1", "blocks", "SANTI-2").await;
+    link(&ana, "SANTI-1", "duplicates", "SANTI-2").await;
+
+    let (blocks_back, blocks_problem) = link(&ana, "SANTI-2", "blocks", "SANTI-1").await;
+    let (duplicates_back, duplicates_problem) =
+        link(&ana, "SANTI-2", "duplicates", "SANTI-1").await;
+
+    assert_eq!(blocks_back, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(refused_field(&blocks_problem), "issue");
+    assert_eq!(duplicates_back, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(refused_field(&duplicates_problem), "issue");
+    assert_eq!(
+        links(&ana, "SANTI-1").await,
+        [pair("blocks", "SANTI-2"), pair("duplicates", "SANTI-2")]
+    );
 }
 
 #[sqlx::test]
@@ -218,6 +240,42 @@ async fn an_archived_project_keeps_its_links_read_only(pool: PgPool) {
     let (into_archived, problem) = link(&ana, "SANTI-1", "relates", "OPS-1").await;
     assert_eq!(into_archived, StatusCode::CONFLICT);
     assert_eq!(problem["type"], "urn:santi:error:project-archived");
+}
+
+#[sqlx::test]
+async fn a_link_into_an_archived_project_cannot_be_removed(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    project_with_issues(&ana, "SANTI", "scrum", 1).await;
+    project_with_issues(&ana, "OPS", "scrum", 1).await;
+    let (_, body) = link(&ana, "SANTI-1", "relates", "OPS-1").await;
+    ana.post("/api/projects/OPS/archive", json!(null)).await;
+
+    let (status, problem) = ana
+        .delete(&format!(
+            "/api/projects/SANTI/issues/1/links/{}",
+            body["id"]
+        ))
+        .await;
+
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(problem["type"], "urn:santi:error:project-archived");
+    assert_eq!(links(&ana, "SANTI-1").await, [pair("relates", "OPS-1")]);
+}
+
+#[sqlx::test]
+async fn a_trashed_project_hides_its_links_and_blockers(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    project_with_issues(&ana, "SANTI", "kanban", 1).await;
+    project_with_issues(&ana, "OPS", "scrum", 1).await;
+    let (_, body) = link(&ana, "SANTI-1", "is_blocked_by", "OPS-1").await;
+    ana.post("/api/projects/OPS/trash", json!(null)).await;
+
+    assert!(links(&ana, "SANTI-1").await.is_empty());
+    assert!(board_blocked_by(&ana, "SANTI", "SANTI-1").await.is_empty());
+    assert_eq!(
+        unlink(&ana, "SANTI-1", &body["id"]).await,
+        StatusCode::NOT_FOUND
+    );
 }
 
 fn blocked_by<'a>(cards: impl Iterator<Item = &'a Value>, key: &str) -> Vec<String> {
