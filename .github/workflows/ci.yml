@@ -5,6 +5,9 @@ on:
     branches: [main, developer, "chore/**", "ci/**", "feat/**", "fix/**", "docs/**", "refactor/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   COVERAGE_IGNORE: '/main\.rs$'
@@ -28,12 +31,16 @@ jobs:
       DATABASE_URL: postgres://santi:santi@localhost:5440/santi
       SQLX_OFFLINE: "true"
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
+          toolchain: stable
           components: rustfmt, clippy, llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-llvm-cov,cargo-deny
+      - run: cargo deny check advisories
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo install sqlx-cli --version 0.9.0 --locked --no-default-features --features postgres,rustls
@@ -63,12 +70,15 @@ jobs:
       # rust-toolchain.toml pins stable; branch coverage needs nightly.
       RUSTUP_TOOLCHAIN: nightly
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04 # nightly
         with:
+          toolchain: nightly
           components: llvm-tools-preview
-      - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
+        with:
+          tool: cargo-llvm-cov
       - run: >
           cargo llvm-cov --workspace --branch --ignore-filename-regex "$COVERAGE_IGNORE"
           --json --summary-only --output-path coverage.json
@@ -84,11 +94,11 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           package_json_file: web/package.json
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 24
           cache: pnpm
@@ -123,13 +133,15 @@ jobs:
       DATABASE_URL: postgres://santi:santi@localhost:5440/santi
       SQLX_OFFLINE: "true"
     steps:
-      - uses: actions/checkout@v5
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
         with:
           package_json_file: web/package.json
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 24
           cache: pnpm
@@ -144,7 +156,7 @@ jobs:
       - name: Start the server with the SPA build
         run: |
           SANTI_ADDR=127.0.0.1:8089 SANTI_WEB_DIR=web/dist SANTI_IP_LIMITS=off target/debug/santi-server > server.log 2>&1 &
-          for attempt in $(seq 60); do curl -sf http://127.0.0.1:8089/health && exit 0; sleep 1; done
+          for _ in $(seq 60); do curl -sf http://127.0.0.1:8089/health && exit 0; sleep 1; done
           cat server.log
           exit 1
       - run: pnpm e2e
@@ -153,6 +165,6 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - run: docker build -t santi:ci .
       - run: docker image ls santi:ci
