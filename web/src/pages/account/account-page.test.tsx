@@ -182,11 +182,13 @@ describe('account page', () => {
       requests.filter((request) => routeOf(request) === 'PATCH /api/me')
 
     it('saves on blur and shows the new name in the account menu', async () => {
+      let answer = (_: unknown) => {}
       const requests = signedIn({
         'GET /api/tokens': { status: 200, body: [] },
         'PATCH /api/me': {
           status: 200,
           body: { ...ALICE, display_name: 'Alice B' },
+          until: new Promise((resolve) => (answer = resolve)),
         },
       })
       const { screen } = await renderApp('/account')
@@ -194,14 +196,16 @@ describe('account page', () => {
 
       await name.fill('Alice B')
       await userEvent.tab()
+      await name.click()
+      await userEvent.keyboard('{Enter}')
+      answer(undefined)
 
       await expect.element(screen.getByText('Saved')).toBeVisible()
+      await userEvent.keyboard('{Enter}')
+      expect(patches(requests)).toHaveLength(1)
       expect(await patches(requests)[0]?.json()).toEqual({
         display_name: 'Alice B',
       })
-      await name.click()
-      await userEvent.keyboard('{Enter}')
-      expect(patches(requests)).toHaveLength(1)
       await screen.getByRole('button', { name: 'Account (Alice B)' }).click()
       await expect
         .element(screen.getByRole('menu').getByText('Alice B'))
@@ -248,6 +252,104 @@ describe('account page', () => {
       await expect.element(name).toHaveValue('Alice B')
       await expect.element(name).toHaveFocus()
       expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
+  })
+
+  describe('time zone', () => {
+    const BROWSER = 'Browser time zone (America/New_York)'
+    const patchOf = (requests: Request[]) =>
+      requests.find((request) => routeOf(request) === 'PATCH /api/me')
+
+    it('finds a zone by typing and saves it', async () => {
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+        },
+      })
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+      await expect.element(trigger).toHaveTextContent(BROWSER)
+
+      await trigger.click()
+      const search = screen.getByRole('combobox', { name: 'Find a time zone' })
+      await search.fill('new york')
+      await expect
+        .element(
+          screen.getByRole('option', { name: 'America/New_York', exact: true })
+        )
+        .toBeVisible()
+      await search.fill('zzz')
+      await expect
+        .element(screen.getByText('No time zone matches.'))
+        .toBeVisible()
+      await search.fill('auck')
+      await screen.getByRole('option', { name: 'Pacific/Auckland' }).click()
+
+      await expect.element(trigger).toHaveTextContent('Pacific/Auckland')
+      expect(await patchOf(requests)?.json()).toEqual({
+        time_zone: 'Pacific/Auckland',
+      })
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+    })
+
+    it('goes back to the browser zone as no zone at all', async () => {
+      const requests = signedIn({
+        'GET /api/me': {
+          status: 200,
+          body: { ...ALICE, time_zone: 'Pacific/Auckland' },
+        },
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 200, body: ALICE },
+      })
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+      await expect.element(trigger).toHaveTextContent('Pacific/Auckland')
+
+      await trigger.click()
+      await screen.getByRole('option', { name: BROWSER }).click()
+
+      await expect.element(trigger).toHaveTextContent(BROWSER)
+      expect(await patchOf(requests)?.json()).toEqual({ time_zone: null })
+    })
+
+    it('puts the saved zone back and says so when the save fails', async () => {
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 500, body: problem(500, 'Boom.') },
+      })
+      const { screen } = await renderApp('/account')
+      const trigger = screen.getByRole('button', { name: 'Time zone' })
+
+      await trigger.click()
+      await screen
+        .getByRole('combobox', { name: 'Find a time zone' })
+        .fill('auck')
+      await screen.getByRole('option', { name: 'Pacific/Auckland' }).click()
+
+      await expect
+        .element(screen.getByText('Could not save your time zone.'))
+        .toBeVisible()
+      await expect.element(trigger).toHaveTextContent(BROWSER)
+      expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
+
+    it('offers only the browser zone where the zone list is missing', async () => {
+      const list = Intl.supportedValuesOf
+      Reflect.deleteProperty(Intl, 'supportedValuesOf')
+      onTestFinished(() => {
+        Intl.supportedValuesOf = list
+      })
+      signedIn({ 'GET /api/tokens': { status: 200, body: [] } })
+      const { screen } = await renderApp('/account')
+
+      await screen.getByRole('button', { name: 'Time zone' }).click()
+
+      await expect
+        .element(screen.getByRole('option', { name: BROWSER }))
+        .toBeVisible()
+      expect(screen.getByRole('option').elements()).toHaveLength(1)
     })
   })
 

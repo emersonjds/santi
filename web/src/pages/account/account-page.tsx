@@ -4,6 +4,7 @@ import { DeleteAccountButton } from '@/features/account/delete-account-button'
 import { DisplayNameField } from '@/features/account/display-name-field'
 import { ExportDataButton } from '@/features/account/export-data-button'
 import { ThemeControl } from '@/features/account/theme-control'
+import { TimeZoneControl } from '@/features/account/time-zone-control'
 import { CreateTokenForm } from '@/features/api-token/create-token-form'
 import { RevokeTokenButton } from '@/features/api-token/revoke-token-button'
 import {
@@ -79,6 +80,7 @@ export const AccountPage = () => {
           Preferences
         </h2>
         <ThemeControl saved={user.theme} />
+        <TimeZoneControl saved={user.time_zone} />
       </section>
       <section aria-labelledby='tokens' className='grid gap-4'>
         <div className='grid gap-1'>
