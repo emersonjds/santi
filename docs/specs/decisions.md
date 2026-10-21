@@ -661,3 +661,10 @@ Winner: A (owner) — one codebase keeps the maintenance cost of one person and 
 - Infrastructure stays on Railway (US$ 20 a month today) until a paying customer needs another region or the total passes about US$ 60.
 - Marketing never presents santi as a free copy of another product and uses vendor names only in the importer docs. The investigator no longer observes the reference tracker; gaps are covered from public documentation and the product agent.
 - Relicensing to AGPL-3.0 with a trademark policy is proposed in SAN-190 and waits for the owner.
+
+## D57 — Subtask progress reads done/total, and the last one offers to finish the parent (SAN-156; amends D6)
+Context: D6 showed open/total on the parent and moved parents silently. The owner's parity rule (SAN-74) brings back SB-22, and the issue view now edits subtask status in place.
+Options: A) done/total on every chip plus a non-blocking offer when the last subtask finishes B) keep open/total and stay silent C) a confirm dialog
+Winner: A (product, ia, ux) — progress reads the same way in the issue view, on cards and in the backlog; the offer is a toast with a Move button, so nobody is stopped by a modal and nothing moves without a click.
+- The offer appears once per change that closes the last open subtask, from the subtask list or the board; Move sends the parent to the board's first done status.
+- Moving a parent stays silent and never closes its subtasks (D6 unchanged there).
