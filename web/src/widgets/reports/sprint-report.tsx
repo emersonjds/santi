@@ -16,6 +16,7 @@ import {
   sprintHistoryQuery,
   sprintReportQuery,
 } from '@/entities/report/report-queries'
+import { useTimeZone } from '@/entities/session/use-time-zone'
 import type { SprintReport, SprintTotals } from '@/shared/api/client'
 import { formatRange } from '@/shared/lib/sprint-dates'
 import { Button } from '@/shared/ui/button'
@@ -83,6 +84,7 @@ const Step = ({ label, target, onPick, children }: StepProps) => (
 
 const ReportHeader = ({ report }: { report: SprintReport }) => {
   const titleId = useId()
+  const timeZone = useTimeZone()
   const { sprint } = report
   const active = sprint.state === 'active'
   return (
@@ -98,7 +100,7 @@ const ReportHeader = ({ report }: { report: SprintReport }) => {
       )}
       {sprint.starts_at && sprint.ends_at && (
         <p className='text-muted-foreground'>
-          {formatRange(sprint.starts_at, sprint.ends_at)}
+          {formatRange(sprint.starts_at, sprint.ends_at, undefined, timeZone)}
         </p>
       )}
       {sprint.goal && <p>{sprint.goal}</p>}

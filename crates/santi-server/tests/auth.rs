@@ -271,6 +271,133 @@ async fn created_token_is_shown_once(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn new_accounts_follow_the_system_theme_and_the_browser_zone(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+
+    let (_, me) = app.get("/api/me").await;
+
+    assert_eq!(me["theme"], "system");
+    assert!(me["time_zone"].is_null());
+}
+
+#[sqlx::test]
+async fn patching_me_updates_name_theme_and_zone(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+
+    let (status, patched) = app
+        .patch(
+            "/api/me",
+            json!({ "display_name": " Ana Lima ", "theme": "dark", "time_zone": "Pacific/Auckland" }),
+        )
+        .await;
+    let (_, me) = app.get("/api/me").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(patched["id"], app.user_id);
+    assert_eq!(patched["email"], "ana@example.com");
+    assert_eq!(patched["display_name"], "Ana Lima");
+    assert_eq!(patched["theme"], "dark");
+    assert_eq!(patched["time_zone"], "Pacific/Auckland");
+    assert_eq!(me, patched);
+}
+
+#[sqlx::test]
+async fn patching_me_names_the_invalid_field(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+
+    for (body, field) in [
+        (json!({ "theme": "blue" }), "theme"),
+        (json!({ "time_zone": "Mars/Olympus" }), "time_zone"),
+        (json!({ "display_name": "" }), "display_name"),
+        (json!({ "theme": 5 }), "theme"),
+        (json!({ "theme": true }), "theme"),
+        (json!({ "time_zone": "Pacific/Auck\u{0}land" }), "time_zone"),
+    ] {
+        let (status, problem) = app.patch("/api/me", body).await;
+
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{field}");
+        assert_eq!(problem["errors"][0]["field"], field);
+    }
+}
+
+#[sqlx::test]
+async fn null_clears_the_zone_and_an_empty_patch_changes_nothing(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+    app.patch(
+        "/api/me",
+        json!({ "theme": "light", "time_zone": "America/Sao_Paulo" }),
+    )
+    .await;
+
+    let (_, unchanged) = app.patch("/api/me", json!({})).await;
+    let (_, cleared) = app.patch("/api/me", json!({ "time_zone": null })).await;
+
+    assert_eq!(unchanged["theme"], "light");
+    assert_eq!(unchanged["time_zone"], "America/Sao_Paulo");
+    assert_eq!(cleared["theme"], "light");
+    assert_eq!(cleared["display_name"], unchanged["display_name"]);
+    assert!(cleared["time_zone"].is_null());
+}
+
+#[sqlx::test]
+async fn patching_me_needs_a_session(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
+
+    let (status, _) = app.patch("/api/me", json!({ "theme": "dark" })).await;
+
+    assert_eq!(status, StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test]
+async fn a_truncated_patch_is_a_bad_request(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+    let request = Request::patch("/api/me")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header(
+            header::AUTHORIZATION,
+            format!("Bearer {}", app.token.as_deref().unwrap()),
+        )
+        .body(Body::from(r#"{"theme":"#))
+        .unwrap();
+
+    let response = app.send(request).await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test]
+async fn patching_me_cross_site_with_a_cookie_is_forbidden(pool: PgPool) {
+    let app = TestApp::anonymous(pool);
+    let cookie = session_cookie(&register(&app, "ana@example.com", PASSWORD).await);
+    let mut request = json_request(
+        Method::PATCH,
+        "/api/me",
+        None,
+        Some(json!({ "theme": "dark" })),
+    );
+    let headers = request.headers_mut();
+    headers.insert(header::COOKIE, cookie.parse().unwrap());
+    headers.insert(header::ORIGIN, "https://evil.example".parse().unwrap());
+
+    let response = app.send(request).await;
+    let me = app.send(with_cookie(Method::GET, "/api/me", &cookie)).await;
+
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(body_json(me).await["theme"], "system");
+}
+
+/// D54: a token acts with all of its owner's rights.
+#[sqlx::test]
+async fn an_api_token_can_patch_me(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+
+    let (status, me) = app.patch("/api/me", json!({ "theme": "light" })).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(me["theme"], "light");
+}
+
+#[sqlx::test]
 async fn token_name_is_required(pool: PgPool) {
     let app = TestApp::signed_in(pool, "ana@example.com").await;
 
