@@ -54,7 +54,7 @@ export const ThemeControl = ({ saved }: { saved: Theme }) => {
         {THEMES.map((theme) => (
           <label
             key={theme.value}
-            className='relative flex h-11 cursor-pointer items-center justify-center rounded-md text-sm font-medium text-muted-foreground has-checked:bg-background has-checked:text-foreground has-checked:shadow-xs dark:has-checked:bg-primary dark:has-checked:text-primary-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring md:h-9'
+            className='relative flex h-11 cursor-pointer items-center justify-center rounded-md text-sm font-medium text-muted-foreground has-checked:bg-background has-checked:text-foreground has-checked:shadow-xs has-focus-visible:ring-2 has-focus-visible:ring-ring md:h-9 dark:has-checked:bg-primary dark:has-checked:text-primary-foreground'
           >
             <input
               type='radio'
