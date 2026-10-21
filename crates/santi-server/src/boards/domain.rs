@@ -199,10 +199,11 @@ pub fn require_backlog(board_type: BoardType) -> Result<(), AppError> {
 
 /// D3: each filter kind matches when empty or when any of its values matches; kinds are AND-ed.
 pub fn matches_filter(card: &Card, filter: &IssueFilter, now: DateTime<Utc>) -> bool {
-    let assignee_matches = filter.assignee.is_empty()
-        || card
-            .assignee_id
-            .is_some_and(|id| filter.assignee.contains(&id));
+    let assignee_matches = match card.assignee_id {
+        _ if filter.assignee.is_empty() && !filter.unassigned => true,
+        Some(id) => filter.assignee.contains(&id),
+        None => filter.unassigned,
+    };
     let type_matches = filter.issue_type.is_empty() || filter.issue_type.contains(&card.issue_type);
     let label_matches =
         filter.label.is_empty() || card.labels.iter().any(|label| filter.label.contains(label));
@@ -473,6 +474,29 @@ mod tests {
         assert!(!matches_filter(&stale, &recent, now()));
         assert!(matches_filter(&fresh, &recent, now()));
         assert!(matches_filter(&stale, &IssueFilter::default(), now()));
+    }
+
+    #[test]
+    fn unassigned_matches_cards_without_an_assignee_or_ed_with_assignee_ids() {
+        let mut mine = card(1, 1, None, None);
+        mine.assignee_id = Some(7);
+        let mut theirs = card(2, 1, None, None);
+        theirs.assignee_id = Some(8);
+        let nobody = card(3, 1, None, None);
+        let unassigned = IssueFilter {
+            unassigned: true,
+            ..IssueFilter::default()
+        };
+        let mine_or_unassigned = IssueFilter {
+            assignee: vec![7],
+            ..unassigned.clone()
+        };
+
+        assert!(matches_filter(&nobody, &unassigned, now()));
+        assert!(!matches_filter(&mine, &unassigned, now()));
+        assert!(matches_filter(&mine, &mine_or_unassigned, now()));
+        assert!(matches_filter(&nobody, &mine_or_unassigned, now()));
+        assert!(!matches_filter(&theirs, &mine_or_unassigned, now()));
     }
 
     fn open_sprint(id: i64) -> Sprint {

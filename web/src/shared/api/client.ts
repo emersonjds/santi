@@ -50,6 +50,8 @@ export type Velocity = Schemas['Velocity']
 export type SprintReport = Schemas['SprintReport']
 export type ReportGroup = Schemas['ReportGroup']
 export type ReportIssue = Schemas['ReportIssue']
+export type TeamProgress = Schemas['TeamProgress']
+export type PersonProgress = Schemas['PersonProgress']
 
 // The session is an HttpOnly cookie (D22): no token ever reaches this code.
 export const api = createClient<paths>({

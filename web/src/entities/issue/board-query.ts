@@ -5,6 +5,7 @@ import { isIssueType } from './labels'
 /** The board URL (D18): quick filters, the column shown at 375px, and the issue open over it (IA §6). */
 export type BoardSearch = {
   assignee?: number[]
+  unassigned?: boolean
   type?: IssueType[]
   label?: string[]
   epic?: string
@@ -19,6 +20,7 @@ export type BoardSearch = {
 /** The quick filters as the board, backlog and search endpoints take them (D3). */
 export type BoardFilters = {
   assignee?: number[]
+  unassigned?: boolean
   type?: IssueType[]
   label?: string[]
   parent?: string[]
@@ -47,6 +49,7 @@ export const parseBoardSearch = (
   search: Record<string, unknown>
 ): BoardSearch => ({
   assignee: listOf(search.assignee, isId),
+  unassigned: search.unassigned === true || undefined,
   type: listOf(
     search.type,
     (each): each is IssueType => typeof each === 'string' && isIssueType(each)
@@ -69,6 +72,7 @@ export const parseBoardSearch = (
 
 export const boardFilters = ({
   assignee,
+  unassigned,
   type,
   label,
   epic,
@@ -76,6 +80,7 @@ export const boardFilters = ({
   recently_updated,
 }: BoardSearch): BoardFilters => ({
   assignee,
+  unassigned,
   type,
   label,
   parent: epic === undefined ? undefined : [epic],
@@ -86,6 +91,7 @@ export const boardFilters = ({
 export const countFilters = (search: BoardSearch) =>
   [
     search.assignee,
+    search.unassigned,
     search.type,
     search.label,
     search.epic,

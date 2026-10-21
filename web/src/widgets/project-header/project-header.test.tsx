@@ -62,7 +62,7 @@ describe('project header', () => {
         .getByRole('link')
         .elements()
         .map((tab) => tab.textContent)
-    ).toEqual(['Board', 'Backlog', 'Reports', 'Settings'])
+    ).toEqual(['Board', 'Backlog', 'Reports', 'People', 'Settings'])
 
     await router.navigate({ to: '/p/$key/reports', params: { key: 'OPS' } })
 

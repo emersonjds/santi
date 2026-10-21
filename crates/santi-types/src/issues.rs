@@ -278,6 +278,9 @@ pub struct IssueFilter {
     /// Assignee user ids.
     #[serde(default)]
     pub assignee: Vec<i64>,
+    /// Issues with no assignee; OR-combined with `assignee`.
+    #[serde(default)]
+    pub unassigned: bool,
     #[serde(default, rename = "type")]
     pub issue_type: Vec<IssueType>,
     #[serde(default)]

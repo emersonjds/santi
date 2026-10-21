@@ -353,6 +353,7 @@ pub fn like_pattern(text: Option<&str>) -> Option<String> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SearchQuery {
     pub assignee_ids: Vec<i64>,
+    pub unassigned: bool,
     pub types: Vec<IssueType>,
     pub labels: Vec<String>,
     pub parent_numbers: Vec<i64>,
@@ -384,6 +385,7 @@ pub fn to_search_query(
         .collect::<Result<Vec<i64>, AppError>>()?;
     Ok(SearchQuery {
         assignee_ids: filter.assignee.clone(),
+        unassigned: filter.unassigned,
         types: filter.issue_type.clone(),
         labels: filter.label.clone(),
         parent_numbers,

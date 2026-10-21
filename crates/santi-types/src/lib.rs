@@ -5,6 +5,7 @@ pub mod home;
 pub mod imports;
 pub mod issues;
 pub mod notifications;
+pub mod people;
 pub mod projects;
 pub mod reports;
 pub mod sprints;
