@@ -123,8 +123,8 @@ const ProjectItem = ({
             onClick={onNavigate}
           >
             <ProjectAvatar name={project.name} />
-            <span className='flex-1 truncate'>{project.name}</span>
-            <span className='hidden text-xs text-subtle-foreground tabular-nums md:inline'>
+            <span className='min-w-0 truncate'>{project.name}</span>
+            <span className='hidden shrink-0 text-xs text-subtle-foreground tabular-nums md:inline'>
               {project.key}
             </span>
           </Link>
