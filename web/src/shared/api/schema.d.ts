@@ -3286,13 +3286,22 @@ export interface operations {
             };
         };
         responses: {
-            /** @description A new project from one project of `GET /api/me/export`, with its board, sprints, issue numbers and comments; the caller is its admin. Users missing here are replaced and listed in `problems` */
+            /** @description A new project from one project of `GET /api/me/export`, with its board, sprints, issue numbers and comments; the caller is its only member, as admin (D58): other assignees are cleared, other reporters, comment authors and editors become the caller, each listed by name in `problems` */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["RestoreResult"];
+                };
+            };
+            /** @description `bad-request`: the body could not be read */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
                 };
             };
             401: {
@@ -3321,7 +3330,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Not JSON, not an export, over 50,000 issues or 500 statuses, or a key, parent, status or sprint the file does not hold; the field is named */
+            /** @description Malformed JSON is a 422 here, not a 400. Also: not an export, over 50,000 issues, 500 statuses, 2,000 sprints or 200,000 comments, a field a normal write refuses, or a key, parent, status or sprint the file does not hold; the field is named (`issues[3].summary`) */
             422: {
                 headers: {
                     [name: string]: unknown;
