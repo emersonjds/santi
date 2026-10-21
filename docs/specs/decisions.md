@@ -689,3 +689,4 @@ Options: A) a short device label parsed at sign-in plus sign-in and last-activit
 Winner: A (product, ia, ux) — enough to recognise a device, nothing that locates the person; B keeps data with no use for a small team, C cannot tell two laptops apart.
 - Last activity is refreshed at most every 10 minutes per session.
 - Changing the password ends every other session; API tokens stay until revoked from their own list.
+- An API token may change the password (the CLI signs in only with tokens); the current password is always required, so a leaked token alone cannot do it.
