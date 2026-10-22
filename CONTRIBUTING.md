@@ -18,10 +18,26 @@ tracker into this repository. Describe behavior in your own words in
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/) in English, one concern per commit.
 - Write the test first, watch it fail, then make it pass.
 
+## Development setup
+
+You need the latest stable Rust (1.97 or newer), Node 24+ with pnpm, and Docker (Docker Desktop)
+for PostgreSQL.
+
+```bash
+docker compose up -d postgres                      # PostgreSQL only, on localhost:5440
+export DATABASE_URL=postgres://santi:santi@localhost:5440/santi
+cargo run -p santi-server                          # API on http://127.0.0.1:8080, runs migrations
+cd web && pnpm install && pnpm dev                 # UI on http://localhost:5173, proxies /api to 8080
+```
+
+SQL queries are checked at compile time. With `DATABASE_URL` set, `cargo` checks them against
+your database, so after pulling new migrations either apply them first
+(`sqlx migrate run --source crates/santi-server/migrations`) or build with `SQLX_OFFLINE=true`,
+which uses the committed `.sqlx/` query data instead.
+
 ## Database
 
-santi needs PostgreSQL 17. Start only the database from `compose.yaml` (on macOS we use
-[OrbStack](https://orbstack.dev)) and point the tools at it:
+santi needs PostgreSQL 17. Start only the database from `compose.yaml` and point the tools at it:
 
     docker compose up -d --wait postgres
     export DATABASE_URL=postgres://santi:santi@localhost:5440/santi
@@ -71,7 +87,7 @@ LLVM_PROFDATA="$(brew --prefix llvm@22)/bin/llvm-profdata" \
 cargo llvm-cov --workspace --ignore-filename-regex '/main\.rs$'
 ```
 
-Web UI, from `web/` (Node ^20.19 or >= 22.12, pnpm; component tests run in Chromium, install it
+Web UI, from `web/` (Node 24+, pnpm; component tests run in Chromium, install it
 once with `pnpm exec playwright install chromium`):
 
 ```bash
@@ -112,7 +128,7 @@ snapshot with `UPDATE_OPENAPI=1 cargo test -p santi-server --test openapi`. More
 
 ## Deploy
 
-See the [README](README.md#quick-start): `docker compose up -d`. On any host other than
+See [Self-hosting](docs/self-hosting.md): `docker compose up -d`. On any host other than
 `localhost`, terminate HTTPS in a reverse proxy (the session cookie is `Secure`) and forward the
 original `Host` header (nginx: `proxy_set_header Host $host;`); the cross-site write check compares
 it with `Origin`.
