@@ -7,7 +7,7 @@ running it for someone else.
 |---|---|---|
 | Self-host | teams with a server of their own | free, complete, no user or project limits; you pay only your own infrastructure |
 | Hosted, Free | small teams trying santi | free: up to 5 people, 1 project, 1 GB of attachments |
-| Hosted, Team | teams that would rather not run a server | one flat monthly price per workspace (planned around US$ 19), unlimited people and projects |
+| Hosted, Team | teams that would rather not run a server | US$ 19 a month per workspace (US$ 190 a year), unlimited projects, fair use up to 50 people |
 | Add-ons | companies | white-label (your brand instead of santi's) and single sign-on, licensed on top of the same code |
 | Services | teams moving from another tracker | migration and support, quoted per case |
 
