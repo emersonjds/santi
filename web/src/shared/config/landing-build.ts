@@ -14,7 +14,7 @@ export const inlineStylesheets = (
 /** The llmstxt.org summary served at `/llms.txt`. */
 export const llmsTxt = (siteUrl: string) => `# santi
 
-> Free, open-source agile tracker for software teams: Scrum and Kanban boards, a backlog and sprints, with a web app, a CLI and an MCP server. Written in Rust and React, licensed MIT or Apache-2.0.
+> Free, open-source agile tracker for software teams: Scrum and Kanban boards, a backlog and sprints, with a web app, a CLI and an MCP server. Written in Rust and React, licensed AGPL-3.0.
 
 santi can be self-hosted with Docker Compose and PostgreSQL. Everything the web app does goes through a documented JSON API, and the \`santi mcp\` command gives AI agents tools for projects, boards, backlog, issues, comments and sprints, acting with the permissions of an API token.
 
