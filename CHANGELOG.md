@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-10-22
+
+> Pricing on the landing page, with self-hosting free and open source first.
+
 ### Added
 
 - **Pricing** on the landing page: self-hosting first, free and open source with every feature; a free hosted plan; and the Team plan at US$ 19 a month per workspace (US$ 190 a year), not billed yet. The stale "Coming next" block is gone and the FAQ answers about price and roadmap are current.
@@ -845,7 +849,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.25.1...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.26.0...HEAD
+[0.26.0]: https://github.com/emersonjds/santi/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/emersonjds/santi/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/emersonjds/santi/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/emersonjds/santi/compare/v0.24.0...v0.24.1
