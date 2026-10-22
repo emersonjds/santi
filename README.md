@@ -16,6 +16,7 @@
 </p>
 
 <p align="center">
+  <a href="https://getsanti.app">Website</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#features">Features</a> ·
   <a href="#cli-and-mcp">CLI and MCP</a> ·
