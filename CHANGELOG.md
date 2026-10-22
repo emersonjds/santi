@@ -10,6 +10,23 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.25.1] - 2026-10-21
+
+> The website moves to getsanti.app and the README puts self-hosting first.
+
+### Changed
+
+- The site lives at [getsanti.app](https://getsanti.app); `www` redirects to it.
+- The README is a short landing page with self-hosting first; configuration, upgrades, backups and restore, reverse proxy and importing moved to [docs/self-hosting.md](docs/self-hosting.md), development setup to CONTRIBUTING.md and plans to [docs/pricing.md](docs/pricing.md).
+
+### Fixed
+
+- The landing page, `llms.txt` and the terms of use now state the AGPL-3.0 license instead of MIT or Apache-2.0.
+
+### Upgrade notes
+
+- The published image is `linux/amd64` only; on ARM hosts pull it with `--platform linux/amd64` first.
+
 ## [0.25.0] - 2026-10-21
 
 > santi is now AGPL-3.0 with a trademark policy, on refreshed dependencies.
@@ -824,7 +841,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.25.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.25.1...HEAD
+[0.25.1]: https://github.com/emersonjds/santi/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/emersonjds/santi/compare/v0.24.1...v0.25.0
 [0.24.1]: https://github.com/emersonjds/santi/compare/v0.24.0...v0.24.1
 [0.24.0]: https://github.com/emersonjds/santi/compare/v0.23.0...v0.24.0
