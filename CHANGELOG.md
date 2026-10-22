@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- **Pricing** on the landing page: self-hosting first, free and open source with every feature; a free hosted plan; and the Team plan at US$ 19 a month per workspace (US$ 190 a year), not billed yet. The stale "Coming next" block is gone and the FAQ answers about price and roadmap are current.
+
 ## [0.25.1] - 2026-10-21
 
 > The website moves to getsanti.app and the README puts self-hosting first.

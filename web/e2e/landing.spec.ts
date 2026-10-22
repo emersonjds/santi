@@ -50,6 +50,44 @@ test('a visitor without a session lands on the landing page and its CTA opens si
   expect(violations).toEqual([])
 })
 
+test('the nav opens the pricing section with Self-host, Free and Team in that order', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: 'Pricing' })
+    .click()
+  await expect(page).toHaveURL(/#pricing$/)
+
+  const pricing = page.locator('#pricing')
+  await expect(pricing).toBeInViewport()
+  const plans = pricing.getByRole('listitem').filter({
+    has: page.getByRole('heading', { level: 3 }),
+  })
+  await expect(plans.getByRole('heading', { level: 3 })).toHaveText([
+    'Self-host',
+    'Free',
+    'Team',
+  ])
+  await expect(plans.nth(2)).toContainText('US$ 19')
+  await expect(
+    plans.nth(0).getByRole('link', { name: 'Read the guide' })
+  ).toHaveAttribute(
+    'href',
+    'https://github.com/emersonjds/santi/blob/main/docs/self-hosting.md'
+  )
+  await expect(
+    plans.nth(1).getByRole('link', { name: 'Try santi' })
+  ).toHaveAttribute('href', '/register')
+  await expect(
+    plans.nth(2).getByRole('link', { name: 'Start free' })
+  ).toHaveAttribute('href', '/register')
+  await expect(page.getByRole('heading', { name: 'Coming next' })).toHaveCount(
+    0
+  )
+})
+
 test('signed in, / is the app and /about is still the landing page', async ({
   page,
 }) => {
