@@ -2,7 +2,7 @@
 # One image, one origin (D38): the SPA build is served by the server from SANTI_WEB_DIR.
 # No BuildKit cache mounts: Railway's builder rejects cache ids without its service prefix.
 
-FROM node:24-trixie-slim@sha256:a6155384446670e9719bdc4fd0ebe4d4b29fb32a8d6aa523da3547a6cfbcf22c AS web
+FROM node:24-trixie-slim@sha256:54f84b4cf8432b21aaffd5d3ce8d41e12cea0d10d33c09d2f3c9879d49d6b446 AS web
 WORKDIR /web
 RUN corepack enable
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
