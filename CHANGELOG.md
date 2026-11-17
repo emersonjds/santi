@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Fixed
+
+- Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
+
 ## [0.26.0] - 2026-10-22
 
 > Pricing on the landing page, with self-hosting free and open source first.

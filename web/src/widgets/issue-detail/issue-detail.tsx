@@ -29,7 +29,7 @@ import { type Issue, type Member, fieldMessage } from '@/shared/api/client'
 import { useReadOnly } from '@/shared/lib/read-only'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
-import { CommitInput } from '@/shared/ui/commit-input'
+import { CommitTextarea } from '@/shared/ui/commit-input'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { IssueAttachments } from './issue-attachments'
 import { IssueComments } from './issue-comments'
@@ -104,7 +104,7 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
   const edit = useEditIssue(projectKey, issue)
   return (
     <div className='grid gap-1'>
-      <CommitInput
+      <CommitTextarea
         aria-label='Summary'
         required
         maxLength={255}
