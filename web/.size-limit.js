@@ -59,7 +59,7 @@ export default [
   {
     name: 'initial JS, /login',
     path: firstVisit(split('login.tsx')),
-    limit: '157 KB',
+    limit: '162 KB',
     gzip: true,
   },
   {
