@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
+
 ## [0.26.0] - 2026-10-22
 
 > Pricing on the landing page, with self-hosting free and open source first.
