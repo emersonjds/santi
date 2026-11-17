@@ -13,6 +13,9 @@ UI moves to its own repository.
 ### Changed
 
 - Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
+### Security
+
+- Dependencies updated for new advisories: rmcp 3.11 (MCP HTTP transport limits and OAuth SSRF check), ctutils 0.4.8 and zod 4.6.7 (memory exhaustion on oversized collections). chrono, chrono-tz and humantime are flagged unmaintained with no safe release yet and stay under review.
 
 ## [0.26.0] - 2026-10-22
 

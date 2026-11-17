@@ -1,3 +1,8 @@
 # Only `cargo deny check advisories` runs in CI; licenses, bans and sources are unchecked.
 [advisories]
-ignore = []
+ignore = [
+    # Unmaintained with no safe upgrade published (2026-11); revisit 2027-02 or replace with jiff.
+    { id = "RUSTSEC-2026-0543", reason = "chrono unmaintained, no maintained drop-in yet" },
+    { id = "RUSTSEC-2026-0555", reason = "chrono-tz unmaintained, follows chrono" },
+    { id = "RUSTSEC-2026-0542", reason = "humantime unmaintained, transitive only" },
+]
