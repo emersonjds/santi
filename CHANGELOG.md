@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- Railway deploy settings moved from `railway.toml` to `.railway/railway.ts` (Railway infrastructure as code); Railway stops reading `railway.toml` on 2026-12-01.
+
+### Upgrade notes
+
+- Deploying your own santi on Railway: `railway.toml` is gone. Set the Dockerfile builder and the `/health` check in the service settings, or adapt `.railway/railway.ts` and run `railway config apply` (see docs/deploy/railway.md).
+
 ## [0.26.0] - 2026-10-22
 
 > Pricing on the landing page, with self-hosting free and open source first.
