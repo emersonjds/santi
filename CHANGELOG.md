@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Security
+
+- Dependencies updated for new advisories: rmcp 3.11 (MCP HTTP transport limits and OAuth SSRF check), ctutils 0.4.8 and zod 4.6.7 (memory exhaustion on oversized collections). chrono, chrono-tz and humantime are flagged unmaintained with no safe release yet and stay under review.
+
 ## [0.26.0] - 2026-10-22
 
 > Pricing on the landing page, with self-hosting free and open source first.
