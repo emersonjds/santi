@@ -238,7 +238,9 @@ describe('project settings: General (SAN-225)', () => {
       'DELETE /api/projects/WEB/aliases/OLD': { status: 204 },
       'DELETE /api/projects/WEB/aliases/PRE': { status: 204 },
     })
-    const { screen } = await renderApp('/p/WEB/settings')
+    const { screen, queryClient } = await renderApp('/p/WEB/settings')
+    const viaPre = ['projects', 'PRE']
+    queryClient.setQueryData(viaPre, { ...WEB, previous_keys: ['OLD', 'PRE'] })
 
     await general().getByRole('button', { name: 'Remove OLD' }).click()
     await expect
@@ -252,6 +254,9 @@ describe('project settings: General (SAN-225)', () => {
     expect(
       general().getByRole('button', { name: 'Remove OLD' }).elements()
     ).toHaveLength(0)
+    expect(queryClient.getQueryData(viaPre)).toMatchObject({
+      previous_keys: ['PRE'],
+    })
 
     await general().getByRole('button', { name: 'Remove PRE' }).click()
     await expect

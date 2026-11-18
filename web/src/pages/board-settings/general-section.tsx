@@ -99,14 +99,17 @@ export const GeneralSection = ({ project }: { project: Project }) => {
         list.current?.querySelectorAll('button')[next] ?? heading.current
       target?.focus()
       queryClient.removeQueries({ queryKey: projectQuery(alias).queryKey })
-      queryClient.setQueryData(
-        projectQuery(project.key).queryKey,
-        (cached) =>
-          cached && {
-            ...cached,
-            previous_keys: cached.previous_keys.filter((key) => key !== alias),
-          }
-      )
+      for (const key of [project.key, ...project.previous_keys])
+        queryClient.setQueryData(
+          projectQuery(key).queryKey,
+          (cached) =>
+            cached && {
+              ...cached,
+              previous_keys: cached.previous_keys.filter(
+                (previous) => previous !== alias
+              ),
+            }
+        )
       toast.success(`Removed ${alias}. It's free for other projects now.`)
     },
     onError: (_, alias) => toast.error(`Couldn't remove ${alias}. Try again.`),
