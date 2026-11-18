@@ -86,6 +86,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 legal: std::sync::Arc::new(legal),
                 storage,
                 request_timeout: timeouts.request,
+                public_url: santi_server::auth::domain::public_url(
+                    std::env::var("SANTI_PUBLIC_URL").ok(),
+                    std::env::var("RAILWAY_PUBLIC_DOMAIN").ok(),
+                )
+                .into(),
             },
             Some(std::path::Path::new(&web_dir)),
         )

@@ -16,6 +16,7 @@ UI moves to its own repository.
 ### Changed
 
 - Railway deploy settings moved from `railway.toml` to `.railway/railway.ts` (Railway infrastructure as code); Railway stops reading `railway.toml` on 2026-12-01.
+- The old Railway address redirects to getsanti.app, keeping the path; /health is not redirected.
 
 ### Upgrade notes
 
