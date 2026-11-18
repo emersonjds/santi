@@ -30,9 +30,11 @@ pub fn old_host_redirect(
             .next()
             .unwrap_or_default(),
     );
+    let local = public_host == "localhost" || public_host.starts_with("127.");
     let old_host = host.ends_with(RAILWAY_HOSTS)
         && host != public_host
-        && !public_host.ends_with(RAILWAY_HOSTS);
+        && !public_host.ends_with(RAILWAY_HOSTS)
+        && !local;
     if !old_host || uri.path() == "/health" {
         return None;
     }
@@ -49,9 +51,10 @@ pub async fn to_public_url(
     request: Request,
     next: Next,
 ) -> Response {
-    let host = request
-        .headers()
-        .get(HOST)
+    let headers = request.headers();
+    let host = headers
+        .get("x-forwarded-host")
+        .or(headers.get(HOST))
         .and_then(|host| host.to_str().ok())
         .or(request
             .uri()
@@ -78,6 +81,18 @@ mod tests {
         public_url: &str,
     ) -> Option<(StatusCode, String)> {
         old_host_redirect(&method, host, &uri.parse().unwrap(), public_url)
+    }
+
+    #[test]
+    fn nothing_moves_while_the_public_url_is_the_local_default() {
+        assert_eq!(
+            redirect(Method::GET, OLD, "/", "http://localhost:8080"),
+            None
+        );
+        assert_eq!(
+            redirect(Method::POST, OLD, "/api/projects", "http://127.0.0.1:8080"),
+            None
+        );
     }
 
     #[test]
