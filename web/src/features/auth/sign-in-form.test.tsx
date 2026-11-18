@@ -25,6 +25,42 @@ describe('sign in', () => {
       .toBeVisible()
     await expect.element(screen.getByText('Enter your password.')).toBeVisible()
     expect(requests.map(routeOf)).toEqual(['GET /api/me'])
+    await expect.element(screen.getByLabelText('Email')).toHaveFocus()
+    await expect
+      .element(screen.getByLabelText('Email'))
+      .toHaveAttribute('aria-invalid', 'true')
+  })
+
+  it('rejects an email without a domain and clears the message once fixed', async () => {
+    const requests = anonymous()
+    const { screen } = await renderApp('/login')
+
+    await signIn(screen, 'alice', 'correct horse battery')
+
+    await expect
+      .element(screen.getByText('Enter an email address.'))
+      .toBeVisible()
+    expect(requests.map(routeOf)).toEqual(['GET /api/me'])
+    await screen.getByLabelText('Email').fill('alice@example.com')
+    await expect
+      .element(screen.getByText('Enter an email address.'))
+      .not.toBeInTheDocument()
+  })
+
+  it('shows the server detail when sign-ins are rate limited', async () => {
+    anonymous({
+      'POST /api/auth/login': {
+        status: 429,
+        body: problem(429, 'Too many attempts. Wait a minute and try again.'),
+      },
+    })
+    const { screen } = await renderApp('/login')
+
+    await signIn(screen, 'alice@example.com', 'correct horse battery')
+
+    await expect
+      .element(screen.getByRole('alert'))
+      .toHaveTextContent('Too many attempts. Wait a minute and try again.')
   })
 
   it('shows the server detail when the credentials are wrong', async () => {

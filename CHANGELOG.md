@@ -18,7 +18,11 @@ UI moves to its own repository.
 
 - Migration `0032_project_key_aliases` (number may change); API: `PATCH /api/projects/{key}`, `DELETE /api/projects/{key}/aliases/{alias}`, `Project.previous_keys`.
 - `POST /api/projects` and `POST /api/projects/restore` answer 409 `project-key-taken` or `project-key-alias` (was `already-exists`) for a key another project holds; a key held as another project's previous key is refused. A restore keeps the newest 100 previous keys and lists skipped or held ones in `problems`.
+- Optional error reporting to Sentry for the hosted instance (SANTI_SENTRY_DSN); off by default. Reports carry technical error details, not meant to identify you; account details, request bodies and tokens are removed.
+### Changed
 
+- The sign-in page loads about 34 KB less JavaScript.
+- The landing page terminals type their commands out as they scroll into view (static with reduced motion).
 ### Fixed
 
 - In the dark theme, the selected theme option, the importer's file button and the notification and filter counters also use white text on the deeper violet.
