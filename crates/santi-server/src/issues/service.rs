@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use santi_types::issues::{
-    Comment, CreateComment, CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, Page,
+    Comment, CreateComment, CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, NO_PARENT, Page,
     PageParams, StatusFilter, UpdateComment, UpdateIssue,
 };
 use sqlx::{PgConnection, PgPool};
@@ -139,13 +139,16 @@ pub async fn move_issue(
     number: i64,
     input: MoveIssue,
 ) -> Result<Issue, AppError> {
-    let anchor = domain::anchor_for(
-        &member.project_key,
-        number,
-        input.after.as_deref(),
-        input.before.as_deref(),
-    )?;
     let mut tx = pool.begin().await?;
+    let after = match input.after.as_deref() {
+        Some(key) => Some(own_issue_number(&mut tx, member, "after", key).await?),
+        None => None,
+    };
+    let before = match input.before.as_deref() {
+        Some(key) => Some(own_issue_number(&mut tx, member, "before", key).await?),
+        None => None,
+    };
+    let anchor = domain::anchor_for(number, after, before)?;
     let state = projects::repo::lock_project(&mut tx, member.project_id).await?; // D21: moves in one project are serialized
     projects::domain::check_active(state)?;
     let issue = repo::find_position_for_update(&mut tx, member.project_id, number).await?;
@@ -258,11 +261,15 @@ pub async fn search_issues(
     page: PageParams,
 ) -> Result<Page<Issue>, AppError> {
     let limit = pagination::page_limit(page.limit)?;
+    let mut conn = pool.acquire().await?;
+    let mut parent_numbers = Vec::new();
+    for key in filter.parent.iter().filter(|key| *key != NO_PARENT) {
+        parent_numbers.push(own_issue_number(&mut conn, member, "parent", key).await?);
+    }
     let query = domain::SearchQuery {
         categories: status.status,
-        ..domain::to_search_query(&member.project_key, &filter, Utc::now())?
+        ..domain::to_search_query(&member.project_key, &filter, parent_numbers, Utc::now())?
     };
-    let mut conn = pool.acquire().await?;
     let issues = repo::search_issues(
         &mut conn,
         member.project_id,
@@ -410,6 +417,24 @@ pub async fn resolve_status(
     Ok(status)
 }
 
+/// `KEY-12` → 12 for an issue key of this project, by its key or one of its previous keys.
+async fn own_issue_number(
+    conn: &mut PgConnection,
+    member: &Member,
+    field: &str,
+    key: &str,
+) -> Result<i64, AppError> {
+    let prefix = key.trim().rsplit_once('-').map_or("", |(prefix, _)| prefix);
+    let own_previous = prefix != member.project_key
+        && projects::repo::resolve_project_key(conn, prefix).await? == Some(member.project_id);
+    let project_key = if own_previous {
+        prefix
+    } else {
+        &member.project_key
+    };
+    domain::parse_issue_key(field, project_key, key)
+}
+
 async fn resolve_parent(
     conn: &mut PgConnection,
     member: &Member,
@@ -420,19 +445,7 @@ async fn resolve_parent(
         domain::check_parent(child_type, None)?;
         return Ok(None);
     };
-    // SAN-225: a previous key of this project names its issues too.
-    let prefix = parent_key
-        .trim()
-        .rsplit_once('-')
-        .map_or("", |(prefix, _)| prefix);
-    let own_previous = prefix != member.project_key
-        && projects::repo::resolve_project_key(conn, prefix).await? == Some(member.project_id);
-    let project_key = if own_previous {
-        prefix
-    } else {
-        &member.project_key
-    };
-    let number = domain::parse_issue_key("parent", project_key, parent_key)?;
+    let number = own_issue_number(conn, member, "parent", parent_key).await?;
     let parent = repo::find_kind(conn, member.project_id, number).await?;
     let parent =
         parent.ok_or_else(|| AppError::invalid("parent", "no such issue in this project"))?;

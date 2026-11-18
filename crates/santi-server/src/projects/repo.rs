@@ -139,20 +139,28 @@ pub struct KeyHolder {
     pub project_id: i64,
     pub name: String,
     pub alias: bool,
+    pub member: bool,
+    pub trashed: bool,
 }
 
-/// The project holding `key`, as its live key or a previous one.
+/// The project holding `key`, as its live key or a previous one, as `user_id` may see it.
 pub async fn find_key_holder(
     conn: &mut PgConnection,
     key: &str,
+    user_id: i64,
 ) -> Result<Option<KeyHolder>, sqlx::Error> {
     sqlx::query_as!(
         KeyHolder,
-        r#"SELECT id AS "project_id!", name AS "name!", false AS "alias!" FROM project WHERE key = $1
-           UNION ALL
-           SELECT p.id, p.name, true FROM project_key_alias a JOIN project p ON p.id = a.project_id
-           WHERE a.key = $1"#,
-        key
+        r#"SELECT p.id AS "project_id!", p.name AS "name!", h.alias AS "alias!",
+                  EXISTS (SELECT 1 FROM member m WHERE m.project_id = p.id AND m.user_id = $2)
+                      AS "member!",
+                  p.trashed_at IS NOT NULL AS "trashed!"
+           FROM (SELECT id AS project_id, false AS alias FROM project WHERE key = $1
+                 UNION ALL
+                 SELECT project_id, true FROM project_key_alias WHERE key = $1) h
+           JOIN project p ON p.id = h.project_id"#,
+        key,
+        user_id
     )
     .fetch_optional(&mut *conn)
     .await

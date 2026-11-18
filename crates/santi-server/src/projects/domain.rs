@@ -39,15 +39,18 @@ fn bad_new_key() -> AppError {
     )
 }
 
-/// Who holds a key: the project's id and name, and whether it is one of its previous keys.
+/// Who holds a key: the project's id and name, whether it is one of its previous keys, whether
+/// the caller is one of its members and whether it is in the trash.
 pub struct Holder<'a> {
     pub project_id: i64,
     pub name: &'a str,
     pub alias: bool,
+    pub member: bool,
+    pub trashed: bool,
 }
 
 /// OR-37, OR-38: whether project `taker` may take `key`; true when it is one of `taker`'s own
-/// previous keys, which goes back to being live.
+/// previous keys, which goes back to being live. Only members of the holder see its name.
 /// `taker` is None for a project not created yet.
 pub fn check_key_taker(
     key: &str,
@@ -57,20 +60,27 @@ pub fn check_key_taker(
     let Some(holder) = holder else {
         return Ok(false);
     };
-    let name = holder.name;
-    match (Some(holder.project_id) == taker, holder.alias) {
-        (true, alias) => Ok(alias),
-        (false, false) => Err(AppError::conflict(
-            "project-key-taken",
-            &format!("{key} is already {name}'s key."),
-        )),
-        (false, true) => Err(AppError::conflict(
-            "project-key-alias",
-            &format!(
-                "{key} is a previous key of {name}. Ask that project's admin to remove it before you can use it."
-            ),
-        )),
+    if Some(holder.project_id) == taker {
+        return Ok(holder.alias);
     }
+    let name = holder.name;
+    let detail = match (holder.alias, holder.member, holder.trashed) {
+        (false, true, _) => format!("{key} is already {name}'s key."),
+        (false, false, _) => format!("{key} is taken. Pick another key."),
+        (true, false, _) => format!("{key} is reserved by another project. Pick another key."),
+        (true, true, false) => format!(
+            "{key} is a previous key of {name}. Ask that project's admin to remove it before you can use it."
+        ),
+        (true, true, true) => format!(
+            "{key} belongs to {name}, which is in the trash; it frees up when the project is restored and the key removed, or deleted for good."
+        ),
+    };
+    let problem = if holder.alias {
+        "project-key-alias"
+    } else {
+        "project-key-taken"
+    };
+    Err(AppError::conflict(problem, &detail))
 }
 
 pub fn check_project_name(name: &str) -> Result<String, AppError> {
@@ -202,6 +212,8 @@ mod tests {
             project_id,
             name: "Nowvi",
             alias,
+            member: true,
+            trashed: false,
         };
         assert_eq!(check_key_taker("A1", Some(1), None), Ok(false));
         assert_eq!(
@@ -218,6 +230,48 @@ mod tests {
         assert_eq!(
             aliased.to_problem().problem_type,
             "urn:santi:error:project-key-alias"
+        );
+    }
+
+    #[test]
+    fn only_members_of_the_holder_see_its_name() {
+        let detail = |alias, member, trashed| {
+            let holder = Holder {
+                project_id: 2,
+                name: "Nowvi",
+                alias,
+                member,
+                trashed,
+            };
+            let problem = check_key_taker("A1", None, Some(holder))
+                .unwrap_err()
+                .to_problem();
+            let kind = if alias { "alias" } else { "taken" };
+            assert_eq!(
+                problem.problem_type,
+                format!("urn:santi:error:project-key-{kind}")
+            );
+            problem.detail
+        };
+        assert_eq!(
+            detail(false, false, false),
+            "A1 is taken. Pick another key."
+        );
+        assert_eq!(
+            detail(true, false, false),
+            "A1 is reserved by another project. Pick another key."
+        );
+        assert_eq!(
+            detail(true, false, true),
+            "A1 is reserved by another project. Pick another key."
+        );
+        assert_eq!(
+            detail(true, true, false),
+            "A1 is a previous key of Nowvi. Ask that project's admin to remove it before you can use it."
+        );
+        assert_eq!(
+            detail(true, true, true),
+            "A1 belongs to Nowvi, which is in the trash; it frees up when the project is restored and the key removed, or deleted for good."
         );
     }
 

@@ -17,6 +17,7 @@ UI moves to its own repository.
 ### Upgrade notes
 
 - Migration `0032_project_key_aliases` (number may change); API: `PATCH /api/projects/{key}`, `DELETE /api/projects/{key}/aliases/{alias}`, `Project.previous_keys`.
+- `POST /api/projects` and `POST /api/projects/restore` answer 409 `project-key-taken` or `project-key-alias` (was `already-exists`) for a key another project holds; a key held as another project's previous key is refused. A restore keeps the newest 100 previous keys and lists skipped or held ones in `problems`.
 
 ### Fixed
 

@@ -19,7 +19,7 @@ pub async fn create_project(
     let mut tx = pool.begin().await?;
     let held = repo::find_key_state(&mut tx, &key).await?;
     domain::check_key_free(&key, held)?;
-    take_key(&mut tx, &key, None).await?;
+    take_key(&mut tx, &key, None, user.id).await?;
     let project_id = repo::insert_project(&mut tx, &key, &name).await?;
     let done_window = domain::default_done_window(input.board_type);
     let board_id = repo::insert_board(&mut tx, project_id, input.board_type, done_window).await?;
@@ -45,18 +45,22 @@ pub async fn get_project(pool: &PgPool, member: &Member) -> Result<Project, AppE
 }
 
 /// SAN-225: under the key's lock until the transaction ends; true when `key` is one of
-/// `taker`'s own previous keys.
+/// `taker`'s own previous keys. `user_id` is the caller, who sees the holder's name only as one
+/// of its members.
 pub async fn take_key(
     conn: &mut PgConnection,
     key: &str,
     taker: Option<i64>,
+    user_id: i64,
 ) -> Result<bool, AppError> {
     repo::lock_key(conn, key).await?;
-    let holder = repo::find_key_holder(conn, key).await?;
+    let holder = repo::find_key_holder(conn, key, user_id).await?;
     let holder = holder.as_ref().map(|holder| domain::Holder {
         project_id: holder.project_id,
         name: &holder.name,
         alias: holder.alias,
+        member: holder.member,
+        trashed: holder.trashed,
     });
     domain::check_key_taker(key, taker, holder)
 }
@@ -81,7 +85,7 @@ pub async fn update(
         .transpose()?;
     let mut tx = pool.begin().await?;
     if let Some(key) = &key
-        && take_key(&mut tx, key, Some(member.project_id)).await?
+        && take_key(&mut tx, key, Some(member.project_id), member.user_id).await?
     {
         repo::delete_alias(&mut tx, member.project_id, key).await?;
     }

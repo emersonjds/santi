@@ -115,16 +115,22 @@ async fn a_new_key_must_be_upper_case_and_short(pool: PgPool) {
 }
 
 #[sqlx::test]
-async fn a_key_taken_by_another_project_names_it(pool: PgPool) {
+async fn a_key_taken_by_another_project_names_it_only_to_its_members(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
     ana.create_project("BAIXA", "scrum").await;
     ana.create_project("TAKEN", "scrum").await;
+    bob.create_project("BOBS", "scrum").await;
 
     let (status, problem) = rename(&ana, "BAIXA", json!({ "key": "TAKEN" })).await;
+    let (stranger, hidden) = rename(&bob, "BOBS", json!({ "key": "TAKEN" })).await;
 
     assert_eq!(status, StatusCode::CONFLICT);
     assert_eq!(problem["type"], "urn:santi:error:project-key-taken");
     assert_eq!(problem["detail"], "TAKEN is already Project TAKEN's key.");
+    assert_eq!(stranger, StatusCode::CONFLICT);
+    assert_eq!(hidden["type"], "urn:santi:error:project-key-taken");
+    assert_eq!(hidden["detail"], "TAKEN is taken. Pick another key.");
 }
 
 #[sqlx::test]
@@ -133,8 +139,8 @@ async fn an_alias_blocks_other_projects_until_its_admin_removes_it(pool: PgPool)
     let bob = ana.another_user("bob@example.com").await;
     ana.create_project("BAIXA", "scrum").await;
     bob.create_project("BOBS", "scrum").await;
-    rename(&ana, "BAIXA", json!({ "key": "NOWVI" })).await;
-    let alias = "BAIXA is a previous key of Project BAIXA. Ask that project's admin to remove it before you can use it.";
+    rename(&ana, "BAIXA", json!({ "name": "Nowvi", "key": "NOWVI" })).await;
+    let alias = "BAIXA is reserved by another project. Pick another key.";
 
     let (renamed, rename_problem) = rename(&bob, "BOBS", json!({ "key": "BAIXA" })).await;
     let (created, create_problem) = bob
@@ -155,6 +161,11 @@ async fn an_alias_blocks_other_projects_until_its_admin_removes_it(pool: PgPool)
     ana.add_member("NOWVI", &bob, "member").await;
     let (status, _) = bob.delete("/api/projects/NOWVI/aliases/BAIXA").await;
     assert_eq!(status, StatusCode::FORBIDDEN);
+    let (_, named) = rename(&bob, "BOBS", json!({ "key": "BAIXA" })).await;
+    assert_eq!(
+        named["detail"],
+        "BAIXA is a previous key of Nowvi. Ask that project's admin to remove it before you can use it."
+    );
     let (status, _) = ana.delete("/api/projects/NOWVI/aliases/OTHER").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
@@ -226,5 +237,85 @@ async fn a_rename_and_a_create_racing_for_one_key_leave_one_winner(pool: PgPool)
         statuses == [StatusCode::OK, StatusCode::CONFLICT]
             || statuses == [StatusCode::CREATED, StatusCode::CONFLICT],
         "{statuses:?}"
+    );
+}
+
+#[sqlx::test]
+async fn an_alias_of_a_trashed_project_tells_its_members_how_it_frees_up(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    ana.create_project("BAIXA", "scrum").await;
+    ana.create_project("OTHER", "scrum").await;
+    bob.create_project("BOBS", "scrum").await;
+    rename(&ana, "BAIXA", json!({ "name": "Nowvi", "key": "NOWVI" })).await;
+    ana.post("/api/projects/NOWVI/trash", json!(null)).await;
+
+    let (status, member) = rename(&ana, "OTHER", json!({ "key": "BAIXA" })).await;
+    let (_, stranger) = rename(&bob, "BOBS", json!({ "key": "BAIXA" })).await;
+
+    assert_eq!(status, StatusCode::CONFLICT);
+    assert_eq!(member["type"], "urn:santi:error:project-key-alias");
+    assert_eq!(
+        member["detail"],
+        "BAIXA belongs to Nowvi, which is in the trash; it frees up when the project is restored and the key removed, or deleted for good."
+    );
+    assert_eq!(
+        stranger["detail"],
+        "BAIXA is reserved by another project. Pick another key."
+    );
+}
+
+#[sqlx::test]
+async fn old_issue_keys_work_as_parent_filters_and_rank_anchors(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("BAIXA", "scrum").await;
+    ana.create_issue("BAIXA", json!({ "summary": "Epic", "issue_type": "epic" }))
+        .await;
+    ana.create_issue("BAIXA", json!({ "summary": "Child", "parent": "BAIXA-1" }))
+        .await;
+    ana.create_issue("BAIXA", json!({ "summary": "Third" }))
+        .await;
+    rename(&ana, "BAIXA", json!({ "key": "NOWVI" })).await;
+
+    let (status, children) = ana.get("/api/projects/NOWVI/issues?parent=BAIXA-1").await;
+    assert_eq!(status, StatusCode::OK, "{children}");
+    assert_eq!(children["items"][0]["key"], "NOWVI-2", "{children}");
+    let moves = [
+        json!({ "after": "BAIXA-2" }),
+        json!({ "before": "BAIXA-1" }),
+    ];
+    for body in moves {
+        let (status, moved) = ana
+            .post("/api/projects/NOWVI/issues/3/move", body.clone())
+            .await;
+        assert_eq!(status, StatusCode::OK, "{body} {moved}");
+    }
+}
+
+#[sqlx::test]
+async fn restore_reports_previous_keys_another_project_holds(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    let bob = ana.another_user("bob@example.com").await;
+    ana.create_project("BAIXA", "scrum").await;
+    rename(&ana, "BAIXA", json!({ "key": "NOWVI" })).await;
+    let (_, export) = ana.get("/api/me/export").await;
+    let file = export["projects"][0].clone();
+    ana.post("/api/projects/NOWVI/trash", json!(null)).await;
+    ana.delete("/api/projects/NOWVI").await;
+    bob.create_project("BAIXA", "scrum").await;
+
+    let (status, restored) = ana.post("/api/projects/restore", file).await;
+
+    assert_eq!(status, StatusCode::CREATED, "{restored}");
+    assert_eq!(restored["project"]["previous_keys"], json!([]));
+    let messages: Vec<&Value> = restored["problems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|problem| &problem["message"])
+        .collect();
+    assert!(
+        messages.contains(&&json!("Previous key BAIXA stays with another project.")),
+        "{restored}"
     );
 }
