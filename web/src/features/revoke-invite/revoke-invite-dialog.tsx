@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { type RefObject, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { invitesQuery } from '@/entities/invite/invite-queries'
 import { api, hasStatus, okOrThrow } from '@/shared/api/client'
@@ -11,27 +11,28 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/shared/ui/alert-dialog'
 import { Button } from '@/shared/ui/button'
 import { RootError } from '@/shared/ui/root-error'
 
-type RevokeInviteButtonProps = {
+export type RevokeInviteProps = {
   projectKey: string
   inviteId: number
-  /** The id of the row's summary, so each Revoke says which link it ends. */
-  describedBy: string
   /** Where the focus goes once the row, and this button, are gone. */
   nextFocus: () => HTMLElement | null
 }
 
-/** SAN-177: a link that already ended (404) leaves the list like a revoked one. */
-export const RevokeInviteButton = ({
+/** SAN-177: a link that already ended (404) leaves the list like a revoked one (lazy chunk). */
+export const RevokeInviteDialog = ({
   projectKey,
   inviteId,
-  describedBy,
   nextFocus,
-}: RevokeInviteButtonProps) => {
+  opener,
+  onClose,
+}: RevokeInviteProps & {
+  opener: RefObject<HTMLButtonElement | null>
+  onClose: () => void
+}) => {
   const queryClient = useQueryClient()
   const after = useRef<HTMLElement | null>(null)
   const { queryKey } = invitesQuery(projectKey)
@@ -60,21 +61,13 @@ export const RevokeInviteButton = ({
   })
 
   return (
-    <AlertDialog onOpenChange={(open) => open || revoke.reset()}>
-      <AlertDialogTrigger asChild>
-        <Button
-          variant='outline'
-          className='h-11 md:h-9'
-          aria-describedby={describedBy}
-        >
-          Revoke
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open onOpenChange={(open) => open || onClose()}>
       <AlertDialogContent
         onCloseAutoFocus={(event) => {
-          if (!after.current) return
+          const target = after.current ?? opener.current
+          if (!target) return
           event.preventDefault()
-          after.current.focus()
+          target.focus()
         }}
       >
         <AlertDialogHeader>
