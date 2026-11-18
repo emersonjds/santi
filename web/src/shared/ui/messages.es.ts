@@ -8,4 +8,6 @@ export default {
   resizeSidebar: 'Cambiar el tamaño de la barra lateral',
   close: 'Cerrar',
   retry: 'Reintentar',
+  sidebar: 'Barra lateral',
+  sidebarHint: 'Muestra la barra lateral en el móvil.',
 } satisfies Translation<typeof messages>

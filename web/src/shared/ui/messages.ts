@@ -7,4 +7,6 @@ export const messages = defineMessages('shared/ui', {
   resizeSidebar: 'Resize the sidebar',
   close: 'Close',
   retry: 'Retry',
+  sidebar: 'Sidebar',
+  sidebarHint: 'Displays the mobile sidebar.',
 })

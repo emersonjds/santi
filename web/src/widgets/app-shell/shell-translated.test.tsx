@@ -36,6 +36,19 @@ describe('the shell in pt-BR', () => {
       .toBeVisible()
   })
 
+  it('translates the phone drawer', async () => {
+    await page.viewport(375, 812)
+    const { screen } = await open()
+
+    await screen
+      .getByRole('button', { name: 'Mostrar ou ocultar a barra lateral' })
+      .click()
+
+    await expect
+      .element(screen.getByRole('dialog', { name: 'Barra lateral' }))
+      .toBeVisible()
+  })
+
   it('translates the account menu', async () => {
     const { screen } = await open()
 

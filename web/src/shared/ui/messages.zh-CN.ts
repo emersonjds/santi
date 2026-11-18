@@ -8,4 +8,6 @@ export default {
   resizeSidebar: '调整侧边栏宽度',
   close: '关闭',
   retry: '重试',
+  sidebar: '侧边栏',
+  sidebarHint: '显示移动端侧边栏。',
 } satisfies Translation<typeof messages>
