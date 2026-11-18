@@ -93,7 +93,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `unarchive_project` | active again (admins) | |
 | `trash_project` | hidden from everyone, purged after 60 days (admins) | |
 | `restore_project` | back from the trash (admins) | |
-| `update_project` | rename and/or change the key (2–10 chars, a capital letter then capitals or digits); old keys keep working as `previous_keys` (admins) | idempotent |
+| `update_project` | rename, change the key (2–10 chars, a capital letter then capitals or digits) and/or switch `board_type` (`scrum` or `kanban`; sprints and reports kept, switching to scrum clears column limits and the done window); old keys keep working as `previous_keys` (admins) | idempotent |
 | `remove_project_alias` | free one of the `previous_keys` for other projects; its links stop working (admins) | destructive |
 | `purge_project` | delete a trashed project for good (admins) | destructive |
 | `revoke_invite` | end a live invite link (`invite_id` from `list_invites`); joiners stay (admins) | destructive |

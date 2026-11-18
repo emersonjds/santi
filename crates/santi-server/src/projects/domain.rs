@@ -167,6 +167,20 @@ pub fn default_done_window(board_type: BoardType) -> Option<i32> {
     }
 }
 
+/// SAN-224: a switch made from a stale page is refused.
+pub fn check_expected_board_type(
+    current: BoardType,
+    expected: Option<BoardType>,
+) -> Result<(), AppError> {
+    match expected {
+        Some(expected) if expected != current => Err(AppError::conflict(
+            "board-type-changed",
+            "The board type changed since you loaded this page. Reload to see the current type.",
+        )),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -285,5 +299,13 @@ mod tests {
     fn kanban_hides_done_after_14_days_and_scrum_never() {
         assert_eq!(default_done_window(BoardType::Kanban), Some(14));
         assert_eq!(default_done_window(BoardType::Scrum), None);
+    }
+
+    #[test]
+    fn only_a_different_expected_board_type_is_refused() {
+        let (scrum, kanban) = (BoardType::Scrum, BoardType::Kanban);
+        assert!(check_expected_board_type(scrum, None).is_ok());
+        assert!(check_expected_board_type(scrum, Some(scrum)).is_ok());
+        assert!(check_expected_board_type(scrum, Some(kanban)).is_err());
     }
 }

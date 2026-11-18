@@ -1,5 +1,6 @@
 use santi_types::boards::{Card, EpicSummary, Status, StatusCategory};
 use santi_types::issues::{IssueType, Priority};
+use santi_types::projects::BoardType;
 use sqlx::PgConnection;
 
 use super::domain::{ColumnRow, LayoutColumn};
@@ -21,19 +22,21 @@ pub async fn find_done_window(
         .await
 }
 
+/// False when a window is asked of a board that is no longer kanban.
 pub async fn set_done_window(
     conn: &mut PgConnection,
     board_id: i64,
     days: Option<i32>,
-) -> Result<(), sqlx::Error> {
-    sqlx::query!(
-        "UPDATE board SET done_window_days = $2 WHERE id = $1",
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query!(
+        "UPDATE board SET done_window_days = $2
+         WHERE id = $1 AND ($2::integer IS NULL OR board_type = 'kanban')",
         board_id,
         days
     )
     .execute(&mut *conn)
     .await?;
-    Ok(())
+    Ok(result.rows_affected() == 1)
 }
 
 pub async fn list_columns(
@@ -116,6 +119,19 @@ pub async fn make_room_before_last_column(
 }
 
 /// Returns false when the column is not on this board.
+/// Holds the board type until the transaction ends.
+pub async fn share_board_type(
+    conn: &mut PgConnection,
+    board_id: i64,
+) -> Result<BoardType, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT board_type AS "board_type: BoardType" FROM board WHERE id = $1 FOR SHARE"#,
+        board_id
+    )
+    .fetch_one(&mut *conn)
+    .await
+}
+
 pub async fn update_column(
     conn: &mut PgConnection,
     board_id: i64,

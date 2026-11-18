@@ -289,11 +289,15 @@ async fn kanban_issues_take_no_sprint(pool: PgPool) {
     let (planned, problem) = ana
         .patch("/api/projects/FLOW/issues/1", json!({ "sprint_id": 1 }))
         .await;
-    let (cleared, _) = ana
+    let (cleared, cleared_problem) = ana
         .patch("/api/projects/FLOW/issues/1", json!({ "sprint_id": null }))
         .await;
 
     assert_eq!(planned, StatusCode::CONFLICT);
     assert_eq!(problem["type"], "urn:santi:error:kanban-has-no-sprints");
-    assert_eq!(cleared, StatusCode::OK);
+    assert_eq!(cleared, StatusCode::CONFLICT);
+    assert_eq!(
+        cleared_problem["type"],
+        "urn:santi:error:kanban-has-no-sprints"
+    );
 }

@@ -1265,6 +1265,25 @@ fn projects_are_renamed_rekeyed_and_their_old_keys_freed() {
 }
 
 #[test]
+fn projects_switch_between_scrum_and_kanban() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+
+    run(&["projects", "create", "SWT", "--name", "Switch"]).success();
+    run(&["projects", "edit", "SWT", "--type", "kanban"])
+        .success()
+        .stdout(contains("Switch (kanban, admin)"));
+    run(&["projects", "edit", "SWT", "--type", "flat"]).code(2);
+    let switched = json(
+        santi
+            .with(&token)
+            .args(["projects", "edit", "SWT", "--type", "scrum"]),
+    );
+    assert_eq!(switched["board_type"], "scrum");
+}
+
+#[test]
 fn issue_listings_page_by_cursor_or_follow_every_page() {
     let santi = Santi::new();
     let token = server().user();

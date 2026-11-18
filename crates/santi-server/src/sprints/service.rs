@@ -45,6 +45,7 @@ pub async fn update_sprint(
     sprint_id: i64,
     input: UpdateSprint,
 ) -> Result<Sprint, AppError> {
+    domain::require_scrum(member.board_type)?;
     let name = domain::check_sprint_name(&input.name)?;
     let goal = domain::check_goal(&input.goal)?;
     let mut tx = pool.begin().await?;
@@ -65,6 +66,7 @@ pub async fn update_sprint(
 }
 
 pub async fn delete_sprint(pool: &PgPool, member: &Member, sprint_id: i64) -> Result<(), AppError> {
+    domain::require_scrum(member.board_type)?;
     let mut conn = pool.acquire().await?;
     if repo::delete_future_sprint(&mut conn, member.board_id, sprint_id).await? {
         return Ok(());
@@ -87,6 +89,7 @@ pub async fn start_sprint(
     sprint_id: i64,
     input: StartSprint,
 ) -> Result<Sprint, AppError> {
+    domain::require_scrum(member.board_type)?;
     let now = Utc::now()
         .duration_trunc(TimeDelta::minutes(1))
         .expect("now is far from the chrono range limits");
@@ -114,6 +117,7 @@ pub async fn complete_sprint(
     sprint_id: i64,
     input: CompleteSprint,
 ) -> Result<Sprint, AppError> {
+    domain::require_scrum(member.board_type)?;
     let mut tx = pool.begin().await?;
     let sprint = repo::find_sprint_for_update(&mut tx, member.board_id, sprint_id)
         .await?
