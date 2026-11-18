@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- Switch a project between Kanban and Scrum from project settings, the CLI or MCP; sprints and reports are kept.
+
+### Upgrade notes
+
+- API: `PATCH /api/projects/{key}` accepts `board_type` and `expected_board_type` (409 `board-type-changed`).
+
 ## [0.30.0] - 2026-11-18
 
 > Exports, backups and restores keep the links between issues.
@@ -17,12 +25,10 @@ UI moves to its own repository.
 ### Added
 
 - Exports, backups and restore keep issue links.
-- Switch a project between Kanban and Scrum from project settings, the CLI or MCP; sprints and reports are kept.
 
 ### Upgrade notes
 
 - Account export and backups gain `links` per project; older files without it still restore.
-- API: `PATCH /api/projects/{key}` accepts `board_type` and `expected_board_type` (409 `board-type-changed`).
 
 ## [0.29.0] - 2026-11-18
 
