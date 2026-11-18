@@ -103,7 +103,7 @@ pub async fn get_project(
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin of the project"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project; `board-type-changed`: `expected_board_type` is not the current type"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "Name of 1 to 100 characters; key of 2 to 10 capital letters or digits, a letter first")))]
 pub async fn update_project(
     State(state): State<AppState>,

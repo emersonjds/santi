@@ -58,6 +58,7 @@ pub async fn list_sprints(
         (status = 200, body = Sprint, description = "Renamed or replanned; closed sprints keep their dates (SP-11)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`kanban-has-no-sprints`"),
         (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn update_sprint(
     State(state): State<AppState>,
@@ -78,7 +79,7 @@ pub async fn update_sprint(
         (status = 204, description = "Deleted; its issues return to the backlog with their rank (D32)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`sprint-not-future`")))]
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`sprint-not-future`; `kanban-has-no-sprints`")))]
 pub async fn delete_sprint(
     State(state): State<AppState>,
     member: Member,
@@ -96,7 +97,7 @@ pub async fn delete_sprint(
         (status = 200, body = Sprint, description = "Active; start defaults to now, end to two weeks later"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13)"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13); `kanban-has-no-sprints`"),
         (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn start_sprint(
     State(state): State<AppState>,
@@ -117,7 +118,7 @@ pub async fn start_sprint(
         (status = 200, body = Sprint, description = "Closed; open issues moved together, subtasks with their parent (D13)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`sprint-not-active`"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`sprint-not-active`; `kanban-has-no-sprints`"),
         (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn complete_sprint(
     State(state): State<AppState>,

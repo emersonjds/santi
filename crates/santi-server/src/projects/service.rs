@@ -84,12 +84,26 @@ pub async fn update(
         .map(domain::check_new_project_key)
         .transpose()?;
     let mut tx = pool.begin().await?;
+    // The board before the project: a column edit holds the board, then its status row needs the
+    // project.
+    let board_type = match input.board_type.or(input.expected_board_type) {
+        Some(_) => Some(repo::lock_board_type(&mut tx, member.board_id).await?),
+        None => None,
+    };
     if let Some(key) = &key
         && take_key(&mut tx, key, Some(member.project_id), member.user_id).await?
     {
         repo::delete_alias(&mut tx, member.project_id, key).await?;
     }
     domain::check_active(repo::lock_project(&mut tx, member.project_id).await?)?;
+    if let Some(current) = board_type {
+        domain::check_expected_board_type(current, input.expected_board_type)?;
+        if let Some(target) = input.board_type
+            && target != current
+        {
+            repo::switch_board(&mut tx, member.board_id, target).await?;
+        }
+    }
     if let Some(name) = &name {
         repo::rename(&mut tx, member.project_id, name).await?;
     }
