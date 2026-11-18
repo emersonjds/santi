@@ -1,5 +1,6 @@
 pub mod attachments;
 pub mod auth;
+pub mod backups;
 pub mod boards;
 pub mod error;
 pub mod extract;

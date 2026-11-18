@@ -1,4 +1,4 @@
-import { use } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query'
 import {
   ArrowRightLeft,
@@ -204,6 +204,41 @@ const copyKey = (key: string) =>
     () => toast.error(`Couldn't copy ${key}`)
   )
 
+const swallowNextClick = () => {
+  const swallow = (event: Event) => {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+  document.addEventListener('click', swallow, { capture: true, once: true })
+  document.addEventListener(
+    'pointerdown',
+    () => document.removeEventListener('click', swallow, true),
+    { capture: true, once: true }
+  )
+}
+
+/** The press outside that closes the non-modal menu neither reaches nor activates what it lands on. */
+const useCloseOnOutsidePress = (
+  open: boolean,
+  setOpen: (open: boolean) => void
+) =>
+  useEffect(() => {
+    if (!open) return
+    const outside = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[role="menu"]')
+      )
+        return
+      event.preventDefault()
+      event.stopPropagation()
+      swallowNextClick()
+      setOpen(false)
+    }
+    document.addEventListener('pointerdown', outside, true)
+    return () => document.removeEventListener('pointerdown', outside, true)
+  }, [open, setOpen])
+
 /** The card's "…" menu (lazy chunk): every edit is optimistic and says so when it fails. */
 export const CardMenu = ({
   card,
@@ -213,8 +248,11 @@ export const CardMenu = ({
   const { data: me } = useSuspenseQuery(sessionQuery)
   const { data: project } = useSuspenseQuery(projectQuery(projectKey))
   const locked = useReadOnly() !== undefined
+  const [open, setOpen] = useState(false)
+  useCloseOnOutsidePress(open, setOpen)
   return (
-    <DropdownMenu>
+    // ponytail: non-modal on the card menu only; re-measure row-menu.tsx if the backlog renders 100+ unvirtualized rows.
+    <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         aria-label={`Actions for ${card.key}`}
         className='grid size-11 place-items-center rounded-md text-muted-foreground outline-none hover:bg-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring md:size-10'

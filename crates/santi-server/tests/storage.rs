@@ -39,6 +39,8 @@ async fn contract(storage: Storage) {
 
     assert_eq!(size, 11);
     assert_eq!(read_back(&storage, &key).await, b"hello world");
+    assert_eq!(storage.list("7").await.unwrap(), std::slice::from_ref(&key));
+    assert!(storage.list("8").await.unwrap().is_empty());
     storage.delete(&key).await.unwrap();
     assert!(
         storage
@@ -247,13 +249,21 @@ fn startup_warns_about_a_disk_on_railway_and_plain_http_to_a_public_host() {
     };
 
     assert_eq!(
-        disk.startup_warnings(true),
+        disk.startup_warnings(true, false),
         ["attachments are on the container disk and are lost on redeploy; set SANTI_S3_*"]
     );
-    assert!(disk.startup_warnings(false).is_empty());
+    assert!(disk.startup_warnings(false, false).is_empty());
+    assert_eq!(
+        disk.startup_warnings(true, true),
+        [
+            "attachments are on the container disk and are lost on redeploy; set SANTI_S3_*",
+            "backups are on the container disk and are lost on redeploy; set SANTI_S3_*"
+        ]
+    );
+    assert!(disk.startup_warnings(false, true).is_empty());
     assert!(
         with_endpoint("https://storage.example.test")
-            .startup_warnings(true)
+            .startup_warnings(true, false)
             .is_empty()
     );
     for internal in [
@@ -265,12 +275,14 @@ fn startup_warns_about_a_disk_on_railway_and_plain_http_to_a_public_host() {
         "http://[fd00::5]",
     ] {
         assert!(
-            with_endpoint(internal).startup_warnings(false).is_empty(),
+            with_endpoint(internal)
+                .startup_warnings(false, false)
+                .is_empty(),
             "{internal}"
         );
     }
     assert_eq!(
-        with_endpoint("http://storage.example.test").startup_warnings(false),
+        with_endpoint("http://storage.example.test").startup_warnings(false, false),
         [
             "SANTI_S3_ENDPOINT uses plain http to a public host; attachments and keys travel unencrypted"
         ]

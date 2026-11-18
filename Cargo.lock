@@ -2349,12 +2349,13 @@ dependencies = [
 
 [[package]]
 name = "santi-cli"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "assert_cmd",
  "axum",
  "chrono",
  "clap",
+ "flate2",
  "predicates",
  "reqwest",
  "rmcp",
@@ -2373,13 +2374,14 @@ dependencies = [
 
 [[package]]
 name = "santi-server"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "argon2",
  "axum",
  "axum-extra",
  "chrono",
  "chrono-tz",
+ "flate2",
  "futures-util",
  "getrandom 0.4.3",
  "http-body-util",
@@ -2405,7 +2407,7 @@ dependencies = [
 
 [[package]]
 name = "santi-types"
-version = "0.28.0"
+version = "0.29.0"
 dependencies = [
  "chrono",
  "schemars",

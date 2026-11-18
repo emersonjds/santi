@@ -10,6 +10,26 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-18
+
+> Scheduled backups for self-hosters and a faster card menu on large boards.
+
+### Added
+
+- Scheduled backups for self-hosters: one restorable file per project, daily at `SANTI_BACKUP_HOUR_UTC`, keeping `SANTI_BACKUP_KEEP` runs; `santi restore` reads them, compressed or not.
+
+### Changed
+
+- The card actions menu opens about four times faster on large boards.
+
+### Fixed
+
+- Board and backlog filters by parent accept an issue key with the project's previous key.
+
+### Upgrade notes
+
+- New optional settings `SANTI_BACKUP_HOUR_UTC` (0–23, unset keeps backups off) and `SANTI_BACKUP_KEEP` (default 14, at least 1); an invalid value stops the server at startup. Backups go to the attachments storage under `backups/`, which santi owns; see docs/self-hosting.md for what a backup contains and how to keep a copy off the server.
+
 ## [0.28.0] - 2026-11-18
 
 > A welcome tour, renaming projects and their keys, a lighter sign-in page and optional error reporting.
@@ -910,7 +930,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.28.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.29.0...HEAD
+[0.29.0]: https://github.com/emersonjds/santi/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/emersonjds/santi/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/emersonjds/santi/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/emersonjds/santi/compare/v0.25.1...v0.26.0

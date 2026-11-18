@@ -10,7 +10,7 @@ use super::{domain, repo};
 use crate::error::AppError;
 use crate::members::Member;
 use crate::members::domain::require_admin;
-use crate::sprints;
+use crate::{projects, sprints};
 
 pub async fn seed_default_layout(
     conn: &mut PgConnection,
@@ -51,6 +51,7 @@ pub async fn board_view(
     filter: &IssueFilter,
 ) -> Result<BoardView, AppError> {
     let mut conn = pool.acquire().await?;
+    let filter = &current_parent_keys(&mut conn, member, filter).await?;
     let sprint = sprints::repo::find_active(&mut conn, member.board_id).await?;
     let columns = repo::list_columns(&mut conn, member.board_id).await?;
     let sprint_id = sprint.as_ref().map(|sprint| sprint.id);
@@ -62,6 +63,26 @@ pub async fn board_view(
     })
 }
 
+/// SAN-235: a parent key written with one of the project's previous keys filters as the current one.
+async fn current_parent_keys(
+    conn: &mut PgConnection,
+    member: &Member,
+    filter: &IssueFilter,
+) -> Result<IssueFilter, AppError> {
+    let mut filter = filter.clone();
+    for parent in &mut filter.parent {
+        let Some((prefix, number)) = parent.rsplit_once('-') else {
+            continue;
+        };
+        if prefix != member.project_key
+            && projects::repo::resolve_project_key(conn, prefix).await? == Some(member.project_id)
+        {
+            *parent = format!("{}-{number}", member.project_key);
+        }
+    }
+    Ok(filter)
+}
+
 pub async fn backlog(
     pool: &PgPool,
     member: &Member,
@@ -69,6 +90,7 @@ pub async fn backlog(
 ) -> Result<Backlog, AppError> {
     domain::require_backlog(member.board_type)?;
     let mut conn = pool.acquire().await?;
+    let filter = &current_parent_keys(&mut conn, member, filter).await?;
     let sprints = sprints::repo::list_open(&mut conn, member.board_id).await?;
     let cards = repo::backlog_cards(&mut conn, member.project_id, member.user_id).await?;
     let epics = repo::epic_summaries(&mut conn, member.project_id).await?;

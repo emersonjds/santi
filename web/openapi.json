@@ -7,7 +7,7 @@
       "name": "AGPL-3.0-only",
       "identifier": "AGPL-3.0-only"
     },
-    "version": "0.28.0"
+    "version": "0.29.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -1674,7 +1674,7 @@
             }
           },
           "409": {
-            "description": "`project-exists`: a project holds the key; nothing written",
+            "description": "`project-exists`: a project holds the key; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; nothing written",
             "content": {
               "application/problem+json": {
                 "schema": {
