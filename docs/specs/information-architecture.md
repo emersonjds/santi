@@ -95,7 +95,7 @@ Pages
 | `GET /p/{key}/search` | search results (`?q`, `type`, `status` category, `assignee`, `recently_updated`) | built |
 | `GET /p/{key}/settings` | board settings: columns, statuses, done window (admins); danger zone (everyone, SAN-70) | built |
 | `GET /p/{key}/settings/members` | members, roles, invite links | new (moves off the project page) |
-| `GET /account` | profile, preferences (theme, SAN-93), API tokens, your data | built |
+| `GET /account` | profile, preferences (theme, SAN-93; language, SAN-199), API tokens, your data | built |
 
 Create issue has no route: + Create or `c` opens a dialog.
 
@@ -125,7 +125,7 @@ overlay (modal, sheet, menu).
 | Settings — board | project header | — | Columns (order, rename, WIP max kanban, delete), Statuses (name, category, column, unmapped pool), Done window (kanban); then the Danger zone | delete-column target picker; danger-zone confirms | Add column | Add status |
 | Settings — danger zone | (end of Settings) | — | rows, label + one-line description left, button right (stacked under 640px): Archive project (outline, admins, active projects), Delete project (destructive, admins: "Moves to trash for 60 days; you can restore it."), Leave project (outline, everyone; disabled for the last admin with the reason as its description) | Archive and Leave: confirm; Delete: type the project key | — | after Archive / Delete: land on `/projects`, toast "Archived {KEY}" / "Moved {KEY} to trash" with Undo for 8 s; Leave: home, "You left {name}." |
 | Settings — members | project header | — | member rows (avatar, name, email, role select, remove); invite link box | — | Create invite link | change role, remove |
-| Account | "Account" | — | profile (read only); preferences: theme Light / Dark / System, applied at once and saved to the account (SAN-93); API tokens (name, created, revoke) | token shown once | Create token | Revoke, Log out |
+| Account | "Account" | — | profile (read only); preferences: theme Light / Dark / System, applied at once and saved to the account (SAN-93), language in its own name, offered once a second language is released (SAN-199, D62); API tokens (name, created, revoke) | token shown once | Create token | Revoke, Log out |
 
 Project header (board, backlog, settings): project avatar (initial on brand tint), name, board
 type badge (Scrum / Kanban), active sprint name + "n days left" (scrum; overdue badge, D15),

@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from 'react'
 import { Check } from 'lucide-react'
+import { useT } from '@/shared/i18n/i18n'
 import {
   Command,
   CommandEmpty,
@@ -8,6 +9,7 @@ import {
   CommandList,
 } from '@/shared/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
+import { messages } from './messages'
 
 const plain = (text: string) => text.toLowerCase().replaceAll('_', ' ')
 
@@ -30,6 +32,7 @@ export const TimeZonePicker = ({
   trigger,
   onPick,
 }: TimeZonePickerProps) => {
+  const t = useT(messages)
   const [open, setOpen] = useState(false)
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -46,12 +49,12 @@ export const TimeZonePicker = ({
           }
         >
           <CommandInput
-            aria-label='Find a time zone'
-            placeholder='Find a time zone'
+            aria-label={t('findTimeZone')}
+            placeholder={t('findTimeZone')}
             className='text-base md:text-sm'
           />
           <CommandList>
-            <CommandEmpty>No time zone matches.</CommandEmpty>
+            <CommandEmpty>{t('noTimeZone')}</CommandEmpty>
             {[null, ...zoneList()].map((zone) => (
               <CommandItem
                 key={zone ?? ''}

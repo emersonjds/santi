@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, email, display_name, theme AS \"theme: Theme\", time_zone, tour_seen_at, password_hash\n           FROM app_user WHERE email = $1 AND deleted_at IS NULL",
+  "query": "SELECT id, email, display_name, theme AS \"theme: Theme\", language AS \"language: Language\", time_zone, tour_seen_at\n           FROM app_user WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -49,6 +49,17 @@
       },
       {
         "ordinal": 4,
+        "name": "language: Language",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "app_user",
+            "name": "language"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
         "name": "time_zone",
         "type_info": "Text",
         "origin": {
@@ -59,7 +70,7 @@
         }
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "tour_seen_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -68,22 +79,11 @@
             "name": "tour_seen_at"
           }
         }
-      },
-      {
-        "ordinal": 6,
-        "name": "password_hash",
-        "type_info": "Text",
-        "origin": {
-          "Table": {
-            "table": "app_user",
-            "name": "password_hash"
-          }
-        }
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Int8"
       ]
     },
     "nullable": [
@@ -91,10 +91,10 @@
       false,
       false,
       false,
+      false,
       true,
-      true,
-      false
+      true
     ]
   },
-  "hash": "7f3947cab4cf39afe7e505f6ded46da1e39d66bd0ca0e9ee5d34cb1febeba42c"
+  "hash": "8263c2fc29a587b58d4f698ee6e3ce59b3c8457a98260a0289794a795c48778a"
 }

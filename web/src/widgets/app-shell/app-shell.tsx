@@ -1,5 +1,6 @@
 import { type ReactNode, Suspense, lazy, useEffect } from 'react'
 import { useRouteContext } from '@tanstack/react-router'
+import { switchLanguage } from '@/shared/i18n/i18n'
 import { applyTheme } from '@/shared/lib/theme'
 import { SidebarInset, SidebarProvider } from '@/shared/ui/sidebar'
 import { AppSidebar } from './app-sidebar'
@@ -14,6 +15,10 @@ const Toaster = lazy(() =>
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })
   useEffect(() => applyTheme(user.theme), [user.theme])
+  useEffect(
+    () => void switchLanguage(user.language).catch(() => {}),
+    [user.language]
+  )
 
   return (
     <SidebarProvider>

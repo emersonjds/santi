@@ -7,7 +7,7 @@
       "name": "AGPL-3.0-only",
       "identifier": "AGPL-3.0-only"
     },
-    "version": "0.31.0"
+    "version": "0.32.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -431,7 +431,7 @@
             }
           },
           "422": {
-            "description": "Blank or over 100 characters (`display_name`), unknown theme (`theme`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`)",
+            "description": "Blank or over 100 characters (`display_name`), unknown theme (`theme`) or language tag (`language`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7871,6 +7871,17 @@
           "issue"
         ]
       },
+      "Language": {
+        "type": "string",
+        "description": "BCP 47 tag of the web app's language; case-sensitive.",
+        "enum": [
+          "en",
+          "es",
+          "pt-BR",
+          "pt-PT",
+          "zh-CN"
+        ]
+      },
       "LegalAcceptance": {
         "type": "object",
         "description": "One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`.",
@@ -9893,6 +9904,16 @@
               "null"
             ]
           },
+          "language": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Language"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "theme": {
             "oneOf": [
               {
@@ -10017,7 +10038,8 @@
           "id",
           "email",
           "display_name",
-          "theme"
+          "theme",
+          "language"
         ],
         "properties": {
           "display_name": {
@@ -10029,6 +10051,10 @@
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language",
+            "description": "Absent from older export files, which read as `en`."
           },
           "theme": {
             "$ref": "#/components/schemas/Theme"

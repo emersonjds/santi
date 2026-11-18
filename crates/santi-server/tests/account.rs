@@ -5,7 +5,7 @@ use common::{PASSWORD, TestApp, body_json, json_request};
 use santi_server::auth::extract::CurrentUser;
 use santi_server::auth::service;
 use santi_server::error::AppError;
-use santi_types::auth::{Theme, UpdateMe};
+use santi_types::auth::{Language, Theme, UpdateMe};
 use serde_json::{Value, json};
 use sqlx::PgPool;
 
@@ -340,16 +340,15 @@ async fn the_address_an_erased_account_gets_cannot_be_squatted(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
-    let preferences =
-        json!({ "theme": "dark", "time_zone": "Pacific/Auckland", "tour_seen": true });
+    let preferences = json!({ "theme": "dark", "language": "zh-CN", "time_zone": "Pacific/Auckland", "tour_seen": true });
     ana.patch("/api/me", preferences).await;
     let (deleted, _, _) = delete_account(&ana, PASSWORD).await;
 
     assert_eq!(refused, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
     assert_eq!(problem["errors"][0]["field"], "email");
     assert_eq!(deleted, StatusCode::NO_CONTENT);
-    let erased: (String, bool, String, Option<String>, bool) = sqlx::query_as(
-        "SELECT email, deleted_at IS NOT NULL, theme::text, time_zone, tour_seen_at IS NULL
+    let erased: (String, bool, String, Option<String>, bool, String) = sqlx::query_as(
+        "SELECT email, deleted_at IS NOT NULL, theme::text, time_zone, tour_seen_at IS NULL, language
          FROM app_user WHERE id = $1",
     )
     .bind(ana.user_id)
@@ -361,6 +360,7 @@ async fn the_address_an_erased_account_gets_cannot_be_squatted(pool: PgPool) {
     assert_eq!(erased.2, "system");
     assert_eq!(erased.3, None);
     assert!(erased.4, "the erase clears the tour stamp");
+    assert_eq!(erased.5, "en");
 }
 
 #[sqlx::test]
@@ -375,19 +375,24 @@ async fn a_rename_racing_the_erase_cannot_restore_the_name(pool: PgPool) {
     let rename = UpdateMe {
         display_name: Some("Ana Lima".into()),
         theme: Some(Theme::Dark),
+        language: Some(Language::PtBr),
         time_zone: Some(Some("Pacific/Auckland".into())),
         tour_seen: Some(true),
     };
     let result = service::update_me(&pool, &caller, rename).await;
 
     assert_eq!(result.unwrap_err(), AppError::Unauthorized);
-    let row: (String, String, Option<String>) =
-        sqlx::query_as("SELECT display_name, theme::text, time_zone FROM app_user WHERE id = $1")
-            .bind(ana.user_id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-    assert_eq!(row, ("Deleted user".into(), "system".into(), None));
+    let row: (String, String, Option<String>, String) = sqlx::query_as(
+        "SELECT display_name, theme::text, time_zone, language FROM app_user WHERE id = $1",
+    )
+    .bind(ana.user_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(
+        row,
+        ("Deleted user".into(), "system".into(), None, "en".into())
+    );
 }
 
 #[sqlx::test]
