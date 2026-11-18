@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
 import {
@@ -128,6 +128,13 @@ describe('project settings: Board type (SAN-224)', () => {
     await expect
       .element(
         dialog().getByText(
+          'Done issues older than 14 days are hidden from the board.'
+        )
+      )
+      .toBeVisible()
+    await expect
+      .element(
+        dialog().getByText(
           '3 sprints and their reports stay as history, hidden until you switch back to Scrum.'
         )
       )
@@ -155,7 +162,8 @@ describe('project settings: Board type (SAN-224)', () => {
   it('switches to Kanban: Switching…, toast, Reports gone, focus on Kanban', async () => {
     const reply = held()
     const requests = switching('scrum', {}, reply.until)
-    const { screen } = await renderApp('/p/WEB/settings')
+    const { screen, queryClient } = await renderApp('/p/WEB/settings')
+    queryClient.setQueryData(['projects', { state: 'active' }], [])
     await expect
       .element(
         screen
@@ -188,6 +196,64 @@ describe('project settings: Board type (SAN-224)', () => {
     expect(await patches(requests)).toEqual([
       { board_type: 'kanban', expected_board_type: 'scrum' },
     ])
+    expect(
+      queryClient.getQueryState(['projects', { state: 'active' }])
+        ?.isInvalidated
+    ).toBe(true)
+  })
+
+  it('keeps the confirm button disabled until the settings load', async () => {
+    const reply = held()
+    switching('scrum', {
+      'GET /api/projects/WEB/board/settings': {
+        status: 200,
+        body: WEB_SETTINGS,
+        until: reply.until,
+      },
+    })
+    await renderApp('/p/WEB/settings')
+
+    await option('Kanban').click()
+    const confirm = dialog().getByRole('button', { name: 'Switch to Kanban' })
+    await expect.element(confirm).toBeDisabled()
+    reply.release()
+    await expect.element(confirm).toBeEnabled()
+  })
+
+  it('keeps the confirm button disabled when the sprints fail to load', async () => {
+    switching('scrum', {
+      'GET /api/projects/WEB/sprints': {
+        status: 500,
+        body: problem(500, 'Boom'),
+      },
+    })
+    await renderApp('/p/WEB/settings')
+
+    await option('Kanban').click()
+    await expect
+      .element(dialog().getByRole('button', { name: 'Switch to Kanban' }))
+      .toBeDisabled()
+  })
+
+  it('toasts a network failure and keeps the dialog open', async () => {
+    switching('scrum')
+    const answer = globalThis.fetch
+    vi.stubGlobal('fetch', (request: Request) =>
+      routeOf(request) === 'PATCH /api/projects/WEB'
+        ? Promise.reject(new TypeError('Failed to fetch'))
+        : answer(request)
+    )
+    const { screen } = await renderApp('/p/WEB/settings')
+
+    await option('Kanban').click()
+    await dialog().getByRole('button', { name: 'Switch to Kanban' }).click()
+
+    await expect
+      .element(screen.getByText("Couldn't switch. Try again."))
+      .toBeVisible()
+    await expect
+      .element(dialog().getByRole('button', { name: 'Switch to Kanban' }))
+      .toBeEnabled()
   })
 
   it('Kanban to Scrum names the cleared limits and done window, then Reports comes back', async () => {
@@ -199,7 +265,9 @@ describe('project settings: Board type (SAN-224)', () => {
       .element(dialog().getByRole('heading', { name: 'Switch to Scrum?' }))
       .toBeVisible()
     await expect
-      .element(dialog().getByText('Open issues move to the backlog.'))
+      .element(
+        dialog().getByText('Open issues outside a sprint move to the backlog.')
+      )
       .toBeVisible()
     await expect
       .element(dialog().getByText('2 column limits are cleared.'))

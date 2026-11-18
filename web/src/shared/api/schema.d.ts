@@ -3904,7 +3904,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project */
+            /** @description `project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project; `board-type-changed`: `expected_board_type` is not the current type */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5058,6 +5058,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `kanban-has-no-sprints`: `sprint_id` sent on a kanban board */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5747,7 +5756,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `status-unmapped` */
+            /** @description `status-unmapped`; `kanban-has-no-sprints`: `sprint_id` sent on a kanban board */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6346,6 +6355,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `kanban-has-no-sprints` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6393,7 +6411,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `sprint-not-future` */
+            /** @description `sprint-not-future`; `kanban-has-no-sprints` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6447,7 +6465,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `sprint-not-active` */
+            /** @description `sprint-not-active`; `kanban-has-no-sprints` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6568,7 +6586,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13) */
+            /** @description `sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13); `kanban-has-no-sprints` */
             409: {
                 headers: {
                     [name: string]: unknown;

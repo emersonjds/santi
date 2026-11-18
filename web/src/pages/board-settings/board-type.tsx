@@ -53,11 +53,14 @@ export const BoardTypeControl = ({ project }: { project: Project }) => {
   })
   const [error, setError] = useState<string>()
   const scrum = project.board_type === 'scrum'
-  const { data: sprints } = useQuery({
+  const sprintsResult = useQuery({
     ...sprintsQuery(project.key),
     enabled: scrum,
   })
-  const { data: settings } = useQuery(boardSettingsQuery(project.key))
+  const settingsResult = useQuery(boardSettingsQuery(project.key))
+  const sprints = sprintsResult.data
+  const settings = settingsResult.data
+  const loaded = settingsResult.isSuccess && (!scrum || sprintsResult.isSuccess)
 
   const change = useMutation({
     mutationFn: (board_type: BoardType) =>
@@ -78,13 +81,7 @@ export const BoardTypeControl = ({ project }: { project: Project }) => {
             : error.detail
         )
       queryClient.setQueryData(projectQuery(project.key).queryKey, data)
-      void queryClient.invalidateQueries({
-        queryKey: ['projects', project.key],
-      })
-      void queryClient.invalidateQueries({
-        queryKey: projectsQuery.queryKey,
-        exact: true,
-      })
+      void queryClient.invalidateQueries({ queryKey: projectsQuery.queryKey })
       void queryClient.invalidateQueries({ queryKey: ['home'] })
       toast.success(`Switched to ${LABEL[data.board_type]}.`)
     },
@@ -166,6 +163,9 @@ export const BoardTypeControl = ({ project }: { project: Project }) => {
                       Open issues stay where they are and show on one continuous
                       board.
                     </p>
+                    <p>
+                      Done issues older than 14 days are hidden from the board.
+                    </p>
                     {sprintCount > 0 && (
                       <p>
                         {`${plural(sprintCount, 'sprint', 'sprints')} and their reports stay as history, hidden until you switch back to Scrum.`}
@@ -174,7 +174,7 @@ export const BoardTypeControl = ({ project }: { project: Project }) => {
                   </>
                 ) : (
                   <>
-                    <p>Open issues move to the backlog.</p>
+                    <p>Open issues outside a sprint move to the backlog.</p>
                     {limits > 0 && (
                       <p>
                         {`${plural(limits, 'column limit is', 'column limits are')} cleared.`}
@@ -194,7 +194,7 @@ export const BoardTypeControl = ({ project }: { project: Project }) => {
             </AlertDialogCancel>
             <Button
               className={SIZE}
-              disabled={change.isPending}
+              disabled={change.isPending || !loaded}
               onClick={() => change.mutate(dialog.type)}
             >
               {change.isPending && <Loader2 className='animate-spin' />}
