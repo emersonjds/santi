@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Railway infrastructure as code for the hosted santi instance",
+  "devDependencies": {
+    "railway": "^3.17.0"
+  }
+}
