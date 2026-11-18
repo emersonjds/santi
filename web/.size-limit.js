@@ -81,6 +81,16 @@ export default [
     gzip: true,
   },
   {
+    name: 'account forms chunk (/account)',
+    path: lazyChunk(
+      'src/pages/account/account-forms.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '18 KB',
+    gzip: true,
+  },
+  {
     name: 'initial JS, /p/KEY/board (project page)',
     path: firstVisit(
       SHELL,
@@ -109,6 +119,17 @@ export default [
       split('_authenticated/p/$key/issues/$number.tsx')
     ),
     limit: '50 KB',
+    gzip: true,
+  },
+  {
+    name: 'issue sections chunk (issue page)',
+    path: lazyChunk(
+      'src/widgets/issue-detail/issue-sections.ts',
+      SHELL,
+      split('_authenticated/p/$key/route.tsx'),
+      split('_authenticated/p/$key/issues/$number.tsx')
+    ),
+    limit: '16.5 KB',
     gzip: true,
   },
   {
