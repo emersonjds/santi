@@ -33,7 +33,7 @@ RUN cargo build --release --locked -p santi-server --bin santi-server \
 # Static busybox gives the distroless image a wget for the healthcheck.
 FROM busybox:1.38-musl@sha256:80e38f9a1b39188b8bdb28879178edb322a4402b081a9aedda1924609decd6f6 AS busybox
 
-FROM gcr.io/distroless/cc-debian13:nonroot@sha256:83b9b50586253821cf63ffcec87d3d94265a093ad30da232039af962dd8f4edf
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:cb87acc574abe719b6e5c547384defa2f7b1f24af9605d3f618cf852495d8be2
 COPY --from=busybox /bin/busybox /usr/local/bin/wget
 COPY --from=server /santi-server /usr/local/bin/santi-server
 COPY --from=web /web/dist /srv/santi/web
