@@ -43,7 +43,9 @@ pub async fn find_project(
         r#"SELECT p.id, p.key, p.name, b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole",
                   s.state AS "state!: ProjectState", p.archived_at, ab.display_name AS "archived_by?",
                   p.trashed_at, tb.display_name AS "trashed_by?",
-                  p.trashed_at + make_interval(days => $3) AS purge_at
+                  p.trashed_at + make_interval(days => $3) AS purge_at,
+                  array(SELECT a.key FROM project_key_alias a WHERE a.project_id = p.id
+                        ORDER BY a.created_at DESC) AS "previous_keys!"
            FROM project p
            JOIN board b ON b.project_id = p.id
            JOIN member m ON m.project_id = p.id AND m.user_id = $2
@@ -73,7 +75,9 @@ pub async fn list_projects(
         r#"SELECT p.id, p.key, p.name, b.board_type AS "board_type: BoardType", m.role AS "role: MemberRole",
                   s.state AS "state!: ProjectState", p.archived_at, ab.display_name AS "archived_by?",
                   p.trashed_at, tb.display_name AS "trashed_by?",
-                  p.trashed_at + make_interval(days => $3) AS purge_at
+                  p.trashed_at + make_interval(days => $3) AS purge_at,
+                  array(SELECT a.key FROM project_key_alias a WHERE a.project_id = p.id
+                        ORDER BY a.created_at DESC) AS "previous_keys!"
            FROM member m
            JOIN project p ON p.id = m.project_id
            JOIN board b ON b.project_id = p.id
@@ -109,6 +113,128 @@ pub async fn find_key_state(
     .await
 }
 
+/// SAN-225: the project a key names, live or previous.
+pub async fn resolve_project_key(
+    conn: &mut PgConnection,
+    key: &str,
+) -> Result<Option<i64>, sqlx::Error> {
+    sqlx::query_scalar!("SELECT resolve_project_key($1)", key)
+        .fetch_one(&mut *conn)
+        .await
+}
+
+/// SAN-225: live keys and previous keys share one namespace; every write that assigns or
+/// aliases a key holds this lock until its transaction ends.
+pub async fn lock_key(conn: &mut PgConnection, key: &str) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "SELECT pg_advisory_xact_lock(hashtext('project-key:' || $1))",
+        key
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+pub struct KeyHolder {
+    pub project_id: i64,
+    pub name: String,
+    pub alias: bool,
+    pub member: bool,
+    pub trashed: bool,
+}
+
+/// The project holding `key`, as its live key or a previous one, as `user_id` may see it.
+pub async fn find_key_holder(
+    conn: &mut PgConnection,
+    key: &str,
+    user_id: i64,
+) -> Result<Option<KeyHolder>, sqlx::Error> {
+    sqlx::query_as!(
+        KeyHolder,
+        r#"SELECT p.id AS "project_id!", p.name AS "name!", h.alias AS "alias!",
+                  EXISTS (SELECT 1 FROM member m WHERE m.project_id = p.id AND m.user_id = $2)
+                      AS "member!",
+                  p.trashed_at IS NOT NULL AS "trashed!"
+           FROM (SELECT id AS project_id, false AS alias FROM project WHERE key = $1
+                 UNION ALL
+                 SELECT project_id, true FROM project_key_alias WHERE key = $1) h
+           JOIN project p ON p.id = h.project_id"#,
+        key,
+        user_id
+    )
+    .fetch_optional(&mut *conn)
+    .await
+}
+
+pub async fn rename(
+    conn: &mut PgConnection,
+    project_id: i64,
+    name: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE project SET name = $2 WHERE id = $1",
+        project_id,
+        name
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// Gives the project `key` and keeps its current one as a previous key; `key` must not be held
+/// as a previous key of this project anymore.
+pub async fn change_key(
+    conn: &mut PgConnection,
+    project_id: i64,
+    key: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "WITH old AS (SELECT key FROM project WHERE id = $1),
+              changed AS (UPDATE project SET key = $2 WHERE id = $1 AND key <> $2)
+         INSERT INTO project_key_alias (key, project_id)
+         SELECT old.key, $1 FROM old WHERE old.key <> $2",
+        project_id,
+        key
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// `keys` in `previous_keys` order, newest first.
+pub async fn insert_aliases(
+    conn: &mut PgConnection,
+    project_id: i64,
+    keys: &[String],
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "INSERT INTO project_key_alias (key, project_id, created_at)
+         SELECT key, $1, now() - make_interval(secs => position / 1e6)
+         FROM unnest($2::text[]) WITH ORDINALITY AS keys (key, position)",
+        project_id,
+        keys
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// False when the project has no such previous key.
+pub async fn delete_alias(
+    conn: &mut PgConnection,
+    project_id: i64,
+    key: &str,
+) -> Result<bool, sqlx::Error> {
+    let deleted = sqlx::query!(
+        "DELETE FROM project_key_alias WHERE project_id = $1 AND key = $2",
+        project_id,
+        key
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(deleted.rows_affected() == 1)
+}
+
 pub struct Membership {
     pub project_id: i64,
     pub role: MemberRole,
@@ -125,7 +251,7 @@ pub async fn find_membership(
         Membership,
         r#"SELECT p.id AS project_id, m.role AS "role: MemberRole", p.trashed_at IS NOT NULL AS "trashed!"
            FROM project p JOIN member m ON m.project_id = p.id AND m.user_id = $2
-           WHERE p.key = $1"#,
+           WHERE p.id = resolve_project_key($1)"#,
         key,
         user_id
     )

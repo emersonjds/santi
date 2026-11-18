@@ -37,7 +37,7 @@ pub async fn find_visible(
            FROM issue i
            JOIN project p ON p.id = i.project_id AND p.trashed_at IS NULL
            JOIN member m ON m.project_id = p.id AND m.user_id = $1
-           WHERE p.key = $2 AND i.number = $3"#,
+           WHERE p.id = resolve_project_key($2) AND i.number = $3"#,
         user_id,
         project_key,
         number

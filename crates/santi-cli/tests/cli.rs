@@ -1147,7 +1147,7 @@ fn project_lifecycle_from_archive_to_purge() {
     assert_eq!(kanban["board_type"], "kanban");
     run(&["projects", "create", "LIFE", "--name", "Again"])
         .code(5)
-        .stderr(contains("already exists"));
+        .stderr(contains("LIFE is already Life cycle's key."));
     run(&["projects", "create", "../x", "--name", "Bad"])
         .code(2)
         .stderr(contains("project key"));
@@ -1206,6 +1206,62 @@ fn project_lifecycle_from_archive_to_purge() {
         .success()
         .stdout("(none)\n");
     run(&["projects", "list", "--state", "gone"]).failure();
+}
+
+#[test]
+fn projects_are_renamed_rekeyed_and_their_old_keys_freed() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+
+    run(&["projects", "create", "BAIXA", "--name", "Baixa Video"]).success();
+    run(&["issues", "create", "BAIXA", "--summary", "Keep me"]).success();
+    run(&["projects", "create", "TAKER", "--name", "Taker"]).success();
+    run(&["projects", "edit", "BAIXA"])
+        .code(2)
+        .stderr(contains("--name").and(contains("--key")));
+    run(&["projects", "edit", "BAIXA", "--name", "Nowvi"])
+        .success()
+        .stdout(
+            contains("BAIXA")
+                .and(contains("Nowvi (scrum, admin)"))
+                .and(contains("Previous keys").not()),
+        );
+    run(&["projects", "edit", "BAIXA", "--key", "NOWVI"])
+        .success()
+        .stdout(contains("NOWVI").and(contains("Previous keys: BAIXA")));
+    run(&["issues", "show", "BAIXA-1"])
+        .success()
+        .stdout(contains("NOWVI-1").and(contains("Keep me")));
+    run(&["projects", "list"])
+        .success()
+        .stdout(contains("NOWVI").and(contains("Previous keys").not()));
+    let listed = json(santi.with(&token).args(["projects", "list"]));
+    let nowvi = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|project| project["key"] == "NOWVI")
+        .unwrap();
+    assert_eq!(nowvi["previous_keys"], json!(["BAIXA"]));
+    run(&["projects", "edit", "TAKER", "--key", "NOWVI"])
+        .code(5)
+        .stderr(contains("NOWVI is already Nowvi's key."));
+    run(&["projects", "edit", "TAKER", "--key", "BAIXA"])
+        .code(5)
+        .stderr(contains("BAIXA is a previous key of Nowvi."));
+    run(&["projects", "edit", "TAKER", "--key", "lower"])
+        .code(5)
+        .stderr(contains("Keys are 2 to 10 characters"));
+    run(&["projects", "remove-alias", "NOWVI", "BAIXA"])
+        .success()
+        .stdout(contains("Removed BAIXA. It's free for other projects now."));
+    let taken = json(santi.with(&token).args([
+        "projects", "edit", "TAKER", "--key", "BAIXA", "--name", "Baixa",
+    ]));
+    assert_eq!(taken["key"], "BAIXA");
+    assert_eq!(taken["name"], "Baixa");
+    assert_eq!(taken["previous_keys"], json!(["TAKER"]));
 }
 
 #[test]

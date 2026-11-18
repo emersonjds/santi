@@ -155,6 +155,20 @@ pub enum ProjectsCommand {
         #[arg(long, default_value = "active", value_parser = enum_value::<ProjectState>)]
         state: ProjectState,
     },
+    /// Rename a project or change its key; old keys keep working as previous keys (admins)
+    Edit {
+        project: ProjectKey,
+        #[arg(long, required_unless_present = "key")]
+        name: Option<String>,
+        /// New key: 2 to 10 characters, a capital letter, then capital letters or digits
+        #[arg(long, required_unless_present = "name")]
+        key: Option<String>,
+    },
+    /// Remove a previous key so other projects can take it; its old links stop working (admins)
+    RemoveAlias {
+        project: ProjectKey,
+        alias: ProjectKey,
+    },
     /// Archive a project: read-only and out of every list until unarchived (admins)
     Archive { project: ProjectKey },
     /// Make an archived project active again (admins)

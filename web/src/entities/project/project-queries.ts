@@ -77,7 +77,7 @@ export const loadProject = async (queryClient: QueryClient, key: string) => {
       queryClient.ensureQueryData(projectQuery(key)),
       queryClient.ensureQueryData(membersQuery(key)),
     ])
-    rememberProject(key)
+    rememberProject(project.key)
     return project
   } catch (error) {
     if (hasStatus(error, 404)) throw notFound()
