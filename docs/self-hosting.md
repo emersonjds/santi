@@ -136,23 +136,46 @@ An invalid value stops the server at startup, naming the variable. Each day afte
 writes one gzip-compressed JSON file per project, every live and archived project of the instance
 (trashed ones are left out), to the attachments storage: the bucket when `SANTI_S3_*` is set,
 otherwise `SANTI_ATTACHMENTS_DIR`. Files land under
-`backups/{YYYY-MM-DDTHHMMSSZ}/{KEY}.json.gz`. A server that was down at that hour runs the backup
-when it starts later the same day; with several replicas only one writes it. Each run logs one
-`backup done` line with the project count and duration; a failed run is logged as an error (and
-sent to Sentry when configured) and retried five minutes later.
+`backups/{YYYY-MM-DDTHHMMSSZ}/{KEY}.json.gz`, followed by `backups/{run}/manifest.json` (the
+project keys with their issue and comment counts, and the santi version) written last: a run
+without a manifest did not finish. The `backups/` prefix belongs to santi; anything else you put
+there that is not named like a run is left alone. A server that was down at that hour runs the
+backup when it starts later the same day; with several replicas only one writes it. Each run logs
+one `backup done` line with the project count and duration; a failed run is logged as an error
+(and sent to Sentry when configured), its files are removed, and it is retried an hour later. A
+project whose file the restore would refuse (over 50 MB, or a field a restore rejects) is skipped
+and logged as an error naming it; the run still writes the others. A crash mid-run leaves a run
+without a manifest: the next run removes it and logs `backup run … was incomplete; removed`.
+Retention only counts finished runs, and a run that writes nothing (an instance with no projects)
+deletes nothing.
 
-To restore one project, decompress its file and hand it to the CLI or the API, signed in as the
-account that will own it:
+To restore one project, hand its file to the CLI (which reads `.json.gz` as is) or decompress it
+for the API, signed in as the account that will own it:
 
 ```bash
-gunzip SHOP.json.gz
-santi restore SHOP.json
-# or: curl -X POST https://santi.example.com/api/projects/restore \
+santi restore SHOP.json.gz
+# or: gunzip SHOP.json.gz && curl -X POST https://santi.example.com/api/projects/restore \
 #       -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @SHOP.json
 ```
 
-The restore works as described below: the restorer becomes the only member. Attachments are not
-in these files; back up the attachments volume or rely on the bucket.
+The restore works as described below: the restorer becomes the only member and the author of
+every comment.
+
+What a backup file does not contain: issue links (card SAN-207), attachment files and their
+metadata, issue history, stars, and the facts behind sprint reports (closed sprints report their
+issues as they are now). Back up the attachments volume or rely on the bucket for the files, and
+use `pg_dump` (below) when you need everything.
+
+Privacy and safety:
+
+- The files hold every user's content and the members' email addresses. Keep the bucket private.
+- Erased accounts and purged projects stay in the backups until their runs expire, up to
+  `SANTI_BACKUP_KEEP` runs later.
+- The default compose file keeps backups on the same host volume as the database: copy them
+  off-host. On Railway with the local disk they are lost on every redeploy (santi warns at
+  startup); use a bucket.
+- The single-runner lock is a PostgreSQL session advisory lock: PgBouncer in transaction mode
+  breaks it, so point santi straight at PostgreSQL (or use session mode) when backups are on.
 
 ### Full backups with pg_dump
 
