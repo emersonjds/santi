@@ -12,6 +12,7 @@ UI moves to its own repository.
 
 ### Added
 
+- Welcome tour on the first sign-in, replayable from the account menu, the shortcuts sheet (?) and the empty home page.
 - `docs/ops.md`: runbook for the hosted instance (what is monitored, steps on an alert, rollback, secret rotation).
 - `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
 ### Changed
