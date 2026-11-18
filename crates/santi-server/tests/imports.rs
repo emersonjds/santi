@@ -5,6 +5,7 @@ use std::time::{Duration, Instant};
 
 use axum::body::Body;
 use axum::http::{Method, Request, StatusCode, header};
+use chrono::{DateTime, TimeDelta, Utc};
 use common::{TestApp, body_json};
 use serde_json::{Value, json};
 use sqlx::PgPool;
@@ -458,12 +459,12 @@ async fn ran_sprint(app: &TestApp, name: &str, close: bool) -> Value {
     sprint
 }
 
-/// A sprint of the same name is reused only in the state the mapping asks for.
+/// A sprint of the same name is reused whatever its state, except a closed one for open work.
 #[sqlx::test]
-async fn sprint_names_are_reused_only_in_the_mapped_state(pool: PgPool) {
+async fn a_same_name_sprint_is_reused_unless_it_is_closed_and_the_mapping_is_not(pool: PgPool) {
     let (ana, bob) = team(pool, "scrum").await;
     let old_one = ran_sprint(&ana, "Sprint 1", true).await;
-    let old_two = ran_sprint(&ana, "Sprint 2", true).await;
+    ran_sprint(&ana, "Sprint 2", true).await;
     let running_two = ran_sprint(&ana, "Sprint 2", false).await;
     let mapping = jira_mapping(&ana, &bob).await;
 
@@ -486,15 +487,70 @@ async fn sprint_names_are_reused_only_in_the_mapped_state(pool: PgPool) {
             ("Sprint 1", "closed"),
             ("Sprint 2", "closed"),
             ("Sprint 2", "active"),
-            ("Sprint 2", "future"),
         ]
     );
     let story = issue(&ana, 5).await;
     assert_eq!(story["summary"], "Pay with card");
-    assert_eq!(story["sprint_id"], sprints[3]["id"]);
-    assert_ne!(story["sprint_id"], running_two["id"]);
-    assert_ne!(story["sprint_id"], old_two["id"]);
+    assert_eq!(story["sprint_id"], running_two["id"]);
     assert_eq!(sprints[0]["id"], old_one["id"]);
+}
+
+/// The sprint the mapping runs cannot start without issues: it stays future and the result says so.
+#[sqlx::test]
+async fn an_active_sprint_that_cannot_start_stays_future_and_says_so(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+    let csv = "Issue key,Issue Type,Summary,Status,Sprint\nE-1,Epic,Big,In Progress,Sprint 1\n";
+    let mapping = json!({
+        "statuses": { "In Progress": ana.status_id("SANTI", "In Progress").await },
+        "sprints": { "Sprint 1": "active" },
+    });
+
+    let (status, result) = import(&ana, csv, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(
+        result["problems"],
+        json!([{
+            "line": 2,
+            "message": "sprint \"Sprint 1\" was left as future: Add at least one issue before starting the sprint."
+        }])
+    );
+    let sprints = sprints(&ana).await;
+    assert_eq!(sprints.len(), 1);
+    assert_eq!(sprints[0]["state"], "future");
+}
+
+/// Imported first as planned, the running sprint starts when the export is imported again with
+/// it active, though every row is already in; a board running it suggests no other.
+#[sqlx::test]
+async fn reimporting_with_the_sprint_active_starts_the_planned_one(pool: PgPool) {
+    let (ana, _) = team(pool, "scrum").await;
+    let csv = "Issue key,Summary,Status,Sprint\nP-1,Under way,In Progress,Sprint 1\n";
+    let statuses = json!({ "In Progress": ana.status_id("SANTI", "In Progress").await });
+    let planned = json!({ "statuses": statuses, "sprints": { "Sprint 1": "future" } });
+    let (first, _) = import(&ana, csv, &planned).await;
+    assert_eq!(first, StatusCode::OK);
+    let (_, found) = preview(&ana, csv).await;
+    let running =
+        json!({ "statuses": statuses, "sprints": { "Sprint 1": found["sprints"][0]["state"] } });
+
+    let (status, result) = import(&ana, csv, &running).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    assert_eq!(found["sprints"][0]["state"], "active");
+    assert_eq!(
+        (&result["created"], &result["skipped"]),
+        (&json!(0), &json!(1))
+    );
+    let sprints = sprints(&ana).await;
+    assert_eq!(sprints.len(), 1);
+    assert_eq!(sprints[0]["state"], "active");
+    let (_, other) = preview(
+        &ana,
+        "Issue key,Summary,Status,Sprint\nP-2,Next,In Progress,Sprint 2\n",
+    )
+    .await;
+    assert_eq!(other["sprints"][0]["state"], "future");
 }
 
 /// The PRM shape: a finished sprint and a running one, mapped as the preview suggests.
@@ -532,6 +588,16 @@ async fn a_finished_sprint_imports_closed_with_its_report_and_a_running_one_acti
         })
         .collect();
     assert_eq!(states, [("Sprint 1", "closed"), ("Sprint 2", "active")]);
+    let at = |field: &str| {
+        sprints[1][field]
+            .as_str()
+            .unwrap()
+            .parse::<DateTime<Utc>>()
+            .unwrap()
+    };
+    let (starts, ends) = (at("starts_at"), at("ends_at"));
+    assert!((Utc::now() - starts).num_minutes().abs() < 5, "{starts}");
+    assert_eq!(ends - starts, TimeDelta::days(14));
     let facts = |id: &Value| {
         sqlx::query_as::<_, (bool, Option<String>)>(
             "SELECT added_after_start, outcome::text FROM sprint_issue WHERE sprint_id = $1",

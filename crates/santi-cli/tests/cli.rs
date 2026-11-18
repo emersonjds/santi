@@ -1107,7 +1107,7 @@ fn import_previews_then_asks_before_writing() {
         .write_stdin("n\n")
         .assert()
         .code(10)
-        .stdout(contains("linear").and(contains("Sprint Cycle Five (1) → active")))
+        .stdout(contains("linear").and(contains("Sprint Cycle Five (1) → future")))
         .stderr(contains("Nothing imported"));
     let declined = santi
         .with(&token)
