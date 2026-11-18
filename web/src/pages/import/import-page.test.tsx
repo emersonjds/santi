@@ -36,6 +36,7 @@ const JIRA: ImportPreview = {
   sprints: [
     { name: 'Sprint 1', count: 2, state: 'closed' },
     { name: 'Sprint 2', count: 1, state: 'future' },
+    { name: 'Sprint 3', count: 1, state: 'active' },
   ],
   issue_types: [
     { name: 'Epic', count: 1, suggested: 'epic' },
@@ -49,7 +50,7 @@ const JIRA: ImportPreview = {
 const DEFAULT_MAPPING: ImportMapping = {
   statuses: { 'To Do': 10, 'In Review': 21, Shipped: 30 },
   people: { 'bob@example.com': 2, 'Carol Smith': null },
-  sprints: { 'Sprint 1': 'closed', 'Sprint 2': 'future' },
+  sprints: { 'Sprint 1': 'closed', 'Sprint 2': 'future', 'Sprint 3': 'active' },
   types: {
     Epic: 'epic',
     Story: 'story',
@@ -173,6 +174,7 @@ describe('import page', () => {
     await expect.element(select('Member for Carol Smith')).toHaveValue('')
     await expect.element(select('Sprint 1')).toHaveValue('closed')
     await expect.element(select('Sprint 2')).toHaveValue('future')
+    await expect.element(select('Sprint 3')).toHaveValue('active')
     await expect.element(select('Type for Spike')).toHaveValue('story')
     await expect
       .element(screen.getByText(/^3 issues, 1 epic and 1 subtask/))
@@ -302,6 +304,26 @@ describe('import page', () => {
       .element(screen.getByRole('alert').filter({ hasText: 'changed' }))
       .toHaveTextContent('The export changed; upload it again.')
     expect(sent(requests, IMPORT)).toHaveLength(2)
+  })
+
+  it('runs at most one sprint', async () => {
+    const requests = inProjects({
+      [`POST ${PREVIEW}`]: { status: 200, body: JIRA },
+    })
+    const { screen } = await reviewing()
+
+    await screen
+      .getByRole('combobox', { name: 'Sprint 2' })
+      .selectOptions('active')
+    await screen.getByRole('button', { name: 'Import' }).click()
+
+    await expect
+      .element(screen.getByRole('listitem').filter({ hasText: /^Sprint 3/ }))
+      .toHaveTextContent('Only one sprint can be active.')
+    await expect
+      .element(screen.getByRole('listitem').filter({ hasText: /^Sprint 2/ }))
+      .not.toHaveTextContent('Only one sprint')
+    expect(sent(requests, IMPORT)).toHaveLength(0)
   })
 
   it('asks for a status where the project has no match', async () => {

@@ -37,7 +37,16 @@ const SPRINT_LABEL = {
 const schema = z.object({
   statuses: z.array(z.string().min(1, 'Pick a status.')),
   people: z.array(z.string()),
-  sprints: z.array(z.enum(SPRINT_ACTIONS)),
+  sprints: z.array(z.enum(SPRINT_ACTIONS)).superRefine((sprints, context) =>
+    sprints.forEach((action, index) => {
+      if (action === 'active' && sprints.indexOf('active') < index)
+        context.addIssue({
+          code: 'custom',
+          path: [index],
+          message: 'Only one sprint can be active.',
+        })
+    })
+  ),
   types: z.array(z.enum(TYPES)),
 })
 

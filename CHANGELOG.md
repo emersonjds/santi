@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Fixed
+
+- Importing a Jira or Linear export infers each sprint's state: a sprint whose work is all done, or that ended, imports closed with its report; the running one (dates covering today, else the oldest open one) imports active and starts like one started by hand; the rest are planned. The preview suggests planned instead when the board already runs a sprint, and an import whose sprint cannot start still succeeds, telling why on a problem row.
+
+### Upgrade notes
+
+- API: `SprintFound.closed` (import preview) is replaced by `state` (`future`, `active` or `closed`), and `SprintAction` gains `active`.
+
 ## [0.26.0] - 2026-10-22
 
 > Pricing on the landing page, with self-hosting free and open source first.
