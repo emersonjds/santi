@@ -5,6 +5,7 @@ use utoipa::ToSchema;
 
 use crate::boards::StatusCategory;
 use crate::issues::IssueType;
+use crate::sprints::SprintState;
 
 /// Where a CSV export came from, told apart by its header row (D41).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
@@ -63,8 +64,9 @@ pub struct PersonFound {
 pub struct SprintFound {
     pub name: String,
     pub count: i64,
-    /// An issue moved on from it, or its cycle ended.
-    pub closed: bool,
+    /// Closed when an issue moved on from it, its cycle ended or all its work is done; the newest
+    /// other one is active; the rest are future.
+    pub state: SprintState,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
@@ -86,6 +88,8 @@ pub struct RowProblem {
 #[serde(rename_all = "snake_case")]
 pub enum SprintAction {
     Future,
+    /// Started once its issues are in; at most one per mapping.
+    Active,
     Closed,
     Skip,
 }
