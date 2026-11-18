@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- The landing page terminals type their commands out as they scroll into view (static with reduced motion).
+
 ## [0.27.0] - 2026-11-18
 
 > Imports that know which sprint is running, an AI agents section, lighter pages and a container image for Arm.
