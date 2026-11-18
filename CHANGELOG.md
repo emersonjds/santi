@@ -10,6 +10,9 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
 ### Changed
 
 - Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.

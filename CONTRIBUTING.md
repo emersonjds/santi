@@ -61,7 +61,14 @@ constraints `NOT VALID` and `VALIDATE` them in a later step, and build indexes o
 
 ## Quality gate
 
-CI runs these on every push; run them locally first.
+`developer` and `main` only change through pull requests, and a pull request merges only when the
+CI checks `check`, `web`, `e2e`, `docker` and `branch-coverage` are green (GitHub rulesets
+`gate-developer` and `gate-main`; on `developer` the branch must also be up to date). Nobody merges
+or releases on a red or pending run.
+
+`scripts/gate.sh` runs the same gate locally against a throwaway database (`santi_gate`, created and
+dropped by the script, so the dev database never gets your branch's migrations). Run it before
+opening a pull request. The individual commands, if you want them one by one:
 
 Server, from the repository root:
 
