@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- The sign-in page loads about 34 KB less JavaScript.
+
 ### Fixed
 
 - In the dark theme, the selected theme option, the importer's file button and the notification and filter counters also use white text on the deeper violet.
