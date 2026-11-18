@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-18
+
+> Switch a project between Kanban and Scrum without losing sprints or history.
+
 ### Added
 
 - Switch a project between Kanban and Scrum from project settings, the CLI or MCP; sprints and reports are kept.
