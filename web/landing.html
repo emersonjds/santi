@@ -550,7 +550,21 @@
             </li>
             <li class="card">
               <h3 class="card-title">Team</h3>
-              <p>
+              <div
+                class="segmented"
+                role="group"
+                aria-label="Billing period"
+                data-billing
+                hidden
+              >
+                <button type="button" aria-pressed="true" value="monthly">
+                  Monthly
+                </button>
+                <button type="button" aria-pressed="false" value="yearly">
+                  Yearly
+                </button>
+              </div>
+              <p data-period="monthly">
                 <span
                   class="text-2xl font-bold tracking-tight whitespace-nowrap tabular-nums sm:text-4xl"
                   >US$ 19</span
@@ -559,8 +573,17 @@
                   >/month per workspace</span
                 >
               </p>
-              <p class="text-sm text-muted-foreground">
-                or US$ 190 a year, two months free<br />R$ 97 a month in Brazil
+              <p data-period="yearly" hidden>
+                <span
+                  class="text-2xl font-bold tracking-tight whitespace-nowrap tabular-nums sm:text-4xl"
+                  >US$ 190</span
+                >
+                <span class="text-sm text-muted-foreground"
+                  >/year per workspace</span
+                >
+                <span class="block text-sm font-medium text-primary"
+                  >two months free</span
+                >
               </p>
               <p class="card-text">
                 Everything in Free, with more room and help.
