@@ -29,15 +29,26 @@ pub async fn restore(
     .map_err(|error| AppError::Internal(error.to_string()))??;
     let mut tx = pool.begin().await?;
     crate::timeouts::allow_long_statements(&mut tx).await?;
-    // ponytail: two restores of one key racing past this check: the second gets the generic 409.
+    projects::repo::lock_key(&mut tx, &key).await?;
     if projects::repo::find_key_state(&mut tx, &key)
         .await?
         .is_some()
     {
         return Err(domain::exists(&key));
     }
+    projects::service::take_key(&mut tx, &key, None).await?;
     let project = &export.project;
     let project_id = projects::repo::insert_project(&mut tx, &key, &project.name).await?;
+    // A previous key another project took meanwhile stays with it.
+    let mut previous_keys = Vec::with_capacity(project.previous_keys.len());
+    for previous in &project.previous_keys {
+        match projects::service::take_key(&mut tx, previous, Some(project_id)).await {
+            Ok(_) => previous_keys.push(previous.clone()),
+            Err(AppError::Conflict { .. }) => {}
+            Err(error) => return Err(error),
+        }
+    }
+    projects::repo::insert_aliases(&mut tx, project_id, &previous_keys).await?;
     let board_id = projects::repo::insert_board(
         &mut tx,
         project_id,

@@ -23,6 +23,56 @@ pub fn check_project_key(key: &str) -> Result<String, AppError> {
     Ok(key)
 }
 
+/// OR-37: a key a project changes to is refused, not converted, unless already upper case.
+pub fn check_new_project_key(key: &str) -> Result<String, AppError> {
+    let key = key.trim();
+    if key != key.to_uppercase() {
+        return Err(bad_new_key());
+    }
+    check_project_key(key).map_err(|_| bad_new_key())
+}
+
+fn bad_new_key() -> AppError {
+    AppError::invalid(
+        "key",
+        "Keys are 2 to 10 characters: a capital letter, then capital letters or digits.",
+    )
+}
+
+/// Who holds a key: the project's id and name, and whether it is one of its previous keys.
+pub struct Holder<'a> {
+    pub project_id: i64,
+    pub name: &'a str,
+    pub alias: bool,
+}
+
+/// OR-37, OR-38: whether project `taker` may take `key`; true when it is one of `taker`'s own
+/// previous keys, which goes back to being live.
+/// `taker` is None for a project not created yet.
+pub fn check_key_taker(
+    key: &str,
+    taker: Option<i64>,
+    holder: Option<Holder>,
+) -> Result<bool, AppError> {
+    let Some(holder) = holder else {
+        return Ok(false);
+    };
+    let name = holder.name;
+    match (Some(holder.project_id) == taker, holder.alias) {
+        (true, alias) => Ok(alias),
+        (false, false) => Err(AppError::conflict(
+            "project-key-taken",
+            &format!("{key} is already {name}'s key."),
+        )),
+        (false, true) => Err(AppError::conflict(
+            "project-key-alias",
+            &format!(
+                "{key} is a previous key of {name}. Ask that project's admin to remove it before you can use it."
+            ),
+        )),
+    }
+}
+
 pub fn check_project_name(name: &str) -> Result<String, AppError> {
     reject_nul("name", name)?;
     let name = name.trim();
@@ -136,6 +186,39 @@ mod tests {
             assert!(check_project_key(bad).is_err(), "{bad} should be refused");
         }
         assert!(check_project_key("A1").is_ok());
+    }
+
+    #[test]
+    fn a_new_key_is_refused_unless_upper_case() {
+        assert_eq!(check_new_project_key(" NOWVI ").unwrap(), "NOWVI");
+        for bad in ["nowvi", "Nowvi", "N", "1AB"] {
+            assert!(check_new_project_key(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_key_is_free_or_the_takers_own_previous_key() {
+        let holder = |project_id, alias| Holder {
+            project_id,
+            name: "Nowvi",
+            alias,
+        };
+        assert_eq!(check_key_taker("A1", Some(1), None), Ok(false));
+        assert_eq!(
+            check_key_taker("A1", Some(1), Some(holder(1, true))),
+            Ok(true)
+        );
+        assert_eq!(
+            check_key_taker("A1", Some(1), Some(holder(1, false))),
+            Ok(false)
+        );
+        let taken = check_key_taker("A1", Some(1), Some(holder(2, false))).unwrap_err();
+        assert_eq!(taken.to_problem().detail, "A1 is already Nowvi's key.");
+        let aliased = check_key_taker("A1", Some(1), Some(holder(2, true))).unwrap_err();
+        assert_eq!(
+            aliased.to_problem().problem_type,
+            "urn:santi:error:project-key-alias"
+        );
     }
 
     #[test]

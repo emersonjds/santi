@@ -1,5 +1,5 @@
-use santi_types::projects::{CreateProject, MemberRole, Project, ProjectState};
-use sqlx::PgPool;
+use santi_types::projects::{CreateProject, MemberRole, Project, ProjectState, UpdateProject};
+use sqlx::{PgConnection, PgPool};
 
 use super::{domain, repo};
 use crate::attachments;
@@ -19,6 +19,7 @@ pub async fn create_project(
     let mut tx = pool.begin().await?;
     let held = repo::find_key_state(&mut tx, &key).await?;
     domain::check_key_free(&key, held)?;
+    take_key(&mut tx, &key, None).await?;
     let project_id = repo::insert_project(&mut tx, &key, &name).await?;
     let done_window = domain::default_done_window(input.board_type);
     let board_id = repo::insert_board(&mut tx, project_id, input.board_type, done_window).await?;
@@ -41,6 +42,67 @@ pub async fn list_projects(
 pub async fn get_project(pool: &PgPool, member: &Member) -> Result<Project, AppError> {
     let mut conn = pool.acquire().await?;
     Ok(repo::find_project(&mut conn, member.project_id, member.user_id).await?)
+}
+
+/// SAN-225: under the key's lock until the transaction ends; true when `key` is one of
+/// `taker`'s own previous keys.
+pub async fn take_key(
+    conn: &mut PgConnection,
+    key: &str,
+    taker: Option<i64>,
+) -> Result<bool, AppError> {
+    repo::lock_key(conn, key).await?;
+    let holder = repo::find_key_holder(conn, key).await?;
+    let holder = holder.as_ref().map(|holder| domain::Holder {
+        project_id: holder.project_id,
+        name: &holder.name,
+        alias: holder.alias,
+    });
+    domain::check_key_taker(key, taker, holder)
+}
+
+/// OR-38: a new key keeps the current one as a previous key; going back to a previous key
+/// swaps the two.
+pub async fn update(
+    pool: &PgPool,
+    member: &Member,
+    input: UpdateProject,
+) -> Result<Project, AppError> {
+    members::domain::require_admin(member)?;
+    let name = input
+        .name
+        .as_deref()
+        .map(domain::check_project_name)
+        .transpose()?;
+    let key = input
+        .key
+        .as_deref()
+        .map(domain::check_new_project_key)
+        .transpose()?;
+    let mut tx = pool.begin().await?;
+    if let Some(key) = &key
+        && take_key(&mut tx, key, Some(member.project_id)).await?
+    {
+        repo::delete_alias(&mut tx, member.project_id, key).await?;
+    }
+    domain::check_active(repo::lock_project(&mut tx, member.project_id).await?)?;
+    if let Some(name) = &name {
+        repo::rename(&mut tx, member.project_id, name).await?;
+    }
+    if let Some(key) = &key {
+        repo::change_key(&mut tx, member.project_id, key).await?;
+    }
+    let project = repo::find_project(&mut tx, member.project_id, member.user_id).await?;
+    tx.commit().await?;
+    Ok(project)
+}
+
+/// Frees a previous key for any project to take.
+pub async fn remove_alias(pool: &PgPool, member: &Member, alias: &str) -> Result<(), AppError> {
+    members::domain::require_admin(member)?;
+    let mut conn = pool.acquire().await?;
+    let removed = repo::delete_alias(&mut conn, member.project_id, alias).await?;
+    removed.then_some(()).ok_or(AppError::NotFound)
 }
 
 pub async fn archive(pool: &PgPool, member: &Member) -> Result<(), AppError> {
@@ -91,7 +153,7 @@ pub async fn purge(
 }
 
 async fn trashed_project(
-    conn: &mut sqlx::PgConnection,
+    conn: &mut PgConnection,
     user: &CurrentUser,
     key: &str,
 ) -> Result<i64, AppError> {

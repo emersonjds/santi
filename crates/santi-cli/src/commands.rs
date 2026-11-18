@@ -2024,6 +2024,7 @@ mod tests {
                 trashed_at: None,
                 trashed_by: None,
                 purge_at: None,
+                previous_keys: Vec::new(),
             },
             issues: 12,
             sprints: 2,

@@ -420,7 +420,19 @@ async fn resolve_parent(
         domain::check_parent(child_type, None)?;
         return Ok(None);
     };
-    let number = domain::parse_issue_key("parent", &member.project_key, parent_key)?;
+    // SAN-225: a previous key of this project names its issues too.
+    let prefix = parent_key
+        .trim()
+        .rsplit_once('-')
+        .map_or("", |(prefix, _)| prefix);
+    let own_previous = prefix != member.project_key
+        && projects::repo::resolve_project_key(conn, prefix).await? == Some(member.project_id);
+    let project_key = if own_previous {
+        prefix
+    } else {
+        &member.project_key
+    };
+    let number = domain::parse_issue_key("parent", project_key, parent_key)?;
     let parent = repo::find_kind(conn, member.project_id, number).await?;
     let parent =
         parent.ok_or_else(|| AppError::invalid("parent", "no such issue in this project"))?;

@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- Rename a project and change its key; old keys keep working as aliases until removed.
+
+### Upgrade notes
+
+- Migration `0032_project_key_aliases` (number may change); API: `PATCH /api/projects/{key}`, `DELETE /api/projects/{key}/aliases/{alias}`, `Project.previous_keys`.
+
 ### Fixed
 
 - In the dark theme, the selected theme option, the importer's file button and the notification and filter counters also use white text on the deeper violet.
