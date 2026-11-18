@@ -3,11 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { LabelsPicker } from '@/features/edit-labels/labels-picker'
 import { boardSettingsQuery, epicsQuery } from '@/entities/issue/board-query'
 import { fullDateTime } from '@/entities/issue/comment-time'
+import { type IssueChange, useEditIssue } from '@/entities/issue/issue-edits'
 import { PriorityGlyph } from '@/entities/issue/issue-glyphs'
-import {
-  type IssueChange,
-  useEditIssue,
-} from '@/entities/issue/issue-mutations'
 import {
   PRIORITY_LABEL,
   TYPE_LABEL,

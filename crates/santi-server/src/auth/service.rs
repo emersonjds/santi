@@ -234,6 +234,8 @@ pub async fn delete_account(
         ));
     }
     let mut tx = pool.begin().await?;
+    // Invite before project, the order an accept locks them in (SAN-180).
+    repo::delete_invites(&mut tx, user.id).await?;
     repo::lock_memberships(&mut tx, user.id).await?;
     let keys = repo::delete_solo_projects(&mut tx, user.id).await?;
     repo::hand_over_admin(&mut tx, user.id).await?;

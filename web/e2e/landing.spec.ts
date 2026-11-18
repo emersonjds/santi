@@ -88,6 +88,44 @@ test('the nav opens the pricing section with Self-host, Free and Team in that or
   )
 })
 
+test('the nav opens the AI section with a sample conversation and the MCP setup guide', async ({
+  page,
+}) => {
+  await page.goto('/')
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: 'AI', exact: true })
+    .click()
+  await expect(page).toHaveURL(/#ai$/)
+
+  const ai = page.locator('#ai')
+  await expect(ai).toBeInViewport()
+  await expect(
+    ai.getByRole('heading', {
+      level: 2,
+      name: 'Give an AI agent the keys to your board.',
+    })
+  ).toBeVisible()
+  const transcript = ai.getByLabel(
+    'Example conversation with an AI assistant connected to santi'
+  )
+  await expect(
+    transcript.getByRole('listitem').filter({ hasText: 'You:' })
+  ).toHaveCount(3)
+  await expect(
+    ai.getByRole('link', { name: 'Read the setup guide for every client' })
+  ).toHaveAttribute(
+    'href',
+    'https://github.com/emersonjds/santi/blob/main/docs/mcp.md'
+  )
+  await expect(
+    page.getByRole('heading', { name: 'Scripts and AI agents welcome.' })
+  ).toHaveCount(0)
+
+  await page.getByText('Can AI agents work with it?').click()
+  await expect(page.getByText(/an MCP server with 36 tools/)).toBeVisible()
+})
+
 test('signed in, / is the app and /about is still the landing page', async ({
   page,
 }) => {
