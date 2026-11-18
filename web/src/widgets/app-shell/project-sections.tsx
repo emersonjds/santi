@@ -14,6 +14,7 @@ import { StarProjectButton } from '@/features/star/star-button'
 import { sidebarProjects } from '@/entities/home/sidebar-projects'
 import { ProjectAvatar } from '@/entities/project/project-avatar'
 import type { MyProject } from '@/shared/api/client'
+import { useT } from '@/shared/i18n/i18n'
 import type { ProjectsView } from '@/shared/lib/sidebar-prefs'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import {
@@ -24,6 +25,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/shared/ui/sidebar'
+import { messages } from './messages'
 import { ProjectActionsButton } from './project-actions-button'
 import {
   CURRENT,
@@ -77,6 +79,7 @@ const ProjectItem = ({
   lastStarredRef: RefObject<string | null>
   onNavigate: () => void
 }) => {
+  const t = useT(messages)
   const row = useRef<HTMLDivElement>(null)
   // A star moves the row to the other sublist, a new element: the focus left with the old one.
   useEffect(() => {
@@ -98,7 +101,7 @@ const ProjectItem = ({
       <div ref={row} className='flex items-center pe-11 md:pe-9'>
         <button
           type='button'
-          aria-label={`Toggle ${project.name}`}
+          aria-label={t('toggleProject', { name: project.name })}
           aria-expanded={expanded}
           aria-controls={pagesId}
           onClick={() => setToggled(!expanded)}
@@ -147,20 +150,20 @@ const ProjectItem = ({
       </Suspense>
       <SidebarMenuSub id={pagesId} hidden={!expanded}>
         <PageLink to='/p/$key/board' {...page}>
-          Board
+          {t('board')}
         </PageLink>
         {project.board_type === 'scrum' && (
           <>
             <PageLink to='/p/$key/backlog' {...page}>
-              Backlog
+              {t('backlog')}
             </PageLink>
             <PageLink to='/p/$key/reports' {...page}>
-              Reports
+              {t('reports')}
             </PageLink>
           </>
         )}
         <PageLink to='/p/$key/settings' {...page}>
-          Settings
+          {t('settings')}
         </PageLink>
       </SidebarMenuSub>
     </SidebarMenuItem>
@@ -220,12 +223,13 @@ export const ProjectSections = ({
   onNavigate: () => void
   onLeaveFlyout: () => void
 }) => {
+  const t = useT(messages)
   const projects = list.data
   const { key } = useParams({ strict: false })
   const lastStarredRef = useRef<string | null>(null)
   const failed = list.isError && (
     <LoadFailed
-      message='Projects did not load.'
+      message={t('projectsFailed')}
       onRetry={() => void list.refetch()}
     />
   )
@@ -235,11 +239,11 @@ export const ProjectSections = ({
     return (
       <SidebarMenu>
         <SidebarMenuItem>
-          <p className={SUBLABEL}>No projects yet</p>
+          <p className={SUBLABEL}>{t('noProjects')}</p>
           <SidebarMenuButton asChild className='h-11 md:h-10'>
             <Link to='/projects/new' onClick={onNavigate}>
               <Plus />
-              <span>Create project</span>
+              <span>{t('createProject')}</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -250,9 +254,9 @@ export const ProjectSections = ({
   return (
     <>
       {failed}
-      <Sublist label='Starred' projects={starred} {...sublist} />
+      <Sublist label={t('starred')} projects={starred} {...sublist} />
       <Sublist
-        label={view === 'starred' ? undefined : 'Recent'}
+        label={view === 'starred' ? undefined : t('recent')}
         projects={recent}
         {...sublist}
       />

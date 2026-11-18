@@ -8,6 +8,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
+import { useT } from '@/shared/i18n/i18n'
 import { fullName } from '@/shared/lib/initials'
 import { FEEDBACK_URL } from '@/shared/lib/links'
 import { openTour } from '@/shared/lib/tour'
@@ -20,9 +21,11 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
 import { AccountButton } from './account-button'
+import { messages } from './messages'
 
 export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })
+  const t = useT(messages)
   const signOut = useSignOut()
   const tour = useRef(false)
 
@@ -52,29 +55,29 @@ export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
         <DropdownMenuItem asChild className='h-11 md:h-8'>
           <Link to='/account'>
             <UserRound />
-            Account
+            {t('account')}
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem className='h-11 md:h-8' onSelect={onShortcuts}>
           <Keyboard />
-          Keyboard shortcuts
+          {t('keyboardShortcuts')}
         </DropdownMenuItem>
         <DropdownMenuItem
           className='h-11 md:h-8'
           onSelect={() => (tour.current = true)}
         >
           <Compass />
-          Take the tour
+          {t('takeTour')}
         </DropdownMenuItem>
         <DropdownMenuItem asChild className='h-11 md:h-8'>
           <a href={FEEDBACK_URL} target='_blank' rel='noreferrer'>
             <MessageSquare />
-            Send feedback
+            {t('sendFeedback')}
           </a>
         </DropdownMenuItem>
         <DropdownMenuItem className='h-11 md:h-8' onSelect={signOut}>
           <LogOut />
-          Sign out
+          {t('signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -2,18 +2,23 @@ import type { ComponentProps } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import { unreadCountQuery } from '@/entities/notification/notification-queries'
+import { useT } from '@/shared/i18n/i18n'
 import { Button } from '@/shared/ui/button'
+import { messages } from './messages'
 
 /** SAN-172 Q6: the bell with the unread count, "9+" above 9. */
 export const NotificationsButton = (props: ComponentProps<typeof Button>) => {
+  const t = useT(messages)
   const { data } = useQuery(unreadCountQuery)
   const count = data?.count ?? 0
 
   return (
     <Button
       variant='ghost'
-      aria-label={count ? `Notifications, ${count} unread` : 'Notifications'}
-      title='Notifications'
+      aria-label={
+        count ? t('notificationsUnread', { count }) : t('notifications')
+      }
+      title={t('notifications')}
       className='relative size-11 shrink-0 rounded-full p-0 md:size-9'
       {...props}
     >
