@@ -60,6 +60,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tracing::warn!("{warning}");
     }
     let storage = santi_server::storage::Storage::new(&storage_config)?;
+    // SAN-205
+    if let Some(config) =
+        santi_server::backups::BackupConfig::from_vars(|name| std::env::var(name).ok())?
+    {
+        let (pool, storage) = (pool.clone(), storage.clone());
+        tokio::spawn(async move {
+            let mut every_5_minutes = tokio::time::interval(std::time::Duration::from_secs(300));
+            loop {
+                every_5_minutes.tick().await;
+                let now = chrono::Utc::now();
+                match santi_server::backups::run_if_due(&pool, &storage, &config, now).await {
+                    Ok(Some(report)) => tracing::info!(
+                        run = %report.run,
+                        projects = report.projects,
+                        duration_ms = report.duration.as_millis() as u64,
+                        "backup done"
+                    ),
+                    Ok(None) => {}
+                    Err(error) => tracing::error!(?error, "backup failed"),
+                }
+            }
+        });
+    }
     // D45 and OR-58: purge.
     let purge_pool = pool.clone();
     let purge_storage = storage.clone();

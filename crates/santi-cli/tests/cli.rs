@@ -1348,6 +1348,11 @@ fn restore_recreates_each_project_of_an_export_then_skips_existing_keys() {
     run(&["restore", file, "--project", "NOPE"])
         .code(2)
         .stderr(contains("no project NOPE").and(contains("BAK")));
+    let single = dir.path().join("BAK.json");
+    std::fs::write(&single, export["projects"][0].to_string()).unwrap();
+    run(&["restore", single.to_str().unwrap()])
+        .success()
+        .stdout(contains("skipped BAK"));
     std::fs::write(dir.path().join("csv.json"), "[1, 2]").unwrap();
     run(&["restore", dir.path().join("csv.json").to_str().unwrap()])
         .code(2)

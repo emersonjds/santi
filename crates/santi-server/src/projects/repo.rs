@@ -33,6 +33,21 @@ pub async fn insert_board(
     .await
 }
 
+/// SAN-205: each live or archived project's key with one member, an admin when there is one.
+pub async fn list_backup_members(
+    conn: &mut PgConnection,
+) -> Result<Vec<(String, i64)>, sqlx::Error> {
+    let rows = sqlx::query!(
+        "SELECT DISTINCT ON (p.id) p.key, m.user_id
+         FROM project p JOIN member m ON m.project_id = p.id
+         WHERE p.trashed_at IS NULL
+         ORDER BY p.id, m.role = 'admin' DESC, m.user_id"
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    Ok(rows.into_iter().map(|row| (row.key, row.user_id)).collect())
+}
+
 pub async fn find_project(
     conn: &mut PgConnection,
     project_id: i64,

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Local, Utc};
 use santi_types::Problem;
 use santi_types::attachments::Attachment;
-use santi_types::auth::{AccountExport, ChangePassword};
+use santi_types::auth::{AccountExport, ChangePassword, ProjectExport};
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
@@ -632,9 +632,14 @@ async fn restore(
 ) -> Result<(), Error> {
     let bytes = std::fs::read(&file)
         .map_err(|error| Error::Usage(format!("{}: {error}", file.display())))?;
-    let export: AccountExport = serde_json::from_slice(&bytes)
-        .map_err(|error| Error::Usage(format!("not a santi export: {error}")))?;
-    let mut projects = export.projects;
+    // SAN-205: a scheduled backup file holds one project.
+    let mut projects = match serde_json::from_slice::<AccountExport>(&bytes) {
+        Ok(export) => export.projects,
+        Err(error) => vec![
+            serde_json::from_slice::<ProjectExport>(&bytes)
+                .map_err(|_| Error::Usage(format!("not a santi export: {error}")))?,
+        ],
+    };
     if let Some(key) = only {
         let keys: Vec<String> = projects
             .iter()

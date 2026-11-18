@@ -1,0 +1,38 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT DISTINCT ON (p.id) p.key, m.user_id\n         FROM project p JOIN member m ON m.project_id = p.id\n         WHERE p.trashed_at IS NULL\n         ORDER BY p.id, m.role = 'admin' DESC, m.user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "user_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "9860179376071dfb105e2765282773f65e552ea0e26a02796d588da7e1dcf369"
+}

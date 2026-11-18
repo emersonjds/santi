@@ -215,6 +215,17 @@ impl Storage {
         }
     }
 
+    /// Every key under `prefix`, in no particular order.
+    pub async fn list(&self, prefix: &str) -> Result<Vec<String>> {
+        self.store
+            .list(Some(&Path::from(prefix)))
+            .map(|meta| meta.map(|meta| meta.location.to_string()))
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect()
+    }
+
     pub async fn download(
         &self,
         key: &str,
