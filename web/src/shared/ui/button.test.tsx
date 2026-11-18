@@ -72,3 +72,36 @@ describe('fields inside a read-only area', () => {
       .toHaveAttribute('aria-describedby', 'rule note')
   })
 })
+
+const luminance = (color: string) => {
+  const [r, g, b] = (color.match(/\d+(\.\d+)?/g) ?? [])
+    .slice(0, 3)
+    .map((channel) => {
+      const value = Number(channel) / 255
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+    })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+const contrast = (first: string, second: string) => {
+  const [light, dark] = [luminance(first), luminance(second)].sort(
+    (a, b) => b - a
+  )
+  return (light + 0.05) / (dark + 0.05)
+}
+
+describe('Primary button in the dark theme', () => {
+  it('has white text that passes AA contrast on its fill', async () => {
+    document.documentElement.dataset.theme = 'dark'
+    try {
+      const screen = await render(<Button>Create</Button>)
+      const style = getComputedStyle(screen.getByRole('button').element())
+      expect(style.color).toBe('rgb(255, 255, 255)')
+      expect(
+        contrast(style.color, style.backgroundColor)
+      ).toBeGreaterThanOrEqual(4.5)
+    } finally {
+      delete document.documentElement.dataset.theme
+    }
+  })
+})
