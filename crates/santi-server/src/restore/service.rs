@@ -99,11 +99,8 @@ pub async fn restore(
     let ends = repo::find_link_ends(&mut tx, user.id, &ends).await?;
     let (links, skipped) = domain::plan_links(&export.links, &ends);
     repo::insert_links(&mut tx, user.id, &links).await?;
-    problems.extend(
-        skipped
-            .into_iter()
-            .take(MAX_PROBLEMS.saturating_sub(problems.len())),
-    );
+    let room = MAX_PROBLEMS.saturating_sub(problems.len());
+    problems.extend(domain::keep_skipped(skipped, room, &key));
     repo::reset_updated_at(&mut tx, project_id, &export.issues).await?;
     repo::record_sprint_facts(&mut tx, project_id).await?;
     let last_number = export.issues.iter().map(|issue| issue.number).max();

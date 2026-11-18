@@ -124,6 +124,14 @@ pub fn restorable(mut export: ProjectExport, max_bytes: usize) -> Result<Vec<u8>
         .into_iter()
         .filter(|link| keys.contains(&link.source) && in_file(&link.target))
         .collect();
+    let over = export
+        .links
+        .len()
+        .saturating_sub(restore::domain::MAX_LINKS);
+    if over > 0 {
+        tracing::warn!(project = %project, over, "backup of project {project} leaves out {over} links past the restore limit");
+        export.links.truncate(restore::domain::MAX_LINKS);
+    }
     restore::domain::check(&mut export.clone()).map_err(|error| format!("{error:?}"))?;
     let json = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
     if json.len() > max_bytes {
@@ -446,6 +454,22 @@ mod tests {
         assert_eq!(written.comments[0].issue_key, "SHOP-2");
         assert_eq!(written.links.len(), 1);
         assert_eq!(written.links[0].target, "OPS-3");
+    }
+
+    #[test]
+    fn links_past_the_restore_cap_are_trimmed_not_fatal() {
+        let mut export = sample();
+        let link = ExportedLink {
+            source: "SHOP-1".into(),
+            target: "SHOP-2".into(),
+            relation: Relation::Relates,
+        };
+        export.links = vec![link; restore::domain::MAX_LINKS + 1];
+
+        let json = restorable(export, usize::MAX).unwrap();
+
+        let written: ProjectExport = serde_json::from_slice(&json).unwrap();
+        assert_eq!(written.links.len(), 500_000);
     }
 
     #[test]

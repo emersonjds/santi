@@ -28,7 +28,8 @@ pub const MAX_STATUSES: usize = 500;
 pub const MAX_SPRINTS: usize = 2_000;
 pub const MAX_COMMENTS: usize = 200_000;
 pub const MAX_PREVIOUS_KEYS: usize = 100;
-pub const MAX_LINKS: usize = 50_000;
+/// Above what fits in `restore::handler::MAX_BODY_BYTES`.
+pub const MAX_LINKS: usize = 500_000;
 
 pub const NOT_RESTORED: &str = "Attachments, notifications and issue history are not in an export \
 and were not restored; closed sprints report their issues as they are now.";
@@ -390,6 +391,27 @@ pub fn plan_links(
         }
     }
     (rows, problems)
+}
+
+/// The skipped links that fit in `room` problems; when they do not, the last one counts the rest.
+pub fn keep_skipped(
+    skipped: Vec<RestoreProblem>,
+    room: usize,
+    project_key: &str,
+) -> Vec<RestoreProblem> {
+    if skipped.len() <= room {
+        return skipped;
+    }
+    let Some(listed) = room.checked_sub(1) else {
+        return Vec::new();
+    };
+    let more = skipped.len() - listed;
+    let mut kept: Vec<RestoreProblem> = skipped.into_iter().take(listed).collect();
+    kept.push(RestoreProblem {
+        issue_key: project_key.into(),
+        message: format!("{more} more links skipped."),
+    });
+    kept
 }
 
 /// Moves a validation error or a refused board rule onto the field of the file it came from.
@@ -920,6 +942,25 @@ pub(crate) mod tests {
             problems[0].message,
             "Link SHOP-1 relates OLD-1 skipped: an issue cannot link to itself."
         );
+    }
+
+    #[test]
+    fn skipped_links_past_the_problem_room_end_in_one_count() {
+        let skipped: Vec<RestoreProblem> = (1..=5)
+            .map(|number| RestoreProblem {
+                issue_key: format!("SHOP-{number}"),
+                message: format!("Link SHOP-{number} blocks OPS-1 skipped: you cannot open OPS-1."),
+            })
+            .collect();
+
+        let kept = keep_skipped(skipped.clone(), 3, "SHOP");
+
+        assert_eq!(kept.len(), 3);
+        assert_eq!(kept[..2], skipped[..2]);
+        assert_eq!(kept[2].issue_key, "SHOP");
+        assert_eq!(kept[2].message, "3 more links skipped.");
+        assert_eq!(keep_skipped(skipped.clone(), 5, "SHOP"), skipped);
+        assert!(keep_skipped(skipped, 0, "SHOP").is_empty());
     }
 
     #[test]
