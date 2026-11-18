@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- Optional error reporting to Sentry for the hosted instance (SANTI_SENTRY_DSN); off by default, no personal data.
+
 ## [0.27.0] - 2026-11-18
 
 > Imports that know which sprint is running, an AI agents section, lighter pages and a container image for Arm.

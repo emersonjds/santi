@@ -85,6 +85,21 @@ block cross-site writes. Behind a proxy that appends `X-Forwarded-For`, set
 | `SANTI_TRUSTED_PROXIES` | `0` (`1` on Railway) | proxy hops in front of the server; the client address is the `X-Forwarded-For` entry the outermost one appended |
 | `SANTI_LEGAL_PAGES` | on | `off` removes `/privacy`, `/terms` and the sign-up checkboxes that link to them, for instances that publish no legal pages |
 
+### Error reporting (optional)
+
+Off unless `SANTI_SENTRY_DSN` is set; without it the server never contacts Sentry.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SANTI_SENTRY_DSN` | unset | Sentry project DSN; a malformed value stops the server at startup |
+| `SANTI_SENTRY_ENVIRONMENT` | `production` | environment name shown in Sentry |
+| `SANTI_SENTRY_TRACES_SAMPLE_RATE` | `0` | share of requests sent as performance traces, `0` to `1` |
+
+Sent: panics and errors behind a 500 answer, with the error text, the server version, the route
+template (`/api/projects/{key}`), the HTTP method and the request id. Never sent: request bodies,
+cookies, the `Authorization` header, query strings, the raw path, IP addresses, or who the user is.
+4xx answers are never reported.
+
 Visitors without a session see the landing page at `/` (also at `/about`); signed-in users get the
 app. Its canonical and social links, `robots.txt` and `sitemap.xml` use the public address set at
 build time with `VITE_SITE_URL` (default `http://localhost:8080`), e.g.
