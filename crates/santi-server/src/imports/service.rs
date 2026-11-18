@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult};
 use santi_types::issues::IssueType;
 use santi_types::sprints::SprintState;
@@ -58,7 +58,7 @@ pub async fn import(
     let count = plan.issues.len() as i64;
     let (first_number, state) = repo::take_issue_numbers(&mut tx, member.project_id, count).await?;
     projects::domain::check_active(state)?;
-    let sprint_ids = create_sprints(&mut tx, member, &plan).await?;
+    let (sprint_ids, start) = create_sprints(&mut tx, member, &plan).await?;
     tx.commit().await?;
     let mut created = HashSet::with_capacity(plan.issues.len());
     for batch in domain::insert_order(&plan.issues).chunks(BATCH_SIZE) {
@@ -110,7 +110,7 @@ pub async fn import(
         created.extend(keys);
     }
     if !created.is_empty() {
-        finish(pool, member, &export, &plan, &created).await?;
+        finish(pool, member, &export, &plan, &created, start).await?;
     }
     let raced = plan.issues.len() - created.len();
     Ok(ImportResult {
@@ -132,6 +132,7 @@ async fn finish(
     export: &Export,
     plan: &Plan,
     created: &HashSet<String>,
+    start: Start,
 ) -> Result<(), AppError> {
     let mut tx = pool.begin().await?;
     crate::timeouts::allow_long_statements(&mut tx).await?;
@@ -149,6 +150,16 @@ async fn finish(
         })
         .collect();
     repo::finish(&mut tx, member.project_id, export.source, &finished).await?;
+    if let Some((sprint_id, starts_at, ends_at)) = start {
+        let active = sprints::repo::find_active(&mut tx, member.board_id).await?;
+        let issue_count = sprints::repo::count_issues(&mut tx, sprint_id).await?;
+        if sprints::domain::check_can_start(SprintState::Future, active.is_some(), issue_count)
+            .is_ok()
+        {
+            sprints::repo::mark_started(&mut tx, sprint_id, starts_at, ends_at).await?;
+            sprints::repo::snapshot_scope(&mut tx, sprint_id).await?;
+        }
+    }
     tx.commit().await?;
     Ok(())
 }
@@ -187,43 +198,56 @@ async fn plan(
     .await
 }
 
-/// A sprint of the same name in the state the mapping asks for (future or closed) is reused, so a
-/// second import creates none; a running sprint is never reused.
+/// The sprint `finish` starts once its issues are in: id, start and end.
+type Start = Option<(i64, DateTime<Utc>, DateTime<Utc>)>;
+
+/// A sprint of the same name in the state the mapping asks for is reused, so a second import
+/// creates none. A new active sprint is created future and started by `finish`, like one started
+/// by hand; it needs the board to run no other sprint.
 async fn create_sprints(
     conn: &mut sqlx::PgConnection,
     member: &Member,
     plan: &Plan,
-) -> Result<HashMap<String, i64>, AppError> {
+) -> Result<(HashMap<String, i64>, Start), AppError> {
     let existing = sprints::repo::list_sprints(conn, member.board_id).await?;
     let mut ids = HashMap::new();
+    let mut start = None;
     for sprint in &plan.sprints {
-        let state = match sprint.closed {
-            true => SprintState::Closed,
-            false => SprintState::Future,
-        };
         let same = existing
             .iter()
-            .find(|found| found.name == sprint.name && found.state == state);
+            .find(|found| found.name == sprint.name && found.state == sprint.state);
         if let Some(found) = same {
             ids.insert(sprint.name.clone(), found.id);
             continue;
         }
+        let running = existing
+            .iter()
+            .any(|found| found.state == SprintState::Active);
+        if sprint.state == SprintState::Active && running {
+            return Err(AppError::invalid(
+                &format!("mapping.sprints.{}", sprint.name),
+                "the board already has an active sprint",
+            ));
+        }
         sprints::repo::take_sprint_number(conn, member.board_id).await?; // D12: never reused
-        let id = if sprint.closed {
+        let id = if sprint.state == SprintState::Closed {
             repo::insert_closed_sprint(
                 conn,
                 member.board_id,
                 &sprint.name,
-                sprint.start,
-                sprint.end,
+                sprint.start.date_naive(),
+                sprint.end.date_naive(),
             )
             .await?
         } else {
             sprints::repo::insert_sprint(conn, member.board_id, &sprint.name, "").await?
         };
+        if sprint.state == SprintState::Active {
+            start = Some((id, sprint.start, sprint.end));
+        }
         ids.insert(sprint.name.clone(), id);
     }
-    Ok(ids)
+    Ok((ids, start))
 }
 
 fn to_row(
