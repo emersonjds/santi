@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
 import { AccountButton } from './account-button'
-import { messages } from './messages'
+import { messages } from './account-menu/messages'
 
 export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })

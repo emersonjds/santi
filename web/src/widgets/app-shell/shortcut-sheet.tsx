@@ -13,7 +13,7 @@ import {
 } from '@/shared/ui/dialog'
 import { Label } from '@/shared/ui/label'
 import { Switch } from '@/shared/ui/switch'
-import { messages } from './messages'
+import { messages } from './shortcut-sheet/messages'
 
 /** UI-37 groups; keys separated by a space are pressed one after the other. */
 const GROUPS = [

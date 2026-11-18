@@ -25,8 +25,8 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/shared/ui/sidebar'
-import { messages } from './messages'
 import { ProjectActionsButton } from './project-actions-button'
+import { messages } from './project-sections/messages'
 import {
   CURRENT,
   FlyoutEntry,

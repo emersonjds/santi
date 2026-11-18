@@ -19,7 +19,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from '@/shared/ui/dialog'
-import { messages } from './messages'
+import { messages } from './welcome-tour/messages'
 
 /** SAN-230 copy; keys separated by a space are pressed one after the other. */
 const STEPS = [
