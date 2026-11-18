@@ -26,7 +26,7 @@ use santi_types::issues::{
     CreateIssue, Issue, IssueFilter, IssueType, MoveIssue, PageParams, StatusFilter, UpdateIssue,
 };
 use santi_types::links::{IssueLink, Relation};
-use santi_types::projects::{BoardType, CreateProject, ProjectState};
+use santi_types::projects::{BoardType, CreateProject, ProjectState, UpdateProject};
 use santi_types::sprints::{CompleteSprint, CreateSprint, OpenIssuesDestination, StartSprint};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -94,6 +94,24 @@ pub struct CreateProjectArgs {
     /// `scrum` (default) or `kanban`.
     #[serde(default)]
     board_type: Option<BoardType>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct UpdateProjectArgs {
+    /// Project key, e.g. `WEB`.
+    project: String,
+    /// New project name.
+    name: Option<String>,
+    /// New key, 2–10 characters: a capital letter, then capital letters or digits.
+    key: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct ProjectAliasArgs {
+    /// Project key, e.g. `WEB`.
+    project: String,
+    /// One of the project's `previous_keys`.
+    alias: String,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -423,6 +441,54 @@ impl Santi {
                     board_type: args.board_type.unwrap_or(BoardType::Scrum),
                 };
                 client.create_project(&project).await
+            }
+            .await,
+        )
+    }
+
+    #[tool(
+        description = "Rename a project and/or change its key. A key is 2–10 characters: a capital letter, then capital letters or digits. Old keys keep working as `previous_keys` (issue keys and links included) and no other project can take them until removed. Admins only. Requires `project`.",
+        annotations(
+            read_only_hint = false,
+            destructive_hint = false,
+            idempotent_hint = true
+        )
+    )]
+    async fn update_project(
+        &self,
+        Parameters(args): Parameters<UpdateProjectArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        let client = self.client(&context);
+        self.reply(
+            async {
+                let changes = UpdateProject {
+                    name: args.name,
+                    key: args.key,
+                };
+                client
+                    .update_project(&project(&args.project)?, &changes)
+                    .await
+            }
+            .await,
+        )
+    }
+
+    #[tool(
+        description = "Remove one of a project's `previous_keys` so other projects can take it; links and issue keys with it stop working. Admins only. Requires `project` and `alias`.",
+        annotations(read_only_hint = false, destructive_hint = true)
+    )]
+    async fn remove_project_alias(
+        &self,
+        Parameters(args): Parameters<ProjectAliasArgs>,
+        context: RequestContext<RoleServer>,
+    ) -> Reply {
+        let client = self.client(&context);
+        self.reply(
+            async {
+                client
+                    .remove_project_alias(&project(&args.project)?, &project(&args.alias)?)
+                    .await
             }
             .await,
         )

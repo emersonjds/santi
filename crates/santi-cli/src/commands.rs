@@ -15,7 +15,7 @@ use santi_types::links::IssueLink;
 use santi_types::notifications::{Notification, NotificationKind};
 use santi_types::people::{PersonProgress, TeamProgress};
 use santi_types::projects::{
-    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult,
+    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult, UpdateProject,
 };
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, SprintState, StartSprint};
@@ -153,6 +153,17 @@ async fn projects(client: &Client, command: ProjectsCommand, json: bool) -> Resu
         ProjectsCommand::List { state } => {
             let projects = client.projects(state).await?;
             return show(json, &projects, |projects| lines(projects, project_line));
+        }
+        ProjectsCommand::Edit { project, name, key } => {
+            let changes = UpdateProject { name, key };
+            let project = client.update_project(&project, &changes).await?;
+            return show(json, &project, project_line);
+        }
+        ProjectsCommand::RemoveAlias { project, alias } => {
+            client.remove_project_alias(&project, &alias).await?;
+            return show(json, &(), |()| {
+                format!("Removed {alias}. It's free for other projects now.")
+            });
         }
         ProjectsCommand::Archive { project } => (project, "archive", "Archived"),
         ProjectsCommand::Unarchive { project } => (project, "unarchive", "Unarchived"),
@@ -850,7 +861,7 @@ fn project_line(project: &Project) -> String {
         at.map(|at| at.format("%Y-%m-%d").to_string())
             .unwrap_or_default()
     };
-    match project.state {
+    let line = match project.state {
         ProjectState::Active => line,
         ProjectState::Archived => format!(
             "{line} archived {}{}",
@@ -862,6 +873,13 @@ fn project_line(project: &Project) -> String {
             day(project.trashed_at),
             by(&project.trashed_by),
             day(project.purge_at)
+        ),
+    };
+    match project.previous_keys.is_empty() {
+        true => line,
+        false => format!(
+            "{line}\n         Previous keys: {}",
+            project.previous_keys.join(", ")
         ),
     }
 }
