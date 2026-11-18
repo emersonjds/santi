@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- Dates follow your account's language (English unless you pick another) instead of the browser's locale.
+
 ### Upgrade notes
 
 - Migration `0033_user_language` adds `app_user.language` (default `en`, no table rewrite).
