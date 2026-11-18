@@ -108,7 +108,7 @@ pub async fn me(State(state): State<AppState>, user: CurrentUser) -> Result<Json
     responses(
         (status = 200, body = User, description = "The account after the change; absent fields stay as they are"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
-        (status = 422, body = Problem, content_type = "application/problem+json", description = "Blank or over 100 characters (`display_name`), unknown theme (`theme`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`)")))]
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Blank or over 100 characters (`display_name`), unknown theme (`theme`) or language tag (`language`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`)")))]
 pub async fn update_me(
     State(state): State<AppState>,
     user: CurrentUser,

@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO project_key_alias (key, project_id, created_at)\n         SELECT key, $1, now() - make_interval(secs => position / 1e6)\n         FROM unnest($2::text[]) WITH ORDINALITY AS keys (key, position)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eeae835efb50555f1ddc0a31ca6b4cefdc1b0633adfb26272d86fad896d19aff"
+}

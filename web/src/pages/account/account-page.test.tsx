@@ -1,6 +1,7 @@
 import { describe, expect, it, onTestFinished, vi } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
 import { userEvent } from 'vitest/browser'
+import { switchLanguage } from '@/shared/i18n/i18n'
 import { applyTheme } from '@/shared/lib/theme'
 import { renderApp } from '@/test/render-app'
 import { ALICE, problem, routeOf, signedIn } from '@/test/stub-api'
@@ -412,7 +413,9 @@ describe('account page', () => {
       await expect
         .element(screen.getByRole('option', { name: BROWSER }))
         .toBeVisible()
-      expect(screen.getByRole('option').elements()).toHaveLength(1)
+      expect(
+        screen.getByRole('listbox').getByRole('option').elements()
+      ).toHaveLength(1)
     })
   })
 
@@ -492,6 +495,134 @@ describe('account page', () => {
         .toBeChecked()
       expect(theme()).toBe('light')
       expect(await sent[1]?.json()).toEqual({ theme: 'light' })
+    })
+  })
+
+  describe('language', () => {
+    const lang = () => document.documentElement.lang
+    const backToEnglish = () => onTestFinished(() => switchLanguage('en'))
+
+    it('switches the page at once and saves it', async () => {
+      backToEnglish()
+      let answer = (_: unknown) => {}
+      const requests = signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': {
+          status: 200,
+          body: { ...ALICE, language: 'pt-BR' },
+          until: new Promise((resolve) => (answer = resolve)),
+        },
+      })
+      const { screen } = await renderApp('/account')
+      const control = screen.getByRole('combobox', { name: 'Language' })
+      await expect.element(control).toHaveValue('en')
+
+      await control.selectOptions('Português (Brasil)')
+
+      await expect
+        .element(screen.getByRole('heading', { level: 1, name: 'Conta' }))
+        .toBeVisible()
+      expect(lang()).toBe('pt-BR')
+      await expect
+        .poll(() =>
+          requests.find((request) => routeOf(request) === 'PATCH /api/me')
+        )
+        .toBeDefined()
+      const patch = requests.find(
+        (request) => routeOf(request) === 'PATCH /api/me'
+      )
+      expect(await patch?.json()).toEqual({ language: 'pt-BR' })
+      answer(undefined)
+      await expect.element(screen.getByText('Salvo')).toBeVisible()
+      await expect
+        .element(screen.getByRole('combobox', { name: 'Idioma' }))
+        .toHaveValue('pt-BR')
+    })
+
+    it('puts the saved language back and says so when the save fails', async () => {
+      backToEnglish()
+      signedIn({
+        'GET /api/tokens': { status: 200, body: [] },
+        'PATCH /api/me': { status: 500, body: problem(500, 'Boom.') },
+      })
+      const { screen } = await renderApp('/account')
+
+      await screen
+        .getByRole('combobox', { name: 'Language' })
+        .selectOptions('Português (Brasil)')
+
+      await expect
+        .element(screen.getByText('Could not save your language.'))
+        .toBeVisible()
+      await expect
+        .element(screen.getByRole('heading', { level: 1, name: 'Account' }))
+        .toBeVisible()
+      expect(lang()).toBe('en')
+      await expect
+        .element(screen.getByRole('combobox', { name: 'Language' }))
+        .toHaveValue('en')
+      expect(screen.getByText('Boom.').elements()).toHaveLength(0)
+    })
+
+    it('keeps the last pick when an earlier save fails after it', async () => {
+      backToEnglish()
+      signedIn({ 'GET /api/tokens': { status: 200, body: [] } })
+      const { sent, release } = firstSaveFailsLate()
+      const { screen } = await renderApp('/account')
+
+      await screen
+        .getByRole('combobox', { name: 'Language' })
+        .selectOptions('Português (Brasil)')
+      const control = screen.getByRole('combobox', { name: 'Idioma' })
+      await expect.element(control).toHaveValue('pt-BR')
+      await control.selectOptions('English')
+      await expect
+        .element(screen.getByRole('combobox', { name: 'Language' }))
+        .toHaveValue('en')
+      expect(sent).toHaveLength(1)
+      release()
+
+      await expect.element(screen.getByText('Saved')).toBeVisible()
+      await expect
+        .element(screen.getByRole('combobox', { name: 'Language' }))
+        .toHaveValue('en')
+      expect(lang()).toBe('en')
+      expect(await sent[1]?.json()).toEqual({ language: 'en' })
+    })
+
+    it.each([
+      ['es', 'Cuenta'],
+      ['pt-PT', 'Conta'],
+      ['zh-CN', '账户'],
+    ] as const)('opens in %s', async (language, heading) => {
+      backToEnglish()
+      signedIn({
+        'GET /api/me': { status: 200, body: { ...ALICE, language } },
+        'GET /api/tokens': { status: 200, body: [] },
+      })
+      const { screen } = await renderApp('/account')
+
+      await expect
+        .element(screen.getByRole('heading', { level: 1, name: heading }))
+        .toBeVisible()
+      expect(lang()).toBe(language)
+    })
+
+    it("opens in the account's language", async () => {
+      backToEnglish()
+      signedIn({
+        'GET /api/me': { status: 200, body: { ...ALICE, language: 'pt-BR' } },
+        'GET /api/tokens': { status: 200, body: [] },
+      })
+      const { screen } = await renderApp('/account')
+
+      await expect
+        .element(screen.getByRole('heading', { level: 1, name: 'Conta' }))
+        .toBeVisible()
+      await expect
+        .element(screen.getByRole('combobox', { name: 'Idioma' }))
+        .toHaveValue('pt-BR')
+      expect(lang()).toBe('pt-BR')
     })
   })
 })

@@ -31,7 +31,7 @@ pub async fn find_member_by_token(
                   b.board_type AS "board_type?: BoardType", m.role AS "role?: MemberRole",
                   p.archived_at IS NOT NULL AS "archived?"
            FROM auth_token t
-           LEFT JOIN project p ON p.key = $2 AND p.trashed_at IS NULL
+           LEFT JOIN project p ON p.id = resolve_project_key($2) AND p.trashed_at IS NULL
            LEFT JOIN member m ON m.project_id = p.id AND m.user_id = t.user_id
            LEFT JOIN board b ON b.project_id = m.project_id
            WHERE t.token_hash = $1 AND (t.expires_at IS NULL OR t.expires_at > now())"#,
@@ -67,7 +67,7 @@ pub async fn find_member(
            FROM project p
            JOIN board b ON b.project_id = p.id
            JOIN member m ON m.project_id = p.id AND m.user_id = $2
-           WHERE p.key = $1"#,
+           WHERE p.id = resolve_project_key($1)"#,
         project_key,
         user_id
     )

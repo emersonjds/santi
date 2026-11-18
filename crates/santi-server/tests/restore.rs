@@ -379,3 +379,153 @@ async fn a_kanban_board_keeps_its_limits(pool: PgPool) {
         comparable(original)
     );
 }
+
+#[sqlx::test]
+async fn a_project_switched_to_kanban_restores_with_its_sprints(pool: PgPool) {
+    let (ana, _bob) = shop(pool).await;
+    let (status, body) = ana
+        .patch("/api/projects/SHOP", json!({ "board_type": "kanban" }))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let original = export_of(&ana, "SHOP").await;
+    purge(&ana, "SHOP").await;
+
+    let (status, restored) = ana.post(RESTORE, original.clone()).await;
+
+    assert_eq!(status, StatusCode::CREATED, "{restored}");
+    let (again, original) = (
+        comparable(export_of(&ana, "SHOP").await),
+        comparable(original),
+    );
+    assert_eq!(again["board"], original["board"]);
+    assert_eq!(again["sprints"], original["sprints"]);
+    assert_eq!(original["sprints"].as_array().unwrap().len(), 2);
+}
+
+async fn link(app: &TestApp, from: &str, relation: &str, to: &str) {
+    let (project, number) = from.split_once('-').unwrap();
+    let (status, body) = app
+        .post(
+            &format!("/api/projects/{project}/issues/{number}/links"),
+            json!({ "relation": relation, "issue": to }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+}
+
+/// SHOP-2 blocks SHOP-3 inside SHOP; SHOP-1 relates to OPS-1 and OPS-2 duplicates SHOP-4 across.
+async fn linked_shop(pool: PgPool) -> TestApp {
+    let (ana, _bob) = shop(pool).await;
+    ana.create_project("OPS", "kanban").await;
+    for summary in ["Deploy", "Old checkout"] {
+        ana.create_issue("OPS", json!({ "summary": summary })).await;
+    }
+    link(&ana, "SHOP-3", "is_blocked_by", "SHOP-2").await;
+    link(&ana, "SHOP-1", "relates", "OPS-1").await;
+    link(&ana, "OPS-2", "duplicates", "SHOP-4").await;
+    ana
+}
+
+fn messages(restored: &Value) -> Vec<&str> {
+    restored["problems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|problem| problem["message"].as_str().unwrap())
+        .collect()
+}
+
+#[sqlx::test]
+async fn links_leave_with_the_export_and_come_back_with_the_restore(pool: PgPool) {
+    let ana = linked_shop(pool).await;
+    let original = export_of(&ana, "SHOP").await;
+    assert_eq!(
+        original["links"],
+        json!([
+            { "source": "SHOP-2", "target": "SHOP-3", "relation": "blocks" },
+            { "source": "SHOP-1", "target": "OPS-1", "relation": "relates" },
+            { "source": "SHOP-4", "target": "OPS-2", "relation": "is_duplicated_by" },
+        ])
+    );
+    purge(&ana, "SHOP").await;
+    let (status, body) = ana
+        .patch("/api/projects/OPS", json!({ "name": "Ops", "key": "OPX" }))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+
+    let (status, restored) = ana.post(RESTORE, original).await;
+
+    assert_eq!(status, StatusCode::CREATED, "{restored}");
+    assert!(
+        !messages(&restored)
+            .iter()
+            .any(|message| message.starts_with("Link")),
+        "{restored}"
+    );
+    assert_eq!(
+        export_of(&ana, "SHOP").await["links"],
+        json!([
+            { "source": "SHOP-2", "target": "SHOP-3", "relation": "blocks" },
+            { "source": "SHOP-1", "target": "OPX-1", "relation": "relates" },
+            { "source": "SHOP-4", "target": "OPX-2", "relation": "is_duplicated_by" },
+        ])
+    );
+    let (status, ops) = ana.get("/api/projects/OPX/issues/2/links").await;
+    assert_eq!(status, StatusCode::OK, "{ops}");
+    assert_eq!(
+        (&ops[0]["relation"], &ops[0]["issue"]["key"]),
+        (&json!("duplicates"), &json!("SHOP-4"))
+    );
+}
+
+#[sqlx::test]
+async fn a_link_to_an_issue_the_restorer_cannot_open_is_skipped(pool: PgPool) {
+    let ana = linked_shop(pool).await;
+    let mut file = export_of(&ana, "SHOP").await;
+    purge(&ana, "SHOP").await;
+    let carol = ana.another_user("carol@example.com").await;
+    carol.create_project("ARCH", "kanban").await;
+    carol
+        .create_issue("ARCH", json!({ "summary": "Frozen" }))
+        .await;
+    let (status, body) = carol.post("/api/projects/ARCH/archive", json!(null)).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+    let links = file["links"].as_array_mut().unwrap();
+    links.push(json!({ "source": "SHOP-5", "target": "OPS-99", "relation": "clones" }));
+    links.push(json!({ "source": "SHOP-5", "target": "ARCH-1", "relation": "relates" }));
+    links.push(json!({ "source": "SHOP-3", "target": "SHOP-2", "relation": "is_blocked_by" }));
+
+    let (status, restored) = carol.post(RESTORE, file).await;
+
+    assert_eq!(status, StatusCode::CREATED, "{restored}");
+    let messages = messages(&restored);
+    for wanted in [
+        "Link SHOP-1 relates OPS-1 skipped: you cannot open OPS-1.",
+        "Link SHOP-4 is duplicated by OPS-2 skipped: you cannot open OPS-2.",
+        "Link SHOP-5 clones OPS-99 skipped: you cannot open OPS-99.",
+        "Link SHOP-5 relates ARCH-1 skipped: the project of ARCH-1 is archived.",
+    ] {
+        assert!(messages.contains(&wanted), "{wanted}: {messages:?}");
+    }
+    assert_eq!(
+        export_of(&carol, "SHOP").await["links"],
+        json!([{ "source": "SHOP-2", "target": "SHOP-3", "relation": "blocks" }]),
+        "the repeated link is restored once"
+    );
+}
+
+#[sqlx::test]
+async fn a_file_from_before_links_still_restores(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("FLOW", "kanban").await;
+    ana.create_issue("FLOW", json!({ "summary": "Only card" }))
+        .await;
+    let mut file = export_of(&ana, "FLOW").await;
+    purge(&ana, "FLOW").await;
+    file.as_object_mut().unwrap().remove("links").unwrap();
+
+    let (status, restored) = ana.post(RESTORE, file).await;
+
+    assert_eq!(status, StatusCode::CREATED, "{restored}");
+    assert_eq!(export_of(&ana, "FLOW").await["links"], json!([]));
+}

@@ -1,6 +1,8 @@
 import { Suspense, lazy, useRef, useState } from 'react'
 import { useNavigate, useParams } from '@tanstack/react-router'
+import { useT } from '@/shared/i18n/i18n'
 import { issueLinks, useShortcuts } from '@/shared/lib/shortcuts'
+import { messages } from './messages'
 
 // Lazy: the sheet loads on the first `?` (D39).
 const ShortcutSheet = lazy(() =>
@@ -42,6 +44,7 @@ export const Shortcuts = ({ open, setOpen }: ShortcutsProps) => {
   const navigate = useNavigate()
   const chordAt = useRef(-Infinity)
   const [said, say] = useState('')
+  const t = useT(messages)
 
   const select = (links: HTMLElement[], link?: HTMLElement) => {
     if (!link) return
@@ -52,7 +55,10 @@ export const Shortcuts = ({ open, setOpen }: ShortcutsProps) => {
       [
         link.dataset.issueKey,
         group?.dataset.issueGroup,
-        `${peers.indexOf(link) + 1} of ${peers.length}`,
+        t('position', {
+          index: peers.indexOf(link) + 1,
+          total: peers.length,
+        }),
       ]
         .filter(Boolean)
         .join(', ')

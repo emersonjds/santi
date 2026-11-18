@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { tokensQuery } from '@/entities/user/api-tokens'
 import { api, okOrThrow } from '@/shared/api/client'
+import { useT } from '@/shared/i18n/i18n'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import {
   AlertDialog,
@@ -13,6 +14,7 @@ import {
 } from '@/shared/ui/alert-dialog'
 import { Button } from '@/shared/ui/button'
 import { RootError } from '@/shared/ui/root-error'
+import { messages } from './messages'
 
 export type Token = { id: number; name: string }
 
@@ -24,6 +26,7 @@ export const RevokeTokenDialog = ({
   token: Token
   onClose: () => void
 }) => {
+  const t = useT(messages)
   const queryClient = useQueryClient()
   const returnFocus = useReturnFocus()
   const revoke = useMutation({
@@ -43,21 +46,23 @@ export const RevokeTokenDialog = ({
     <AlertDialog open onOpenChange={(open) => open || onClose()}>
       <AlertDialogContent onCloseAutoFocus={returnFocus}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Revoke {token.name}?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Anything using this token will stop working right away.
-          </AlertDialogDescription>
+          <AlertDialogTitle>
+            {t('revokeTitle', { name: token.name })}
+          </AlertDialogTitle>
+          <AlertDialogDescription>{t('revokeEffect')}</AlertDialogDescription>
         </AlertDialogHeader>
         <RootError message={revoke.error?.message} />
         <AlertDialogFooter>
-          <AlertDialogCancel className='h-11 md:h-9'>Cancel</AlertDialogCancel>
+          <AlertDialogCancel className='h-11 md:h-9'>
+            {t('cancel')}
+          </AlertDialogCancel>
           <Button
             variant='destructive'
             className='h-11 md:h-9'
             disabled={revoke.isPending}
             onClick={() => revoke.mutate()}
           >
-            Revoke token
+            {t('revokeToken')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

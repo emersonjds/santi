@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH old AS (SELECT key FROM project WHERE id = $1),\n              changed AS (UPDATE project SET key = $2 WHERE id = $1 AND key <> $2)\n         INSERT INTO project_key_alias (key, project_id)\n         SELECT old.key, $1 FROM old WHERE old.key <> $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "07be5a4076734975e735186469eedb6bcbddf8abc278e1a5d2729fb0ce8e218e"
+}

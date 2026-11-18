@@ -277,7 +277,22 @@ async fn new_accounts_follow_the_system_theme_and_the_browser_zone(pool: PgPool)
     let (_, me) = app.get("/api/me").await;
 
     assert_eq!(me["theme"], "system");
+    assert_eq!(me["language"], "en");
     assert!(me["time_zone"].is_null());
+}
+
+#[sqlx::test]
+async fn patching_me_sets_each_language_and_keeps_it(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+
+    for language in ["es", "zh-CN", "pt-BR", "pt-PT", "en"] {
+        let (status, patched) = app.patch("/api/me", json!({ "language": language })).await;
+        let (_, me) = app.get("/api/me").await;
+
+        assert_eq!(status, StatusCode::OK, "{language}");
+        assert_eq!(patched["language"], language);
+        assert_eq!(me, patched);
+    }
 }
 
 #[sqlx::test]
@@ -311,6 +326,9 @@ async fn patching_me_names_the_invalid_field(pool: PgPool) {
         (json!({ "display_name": "" }), "display_name"),
         (json!({ "theme": 5 }), "theme"),
         (json!({ "theme": true }), "theme"),
+        (json!({ "language": "pt-br" }), "language"),
+        (json!({ "language": "fr" }), "language"),
+        (json!({ "language": 5 }), "language"),
         (json!({ "time_zone": "Pacific/Auck\u{0}land" }), "time_zone"),
         (json!({ "tour_seen": false }), "tour_seen"),
         (json!({ "tour_seen": "yes" }), "tour_seen"),
@@ -327,7 +345,7 @@ async fn null_clears_the_zone_and_an_empty_patch_changes_nothing(pool: PgPool) {
     let app = TestApp::signed_in(pool, "ana@example.com").await;
     app.patch(
         "/api/me",
-        json!({ "theme": "light", "time_zone": "America/Sao_Paulo" }),
+        json!({ "theme": "light", "language": "pt-PT", "time_zone": "America/Sao_Paulo" }),
     )
     .await;
 
@@ -335,6 +353,7 @@ async fn null_clears_the_zone_and_an_empty_patch_changes_nothing(pool: PgPool) {
     let (_, cleared) = app.patch("/api/me", json!({ "time_zone": null })).await;
 
     assert_eq!(unchanged["theme"], "light");
+    assert_eq!(unchanged["language"], "pt-PT");
     assert_eq!(unchanged["time_zone"], "America/Sao_Paulo");
     assert_eq!(cleared["theme"], "light");
     assert_eq!(cleared["display_name"], unchanged["display_name"]);

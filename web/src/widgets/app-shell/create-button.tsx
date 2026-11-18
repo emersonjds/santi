@@ -4,10 +4,11 @@ import { Link, useParams } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { lastProject } from '@/entities/project/last-project'
 import { projectsQuery } from '@/entities/project/project-queries'
+import { useT } from '@/shared/i18n/i18n'
 import { Button } from '@/shared/ui/button'
+import { messages } from './messages'
 
 const SIZE = 'h-11 min-w-11 md:h-9'
-const LABEL = <span className='max-sm:sr-only'>Create</span>
 
 // Lazy: the form, zod and the dialog load on the first open (D39).
 const CreateIssueDialog = lazy(() =>
@@ -28,6 +29,8 @@ export const CreateButton = () => {
   const { data: projects } = useQuery(projectsQuery)
   const { key } = useParams({ strict: false })
   const [open, setOpen] = useState(false)
+  const t = useT(messages)
+  const label = <span className='max-sm:sr-only'>{t('create')}</span>
   const ready = projects !== undefined && projects.length > 0
 
   if (projects?.length === 0)
@@ -35,7 +38,7 @@ export const CreateButton = () => {
       <Button asChild className={SIZE}>
         <Link to='/projects/new'>
           <Plus />
-          {LABEL}
+          {label}
         </Link>
       </Button>
     )
@@ -49,7 +52,7 @@ export const CreateButton = () => {
         onClick={() => setOpen(true)}
       >
         <Plus />
-        {LABEL}
+        {label}
       </Button>
       {ready && open && (
         <Suspense fallback={null}>

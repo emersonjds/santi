@@ -1,7 +1,9 @@
 import * as React from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { useT } from '@/shared/i18n/i18n'
 import { cn } from '@/shared/lib/utils'
 import { Button } from './button'
+import { messages } from './messages'
 
 type PasswordInputProps = Omit<
   React.InputHTMLAttributes<HTMLInputElement>,
@@ -16,6 +18,7 @@ export function PasswordInput({
   ref,
   ...props
 }: PasswordInputProps) {
+  const t = useT(messages)
   const [showPassword, setShowPassword] = React.useState(false)
 
   return (
@@ -37,7 +40,7 @@ export function PasswordInput({
       >
         {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
         <span className='sr-only'>
-          {showPassword ? 'Hide password' : 'Show password'}
+          {showPassword ? t('hidePassword') : t('showPassword')}
         </span>
       </Button>
     </div>

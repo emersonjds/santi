@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT board_type AS \"board_type: BoardType\" FROM board WHERE id = $1 FOR SHARE",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "board_type: BoardType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "board",
+            "name": "board_type"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c5182f7aa4703fa7f25448404ebc27427c360eae22a2194c84634f70a504bb42"
+}

@@ -155,6 +155,25 @@ pub enum ProjectsCommand {
         #[arg(long, default_value = "active", value_parser = enum_value::<ProjectState>)]
         state: ProjectState,
     },
+    /// Rename a project, change its key or switch its board; old keys keep working as previous
+    /// keys (admins)
+    Edit {
+        project: ProjectKey,
+        #[arg(long, required_unless_present_any = ["key", "board_type"])]
+        name: Option<String>,
+        /// New key: 2 to 10 characters, a capital letter, then capital letters or digits
+        #[arg(long, required_unless_present_any = ["name", "board_type"])]
+        key: Option<String>,
+        /// scrum or kanban; sprints and reports are kept, switching to scrum clears column
+        /// limits and the done window
+        #[arg(long = "type", value_parser = enum_value::<BoardType>)]
+        board_type: Option<BoardType>,
+    },
+    /// Remove a previous key so other projects can take it; its old links stop working (admins)
+    RemoveAlias {
+        project: ProjectKey,
+        alias: ProjectKey,
+    },
     /// Archive a project: read-only and out of every list until unarchived (admins)
     Archive { project: ProjectKey },
     /// Make an archived project active again (admins)

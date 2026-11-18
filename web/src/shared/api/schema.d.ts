@@ -433,6 +433,22 @@ export interface paths {
         delete: operations["purge_project"];
         options?: never;
         head?: never;
+        patch: operations["update_project"];
+        trace?: never;
+    };
+    "/api/projects/{key}/aliases/{alias}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["remove_alias"];
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -1408,6 +1424,15 @@ export interface components {
             edited_by_id?: number | null;
             issue_key: string;
         };
+        /**
+         * @description A link of an issue of the project (D59), read from that issue, the `source`; `target` may be
+         *     in another project and carries its key at export time.
+         */
+        ExportedLink: {
+            relation: components["schemas"]["Relation"];
+            source: string;
+            target: string;
+        };
         FieldError: {
             field: string;
             message: string;
@@ -1613,6 +1638,11 @@ export interface components {
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
         /** @enum {string} */
         ItemKind: "project" | "issue";
+        /**
+         * @description BCP 47 tag of the web app's language; case-sensitive.
+         * @enum {string}
+         */
+        Language: "en" | "es" | "pt-BR" | "pt-PT" | "zh-CN";
         /** @description One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`. */
         LegalAcceptance: {
             /** Format: date-time */
@@ -1976,6 +2006,11 @@ export interface components {
             key: string;
             name: string;
             /**
+             * @description Keys the project had before, newest first; they still resolve to it (OR-38). Exports
+             *     written before SAN-225 lack it.
+             */
+            previous_keys: string[];
+            /**
              * Format: date-time
              * @description When a trashed project is deleted for good: 60 days after `trashed_at` (OR-58).
              */
@@ -1998,6 +2033,8 @@ export interface components {
             board: components["schemas"]["BoardSettings"];
             comments: components["schemas"]["ExportedComment"][];
             issues: components["schemas"]["Issue"][];
+            /** @description Absent from older files. */
+            links?: components["schemas"]["ExportedLink"][];
             members: components["schemas"]["MemberInfo"][];
             project: components["schemas"]["Project"];
             sprints: components["schemas"]["Sprint"][];
@@ -2283,11 +2320,20 @@ export interface components {
         /** @description Absent fields stay as they are; `"time_zone": null` goes back to the browser's zone. */
         UpdateMe: {
             display_name?: string | null;
+            language?: components["schemas"]["Language"] | null;
             theme?: components["schemas"]["Theme"] | null;
             /** @description IANA name, e.g. `Pacific/Auckland`. */
             time_zone?: string | null;
             /** @description Only `true`: stamps `tour_seen_at` the first time and keeps it afterwards. */
             tour_seen?: boolean | null;
+        };
+        /** @description Absent fields stay as they are. */
+        UpdateProject: {
+            board_type?: components["schemas"]["BoardType"] | null;
+            expected_board_type?: components["schemas"]["BoardType"] | null;
+            /** @description The new key; the current one becomes a previous key. */
+            key?: string | null;
+            name?: string | null;
         };
         UpdateSprint: {
             /** Format: date-time */
@@ -2310,6 +2356,8 @@ export interface components {
             email: string;
             /** Format: int64 */
             id: number;
+            /** @description Absent from older export files, which read as `en`. */
+            language: components["schemas"]["Language"];
             theme: components["schemas"]["Theme"];
             /** @description IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone. */
             time_zone?: string | null;
@@ -2711,7 +2759,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`) */
+            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`) or language tag (`language`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`) */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3680,7 +3728,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `project-exists`: a project holds the key; nothing written */
+            /** @description `project-exists`: a project holds the key; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; nothing written */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3804,6 +3852,134 @@ export interface operations {
                 };
             };
             /** @description `project-not-trashed`: only a trashed project can be purged */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key, current or previous */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProject"];
+            };
+        };
+        responses: {
+            /** @description Saved; a new key keeps the old one as a previous key, and a previous key of this project swaps with the current one */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project; `board-type-changed`: `expected_board_type` is not the current type */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Name of 1 to 100 characters; key of 2 to 10 capital letters or digits, a letter first */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_alias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description One of the project's previous keys */
+                alias: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed: the key no longer leads here and any project can take it */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown project, not a member, or not one of its previous keys */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4890,6 +5066,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `kanban-has-no-sprints`: `sprint_id` sent on a kanban board */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5579,7 +5764,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `status-unmapped` */
+            /** @description `status-unmapped`; `kanban-has-no-sprints`: `sprint_id` sent on a kanban board */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6178,6 +6363,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description `kanban-has-no-sprints` */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6225,7 +6419,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `sprint-not-future` */
+            /** @description `sprint-not-future`; `kanban-has-no-sprints` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6279,7 +6473,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `sprint-not-active` */
+            /** @description `sprint-not-active`; `kanban-has-no-sprints` */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6400,7 +6594,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13) */
+            /** @description `sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13); `kanban-has-no-sprints` */
             409: {
                 headers: {
                     [name: string]: unknown;

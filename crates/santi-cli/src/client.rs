@@ -17,7 +17,7 @@ use santi_types::links::{CreateLink, IssueLink, Relation};
 use santi_types::notifications::Notification;
 use santi_types::people::TeamProgress;
 use santi_types::projects::{
-    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult,
+    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult, UpdateProject,
 };
 use santi_types::reports::SprintReport;
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
@@ -112,6 +112,24 @@ impl Client {
     pub async fn create_project(&self, project: &CreateProject) -> Result<Project, Error> {
         let request = self.request(Method::POST, &["projects"]);
         self.send(request.json(project)).await
+    }
+
+    pub async fn update_project(
+        &self,
+        project: &ProjectKey,
+        changes: &UpdateProject,
+    ) -> Result<Project, Error> {
+        let request = self.request(Method::PATCH, &["projects", project.as_str()]);
+        self.send(request.json(changes)).await
+    }
+
+    pub async fn remove_project_alias(
+        &self,
+        project: &ProjectKey,
+        alias: &ProjectKey,
+    ) -> Result<(), Error> {
+        let path = ["projects", project.as_str(), "aliases", alias.as_str()];
+        self.send(self.request(Method::DELETE, &path)).await
     }
 
     pub async fn restore_project(&self, export: &ProjectExport) -> Result<RestoreResult, Error> {

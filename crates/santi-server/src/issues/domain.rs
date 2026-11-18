@@ -316,10 +316,9 @@ pub enum Anchor {
 }
 
 pub fn anchor_for(
-    project_key: &str,
     moving_number: i64,
-    after: Option<&str>,
-    before: Option<&str>,
+    after: Option<i64>,
+    before: Option<i64>,
 ) -> Result<Anchor, AppError> {
     let anchor = match (after, before) {
         (None, None) => return Ok(Anchor::Keep),
@@ -329,8 +328,8 @@ pub fn anchor_for(
                 "send either after or before, not both",
             ));
         }
-        (Some(key), None) => Anchor::After(parse_issue_key("after", project_key, key)?),
-        (None, Some(key)) => Anchor::Before(parse_issue_key("before", project_key, key)?),
+        (Some(number), None) => Anchor::After(number),
+        (None, Some(number)) => Anchor::Before(number),
     };
     if matches!(anchor, Anchor::After(number) | Anchor::Before(number) if number == moving_number) {
         return Err(AppError::invalid(
@@ -396,21 +395,17 @@ pub fn updated_since(recently_updated: bool, now: DateTime<Utc>) -> Option<DateT
     recently_updated.then(|| now - Duration::hours(24))
 }
 
+/// `parent_numbers`: the filter's parent keys, other than `NO_PARENT`, as numbers.
 pub fn to_search_query(
     project_key: &str,
     filter: &IssueFilter,
+    parent_numbers: Vec<i64>,
     now: DateTime<Utc>,
 ) -> Result<SearchQuery, AppError> {
     reject_nul("q", filter.q.as_deref().unwrap_or_default())?;
     for label in &filter.label {
         reject_nul("label", label)?;
     }
-    let parent_numbers = filter
-        .parent
-        .iter()
-        .filter(|key| *key != NO_PARENT)
-        .map(|key| parse_issue_key("parent", project_key, key))
-        .collect::<Result<Vec<i64>, AppError>>()?;
     Ok(SearchQuery {
         assignee_ids: filter.assignee.clone(),
         unassigned: filter.unassigned,
@@ -704,19 +699,12 @@ mod tests {
     }
 
     #[test]
-    fn anchors_are_parsed_and_checked() {
-        assert_eq!(anchor_for("SANTI", 1, None, None).unwrap(), Anchor::Keep);
-        assert_eq!(
-            anchor_for("SANTI", 1, Some("SANTI-2"), None).unwrap(),
-            Anchor::After(2)
-        );
-        assert_eq!(
-            anchor_for("SANTI", 1, None, Some("SANTI-3")).unwrap(),
-            Anchor::Before(3)
-        );
-        assert!(anchor_for("SANTI", 1, Some("SANTI-2"), Some("SANTI-3")).is_err());
-        assert!(anchor_for("SANTI", 1, Some("SANTI-1"), None).is_err());
-        assert!(anchor_for("SANTI", 1, None, Some("OTHER-3")).is_err());
+    fn anchors_are_checked() {
+        assert_eq!(anchor_for(1, None, None).unwrap(), Anchor::Keep);
+        assert_eq!(anchor_for(1, Some(2), None).unwrap(), Anchor::After(2));
+        assert_eq!(anchor_for(1, None, Some(3)).unwrap(), Anchor::Before(3));
+        assert!(anchor_for(1, Some(2), Some(3)).is_err());
+        assert!(anchor_for(1, Some(1), None).is_err());
     }
 
     #[test]
@@ -772,14 +760,14 @@ mod tests {
             q: Some("bug".into()),
             ..IssueFilter::default()
         };
-        let query = to_search_query("SANTI", &filter, Utc::now()).unwrap();
+        let query = to_search_query("SANTI", &filter, vec![4], Utc::now()).unwrap();
         assert_eq!(query.parent_numbers, [4]);
         assert_eq!(query.pattern.as_deref(), Some("%bug%"));
         let bad = IssueFilter {
-            parent: vec!["OTHER-4".into()],
+            q: Some("a\0".into()),
             ..IssueFilter::default()
         };
-        assert!(to_search_query("SANTI", &bad, Utc::now()).is_err());
+        assert!(to_search_query("SANTI", &bad, Vec::new(), Utc::now()).is_err());
     }
 
     #[test]
@@ -794,7 +782,7 @@ mod tests {
             recently_updated: true,
             ..IssueFilter::default()
         };
-        let query = to_search_query("SANTI", &filter, now).unwrap();
+        let query = to_search_query("SANTI", &filter, Vec::new(), now).unwrap();
         assert_eq!(query.updated_since, updated_since(true, now));
     }
 

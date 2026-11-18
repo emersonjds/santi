@@ -4,13 +4,14 @@ use santi_types::boards::{
     ReorderColumns, Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
 };
 use santi_types::issues::IssueFilter;
+use santi_types::projects::BoardType;
 use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 
 use super::{domain, repo};
 use crate::error::AppError;
 use crate::members::Member;
 use crate::members::domain::require_admin;
-use crate::sprints;
+use crate::{projects, sprints};
 
 pub async fn seed_default_layout(
     conn: &mut PgConnection,
@@ -30,7 +31,7 @@ pub async fn get_settings(pool: &PgPool, member: &Member) -> Result<BoardSetting
 }
 
 /// On the caller's connection: a second one from the pool deadlocks it under load.
-async fn read_settings(
+pub(crate) async fn read_settings(
     conn: &mut PgConnection,
     member: &Member,
 ) -> Result<BoardSettings, AppError> {
@@ -51,7 +52,11 @@ pub async fn board_view(
     filter: &IssueFilter,
 ) -> Result<BoardView, AppError> {
     let mut conn = pool.acquire().await?;
-    let sprint = sprints::repo::find_active(&mut conn, member.board_id).await?;
+    let filter = &current_parent_keys(&mut conn, member, filter).await?;
+    let sprint = match member.board_type {
+        BoardType::Kanban => None,
+        BoardType::Scrum => sprints::repo::find_active(&mut conn, member.board_id).await?,
+    };
     let columns = repo::list_columns(&mut conn, member.board_id).await?;
     let sprint_id = sprint.as_ref().map(|sprint| sprint.id);
     let cards = repo::board_cards(&mut conn, member.project_id, sprint_id, member.user_id).await?;
@@ -62,6 +67,26 @@ pub async fn board_view(
     })
 }
 
+/// SAN-235: a parent key written with one of the project's previous keys filters as the current one.
+async fn current_parent_keys(
+    conn: &mut PgConnection,
+    member: &Member,
+    filter: &IssueFilter,
+) -> Result<IssueFilter, AppError> {
+    let mut filter = filter.clone();
+    for parent in &mut filter.parent {
+        let Some((prefix, number)) = parent.rsplit_once('-') else {
+            continue;
+        };
+        if prefix != member.project_key
+            && projects::repo::resolve_project_key(conn, prefix).await? == Some(member.project_id)
+        {
+            *parent = format!("{}-{number}", member.project_key);
+        }
+    }
+    Ok(filter)
+}
+
 pub async fn backlog(
     pool: &PgPool,
     member: &Member,
@@ -69,6 +94,7 @@ pub async fn backlog(
 ) -> Result<Backlog, AppError> {
     domain::require_backlog(member.board_type)?;
     let mut conn = pool.acquire().await?;
+    let filter = &current_parent_keys(&mut conn, member, filter).await?;
     let sprints = sprints::repo::list_open(&mut conn, member.board_id).await?;
     let cards = repo::backlog_cards(&mut conn, member.project_id, member.user_id).await?;
     let epics = repo::epic_summaries(&mut conn, member.project_id).await?;
@@ -88,7 +114,9 @@ pub async fn update_settings(
     require_admin(member)?;
     domain::check_done_window(member.board_type, input.done_window_days)?;
     let mut conn = pool.acquire().await?;
-    repo::set_done_window(&mut conn, member.board_id, input.done_window_days).await?;
+    if !repo::set_done_window(&mut conn, member.board_id, input.done_window_days).await? {
+        domain::check_done_window(BoardType::Scrum, input.done_window_days)?;
+    }
     read_settings(&mut conn, member).await
 }
 
@@ -119,19 +147,18 @@ pub async fn update_column(
     require_admin(member)?;
     let name = domain::check_name("name", &input.name)?;
     domain::check_wip_limit(member.board_type, input.wip_limit)?;
-    let mut conn = pool.acquire().await?;
-    let updated = repo::update_column(
-        &mut conn,
-        member.board_id,
-        column_id,
-        &name,
-        input.wip_limit,
-    )
-    .await?;
+    let mut tx = pool.begin().await?;
+    if input.wip_limit.is_some() {
+        let board_type = repo::share_board_type(&mut tx, member.board_id).await?;
+        domain::check_wip_limit(board_type, input.wip_limit)?;
+    }
+    let updated =
+        repo::update_column(&mut tx, member.board_id, column_id, &name, input.wip_limit).await?;
     if !updated {
         return Err(AppError::NotFound);
     }
-    read_settings(&mut conn, member).await
+    tx.commit().await?;
+    get_settings(pool, member).await
 }
 
 pub async fn reorder_columns(

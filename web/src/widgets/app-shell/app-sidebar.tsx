@@ -7,6 +7,7 @@ import {
   legalDocumentsQuery,
   useLegalRequired,
 } from '@/entities/session/legal-queries'
+import { useT } from '@/shared/i18n/i18n'
 import { FEEDBACK_URL } from '@/shared/lib/links'
 import {
   type ProjectsView,
@@ -25,6 +26,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from '@/shared/ui/sidebar'
+import { messages } from './messages'
 import { HEADER_ACTION, ProjectsMenuButton } from './project-actions-button'
 import {
   CURRENT,
@@ -58,11 +60,12 @@ const StarredFlyout = lazy(() =>
 )
 
 const LEGAL = [
-  ['Privacy', '/privacy'],
-  ['Terms', '/terms'],
+  ['privacy', '/privacy'],
+  ['terms', '/terms'],
 ] as const
 
 export const AppSidebar = () => {
+  const t = useT(messages)
   const { setOpenMobile } = useSidebar()
   const [open, setOpen] = useState<Flyout | null>(null)
   const flyouts = { open, setOpen }
@@ -80,13 +83,13 @@ export const AppSidebar = () => {
   const { data: legal } = useQuery(legalDocumentsQuery)
   const about = [
     ...(useLegalRequired(legal?.required) ? LEGAL : []),
-    ['Feedback', FEEDBACK_URL] as const,
+    ['feedback', FEEDBACK_URL] as const,
   ]
 
   return (
     <Sidebar>
       <SidebarContent>
-        <nav aria-label='Projects and pages'>
+        <nav aria-label={t('projectsAndPages')}>
           <SidebarGroup>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -97,7 +100,7 @@ export const AppSidebar = () => {
                     onClick={closeDrawer}
                   >
                     <House />
-                    <span>For you</span>
+                    <span>{t('forYou')}</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -111,7 +114,7 @@ export const AppSidebar = () => {
           </SidebarGroup>
           <SidebarGroup>
             <SidebarGroupLabel className='max-md:h-11'>
-              Projects
+              {t('projects')}
             </SidebarGroupLabel>
             <SidebarGroupAction
               asChild
@@ -119,8 +122,8 @@ export const AppSidebar = () => {
             >
               <Link
                 to='/projects/new'
-                aria-label='New project'
-                title='New project'
+                aria-label={t('newProject')}
+                title={t('newProject')}
                 onClick={closeDrawer}
               >
                 <Plus />
@@ -147,12 +150,12 @@ export const AppSidebar = () => {
       </SidebarContent>
       <SidebarFooter>
         <nav
-          aria-label='About santi'
+          aria-label={t('aboutSanti')}
           className='flex flex-wrap gap-x-3 px-2 text-xs text-muted-foreground'
         >
           {about.map(([label, href]) => (
             <a
-              key={label}
+              key={href}
               href={href}
               className='inline-flex min-h-11 items-center hover:text-foreground hover:underline md:min-h-8'
               {...(href === FEEDBACK_URL && {
@@ -160,7 +163,7 @@ export const AppSidebar = () => {
                 rel: 'noreferrer',
               })}
             >
-              {label}
+              {t(label)}
             </a>
           ))}
         </nav>

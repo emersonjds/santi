@@ -2,7 +2,7 @@ use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use santi_types::Problem;
-use santi_types::projects::{CreateProject, Project, ProjectsQuery};
+use santi_types::projects::{CreateProject, Project, ProjectsQuery, UpdateProject};
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_axum::routes;
 
@@ -17,7 +17,8 @@ use crate::rate_limit::Action;
 pub fn router() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(create_project, list_projects))
-        .routes(routes!(get_project, purge_project))
+        .routes(routes!(get_project, update_project, purge_project))
+        .routes(routes!(remove_alias))
         .routes(routes!(archive_project))
         .routes(routes!(unarchive_project))
         .routes(routes!(trash_project))
@@ -93,6 +94,41 @@ pub async fn get_project(
     member: Member,
 ) -> Result<Json<Project>, AppError> {
     Ok(Json(service::get_project(&state.pool, &member).await?))
+}
+
+#[utoipa::path(patch, path = "/api/projects/{key}", tag = "projects", request_body = UpdateProject,
+    params(("key" = String, Path, description = "Project key, current or previous")),
+    responses(
+        (status = 200, body = Project, description = "Saved; a new key keeps the old one as a previous key, and a previous key of this project swaps with the current one"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin of the project"),
+        (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project; `board-type-changed`: `expected_board_type` is not the current type"),
+        (status = 422, body = Problem, content_type = "application/problem+json", description = "Name of 1 to 100 characters; key of 2 to 10 capital letters or digits, a letter first")))]
+pub async fn update_project(
+    State(state): State<AppState>,
+    member: Member,
+    JsonBody(input): JsonBody<UpdateProject>,
+) -> Result<Json<Project>, AppError> {
+    Ok(Json(service::update(&state.pool, &member, input).await?))
+}
+
+#[utoipa::path(delete, path = "/api/projects/{key}/aliases/{alias}", tag = "projects",
+    params(("key" = String, Path, description = "Project key"),
+           ("alias" = String, Path, description = "One of the project's previous keys")),
+    responses(
+        (status = 204, description = "Removed: the key no longer leads here and any project can take it"),
+        (status = 401, body = Problem, content_type = "application/problem+json"),
+        (status = 403, body = Problem, content_type = "application/problem+json", description = "Not an admin of the project"),
+        (status = 404, body = Problem, content_type = "application/problem+json", description = "Unknown project, not a member, or not one of its previous keys"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-archived`")))]
+pub async fn remove_alias(
+    State(state): State<AppState>,
+    member: Member,
+    PathParams((_key, alias)): PathParams<(String, String)>,
+) -> Result<StatusCode, AppError> {
+    service::remove_alias(&state.pool, &member, &alias).await?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 #[utoipa::path(post, path = "/api/projects/{key}/archive", tag = "projects",

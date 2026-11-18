@@ -1,5 +1,7 @@
 import { Suspense, lazy, useState } from 'react'
+import { useT } from '@/shared/i18n/i18n'
 import { Button } from '@/shared/ui/button'
+import { messages } from './messages'
 
 // Lazy: the confirmation and its Radix dialog load on the first press (D39).
 const DeleteAccountDialog = lazy(() =>
@@ -9,6 +11,7 @@ const DeleteAccountDialog = lazy(() =>
 )
 
 export const DeleteAccountButton = () => {
+  const t = useT(messages)
   const [open, setOpen] = useState(false)
 
   return (
@@ -18,7 +21,7 @@ export const DeleteAccountButton = () => {
         className='h-11 md:h-9'
         onClick={() => setOpen(true)}
       >
-        Delete my account
+        {t('deleteMyAccount')}
       </Button>
       {open && (
         <Suspense fallback={null}>

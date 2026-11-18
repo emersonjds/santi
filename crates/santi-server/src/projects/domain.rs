@@ -23,6 +23,66 @@ pub fn check_project_key(key: &str) -> Result<String, AppError> {
     Ok(key)
 }
 
+/// OR-37: a key a project changes to is refused, not converted, unless already upper case.
+pub fn check_new_project_key(key: &str) -> Result<String, AppError> {
+    let key = key.trim();
+    if key != key.to_uppercase() {
+        return Err(bad_new_key());
+    }
+    check_project_key(key).map_err(|_| bad_new_key())
+}
+
+fn bad_new_key() -> AppError {
+    AppError::invalid(
+        "key",
+        "Keys are 2 to 10 characters: a capital letter, then capital letters or digits.",
+    )
+}
+
+/// Who holds a key: the project's id and name, whether it is one of its previous keys, whether
+/// the caller is one of its members and whether it is in the trash.
+pub struct Holder<'a> {
+    pub project_id: i64,
+    pub name: &'a str,
+    pub alias: bool,
+    pub member: bool,
+    pub trashed: bool,
+}
+
+/// OR-37, OR-38: whether project `taker` may take `key`; true when it is one of `taker`'s own
+/// previous keys, which goes back to being live. Only members of the holder see its name.
+/// `taker` is None for a project not created yet.
+pub fn check_key_taker(
+    key: &str,
+    taker: Option<i64>,
+    holder: Option<Holder>,
+) -> Result<bool, AppError> {
+    let Some(holder) = holder else {
+        return Ok(false);
+    };
+    if Some(holder.project_id) == taker {
+        return Ok(holder.alias);
+    }
+    let name = holder.name;
+    let detail = match (holder.alias, holder.member, holder.trashed) {
+        (false, true, _) => format!("{key} is already {name}'s key."),
+        (false, false, _) => format!("{key} is taken. Pick another key."),
+        (true, false, _) => format!("{key} is reserved by another project. Pick another key."),
+        (true, true, false) => format!(
+            "{key} is a previous key of {name}. Ask that project's admin to remove it before you can use it."
+        ),
+        (true, true, true) => format!(
+            "{key} belongs to {name}, which is in the trash; it frees up when the project is restored and the key removed, or deleted for good."
+        ),
+    };
+    let problem = if holder.alias {
+        "project-key-alias"
+    } else {
+        "project-key-taken"
+    };
+    Err(AppError::conflict(problem, &detail))
+}
+
 pub fn check_project_name(name: &str) -> Result<String, AppError> {
     reject_nul("name", name)?;
     let name = name.trim();
@@ -107,6 +167,20 @@ pub fn default_done_window(board_type: BoardType) -> Option<i32> {
     }
 }
 
+/// SAN-224: a switch made from a stale page is refused.
+pub fn check_expected_board_type(
+    current: BoardType,
+    expected: Option<BoardType>,
+) -> Result<(), AppError> {
+    match expected {
+        Some(expected) if expected != current => Err(AppError::conflict(
+            "board-type-changed",
+            "The board type changed since you loaded this page. Reload to see the current type.",
+        )),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -139,6 +213,83 @@ mod tests {
     }
 
     #[test]
+    fn a_new_key_is_refused_unless_upper_case() {
+        assert_eq!(check_new_project_key(" NOWVI ").unwrap(), "NOWVI");
+        for bad in ["nowvi", "Nowvi", "N", "1AB"] {
+            assert!(check_new_project_key(bad).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_key_is_free_or_the_takers_own_previous_key() {
+        let holder = |project_id, alias| Holder {
+            project_id,
+            name: "Nowvi",
+            alias,
+            member: true,
+            trashed: false,
+        };
+        assert_eq!(check_key_taker("A1", Some(1), None), Ok(false));
+        assert_eq!(
+            check_key_taker("A1", Some(1), Some(holder(1, true))),
+            Ok(true)
+        );
+        assert_eq!(
+            check_key_taker("A1", Some(1), Some(holder(1, false))),
+            Ok(false)
+        );
+        let taken = check_key_taker("A1", Some(1), Some(holder(2, false))).unwrap_err();
+        assert_eq!(taken.to_problem().detail, "A1 is already Nowvi's key.");
+        let aliased = check_key_taker("A1", Some(1), Some(holder(2, true))).unwrap_err();
+        assert_eq!(
+            aliased.to_problem().problem_type,
+            "urn:santi:error:project-key-alias"
+        );
+    }
+
+    #[test]
+    fn only_members_of_the_holder_see_its_name() {
+        let detail = |alias, member, trashed| {
+            let holder = Holder {
+                project_id: 2,
+                name: "Nowvi",
+                alias,
+                member,
+                trashed,
+            };
+            let problem = check_key_taker("A1", None, Some(holder))
+                .unwrap_err()
+                .to_problem();
+            let kind = if alias { "alias" } else { "taken" };
+            assert_eq!(
+                problem.problem_type,
+                format!("urn:santi:error:project-key-{kind}")
+            );
+            problem.detail
+        };
+        assert_eq!(
+            detail(false, false, false),
+            "A1 is taken. Pick another key."
+        );
+        assert_eq!(
+            detail(true, false, false),
+            "A1 is reserved by another project. Pick another key."
+        );
+        assert_eq!(
+            detail(true, false, true),
+            "A1 is reserved by another project. Pick another key."
+        );
+        assert_eq!(
+            detail(true, true, false),
+            "A1 is a previous key of Nowvi. Ask that project's admin to remove it before you can use it."
+        );
+        assert_eq!(
+            detail(true, true, true),
+            "A1 belongs to Nowvi, which is in the trash; it frees up when the project is restored and the key removed, or deleted for good."
+        );
+    }
+
+    #[test]
     fn project_name_is_required() {
         assert!(check_project_name("  ").is_err());
         assert_eq!(check_project_name(" Santi ").unwrap(), "Santi");
@@ -148,5 +299,13 @@ mod tests {
     fn kanban_hides_done_after_14_days_and_scrum_never() {
         assert_eq!(default_done_window(BoardType::Kanban), Some(14));
         assert_eq!(default_done_window(BoardType::Scrum), None);
+    }
+
+    #[test]
+    fn only_a_different_expected_board_type_is_refused() {
+        let (scrum, kanban) = (BoardType::Scrum, BoardType::Kanban);
+        assert!(check_expected_board_type(scrum, None).is_ok());
+        assert!(check_expected_board_type(scrum, Some(scrum)).is_ok());
+        assert!(check_expected_board_type(scrum, Some(kanban)).is_err());
     }
 }

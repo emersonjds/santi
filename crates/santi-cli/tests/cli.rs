@@ -1147,7 +1147,7 @@ fn project_lifecycle_from_archive_to_purge() {
     assert_eq!(kanban["board_type"], "kanban");
     run(&["projects", "create", "LIFE", "--name", "Again"])
         .code(5)
-        .stderr(contains("already exists"));
+        .stderr(contains("LIFE is already Life cycle's key."));
     run(&["projects", "create", "../x", "--name", "Bad"])
         .code(2)
         .stderr(contains("project key"));
@@ -1206,6 +1206,81 @@ fn project_lifecycle_from_archive_to_purge() {
         .success()
         .stdout("(none)\n");
     run(&["projects", "list", "--state", "gone"]).failure();
+}
+
+#[test]
+fn projects_are_renamed_rekeyed_and_their_old_keys_freed() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+
+    run(&["projects", "create", "BAIXA", "--name", "Baixa Video"]).success();
+    run(&["issues", "create", "BAIXA", "--summary", "Keep me"]).success();
+    run(&["projects", "create", "TAKER", "--name", "Taker"]).success();
+    run(&["projects", "edit", "BAIXA"])
+        .code(2)
+        .stderr(contains("--name").and(contains("--key")));
+    run(&["projects", "edit", "BAIXA", "--name", "Nowvi"])
+        .success()
+        .stdout(
+            contains("BAIXA")
+                .and(contains("Nowvi (scrum, admin)"))
+                .and(contains("Previous keys").not()),
+        );
+    run(&["projects", "edit", "BAIXA", "--key", "NOWVI"])
+        .success()
+        .stdout(contains("NOWVI").and(contains("Previous keys: BAIXA")));
+    run(&["issues", "show", "BAIXA-1"])
+        .success()
+        .stdout(contains("NOWVI-1").and(contains("Keep me")));
+    run(&["projects", "list"])
+        .success()
+        .stdout(contains("NOWVI").and(contains("Previous keys").not()));
+    let listed = json(santi.with(&token).args(["projects", "list"]));
+    let nowvi = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|project| project["key"] == "NOWVI")
+        .unwrap();
+    assert_eq!(nowvi["previous_keys"], json!(["BAIXA"]));
+    run(&["projects", "edit", "TAKER", "--key", "NOWVI"])
+        .code(5)
+        .stderr(contains("NOWVI is already Nowvi's key."));
+    run(&["projects", "edit", "TAKER", "--key", "BAIXA"])
+        .code(5)
+        .stderr(contains("BAIXA is a previous key of Nowvi."));
+    run(&["projects", "edit", "TAKER", "--key", "lower"])
+        .code(5)
+        .stderr(contains("Keys are 2 to 10 characters"));
+    run(&["projects", "remove-alias", "NOWVI", "BAIXA"])
+        .success()
+        .stdout(contains("Removed BAIXA. It's free for other projects now."));
+    let taken = json(santi.with(&token).args([
+        "projects", "edit", "TAKER", "--key", "BAIXA", "--name", "Baixa",
+    ]));
+    assert_eq!(taken["key"], "BAIXA");
+    assert_eq!(taken["name"], "Baixa");
+    assert_eq!(taken["previous_keys"], json!(["TAKER"]));
+}
+
+#[test]
+fn projects_switch_between_scrum_and_kanban() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+
+    run(&["projects", "create", "SWT", "--name", "Switch"]).success();
+    run(&["projects", "edit", "SWT", "--type", "kanban"])
+        .success()
+        .stdout(contains("Switch (kanban, admin)"));
+    run(&["projects", "edit", "SWT", "--type", "flat"]).code(2);
+    let switched = json(
+        santi
+            .with(&token)
+            .args(["projects", "edit", "SWT", "--type", "scrum"]),
+    );
+    assert_eq!(switched["board_type"], "scrum");
 }
 
 #[test]
@@ -1292,10 +1367,54 @@ fn restore_recreates_each_project_of_an_export_then_skips_existing_keys() {
     run(&["restore", file, "--project", "NOPE"])
         .code(2)
         .stderr(contains("no project NOPE").and(contains("BAK")));
+    let single = dir.path().join("BAK.json");
+    std::fs::write(&single, export["projects"][0].to_string()).unwrap();
+    run(&["restore", single.to_str().unwrap()])
+        .success()
+        .stdout(contains("skipped BAK"));
     std::fs::write(dir.path().join("csv.json"), "[1, 2]").unwrap();
     run(&["restore", dir.path().join("csv.json").to_str().unwrap()])
         .code(2)
         .stderr(contains("not a santi export: "));
+    std::fs::write(dir.path().join("one.json"), "{}").unwrap();
+    run(&["restore", dir.path().join("one.json").to_str().unwrap()])
+        .code(2)
+        .stderr(contains("not a santi export: missing field `project`"));
+}
+
+#[test]
+fn restore_reads_a_single_project_backup_plain_or_gzipped() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+    server().project(&token, "SNG", "kanban");
+    run(&["issues", "create", "SNG", "--summary", "Only me"]).success();
+    let export = server().get(&token, "/api/me/export");
+    let project = export["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|project| project["project"]["key"] == "SNG")
+        .unwrap()
+        .to_string();
+    let dir = tempfile::tempdir().unwrap();
+    let plain = dir.path().join("SNG.json");
+    std::fs::write(&plain, &project).unwrap();
+    let gzipped = dir.path().join("SNG.json.gz");
+    let mut encoder = flate2::write::GzEncoder::new(
+        std::fs::File::create(&gzipped).unwrap(),
+        flate2::Compression::default(),
+    );
+    std::io::Write::write_all(&mut encoder, project.as_bytes()).unwrap();
+    encoder.finish().unwrap();
+
+    for file in [&plain, &gzipped] {
+        run(&["projects", "trash", "SNG", "--yes"]).success();
+        run(&["projects", "purge", "SNG", "--yes"]).success();
+        run(&["restore", file.to_str().unwrap()])
+            .success()
+            .stdout(contains("restored SNG (1 issues"));
+    }
 }
 
 #[test]

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { RenderResult } from 'vitest-browser-react'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import { renderApp } from '@/test/render-app'
 import {
   MY_OPS,
@@ -69,8 +69,8 @@ describe('project lifecycle: danger zone', () => {
     await expect.element(leave).toHaveAccessibleDescription(LAST_ADMIN)
     leave.element().focus()
     await expect.element(leave).toHaveFocus()
-    await leave.click({ force: true })
-    expect(screen.getByRole('alertdialog').elements()).toEqual([])
+    await userEvent.keyboard('{Enter}')
+    await expect.element(leave).toHaveAttribute('aria-expanded', 'false')
   })
 
   it('deletes an archived project from the danger zone', async () => {

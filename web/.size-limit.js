@@ -35,7 +35,7 @@ const SHELL = split('_authenticated/route.tsx')
 
 const landing = [...withImports('landing.html')]
 
-// D39 caps every route at 170 KB; each route limit sits ~3 KB above the measured size so growth is a decision.
+// D39 caps every route at 170 KB; each route limit sits ~0.3 KB above the measured size so growth is a decision.
 export default [
   {
     name: 'landing page JS (/ signed out, /about)',
@@ -59,25 +59,25 @@ export default [
   {
     name: 'initial JS, /login',
     path: firstVisit(split('login.tsx')),
-    limit: '161 KB',
+    limit: '127 KB',
     gzip: true,
   },
   {
     name: 'initial JS, / (home, with the shell)',
     path: firstVisit(SHELL, split('_authenticated/index.tsx')),
-    limit: '150.5 KB',
+    limit: '150.4 KB',
     gzip: true,
   },
   {
     name: 'initial JS, /projects (all projects)',
     path: firstVisit(SHELL, split('_authenticated/projects/index.tsx')),
-    limit: '146 KB',
+    limit: '145.7 KB',
     gzip: true,
   },
   {
     name: 'initial JS, /account',
     path: firstVisit(SHELL, split('_authenticated/account.tsx')),
-    limit: '145.5 KB',
+    limit: '147 KB',
     gzip: true,
   },
   {
@@ -91,13 +91,54 @@ export default [
     gzip: true,
   },
   {
+    // D62: one chunk per language, loaded once by a device set to it.
+    name: 'pt-BR dictionary chunk',
+    path: lazyChunk(
+      'src/app/i18n/pt-BR.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '3.3 KB',
+    gzip: true,
+  },
+  {
+    name: 'es dictionary chunk',
+    path: lazyChunk(
+      'src/app/i18n/es.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '3.4 KB',
+    gzip: true,
+  },
+  {
+    name: 'pt-PT dictionary chunk',
+    path: lazyChunk(
+      'src/app/i18n/pt-PT.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '3.4 KB',
+    gzip: true,
+  },
+  {
+    name: 'zh-CN dictionary chunk',
+    path: lazyChunk(
+      'src/app/i18n/zh-CN.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '3.6 KB',
+    gzip: true,
+  },
+  {
     name: 'initial JS, /p/KEY/board (project page)',
     path: firstVisit(
       SHELL,
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/board.tsx')
     ),
-    limit: '162.5 KB',
+    limit: '162.2 KB',
     gzip: true,
   },
   {
@@ -107,7 +148,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/issues/$number.tsx')
     ),
-    limit: '162.5 KB',
+    limit: '162.2 KB',
     gzip: true,
   },
   {
@@ -161,7 +202,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/backlog.tsx')
     ),
-    limit: '165 KB',
+    limit: '164.5 KB',
     gzip: true,
   },
   {
@@ -171,7 +212,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/reports/index.tsx')
     ),
-    limit: '148.5 KB',
+    limit: '148.3 KB',
     gzip: true,
   },
   {
@@ -181,7 +222,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/people.tsx')
     ),
-    limit: '148 KB',
+    limit: '147.9 KB',
     gzip: true,
   },
   {
@@ -191,7 +232,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/reports/$id.tsx')
     ),
-    limit: '153.5 KB',
+    limit: '153.2 KB',
     gzip: true,
   },
   {
@@ -201,7 +242,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/members.tsx')
     ),
-    limit: '150 KB',
+    limit: '149.7 KB',
     gzip: true,
   },
   {
@@ -211,7 +252,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/index.tsx')
     ),
-    limit: '147.5 KB',
+    limit: '147.4 KB',
     gzip: true,
   },
   {
@@ -221,7 +262,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/import.tsx')
     ),
-    limit: '145.5 KB',
+    limit: '145.3 KB',
     gzip: true,
   },
 ]

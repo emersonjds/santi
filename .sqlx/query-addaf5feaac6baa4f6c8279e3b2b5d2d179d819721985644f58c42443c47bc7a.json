@@ -1,0 +1,96 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT m.user_id, p.id AS project_id, p.key AS project_key, b.id AS board_id,\n                  b.board_type AS \"board_type: BoardType\", m.role AS \"role: MemberRole\",\n                  p.archived_at IS NOT NULL AS \"archived!\"\n           FROM project p\n           JOIN board b ON b.project_id = p.id\n           JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.id = resolve_project_key($1)",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "user_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "project_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "project_key",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "key"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "board_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "board",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "board_type: BoardType",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "board",
+            "name": "board_type"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "role: MemberRole",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "member",
+            "name": "role"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "archived!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      null
+    ]
+  },
+  "hash": "addaf5feaac6baa4f6c8279e3b2b5d2d179d819721985644f58c42443c47bc7a"
+}

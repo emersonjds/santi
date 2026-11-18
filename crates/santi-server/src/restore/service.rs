@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use axum::body::Bytes;
 use santi_types::boards::BoardSettings;
-use santi_types::projects::{MemberRole, RestoreResult};
+use santi_types::projects::{MemberRole, RestoreProblem, RestoreResult};
 use sqlx::{PgConnection, PgPool};
 
 use super::{domain, repo};
 use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
-use crate::imports::domain::tier;
+use crate::imports::domain::{MAX_PROBLEMS, tier};
 use crate::{boards, imports, members, projects, sprints};
 
 /// SAN-99: a new project from one project of an account export, in one transaction; the caller
@@ -19,25 +19,45 @@ pub async fn restore(
     body: Bytes,
 ) -> Result<RestoreResult, AppError> {
     let caller = user.id;
-    let (mut export, key, problems) = tokio::task::spawn_blocking(move || {
+    let (mut export, key, mut problems) = tokio::task::spawn_blocking(move || {
         let mut export = domain::read(&body)?;
         let key = domain::check(&mut export)?;
-        let problems = domain::resolve_people(&mut export, caller);
+        let mut problems = domain::keep_newest_previous_keys(&mut export);
+        problems.extend(domain::resolve_people(&mut export, caller));
         Ok::<_, AppError>((export, key, problems))
     })
     .await
     .map_err(|error| AppError::Internal(error.to_string()))??;
     let mut tx = pool.begin().await?;
     crate::timeouts::allow_long_statements(&mut tx).await?;
-    // ponytail: two restores of one key racing past this check: the second gets the generic 409.
+    let mut keys = export.project.previous_keys.clone();
+    keys.push(key.clone());
+    keys.sort();
+    keys.dedup();
+    for locked in &keys {
+        projects::repo::lock_key(&mut tx, locked).await?;
+    }
     if projects::repo::find_key_state(&mut tx, &key)
         .await?
         .is_some()
     {
         return Err(domain::exists(&key));
     }
+    projects::service::take_key(&mut tx, &key, None, user.id).await?;
     let project = &export.project;
     let project_id = projects::repo::insert_project(&mut tx, &key, &project.name).await?;
+    let mut previous_keys = Vec::with_capacity(project.previous_keys.len());
+    for previous in &project.previous_keys {
+        match projects::service::take_key(&mut tx, previous, Some(project_id), user.id).await {
+            Ok(_) => previous_keys.push(previous.clone()),
+            Err(AppError::Conflict { .. }) => problems.push(RestoreProblem {
+                issue_key: key.clone(),
+                message: format!("Previous key {previous} stays with another project."),
+            }),
+            Err(error) => return Err(error),
+        }
+    }
+    projects::repo::insert_aliases(&mut tx, project_id, &previous_keys).await?;
     let board_id = projects::repo::insert_board(
         &mut tx,
         project_id,
@@ -69,6 +89,18 @@ pub async fn restore(
         repo::insert_issues(&mut tx, project_id, same_tier).await?;
     }
     repo::insert_comments(&mut tx, project_id, &export.comments).await?;
+    let mut ends: Vec<&str> = export
+        .links
+        .iter()
+        .flat_map(|link| [link.source.as_str(), link.target.as_str()])
+        .collect();
+    ends.sort_unstable();
+    ends.dedup();
+    let ends = repo::find_link_ends(&mut tx, user.id, &ends).await?;
+    let (links, skipped) = domain::plan_links(&export.links, &ends);
+    repo::insert_links(&mut tx, user.id, &links).await?;
+    let room = MAX_PROBLEMS.saturating_sub(problems.len());
+    problems.extend(domain::keep_skipped(skipped, room, &key));
     repo::reset_updated_at(&mut tx, project_id, &export.issues).await?;
     repo::record_sprint_facts(&mut tx, project_id).await?;
     let last_number = export.issues.iter().map(|issue| issue.number).max();

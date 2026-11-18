@@ -4,6 +4,7 @@ import { useRouteContext } from '@tanstack/react-router'
 import { DeleteAccountButton } from '@/features/account/delete-account-button'
 import { DisplayNameField } from '@/features/account/display-name-field'
 import { ExportDataButton } from '@/features/account/export-data-button'
+import { LanguageControl } from '@/features/account/language-control'
 import { SessionsList } from '@/features/account/sessions-list'
 import { ThemeControl } from '@/features/account/theme-control'
 import { TimeZoneControl } from '@/features/account/time-zone-control'
@@ -14,11 +15,15 @@ import {
 } from '@/entities/session/legal-queries'
 import { useTimeZone } from '@/entities/session/session-query'
 import { tokensQuery } from '@/entities/user/api-tokens'
+import { offeredLanguages, useT } from '@/shared/i18n/i18n'
 import { formatDate } from '@/shared/lib/format-date'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { preloadAccountForms } from './load-account-forms'
+import { messages } from './messages'
+
+const BEARER = 'Authorization: Bearer'
 
 // Lazy: react-hook-form stays off the first visit; each form has its own fixed-height boundary (D39).
 const ChangePasswordForm = lazy(() =>
@@ -47,12 +52,13 @@ const ReadOnlyField = ({ id, label, value }: ReadOnlyFieldProps) => (
 )
 
 const TokenList = () => {
+  const t = useT(messages)
   const { data: tokens, error } = useQuery(tokensQuery)
   const timeZone = useTimeZone()
   if (error) throw error
   if (!tokens) return <Skeleton className='h-11' />
   if (tokens.length === 0)
-    return <p className='text-sm text-muted-foreground'>No tokens yet.</p>
+    return <p className='text-sm text-muted-foreground'>{t('noTokens')}</p>
   return (
     <ul className='grid gap-px overflow-hidden rounded-md border bg-border'>
       {tokens.map((token) => (
@@ -63,8 +69,13 @@ const TokenList = () => {
           <span className='grid min-w-0 flex-1'>
             <span className='truncate font-medium'>{token.name}</span>
             <span className='text-xs text-muted-foreground'>
-              Created{' '}
-              {formatDate(token.created_at, { dateStyle: 'medium' }, timeZone)}
+              {t('created', {
+                date: formatDate(
+                  token.created_at,
+                  { dateStyle: 'medium' },
+                  timeZone
+                ),
+              })}
             </span>
           </span>
           <RevokeTokenButton token={token} />
@@ -75,25 +86,33 @@ const TokenList = () => {
 }
 
 export const AccountPage = () => {
+  const t = useT(messages)
   const { user } = useRouteContext({ from: '/_authenticated' })
   const { data: legal } = useQuery(legalDocumentsQuery)
   const legalPages = useLegalRequired(legal?.required)
 
   return (
     <div className='mx-auto grid w-full max-w-2xl gap-8 px-4 py-8'>
-      <h1 className='text-2xl font-semibold tracking-tight'>Account</h1>
+      <h1 className='text-2xl font-semibold tracking-tight'>{t('account')}</h1>
       <section aria-labelledby='profile' className='grid gap-4'>
         <h2 id='profile' className='text-lg font-semibold'>
-          Profile
+          {t('profile')}
         </h2>
         <DisplayNameField saved={user.display_name} />
-        <ReadOnlyField id='account-email' label='Email' value={user.email} />
+        <ReadOnlyField
+          id='account-email'
+          label={t('email')}
+          value={user.email}
+        />
       </section>
       <section aria-labelledby='preferences' className='grid gap-4'>
         <h2 id='preferences' className='text-lg font-semibold'>
-          Preferences
+          {t('preferences')}
         </h2>
         <ThemeControl saved={user.theme} />
+        {offeredLanguages().length > 1 && (
+          <LanguageControl saved={user.language} />
+        )}
         <TimeZoneControl saved={user.time_zone} />
       </section>
       <section aria-labelledby='security' className='grid gap-4'>
@@ -102,23 +121,23 @@ export const AccountPage = () => {
           tabIndex={-1}
           className='text-lg font-semibold outline-none'
         >
-          Security
+          {t('security')}
         </h2>
         <Suspense fallback={<Skeleton className='h-[318px]' />}>
           <ChangePasswordForm />
         </Suspense>
-        <h3 className='font-medium'>Sessions</h3>
+        <h3 className='font-medium'>{t('sessions')}</h3>
         <SessionsList headingId='security' />
       </section>
       <section aria-labelledby='tokens' className='grid gap-4'>
         <div className='grid gap-1'>
           <h2 id='tokens' className='text-lg font-semibold'>
-            API tokens
+            {t('apiTokens')}
           </h2>
           <p className='text-sm text-muted-foreground'>
-            The CLI and MCP sign in with a token sent as{' '}
-            <code className='font-mono'>Authorization: Bearer</code>. A token
-            acts with all your rights until you revoke it.
+            {t.rich('tokensIntro', {
+              header: <code className='font-mono'>{BEARER}</code>,
+            })}
           </p>
         </div>
         <Suspense fallback={<Skeleton className='h-28 sm:h-14' />}>
@@ -129,16 +148,15 @@ export const AccountPage = () => {
       <section aria-labelledby='your-data' className='grid gap-4'>
         <div className='grid gap-1'>
           <h2 id='your-data' className='text-lg font-semibold'>
-            Your data
+            {t('yourData')}
           </h2>
           <p className='text-sm text-muted-foreground'>
-            Your data is yours: download everything santi holds about you and
-            the projects you run, or delete your account.
+            {t('dataIntro')}
             {legalPages && (
               <>
                 {' '}
                 <a href='/privacy' className='text-primary underline'>
-                  Privacy Policy
+                  {t('privacyPolicy')}
                 </a>
               </>
             )}

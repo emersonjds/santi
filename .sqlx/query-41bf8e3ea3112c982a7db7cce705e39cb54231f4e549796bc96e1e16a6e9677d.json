@@ -1,0 +1,62 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT p.id AS \"project_id!\", p.name AS \"name!\", h.alias AS \"alias!\",\n                  EXISTS (SELECT 1 FROM member m WHERE m.project_id = p.id AND m.user_id = $2)\n                      AS \"member!\",\n                  p.trashed_at IS NOT NULL AS \"trashed!\"\n           FROM (SELECT id AS project_id, false AS alias FROM project WHERE key = $1\n                 UNION ALL\n                 SELECT project_id, true FROM project_key_alias WHERE key = $1) h\n           JOIN project p ON p.id = h.project_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "project_id!",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name!",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "project",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "alias!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "member!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "trashed!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "41bf8e3ea3112c982a7db7cce705e39cb54231f4e549796bc96e1e16a6e9677d"
+}

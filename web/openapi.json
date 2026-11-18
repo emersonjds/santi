@@ -7,7 +7,7 @@
       "name": "AGPL-3.0-only",
       "identifier": "AGPL-3.0-only"
     },
-    "version": "0.27.0"
+    "version": "0.32.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -431,7 +431,7 @@
             }
           },
           "422": {
-            "description": "Blank or over 100 characters (`display_name`), unknown theme (`theme`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`)",
+            "description": "Blank or over 100 characters (`display_name`), unknown theme (`theme`) or language tag (`language`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1674,7 +1674,7 @@
             }
           },
           "409": {
-            "description": "`project-exists`: a project holds the key; nothing written",
+            "description": "`project-exists`: a project holds the key; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; nothing written",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1816,6 +1816,165 @@
           },
           "409": {
             "description": "`project-not-trashed`: only a trashed project can be purged",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "update_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key, current or previous",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved; a new key keeps the old one as a previous key, and a previous key of this project swaps with the current one",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project; `board-type-changed`: `expected_board_type` is not the current type",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Name of 1 to 100 characters; key of 2 to 10 capital letters or digits, a letter first",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/aliases/{alias}": {
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "remove_alias",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "alias",
+            "in": "path",
+            "description": "One of the project's previous keys",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed: the key no longer leads here and any project can take it"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, not a member, or not one of its previous keys",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3415,6 +3574,16 @@
               }
             }
           },
+          "409": {
+            "description": "`kanban-has-no-sprints`: `sprint_id` sent on a kanban board",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -4412,7 +4581,7 @@
             }
           },
           "409": {
-            "description": "`status-unmapped`",
+            "description": "`status-unmapped`; `kanban-has-no-sprints`: `sprint_id` sent on a kanban board",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5198,6 +5367,16 @@
               }
             }
           },
+          "409": {
+            "description": "`kanban-has-no-sprints`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -5258,7 +5437,7 @@
             }
           },
           "409": {
-            "description": "`sprint-not-future`",
+            "description": "`sprint-not-future`; `kanban-has-no-sprints`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5337,7 +5516,7 @@
             }
           },
           "409": {
-            "description": "`sprint-not-active`",
+            "description": "`sprint-not-active`; `kanban-has-no-sprints`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5504,7 +5683,7 @@
             }
           },
           "409": {
-            "description": "`sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13)",
+            "description": "`sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13); `kanban-has-no-sprints`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -7049,6 +7228,26 @@
           }
         }
       },
+      "ExportedLink": {
+        "type": "object",
+        "description": "A link of an issue of the project (D59), read from that issue, the `source`; `target` may be\nin another project and carries its key at export time.",
+        "required": [
+          "source",
+          "target",
+          "relation"
+        ],
+        "properties": {
+          "relation": {
+            "$ref": "#/components/schemas/Relation"
+          },
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
       "FieldError": {
         "type": "object",
         "required": [
@@ -7670,6 +7869,17 @@
         "enum": [
           "project",
           "issue"
+        ]
+      },
+      "Language": {
+        "type": "string",
+        "description": "BCP 47 tag of the web app's language; case-sensitive.",
+        "enum": [
+          "en",
+          "es",
+          "pt-BR",
+          "pt-PT",
+          "zh-CN"
         ]
       },
       "LegalAcceptance": {
@@ -8734,7 +8944,8 @@
           "name",
           "board_type",
           "role",
-          "state"
+          "state",
+          "previous_keys"
         ],
         "properties": {
           "archived_at": {
@@ -8763,6 +8974,13 @@
           },
           "name": {
             "type": "string"
+          },
+          "previous_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Keys the project had before, newest first; they still resolve to it (OR-38). Exports\nwritten before SAN-225 lack it."
           },
           "purge_at": {
             "type": [
@@ -8844,6 +9062,13 @@
             "items": {
               "$ref": "#/components/schemas/Issue"
             }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExportedLink"
+            },
+            "description": "Absent from older files."
           },
           "members": {
             "type": "array",
@@ -9679,6 +9904,16 @@
               "null"
             ]
           },
+          "language": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Language"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "theme": {
             "oneOf": [
               {
@@ -9702,6 +9937,48 @@
               "null"
             ],
             "description": "Only `true`: stamps `tour_seen_at` the first time and keeps it afterwards."
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateProject": {
+        "type": "object",
+        "description": "Absent fields stay as they are.",
+        "properties": {
+          "board_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BoardType",
+                "description": "Switches the board (SAN-224): sprints and reports stay; switching to scrum clears column\nWIP limits and the done window."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_board_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BoardType",
+                "description": "The type the caller last saw; a different current type refuses the whole change with\n409 `board-type-changed`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The new key; the current one becomes a previous key."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": false
@@ -9761,7 +10038,8 @@
           "id",
           "email",
           "display_name",
-          "theme"
+          "theme",
+          "language"
         ],
         "properties": {
           "display_name": {
@@ -9773,6 +10051,10 @@
           "id": {
             "type": "integer",
             "format": "int64"
+          },
+          "language": {
+            "$ref": "#/components/schemas/Language",
+            "description": "Absent from older export files, which read as `en`."
           },
           "theme": {
             "$ref": "#/components/schemas/Theme"

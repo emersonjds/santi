@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use chrono::{DateTime, Local, Utc};
 use santi_types::Problem;
 use santi_types::attachments::Attachment;
-use santi_types::auth::{AccountExport, ChangePassword};
+use santi_types::auth::{AccountExport, ChangePassword, ProjectExport};
 use santi_types::boards::{Backlog, BoardView, Card};
 use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, SprintAction};
 use santi_types::issues::{
@@ -15,7 +15,7 @@ use santi_types::links::IssueLink;
 use santi_types::notifications::{Notification, NotificationKind};
 use santi_types::people::{PersonProgress, TeamProgress};
 use santi_types::projects::{
-    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult,
+    CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult, UpdateProject,
 };
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
 use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, SprintState, StartSprint};
@@ -153,6 +153,27 @@ async fn projects(client: &Client, command: ProjectsCommand, json: bool) -> Resu
         ProjectsCommand::List { state } => {
             let projects = client.projects(state).await?;
             return show(json, &projects, |projects| lines(projects, project_line));
+        }
+        ProjectsCommand::Edit {
+            project,
+            name,
+            key,
+            board_type,
+        } => {
+            let changes = UpdateProject {
+                name,
+                key,
+                board_type,
+                expected_board_type: None,
+            };
+            let project = client.update_project(&project, &changes).await?;
+            return show(json, &project, project_with_previous_keys);
+        }
+        ProjectsCommand::RemoveAlias { project, alias } => {
+            client.remove_project_alias(&project, &alias).await?;
+            return show(json, &(), |()| {
+                format!("Removed {alias}. It's free for other projects now.")
+            });
         }
         ProjectsCommand::Archive { project } => (project, "archive", "Archived"),
         ProjectsCommand::Unarchive { project } => (project, "unarchive", "Unarchived"),
@@ -619,11 +640,30 @@ async fn restore(
     only: Option<ProjectKey>,
     json: bool,
 ) -> Result<(), Error> {
-    let bytes = std::fs::read(&file)
+    let mut bytes = std::fs::read(&file)
         .map_err(|error| Error::Usage(format!("{}: {error}", file.display())))?;
-    let export: AccountExport = serde_json::from_slice(&bytes)
-        .map_err(|error| Error::Usage(format!("not a santi export: {error}")))?;
-    let mut projects = export.projects;
+    if bytes.starts_with(&[0x1f, 0x8b]) {
+        let mut json = Vec::new();
+        std::io::Read::read_to_end(&mut flate2::read::GzDecoder::new(&bytes[..]), &mut json)
+            .map_err(|error| Error::Usage(format!("{}: {error}", file.display())))?;
+        bytes = json;
+    }
+    // SAN-205: a scheduled backup file holds one project.
+    #[derive(serde::Deserialize)]
+    struct Shape {
+        projects: Option<serde::de::IgnoredAny>,
+    }
+    let not_export =
+        |error: serde_json::Error| Error::Usage(format!("not a santi export: {error}"));
+    let single =
+        serde_json::from_slice::<Shape>(&bytes).is_ok_and(|shape| shape.projects.is_none());
+    let mut projects = if single {
+        vec![serde_json::from_slice::<ProjectExport>(&bytes).map_err(not_export)?]
+    } else {
+        serde_json::from_slice::<AccountExport>(&bytes)
+            .map_err(not_export)?
+            .projects
+    };
     if let Some(key) = only {
         let keys: Vec<String> = projects
             .iter()
@@ -862,6 +902,17 @@ fn project_line(project: &Project) -> String {
             day(project.trashed_at),
             by(&project.trashed_by),
             day(project.purge_at)
+        ),
+    }
+}
+
+fn project_with_previous_keys(project: &Project) -> String {
+    let line = project_line(project);
+    match project.previous_keys.is_empty() {
+        true => line,
+        false => format!(
+            "{line}\n         Previous keys: {}",
+            project.previous_keys.join(", ")
         ),
     }
 }
@@ -2024,6 +2075,7 @@ mod tests {
                 trashed_at: None,
                 trashed_by: None,
                 purge_at: None,
+                previous_keys: Vec::new(),
             },
             issues: 12,
             sprints: 2,

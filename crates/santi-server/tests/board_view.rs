@@ -208,6 +208,29 @@ async fn board_filters_by_no_epic_and_matches_text_on_the_key(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn board_filters_by_a_parent_written_with_the_previous_project_key(pool: PgPool) {
+    let ana = project(pool, "kanban").await;
+    ana.create_issue("SANTI", json!({ "summary": "Epic", "issue_type": "epic" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Child", "parent": "SANTI-1" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Orphan" }))
+        .await;
+    ana.patch("/api/projects/SANTI", json!({ "key": "NOWVI" }))
+        .await;
+
+    let (_, by_old) = ana.get("/api/projects/NOWVI/board?parent=SANTI-1").await;
+    let (_, by_new) = ana.get("/api/projects/NOWVI/board?parent=NOWVI-1").await;
+    let (_, either) = ana
+        .get("/api/projects/SANTI/board?parent=none&parent=SANTI-1")
+        .await;
+
+    assert_eq!(column_keys(&by_old, 0), ["NOWVI-2"]);
+    assert_eq!(column_keys(&by_new, 0), ["NOWVI-2"]);
+    assert_eq!(column_keys(&either, 0), ["NOWVI-2", "NOWVI-3"]);
+}
+
+#[sqlx::test]
 async fn unmapped_statuses_and_epics_stay_off_the_board(pool: PgPool) {
     let ana = project(pool, "kanban").await;
     let doing = ana.status_id("SANTI", "In Progress").await;
