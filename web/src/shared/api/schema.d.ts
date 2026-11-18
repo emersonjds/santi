@@ -2129,13 +2129,16 @@ export interface components {
          * @description What a sprint name in the file becomes.
          * @enum {string}
          */
-        SprintAction: "future" | "closed" | "skip";
+        SprintAction: "future" | "active" | "closed" | "skip";
         SprintFound: {
-            /** @description An issue moved on from it, or its cycle ended. */
-            closed: boolean;
             /** Format: int64 */
             count: number;
             name: string;
+            /**
+             * @description Closed when an issue moved on from it, its cycle ended or all its work is done; the newest
+             *     other one is active; the rest are future.
+             */
+            state: components["schemas"]["SprintState"];
         };
         SprintReport: {
             /** Format: double */

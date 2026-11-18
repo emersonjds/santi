@@ -1,7 +1,12 @@
 import { useSyncExternalStore } from 'react'
-import { type QueryClient, useQueryClient } from '@tanstack/react-query'
+import {
+  type QueryClient,
+  hashKey,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { attachmentsQuery } from '@/entities/attachment/attachments'
 import { uploadAttachment } from '@/entities/attachment/upload-attachment'
+import { sessionQuery } from '@/entities/session/session-query'
 import { ApiError, fieldMessage } from '@/shared/api/client'
 
 const MAX_BYTES = 25 * 1024 * 1024
@@ -108,12 +113,29 @@ const start = (queryClient: QueryClient, upload: Upload) => {
   )
 }
 
+const watched = new WeakSet<QueryClient>()
+
+// Every way out (sign-out, account deleted, a 401) goes through forgetSession, which leaves the session null.
+const resetOnSignOut = (queryClient: QueryClient) => {
+  if (watched.has(queryClient)) return
+  watched.add(queryClient)
+  queryClient.getQueryCache().subscribe(({ type, query }) => {
+    if (
+      type === 'updated' &&
+      query.queryHash === hashKey(sessionQuery.queryKey) &&
+      query.state.data === null
+    )
+      resetUploads()
+  })
+}
+
 /** Sends each file to the issue, or to one of its comments, one request each. */
 export const enqueueUploads = (
   queryClient: QueryClient,
   target: Target,
   files: Iterable<File>
 ) => {
+  resetOnSignOut(queryClient)
   const added = [...files].map((file) => ({
     ...target,
     id: ++lastId,

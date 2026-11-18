@@ -170,22 +170,17 @@ export const TrashProjectButton = ({
   />
 )
 
-export const PurgeProjectButton = ({
+/** Opened by state from `purge-project-button` (lazy chunk). */
+export const PurgeProjectDialog = ({
   projectKey,
   projectName,
+  ...state
 }: ProjectProps) => (
   <TypeKeyDialog
+    {...state}
     projectKey={projectKey}
     action='purge'
-    trigger={
-      <Button
-        variant='ghost'
-        className={`${SIZE} text-destructive`}
-        aria-label={`Delete ${projectName} forever`}
-      >
-        Delete forever
-      </Button>
-    }
+    trigger={null}
     title={`Delete ${projectName} forever?`}
     description="Its issues, sprints and comments are deleted now. This can't be undone."
     confirm='Delete forever'

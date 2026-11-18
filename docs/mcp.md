@@ -68,6 +68,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `list_attachments` | an issue's files, comment files included: id, name, type, size, uploader, `comment_id` | read-only |
 | `list_sprints` | a board's sprints | read-only |
 | `get_sprint_report` | a started sprint's issues: completed, not completed, removed | read-only |
+| `get_team_progress` | per assignee progress for the active sprint (Scrum) or the board (Kanban): to do, in progress, done and stuck | read-only |
 | `list_epics` | a project's epics | read-only |
 | `list_members` | a project's members: `user_id`, name, email, role | read-only |
 | `list_invites` | live invite links: `id`, role, spots used, expiry, who joined (admins) | read-only |
@@ -76,6 +77,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `update_issue` | change fields; `null` clears | idempotent |
 | `move_issue` | status and/or rank | idempotent |
 | `plan_issue` | into a sprint, or `null` for the backlog (`sprint_id` required) | idempotent |
+| `link_issues` | link two issues (`relation`: blocks, is_blocked_by, relates, duplicates, is_duplicated_by, clones, is_cloned_by) | additive |
 | `add_comment` | comment on an issue | additive |
 | `add_attachment` | upload one file (`path`) to an issue or, with `comment_id`, a comment; stdio only, see above | additive |
 | `edit_comment` | change a comment's text (`comment_id` from `list_comments`; author or admin) | idempotent |
@@ -86,6 +88,7 @@ answers with the API's JSON; a failed call is a tool error carrying the server's
 | `complete_sprint` | close the active sprint, open work to the backlog by default | |
 | `delete_issue` | delete with subtasks and comments | destructive |
 | `delete_comment` | delete one comment (author or admin) | destructive |
+| `unlink_issues` | remove the link between two issues; `relation` picks one when they have several | destructive |
 | `archive_project` | read-only and out of every list (admins) | |
 | `unarchive_project` | active again (admins) | |
 | `trash_project` | hidden from everyone, purged after 60 days (admins) | |
