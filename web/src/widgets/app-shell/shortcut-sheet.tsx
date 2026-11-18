@@ -1,5 +1,6 @@
 import { useId, useState } from 'react'
 import { Compass } from 'lucide-react'
+import { useT } from '@/shared/i18n/i18n'
 import { setShortcutsOn, shortcutsOn } from '@/shared/lib/shortcuts'
 import { openTour } from '@/shared/lib/tour'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
@@ -12,44 +13,46 @@ import {
 } from '@/shared/ui/dialog'
 import { Label } from '@/shared/ui/label'
 import { Switch } from '@/shared/ui/switch'
+import { messages } from './shortcut-sheet/messages'
 
 /** UI-37 groups; keys separated by a space are pressed one after the other. */
 const GROUPS = [
   {
-    title: 'Global',
+    title: 'global',
     rows: [
-      ['c', 'Create an issue'],
-      ['/', 'Search this project'],
-      ['⌘ K', 'Jump to a project'],
-      ['g b', 'Go to the board'],
-      ['g l', 'Go to the backlog'],
-      ['l', 'Link the open issue to another'],
-      ['?', 'Show these shortcuts'],
+      ['c', 'createIssue'],
+      ['/', 'searchProject'],
+      ['⌘ K', 'jumpToProject'],
+      ['g b', 'goToBoard'],
+      ['g l', 'goToBacklog'],
+      ['l', 'linkIssue'],
+      ['?', 'showShortcuts'],
     ],
   },
   {
-    title: 'Navigation',
+    title: 'navigation',
     rows: [
-      ['j', 'Next issue'],
-      ['k', 'Previous issue'],
-      ['n', 'Next column or section'],
-      ['p', 'Previous column or section'],
-      ['Enter o', 'Open the selected issue'],
-      ['Esc', 'Close the issue'],
+      ['j', 'nextIssue'],
+      ['k', 'previousIssue'],
+      ['n', 'nextColumn'],
+      ['p', 'previousColumn'],
+      ['Enter o', 'openIssue'],
+      ['Esc', 'closeIssue'],
     ],
   },
   {
-    title: 'Issue actions',
+    title: 'issueActions',
     rows: [
-      ['i', 'Assign to me'],
-      ['a', 'Change the assignee of the open issue'],
-      ['m', 'Comment on the open issue'],
-      ['e', 'Edit the summary of a backlog row'],
+      ['i', 'assignToMe'],
+      ['a', 'changeAssignee'],
+      ['m', 'commentOnIssue'],
+      ['e', 'editSummary'],
     ],
   },
-]
+] as const
 
 export const ShortcutSheet = ({ onClose }: { onClose: () => void }) => {
+  const t = useT(messages)
   const [on, setOn] = useState(shortcutsOn)
   const id = useId()
   const returnFocus = useReturnFocus()
@@ -60,10 +63,8 @@ export const ShortcutSheet = ({ onClose }: { onClose: () => void }) => {
         onCloseAutoFocus={returnFocus}
         className='max-h-[calc(100svh-2rem)] overflow-y-auto sm:max-w-xl'
       >
-        <DialogTitle>Keyboard shortcuts</DialogTitle>
-        <DialogDescription>
-          Single keys work anywhere but in a field you are typing in.
-        </DialogDescription>
+        <DialogTitle>{t('keyboardShortcuts')}</DialogTitle>
+        <DialogDescription>{t('shortcutsHint')}</DialogDescription>
         <div className='flex min-h-11 items-center gap-3'>
           <Switch
             id={id}
@@ -73,17 +74,17 @@ export const ShortcutSheet = ({ onClose }: { onClose: () => void }) => {
               setOn(next)
             }}
           />
-          <Label htmlFor={id}>Use keyboard shortcuts</Label>
+          <Label htmlFor={id}>{t('useShortcuts')}</Label>
         </div>
         <div className='grid gap-6 sm:grid-cols-2'>
           {GROUPS.map((group) => (
             <section key={group.title} className='grid content-start gap-2'>
-              <h3 className='text-sm font-semibold'>{group.title}</h3>
+              <h3 className='text-sm font-semibold'>{t(group.title)}</h3>
               <dl className='grid gap-1.5 text-sm'>
                 {group.rows.map(([keys, action]) => (
                   <div key={keys} className='flex items-center gap-3'>
                     <dt className='min-w-0 flex-1 text-muted-foreground'>
-                      {action}
+                      {t(action)}
                     </dt>
                     <dd className='flex gap-1'>
                       {keys.split(' ').map((key) => (
@@ -110,7 +111,7 @@ export const ShortcutSheet = ({ onClose }: { onClose: () => void }) => {
           }}
         >
           <Compass />
-          Replay the welcome tour
+          {t('replayTour')}
         </Button>
       </DialogContent>
     </Dialog>

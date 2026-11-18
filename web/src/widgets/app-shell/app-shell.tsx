@@ -1,9 +1,10 @@
 import { type ReactNode, Suspense, lazy, useEffect } from 'react'
 import { useRouteContext } from '@tanstack/react-router'
-import { switchLanguage } from '@/shared/i18n/i18n'
+import { switchLanguage, useT } from '@/shared/i18n/i18n'
 import { applyTheme } from '@/shared/lib/theme'
 import { SidebarInset, SidebarProvider } from '@/shared/ui/sidebar'
 import { AppSidebar } from './app-sidebar'
+import { messages } from './messages'
 import { TopBar } from './top-bar'
 import { TourHost } from './tour-host'
 
@@ -14,6 +15,7 @@ const Toaster = lazy(() =>
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })
+  const t = useT(messages)
   useEffect(() => applyTheme(user.theme), [user.theme])
   useEffect(
     () => void switchLanguage(user.language).catch(() => {}),
@@ -26,7 +28,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
         href='#content'
         className='sr-only z-50 rounded-md bg-background px-3 py-2 focus:not-sr-only focus:fixed focus:start-2 focus:top-2'
       >
-        Skip to content
+        {t('skipToContent')}
       </a>
       <AppSidebar />
       <SidebarInset className='min-w-0'>

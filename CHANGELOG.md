@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-18
+
+> Groundwork for more languages: the account page and the app shell are translated.
+
+### Changed
+
+- The account page and the app shell (sidebar, menus, notifications, shortcuts, welcome tour) are translated into Spanish, Portuguese (Brazil and Portugal) and Simplified Chinese; these languages stay hidden until native review, so the app still reads English.
+
 ## [0.32.0] - 2026-11-18
 
 > Account language preference and the translation core; dates follow the account language.

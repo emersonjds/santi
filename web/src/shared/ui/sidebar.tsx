@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { VariantProps, cva } from 'class-variance-authority'
 import { PanelLeftIcon } from 'lucide-react'
+import { useT } from '@/shared/i18n/i18n'
 import {
   SIDEBAR_WIDTH,
   clampSidebarWidth,
@@ -14,6 +15,7 @@ import { Button } from '@/shared/ui/button'
 import { Input } from '@/shared/ui/input'
 import { Separator } from '@/shared/ui/separator'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { messages } from './messages'
 
 // Lazy: the drawer (Radix dialog) only renders on a phone, so desktop never downloads it (D39).
 const SidebarSheet = React.lazy(() =>
@@ -260,13 +262,14 @@ function Sidebar({
 
 /** UI-52: drag, arrow keys or a double-click to collapse; `pointer-events-auto` lets a drag start, and dismiss, over an open flyout. */
 function SidebarResizer() {
+  const t = useT(messages)
   const { width, setWidth, setOpen } = useSidebar()
   const [resizing, setResizing] = React.useState(false)
 
   return (
     <div
       role='separator'
-      aria-label='Resize the sidebar'
+      aria-label={t('resizeSidebar')}
       aria-orientation='vertical'
       aria-valuemin={SIDEBAR_WIDTH.min}
       aria-valuemax={SIDEBAR_WIDTH.max}
@@ -306,6 +309,7 @@ function SidebarTrigger({
   onClick,
   ...props
 }: React.ComponentProps<typeof Button>) {
+  const t = useT(messages)
   const { toggleSidebar } = useSidebar()
 
   return (
@@ -322,7 +326,7 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className='sr-only'>Toggle Sidebar</span>
+      <span className='sr-only'>{t('toggleSidebar')}</span>
     </Button>
   )
 }

@@ -590,6 +590,24 @@ describe('account page', () => {
       expect(await sent[1]?.json()).toEqual({ language: 'en' })
     })
 
+    it.each([
+      ['es', 'Cuenta'],
+      ['pt-PT', 'Conta'],
+      ['zh-CN', '账户'],
+    ] as const)('opens in %s', async (language, heading) => {
+      backToEnglish()
+      signedIn({
+        'GET /api/me': { status: 200, body: { ...ALICE, language } },
+        'GET /api/tokens': { status: 200, body: [] },
+      })
+      const { screen } = await renderApp('/account')
+
+      await expect
+        .element(screen.getByRole('heading', { level: 1, name: heading }))
+        .toBeVisible()
+      expect(lang()).toBe(language)
+    })
+
     it("opens in the account's language", async () => {
       backToEnglish()
       signedIn({

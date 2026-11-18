@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
+import { useT } from '@/shared/i18n/i18n'
 import {
   Sheet,
   SheetContent,
@@ -6,6 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/shared/ui/sheet'
+import { messages } from './messages'
 
 type SidebarSheetProps = {
   open: boolean
@@ -21,21 +23,24 @@ export const SidebarSheet = ({
   side,
   width,
   children,
-}: SidebarSheetProps) => (
-  <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent
-      data-sidebar='sidebar'
-      data-slot='sidebar'
-      data-mobile='true'
-      className='w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden'
-      style={{ '--sidebar-width': width } as CSSProperties}
-      side={side}
-    >
-      <SheetHeader className='sr-only'>
-        <SheetTitle>Sidebar</SheetTitle>
-        <SheetDescription>Displays the mobile sidebar.</SheetDescription>
-      </SheetHeader>
-      <div className='flex h-full w-full flex-col'>{children}</div>
-    </SheetContent>
-  </Sheet>
-)
+}: SidebarSheetProps) => {
+  const t = useT(messages)
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        data-sidebar='sidebar'
+        data-slot='sidebar'
+        data-mobile='true'
+        className='w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden'
+        style={{ '--sidebar-width': width } as CSSProperties}
+        side={side}
+      >
+        <SheetHeader className='sr-only'>
+          <SheetTitle>{t('sidebar')}</SheetTitle>
+          <SheetDescription>{t('sidebarHint')}</SheetDescription>
+        </SheetHeader>
+        <div className='flex h-full w-full flex-col'>{children}</div>
+      </SheetContent>
+    </Sheet>
+  )
+}
