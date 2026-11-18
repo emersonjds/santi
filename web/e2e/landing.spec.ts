@@ -50,7 +50,7 @@ test('a visitor without a session lands on the landing page and its CTA opens si
   expect(violations).toEqual([])
 })
 
-test('the nav opens the pricing section with Self-host, Free and Team in that order', async ({
+test('the nav opens the pricing section with Self-host, Free, Team and Enterprise in that order', async ({
   page,
 }) => {
   await page.goto('/')
@@ -69,7 +69,9 @@ test('the nav opens the pricing section with Self-host, Free and Team in that or
     'Self-host',
     'Free',
     'Team',
+    'Enterprise',
   ])
+  await expect(plans.nth(1)).toContainText('Unlimited people and projects')
   await expect(plans.nth(2)).toContainText('US$ 19')
   await expect(
     plans.nth(0).getByRole('link', { name: 'Read the guide' })
@@ -83,6 +85,9 @@ test('the nav opens the pricing section with Self-host, Free and Team in that or
   await expect(
     plans.nth(2).getByRole('link', { name: 'Start free' })
   ).toHaveAttribute('href', '/register')
+  await expect(
+    plans.nth(3).getByRole('link', { name: 'Talk to us' })
+  ).toHaveAttribute('href', /^mailto:/)
   await expect(page.getByRole('heading', { name: 'Coming next' })).toHaveCount(
     0
   )

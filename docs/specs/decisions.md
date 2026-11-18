@@ -709,3 +709,14 @@ Winner: B (architect; product, ux, ia agree) — no dependency, English costs no
 - Server errors stay English; the web translates by the D24 `type` slug and shows `detail` for an unknown slug.
 - A language is offered only once released after a native speaker's review; dev builds offer all five.
 - Full rules: `docs/specs/cards/SAN-199.md`.
+
+## D63 — Hosted Free has no people or project limits; companies pay for scale and for what IT requires (SAN-240; amends D56)
+Context: a hosted Free of 5 people and 1 project read as stingy for an open-source tool (owner, 2026-11-18); market research the same day showed competitors tightening their free tiers and the best-perceived open-source peers charging for hosting, usage or support, never capability.
+Options: A) free up to a people threshold, paid above B) free unlimited, pay only for enterprise add-ons C) B plus a paid hosted tier for scale and support
+Winner: C (owner) — a seat cap cannot tell a startup from a team inside a corporation; the need for SSO, audit and an SLA tracks a large company; storage is the only cost that grows with use.
+- Free (hosted): unlimited people and projects, every feature, 2 GB of attachments per workspace, 25 MB per file.
+- Team (hosted): US$ 19 a month flat per workspace (R$ 97), 100 GB, e-mail support, downloadable backups.
+- Enterprise: SSO/SAML, SCIM, audit log, SLA, data residency, white-label, dedicated support, as a licensed add-on (SAN-191) or a contract; never a product feature.
+- Until organizations exist (SAN-64) the workspace is the account that owns the projects.
+- Abandoned storage: 12 months without a sign-in, a warning, then attachments removed 30 days later; issues and history stay.
+- Full rules: `docs/specs/2026-11-18-pricing-model-design.md`.
