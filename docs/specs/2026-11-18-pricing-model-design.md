@@ -51,7 +51,8 @@ Rules:
 ## Positioning (for the landing copy)
 
 - Free for every team, with no limit on people or projects; companies pay only for what their IT requires.
-- Fast: measured with 5,000 issues in CI, and the build fails if it slows down.
+- Fast: on 5,000 issues the board answers in 6.7 ms (laptop run, `docs/perf.md`); CI counts the SQL statements of
+  every hot request and fails the build if the count grows.
 - Simple: a team starts in minutes; nothing to configure before the first sprint.
 - Open: AGPL, self-host in one command, full export, an API and MCP for AI agents.
 
