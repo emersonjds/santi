@@ -124,6 +124,16 @@ export default [
     gzip: true,
   },
   {
+    name: 'welcome tour chunk (home)',
+    path: lazyChunk(
+      'src/widgets/app-shell/welcome-tour.tsx',
+      SHELL,
+      split('_authenticated/index.tsx')
+    ),
+    limit: '19 KB',
+    gzip: true,
+  },
+  {
     name: 'initial JS, /p/KEY/backlog (backlog)',
     path: firstVisit(
       SHELL,

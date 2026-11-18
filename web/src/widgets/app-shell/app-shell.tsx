@@ -4,6 +4,7 @@ import { applyTheme } from '@/shared/lib/theme'
 import { SidebarInset, SidebarProvider } from '@/shared/ui/sidebar'
 import { AppSidebar } from './app-sidebar'
 import { TopBar } from './top-bar'
+import { TourHost } from './tour-host'
 
 // Lazy: toasts only follow a user action, long after first paint.
 const Toaster = lazy(() =>
@@ -29,6 +30,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           {children}
         </main>
       </SidebarInset>
+      <TourHost />
       <Suspense>
         <Toaster position='bottom-right' />
       </Suspense>
