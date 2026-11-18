@@ -31,10 +31,8 @@ import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import { CommitTextarea } from '@/shared/ui/commit-input'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { IssueAttachments } from './issue-attachments'
-import { IssueComments } from './issue-comments'
 import { IssueFields } from './issue-fields'
-import { IssueSubtasks } from './issue-subtasks'
+import { preloadIssueSections } from './load-issue-sections'
 
 type IssueProps = { issue: Issue; projectKey: string }
 
@@ -46,6 +44,19 @@ const IssueMenu = lazy(() =>
 // Lazy: links and their issue picker would push the issue page past its D39 budget.
 const IssueLinks = lazy(() =>
   import('./issue-links').then((module) => ({ default: module.IssueLinks }))
+)
+
+// Lazy, with no boundary of their own: the view paints once they are in (D39).
+const IssueAttachments = lazy(() =>
+  preloadIssueSections().then((module) => ({
+    default: module.IssueAttachments,
+  }))
+)
+const IssueSubtasks = lazy(() =>
+  preloadIssueSections().then((module) => ({ default: module.IssueSubtasks }))
+)
+const IssueComments = lazy(() =>
+  preloadIssueSections().then((module) => ({ default: module.IssueComments }))
 )
 
 const DeleteIssueDialog = lazy(() =>
