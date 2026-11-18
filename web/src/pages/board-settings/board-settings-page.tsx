@@ -39,7 +39,7 @@ export const BoardSettingsPage = () => {
     <div className='mx-auto grid w-full max-w-3xl gap-8 px-4 py-6 sm:px-6'>
       {project.role === 'admin' && (
         <WriteLock projectKey={key}>
-          <Suspense fallback={<Skeleton className='h-64' />}>
+          <Suspense fallback={<Skeleton className='h-80' />}>
             <GeneralSection project={project} />
           </Suspense>
           <BoardSettings projectKey={key} kanban={kanban} />
