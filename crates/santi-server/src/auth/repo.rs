@@ -365,6 +365,14 @@ pub async fn delete_password_resets(
     Ok(())
 }
 
+/// The invite links the user created; their uses go with them.
+pub async fn delete_invites(conn: &mut PgConnection, user_id: i64) -> Result<(), sqlx::Error> {
+    sqlx::query!("DELETE FROM invite WHERE created_by = $1", user_id)
+        .execute(&mut *conn)
+        .await?;
+    Ok(())
+}
+
 /// D45: the projects the user belongs to, locked so roles cannot change underneath the departure.
 pub async fn lock_memberships(conn: &mut PgConnection, user_id: i64) -> Result<(), sqlx::Error> {
     sqlx::query!(
@@ -441,9 +449,6 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     )
     .execute(&mut *conn)
     .await?;
-    sqlx::query!("DELETE FROM invite WHERE created_by = $1", user_id)
-        .execute(&mut *conn)
-        .await?;
     sqlx::query!("DELETE FROM invite_use WHERE user_id = $1", user_id)
         .execute(&mut *conn)
         .await?;

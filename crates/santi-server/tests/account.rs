@@ -166,6 +166,60 @@ async fn deleting_forgets_the_invite_links_the_account_joined_with(pool: PgPool)
     assert_eq!(uses, 0);
 }
 
+async fn wait_for_lock_waiters(pool: &PgPool, count: i64) {
+    loop {
+        let waiting: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM pg_stat_activity
+             WHERE datname = current_database() AND wait_event_type = 'Lock'",
+        )
+        .fetch_one(pool)
+        .await
+        .unwrap();
+        if waiting >= count {
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+}
+
+#[sqlx::test]
+async fn accepting_a_link_while_its_creator_deletes_the_account_does_not_deadlock(pool: PgPool) {
+    let bob = TestApp::signed_in(pool.clone(), "bob@example.com").await;
+    let ana = bob.another_user("ana@example.com").await;
+    let carol = bob.another_user("carol@example.com").await;
+    bob.create_project("BOB", "kanban").await;
+    join_with_a_link(&bob, &ana, "BOB").await;
+    let (_, invite) = bob
+        .post("/api/projects/BOB/invites", json!({ "role": "member" }))
+        .await;
+    let accept = format!("/api/invites/{}/accept", invite["token"].as_str().unwrap());
+    // Holds Ana's membership, so the erase stops at the admin hand-over until released.
+    let mut blocker = pool.begin().await.unwrap();
+    sqlx::query("SELECT 1 FROM member WHERE user_id = $1 FOR UPDATE")
+        .bind(ana.user_id)
+        .execute(&mut *blocker)
+        .await
+        .unwrap();
+
+    let (erased, accepted, _) = tokio::join!(
+        delete_account(&bob, PASSWORD),
+        async {
+            wait_for_lock_waiters(&pool, 1).await;
+            carol.post(&accept, json!(null)).await
+        },
+        async {
+            wait_for_lock_waiters(&pool, 2).await;
+            blocker.rollback().await.unwrap();
+        }
+    );
+
+    assert_eq!(erased.0, StatusCode::NO_CONTENT, "{}", erased.1);
+    assert!(
+        accepted.0.is_client_error() || accepted.0.is_success(),
+        "{accepted:?}"
+    );
+}
+
 #[sqlx::test]
 async fn export_and_delete_need_a_signed_in_caller(pool: PgPool) {
     let app = TestApp::anonymous(pool);
