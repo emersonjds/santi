@@ -14,6 +14,7 @@ pub mod pagination;
 pub mod people;
 pub mod projects;
 pub mod rate_limit;
+pub mod redirect;
 pub mod reports;
 pub mod restore;
 pub mod seed;
@@ -59,6 +60,8 @@ pub struct AppState {
     pub storage: storage::Storage,
     /// SAN-213: API routes past it answer 503; attachments, imports and restore are exempt.
     pub request_timeout: Duration,
+    /// `auth::domain::public_url`; SAN-223 redirects the old Railway host to it.
+    pub public_url: Arc<str>,
 }
 
 impl AppState {
@@ -71,6 +74,7 @@ impl AppState {
             legal: Arc::default(),
             storage: storage::Storage::memory(),
             request_timeout: timeouts::Timeouts::default().request,
+            public_url: auth::domain::public_url(None, None).into(),
         }
     }
 }
@@ -199,6 +203,10 @@ pub fn app(state: AppState, web_dir: Option<&Path>) -> Router {
         None => router.fallback(not_found),
     };
     router
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            redirect::to_public_url,
+        ))
         .layer(middleware::from_fn(auth::extract::reject_cross_site_writes))
         .layer(SetResponseHeaderLayer::if_not_present(
             X_CONTENT_TYPE_OPTIONS,
