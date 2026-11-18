@@ -14,6 +14,10 @@ UI moves to its own repository.
 
 - Scheduled backups for self-hosters: one restorable file per project, daily at SANTI_BACKUP_HOUR_UTC, keeping SANTI_BACKUP_KEEP runs.
 
+### Changed
+
+- The card actions menu opens about four times faster on large boards.
+
 ### Upgrade notes
 
 - New optional settings `SANTI_BACKUP_HOUR_UTC` (0–23, unset keeps backups off) and `SANTI_BACKUP_KEEP` (default 14, at least 1); an invalid value stops the server at startup. Backups go to the attachments storage under `backups/`; `santi restore` also accepts one project's file.

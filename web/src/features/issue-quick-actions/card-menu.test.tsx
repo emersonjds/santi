@@ -31,6 +31,11 @@ const bodyOf = async (requests: Request[], route: string) =>
 const firstCard = (screen: RenderResult) =>
   screen.getByRole('region', { name: 'To do' }).getByRole('article').first()
 
+const triggerOf = (screen: RenderResult, key: string) =>
+  screen.getByRole('button', { name: `Actions for ${key}` })
+
+const pause = () => new Promise((resolve) => setTimeout(resolve, 300))
+
 describe('card menu', () => {
   beforeEach(() => page.viewport(1280, 800))
 
@@ -189,6 +194,118 @@ describe('card menu', () => {
 
     await expect.element(screen.getByText('Copied WEB-1')).toBeVisible()
     expect(copy).toHaveBeenCalledWith('WEB-1')
+    await expect.element(screen.getByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('opens on Enter or Space with the focus on the first item, and Escape gives the focus back to the trigger', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+    const trigger = triggerOf(screen, 'WEB-1')
+
+    for (const key of ['{Enter}', ' ']) {
+      await expect.element(trigger).toBeVisible()
+      trigger.element().focus()
+      await userEvent.keyboard(key)
+      await expect
+        .element(screen.getByRole('menuitem', { name: 'Move to…' }))
+        .toHaveFocus()
+      await userEvent.keyboard('{Escape}')
+      await expect.element(screen.getByRole('menu')).not.toBeInTheDocument()
+      await expect.element(trigger).toHaveFocus()
+    }
+  })
+
+  it('takes the focus into the menu on a click; arrows roam the items and Tab keeps the focus and the menu', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const menu = await openMenu(screen, 'WEB-1')
+    await expect.element(menu).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    const first = screen.getByRole('menuitem', { name: 'Move to…' })
+    await expect.element(first).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    await expect
+      .element(screen.getByRole('menuitem', { name: 'Assign to me' }))
+      .toHaveFocus()
+    await userEvent.keyboard('{ArrowUp}')
+    await expect.element(first).toHaveFocus()
+    await userEvent.keyboard('{Tab}')
+
+    await expect.element(first).toHaveFocus()
+    await expect.element(menu).toBeVisible()
+  })
+
+  it('is a menu that leaves the page alone: no dialog, no scroll lock, no blocked pointer', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const menu = await openMenu(screen, 'WEB-1')
+
+    await expect.element(menu.getByRole('menuitem').first()).toBeVisible()
+    expect(screen.getByRole('dialog').elements()).toHaveLength(0)
+    const body = document.body
+    expect(body.hasAttribute('data-scroll-locked')).toBe(false)
+    expect(getComputedStyle(body).overflow).not.toBe('hidden')
+    expect(getComputedStyle(body).pointerEvents).not.toBe('none')
+  })
+
+  it('closes on an outside click without opening what was clicked', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+    const other = screen.getByRole('link', {
+      name: 'Write the release notes',
+      exact: true,
+    })
+    const blank = screen
+      .getByRole('region', { name: 'Done' })
+      .getByRole('heading')
+
+    for (const target of [other, triggerOf(screen, 'WEB-1'), blank]) {
+      await openMenu(screen, 'WEB-3')
+      await target.click()
+      await expect.element(screen.getByRole('menu')).not.toBeInTheDocument()
+      await pause()
+      expect(screen.getByRole('menu').elements()).toHaveLength(0)
+      expect(screen.getByRole('dialog').elements()).toHaveLength(0)
+    }
+  })
+
+  it('fits a phone: 44px trigger, menu inside the screen, no sideways scroll', async () => {
+    await page.viewport(375, 800)
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    const menu = await openMenu(screen, 'WEB-1')
+    await expect.element(menu).toBeVisible()
+
+    const trigger = triggerOf(screen, 'WEB-1').element().getBoundingClientRect()
+    expect([trigger.width, trigger.height]).toEqual([44, 44])
+    const box = menu.element().getBoundingClientRect()
+    expect(box.left).toBeGreaterThanOrEqual(0)
+    expect(box.right).toBeLessThanOrEqual(375)
+    const root = document.documentElement
+    expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth)
+  })
+
+  it('opens and closes each submenu from the keyboard', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/board')
+
+    await openMenu(screen, 'WEB-1')
+    for (const name of ['Move to…', 'Assign…', 'Set priority']) {
+      const item = screen.getByRole('menuitem', { name })
+      item.element().focus()
+      await userEvent.keyboard('{ArrowRight}')
+      await expect
+        .poll(() => screen.getByRole('menu').elements())
+        .toHaveLength(2)
+      await userEvent.keyboard('{ArrowLeft}')
+      await expect
+        .poll(() => screen.getByRole('menu').elements())
+        .toHaveLength(1)
+      await expect.element(item).toHaveFocus()
+    }
   })
 
   it('is how a phone moves cards, with no drag handles', async () => {
