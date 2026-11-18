@@ -242,8 +242,6 @@ const DetailSkeleton = () => (
   </div>
 )
 
-const PARENTS_OF_SUBTASKS = new Set(['story', 'task', 'bug'])
-
 type IssueDetailProps = {
   projectKey: string
   number: number
@@ -316,9 +314,7 @@ export const IssueDetail = ({
                 number={number}
                 uploads={uploads}
               />
-              {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
-                <IssueSubtasks issue={issue} projectKey={projectKey} />
-              )}
+              <IssueSubtasks issue={issue} projectKey={projectKey} />
               <Suspense fallback={<Skeleton className='h-11 w-full md:h-8' />}>
                 <IssueLinks projectKey={projectKey} number={number} />
               </Suspense>

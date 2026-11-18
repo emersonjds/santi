@@ -107,8 +107,9 @@ const SubtaskRow = ({
 
 type IssueSubtasksProps = { issue: Issue; projectKey: string }
 
-/** D6: subtasks hang under stories, tasks and bugs, and are added here, never inline on the board. */
-export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
+const PARENTS_OF_SUBTASKS = new Set(['story', 'task', 'bug'])
+
+const SubtaskList = ({ issue, projectKey }: IssueSubtasksProps) => {
   const { data: subtasks = [] } = useQuery(subtasksQuery(projectKey, issue.key))
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const create = useCreateIssue(projectKey)
@@ -218,3 +219,9 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
     </section>
   )
 }
+
+/** D6: subtasks hang under stories, tasks and bugs, and are added here, never inline on the board. */
+export const IssueSubtasks = (props: IssueSubtasksProps) =>
+  PARENTS_OF_SUBTASKS.has(props.issue.issue_type) ? (
+    <SubtaskList {...props} />
+  ) : null
