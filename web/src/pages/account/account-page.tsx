@@ -1,13 +1,12 @@
+import { lazy } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
-import { ChangePasswordForm } from '@/features/account/change-password-form'
 import { DeleteAccountButton } from '@/features/account/delete-account-button'
 import { DisplayNameField } from '@/features/account/display-name-field'
 import { ExportDataButton } from '@/features/account/export-data-button'
 import { SessionsList } from '@/features/account/sessions-list'
 import { ThemeControl } from '@/features/account/theme-control'
 import { TimeZoneControl } from '@/features/account/time-zone-control'
-import { CreateTokenForm } from '@/features/api-token/create-token-form'
 import { RevokeTokenButton } from '@/features/api-token/revoke-token-button'
 import {
   legalDocumentsQuery,
@@ -19,6 +18,18 @@ import { formatDate } from '@/shared/lib/format-date'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Skeleton } from '@/shared/ui/skeleton'
+
+// Lazy, with no boundary of their own: react-hook-form stays off the first visit and the page paints once (D39).
+const ChangePasswordForm = lazy(() =>
+  import('@/features/account/change-password-form').then((module) => ({
+    default: module.ChangePasswordForm,
+  }))
+)
+const CreateTokenForm = lazy(() =>
+  import('@/features/api-token/create-token-form').then((module) => ({
+    default: module.CreateTokenForm,
+  }))
+)
 
 type ReadOnlyFieldProps = { id: string; label: string; value: string }
 
