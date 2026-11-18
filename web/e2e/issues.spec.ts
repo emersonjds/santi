@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test'
+import { type Page, expect, test, newPage } from './fixtures'
 
 const PASSWORD = 'correct horse battery'
 
@@ -236,7 +236,7 @@ test('an invited visitor previews the invite, creates an account and joins', asy
     { role: 'member' }
   )
 
-  const visitor = await (await browser.newContext()).newPage()
+  const visitor = await newPage(browser)
   await visitor.goto(`/invites/${invite.token}`)
   await visitor.getByRole('link', { name: 'Create an account' }).click()
   await register(visitor, 'Grace')
