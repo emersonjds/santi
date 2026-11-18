@@ -3,9 +3,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ChevronsUpDown, Loader2 } from 'lucide-react'
 import { sessionQuery } from '@/entities/session/session-query'
 import { api, dataOrThrow } from '@/shared/api/client'
+import { useT } from '@/shared/i18n/i18n'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
+import { messages } from './messages'
 
 // Lazy: the popover and the searchable list stay out of the first visit to /account (D39).
 const TimeZonePicker = lazy(() =>
@@ -20,6 +22,7 @@ export const TimeZoneControl = ({
 }: {
   saved?: string | null
 }) => {
+  const t = useT(messages)
   const queryClient = useQueryClient()
   const [choice, setChoice] = useState(saved)
   const lastSaved = useRef(saved)
@@ -38,7 +41,9 @@ export const TimeZoneControl = ({
       setChoice(lastSaved.current)
     },
   })
-  const browser = `Browser time zone (${Intl.DateTimeFormat().resolvedOptions().timeZone})`
+  const browser = t('browserTimeZone', {
+    zone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  })
   const Icon = save.isPending ? Loader2 : ChevronsUpDown
 
   const trigger = (disabled: boolean) => (
@@ -59,7 +64,7 @@ export const TimeZoneControl = ({
 
   return (
     <div className='grid gap-1.5'>
-      <Label htmlFor='time-zone'>Time zone</Label>
+      <Label htmlFor='time-zone'>{t('timeZone')}</Label>
       <Suspense fallback={trigger(true)}>
         <TimeZonePicker
           browser={browser}
@@ -80,8 +85,8 @@ export const TimeZoneControl = ({
           save.isError ? 'text-destructive' : 'text-muted-foreground'
         )}
       >
-        {save.isError && 'Could not save your time zone.'}
-        {save.isSuccess && 'Saved'}
+        {save.isError && t('timeZoneFailed')}
+        {save.isSuccess && t('saved')}
       </p>
     </div>
   )
