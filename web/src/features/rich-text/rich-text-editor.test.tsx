@@ -166,12 +166,13 @@ describe('rich text editor', () => {
     await userEvent.keyboard('Ask @an')
 
     const options = screen.getByRole('option')
-    await expect.element(options.first()).toHaveTextContent('Carl Lane')
-    expect(options.elements().map((option) => option.textContent)).toEqual([
-      expect.stringContaining('anderson@example.com'),
-      expect.stringContaining('souza@example.com'),
-      expect.stringContaining('zoe@example.com'),
-    ])
+    await expect
+      .poll(() => options.elements().map((option) => option.textContent))
+      .toEqual([
+        expect.stringContaining('anderson@example.com'),
+        expect.stringContaining('souza@example.com'),
+        expect.stringContaining('zoe@example.com'),
+      ])
   })
 
   it('inserts the mention token with Enter or Tab and shows it as one chip', async () => {

@@ -13,7 +13,7 @@ UI moves to its own repository.
 ### Changed
 
 - The sign-in page loads about 34 KB less JavaScript.
-
+- The landing page terminals type their commands out as they scroll into view (static with reduced motion).
 ### Fixed
 
 - In the dark theme, the selected theme option, the importer's file button and the notification and filter counters also use white text on the deeper violet.
