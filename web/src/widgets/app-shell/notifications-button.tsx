@@ -21,7 +21,7 @@ export const NotificationsButton = (props: ComponentProps<typeof Button>) => {
       {count > 0 && (
         <span
           aria-hidden
-          className='absolute end-0 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary px-1 text-[0.6875rem] leading-none font-semibold text-primary-foreground'
+          className='absolute end-0 top-0 grid h-5 min-w-5 place-items-center rounded-full bg-primary-fill px-1 text-[0.6875rem] leading-none font-semibold text-primary-fill-foreground'
         >
           {count > 9 ? '9+' : count}
         </span>

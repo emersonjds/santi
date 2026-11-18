@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Fixed
+
+- In the dark theme, the selected theme option, the importer's file button and the notification and filter counters also use white text on the deeper violet.
+
 ## [0.27.0] - 2026-11-18
 
 > Imports that know which sprint is running, an AI agents section, lighter pages and a container image for Arm.
