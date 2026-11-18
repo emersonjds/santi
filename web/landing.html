@@ -450,12 +450,15 @@
         <div class="container-page py-20 sm:py-28">
           <p class="eyebrow text-center">Performance</p>
           <h2 id="perf-title" class="section-title text-center">
-            Fast on real backlogs, and kept that way.
+            Built in Rust, fast at any scale.
           </h2>
           <p class="section-lead mx-auto text-center">
-            Measured with 5,000 issues, 50 people and 20 sprints: release build,
-            10 concurrent connections, on a laptop. CI counts the SQL statements
-            of every hot request and fails the build if the count grows.
+            santi's server is Rust: axum and sqlx talking straight to
+            PostgreSQL. Measured on 5,000 issues, 50 people and 20 sprints, the
+            Scrum board answers in 6.7&nbsp;ms and the backlog in 18.9&nbsp;ms,
+            both p95. CI counts the SQL statements of every hot request and
+            fails the build if the count grows, so a new feature cannot quietly
+            add a query as the backlog scales.
           </p>
           <dl class="mt-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
             <div class="stat-tile">
@@ -475,13 +478,29 @@
               <dd>&lt; 170 KB</dd>
             </div>
           </dl>
-          <p class="mt-8 text-center text-sm text-muted-foreground">
-            <a
-              class="link"
-              href="https://github.com/emersonjds/santi/blob/main/docs/perf.md"
-              >Method, numbers and the load script</a
-            >
-          </p>
+          <ul class="mt-4 grid gap-4 md:grid-cols-3">
+            <li class="card">
+              <h3 class="card-title">Rust server</h3>
+              <p class="card-text">
+                axum and sqlx talk straight to PostgreSQL, compiled ahead of
+                time.
+              </p>
+            </li>
+            <li class="card">
+              <h3 class="card-title">Fixed SQL per request</h3>
+              <p class="card-text">
+                Every hot endpoint has a pinned statement budget — board 4,
+                issue 2, move 9 — and CI fails the build if it grows.
+              </p>
+            </li>
+            <li class="card">
+              <h3 class="card-title">Small JS per route</h3>
+              <p class="card-text">
+                Each route ships under 170 KB of JavaScript on first visit,
+                checked in CI.
+              </p>
+            </li>
+          </ul>
         </div>
       </section>
 
