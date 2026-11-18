@@ -9904,6 +9904,28 @@
         "type": "object",
         "description": "Absent fields stay as they are.",
         "properties": {
+          "board_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BoardType",
+                "description": "Switches the board (SAN-224): sprints and reports stay; switching to scrum clears column\nWIP limits and the done window."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_board_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BoardType",
+                "description": "The type the caller last saw; a different current type refuses the whole change with\n409 `board-type-changed`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "key": {
             "type": [
               "string",

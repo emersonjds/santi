@@ -388,6 +388,49 @@ pub async fn lock_project(
     .await
 }
 
+pub async fn lock_board_type(
+    conn: &mut PgConnection,
+    board_id: i64,
+) -> Result<BoardType, sqlx::Error> {
+    sqlx::query_scalar!(
+        r#"SELECT board_type AS "board_type: BoardType" FROM board WHERE id = $1 FOR UPDATE"#,
+        board_id
+    )
+    .fetch_one(&mut *conn)
+    .await
+}
+
+/// SAN-224: sprints and each issue's sprint stay; a scrum board has no column limits or done
+/// window.
+pub async fn switch_board(
+    conn: &mut PgConnection,
+    board_id: i64,
+    board_type: BoardType,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        "UPDATE board SET board_type = $2 WHERE id = $1",
+        board_id,
+        board_type as BoardType
+    )
+    .execute(&mut *conn)
+    .await?;
+    if board_type == BoardType::Scrum {
+        sqlx::query!(
+            "UPDATE board SET done_window_days = NULL WHERE id = $1",
+            board_id
+        )
+        .execute(&mut *conn)
+        .await?;
+        sqlx::query!(
+            "UPDATE board_column SET wip_limit = NULL WHERE board_id = $1",
+            board_id
+        )
+        .execute(&mut *conn)
+        .await?;
+    }
+    Ok(())
+}
+
 /// D20: hands out KEY-N numbers that are never reused; the UPDATE also locks the project row,
 /// and the project's state as of that lock comes back with the number.
 pub async fn take_issue_number(

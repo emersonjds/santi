@@ -2323,6 +2323,8 @@ export interface components {
         };
         /** @description Absent fields stay as they are. */
         UpdateProject: {
+            board_type?: components["schemas"]["BoardType"] | null;
+            expected_board_type?: components["schemas"]["BoardType"] | null;
             /** @description The new key; the current one becomes a previous key. */
             key?: string | null;
             name?: string | null;

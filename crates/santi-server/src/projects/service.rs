@@ -90,6 +90,13 @@ pub async fn update(
         repo::delete_alias(&mut tx, member.project_id, key).await?;
     }
     domain::check_active(repo::lock_project(&mut tx, member.project_id).await?)?;
+    let board_type = repo::lock_board_type(&mut tx, member.board_id).await?;
+    domain::check_expected_board_type(board_type, input.expected_board_type)?;
+    if let Some(target) = input.board_type
+        && target != board_type
+    {
+        repo::switch_board(&mut tx, member.board_id, target).await?;
+    }
     if let Some(name) = &name {
         repo::rename(&mut tx, member.project_id, name).await?;
     }

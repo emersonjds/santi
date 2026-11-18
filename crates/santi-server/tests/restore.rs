@@ -380,6 +380,28 @@ async fn a_kanban_board_keeps_its_limits(pool: PgPool) {
     );
 }
 
+#[sqlx::test]
+async fn a_project_switched_to_kanban_restores_with_its_sprints(pool: PgPool) {
+    let (ana, _bob) = shop(pool).await;
+    let (status, body) = ana
+        .patch("/api/projects/SHOP", json!({ "board_type": "kanban" }))
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let original = export_of(&ana, "SHOP").await;
+    purge(&ana, "SHOP").await;
+
+    let (status, restored) = ana.post(RESTORE, original.clone()).await;
+
+    assert_eq!(status, StatusCode::CREATED, "{restored}");
+    let (again, original) = (
+        comparable(export_of(&ana, "SHOP").await),
+        comparable(original),
+    );
+    assert_eq!(again["board"], original["board"]);
+    assert_eq!(again["sprints"], original["sprints"]);
+    assert_eq!(original["sprints"].as_array().unwrap().len(), 2);
+}
+
 async fn link(app: &TestApp, from: &str, relation: &str, to: &str) {
     let (project, number) = from.split_once('-').unwrap();
     let (status, body) = app

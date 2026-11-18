@@ -4,6 +4,7 @@ use santi_types::boards::{
     ReorderColumns, Status, UpdateBoardSettings, UpdateColumn, UpdateStatus,
 };
 use santi_types::issues::IssueFilter;
+use santi_types::projects::BoardType;
 use sqlx::{PgConnection, PgPool, Postgres, Transaction};
 
 use super::{domain, repo};
@@ -52,7 +53,10 @@ pub async fn board_view(
 ) -> Result<BoardView, AppError> {
     let mut conn = pool.acquire().await?;
     let filter = &current_parent_keys(&mut conn, member, filter).await?;
-    let sprint = sprints::repo::find_active(&mut conn, member.board_id).await?;
+    let sprint = match member.board_type {
+        BoardType::Kanban => None,
+        BoardType::Scrum => sprints::repo::find_active(&mut conn, member.board_id).await?,
+    };
     let columns = repo::list_columns(&mut conn, member.board_id).await?;
     let sprint_id = sprint.as_ref().map(|sprint| sprint.id);
     let cards = repo::board_cards(&mut conn, member.project_id, sprint_id, member.user_id).await?;

@@ -91,6 +91,12 @@ pub struct UpdateProject {
     pub name: Option<String>,
     /// The new key; the current one becomes a previous key.
     pub key: Option<String>,
+    /// Switches the board (SAN-224): sprints and reports stay; switching to scrum clears column
+    /// WIP limits and the done window.
+    pub board_type: Option<BoardType>,
+    /// The type the caller last saw; a different current type refuses the whole change with
+    /// 409 `board-type-changed`.
+    pub expected_board_type: Option<BoardType>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
