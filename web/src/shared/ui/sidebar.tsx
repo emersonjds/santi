@@ -2,13 +2,13 @@ import * as React from 'react'
 import { Slot } from '@radix-ui/react-slot'
 import { VariantProps, cva } from 'class-variance-authority'
 import { PanelLeftIcon } from 'lucide-react'
+import { useT } from '@/shared/i18n/i18n'
 import {
   SIDEBAR_WIDTH,
   clampSidebarWidth,
   storeSidebarWidth,
   storedSidebarWidth,
 } from '@/shared/lib/sidebar-prefs'
-import { useT } from '@/shared/i18n/i18n'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { cn } from '@/shared/lib/utils'
 import { Button } from '@/shared/ui/button'
