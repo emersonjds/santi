@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
+
 ### Changed
 
 - Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
