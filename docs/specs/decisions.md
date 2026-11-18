@@ -698,3 +698,14 @@ Winner: A (owner, 2026-10-21) — still open source, self-hosting and internal c
 - Releases up to 0.24.1 remain available under MIT OR Apache-2.0; AGPL-3.0-only applies from the next release.
 - `TRADEMARK.md` governs the name and logo: run it and call it santi; rename a modified version you distribute or host; never imply you are the official project. It limits use of the marks, not what the licence allows with the code.
 - The owner is the only author so far, so the change needs no other consent; new contributions come in under AGPL-3.0-only (CONTRIBUTING).
+
+## D62 — The web app in five languages, English co-located and one lazy chunk per language (SAN-199)
+Context: the SPA speaks English only; the owner wants en, es, pt-BR, pt-PT and zh-CN without a heavy runtime and within D39 (+2 KB initial JS per route at most).
+Options: A) an i18n library with one table per language B) plain typed objects and a tiny `t()`, English co-located with each slice, each other language one lazy chunk C) the same objects, one global English table in the entry
+Winner: B (architect; product, ux, ia agree) — no dependency, English costs nothing (literals move next to their code, in the same chunk), a non-English user downloads one cached chunk once and never waits per route; A costs 10–40 KB for ICU features santi does not need, C adds every route's copy to every first visit.
+- `app_user.language` (`en` default, CHECK on the five BCP 47 tags) on `User` and `PATCH /api/me`, mirrored to localStorage like the theme (D54); no browser detection; the device's last language also drives the signed-out screens and survives sign-out.
+- Typed: a missing key in a translation fails typecheck, a missing translation file fails the suite; at runtime an untranslated string falls back to English.
+- The language is the `Intl` locale for dates, numbers, relative times and plurals; the account zone still decides the time (SAN-197).
+- Server errors stay English; the web translates by the D24 `type` slug and shows `detail` for an unknown slug.
+- A language is offered only once released after a native speaker's review; dev builds offer all five.
+- Full rules: `docs/specs/cards/SAN-199.md`.
