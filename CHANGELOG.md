@@ -13,6 +13,7 @@ UI moves to its own repository.
 ### Changed
 
 - Landing: a shorter opening paragraph.
+- Landing: MCP client icons and a "View setup guide" button in the AI section, a Rust-first performance section with three detail cards, a Monthly / Yearly switch on the Team price (dollars only), terminals that replay their typing, a "Self-host in one command" chip and a one-line license footer.
 
 ## [0.34.0] - 2026-11-18
 
