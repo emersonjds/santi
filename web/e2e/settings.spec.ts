@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test'
+import { type Page, expect, test, newPage } from './fixtures'
 
 const PASSWORD = 'correct horse battery'
 
@@ -24,7 +24,7 @@ test('an admin adds a Review column with a WIP limit and maps a new status into 
 }) => {
   const key = `S${unique().slice(-6).toUpperCase()}`
   await register(page, 'Ada', `e2e-${unique()}@example.com`)
-  const teammate = await (await browser.newContext()).newPage()
+  const teammate = await newPage(browser)
   const graceEmail = `e2e-${unique()}@example.com`
   await register(teammate, 'Grace', graceEmail)
   const token = await page.evaluate(

@@ -1,6 +1,9 @@
 import { useId, useState } from 'react'
+import { Compass } from 'lucide-react'
 import { setShortcutsOn, shortcutsOn } from '@/shared/lib/shortcuts'
+import { openTour } from '@/shared/lib/tour'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
+import { Button } from '@/shared/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -98,6 +101,17 @@ export const ShortcutSheet = ({ onClose }: { onClose: () => void }) => {
             </section>
           ))}
         </div>
+        <Button
+          variant='outline'
+          className='h-11 justify-self-start'
+          onClick={() => {
+            onClose()
+            openTour()
+          }}
+        >
+          <Compass />
+          Replay the welcome tour
+        </Button>
       </DialogContent>
     </Dialog>
   )

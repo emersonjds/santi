@@ -13,6 +13,9 @@ UI moves to its own repository.
 ### Changed
 
 - The landing page terminals type their commands out as they scroll into view (static with reduced motion).
+### Fixed
+
+- In the dark theme, the selected theme option, the importer's file button and the notification and filter counters also use white text on the deeper violet.
 
 ## [0.27.0] - 2026-11-18
 
@@ -20,6 +23,10 @@ UI moves to its own repository.
 
 ### Added
 
+- Welcome tour on the first sign-in, replayable from the account menu, the shortcuts sheet (?) and the empty home page.
+- The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
+- `docs/ops.md`: runbook for the hosted instance (what is monitored, steps on an alert, rollback, secret rotation).
+- `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
 - Landing page section on AI agents: connect Claude, ChatGPT and Codex, GitHub Copilot, Cursor or any MCP client and manage cards by conversation (36 MCP tools).
 - The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
 - `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
@@ -44,6 +51,8 @@ UI moves to its own repository.
 
 ### Upgrade notes
 
+- Migration `0031_tour_seen`; API: `User.tour_seen_at`, `PATCH /api/me` accepts `tour_seen: true`.
+- The migration marks every existing account as having seen the tour, so only accounts created after the upgrade get it automatically.
 - API: `SprintFound.closed` (import preview) is replaced by `state` (`future`, `active` or `closed`), and `SprintAction` gains `active`.
 - Deploying your own santi on Railway: `railway.toml` is gone. Set the Dockerfile builder and the `/health` check in the service settings, or adapt `.railway/railway.ts` and run `railway config apply` (see docs/deploy/railway.md).
 

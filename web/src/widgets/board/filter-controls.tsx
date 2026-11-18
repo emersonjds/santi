@@ -167,7 +167,7 @@ const LazyMultiSelect = ({ label, ...props }: LazyMultiSelectProps) => {
     <>
       {label}
       {props.selected.length > 0 && (
-        <span className='ms-1.5 rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums'>
+        <span className='ms-1.5 rounded-full bg-primary-fill px-1.5 text-xs text-primary-fill-foreground tabular-nums'>
           {props.selected.length}
         </span>
       )}

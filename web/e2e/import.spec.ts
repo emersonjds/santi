@@ -1,5 +1,5 @@
-import { type Page, expect, test } from '@playwright/test'
 import path from 'node:path'
+import { type Page, expect, test } from './fixtures'
 
 const PASSWORD = 'correct horse battery'
 const FIXTURES = path.resolve(
