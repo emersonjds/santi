@@ -12,22 +12,39 @@ UI moves to its own repository.
 
 ### Added
 
-- Rename a project and change its key; old keys keep working as aliases until removed.
 - Scheduled backups for self-hosters: one restorable file per project, daily at SANTI_BACKUP_HOUR_UTC, keeping SANTI_BACKUP_KEEP runs.
 
 ### Upgrade notes
 
 - New optional settings `SANTI_BACKUP_HOUR_UTC` (0–23, unset keeps backups off) and `SANTI_BACKUP_KEEP` (default 14, at least 1); an invalid value stops the server at startup. Backups go to the attachments storage under `backups/`; `santi restore` also accepts one project's file.
-- Migration `0032_project_key_aliases` (number may change); API: `PATCH /api/projects/{key}`, `DELETE /api/projects/{key}/aliases/{alias}`, `Project.previous_keys`.
-- `POST /api/projects` and `POST /api/projects/restore` answer 409 `project-key-taken` or `project-key-alias` (was `already-exists`) for a key another project holds; a key held as another project's previous key is refused. A restore keeps the newest 100 previous keys and lists skipped or held ones in `problems`.
-- Optional error reporting to Sentry for the hosted instance (SANTI_SENTRY_DSN); off by default. Reports carry technical error details, not meant to identify you; account details, request bodies and tokens are removed.
+
+## [0.28.0] - 2026-11-18
+
+> A welcome tour, renaming projects and their keys, a lighter sign-in page and optional error reporting.
+
+### Added
+
+- Welcome tour on the first sign-in, replayable from the account menu, the shortcuts sheet (?) and the empty home page.
+- Rename a project and change its key from project settings, the CLI (`santi projects edit`) or MCP (`update_project`); old keys keep working as aliases until an admin removes them.
+- Optional error reporting to Sentry for the hosted instance (`SANTI_SENTRY_DSN`), off by default. Reports carry technical error details only; account details, request bodies and tokens are removed.
+- MCP tools `update_project` and `remove_project_alias` (38 tools).
+
 ### Changed
 
 - The sign-in page loads about 34 KB less JavaScript.
 - The landing page terminals type their commands out as they scroll into view (static with reduced motion).
+- The server shuts down gracefully on SIGTERM or Ctrl-C.
+
 ### Fixed
 
 - In the dark theme, the selected theme option, the importer's file button and the notification and filter counters also use white text on the deeper violet.
+
+### Upgrade notes
+
+- Migrations `0031_tour_seen` (every existing account counts as having seen the tour; only new accounts get it automatically) and `0032_project_key_aliases`.
+- API: `User.tour_seen_at` and `PATCH /api/me` `tour_seen: true`; `PATCH /api/projects/{key}`, `DELETE /api/projects/{key}/aliases/{alias}` and `Project.previous_keys`.
+- `POST /api/projects` and `POST /api/projects/restore` answer 409 `project-key-taken` or `project-key-alias` (was `already-exists`) for a key another project holds; a key held as another project's previous key is refused. A restore keeps the newest 100 previous keys and lists skipped or held ones in `problems`.
+- New optional settings: `SANTI_SENTRY_DSN`, `SANTI_SENTRY_ENVIRONMENT`, `SANTI_SENTRY_TRACES_SAMPLE_RATE`.
 
 ## [0.27.0] - 2026-11-18
 
@@ -35,10 +52,6 @@ UI moves to its own repository.
 
 ### Added
 
-- Welcome tour on the first sign-in, replayable from the account menu, the shortcuts sheet (?) and the empty home page.
-- The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
-- `docs/ops.md`: runbook for the hosted instance (what is monitored, steps on an alert, rollback, secret rotation).
-- `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
 - Landing page section on AI agents: connect Claude, ChatGPT and Codex, GitHub Copilot, Cursor or any MCP client and manage cards by conversation (36 MCP tools).
 - The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
 - `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
@@ -63,8 +76,6 @@ UI moves to its own repository.
 
 ### Upgrade notes
 
-- Migration `0031_tour_seen`; API: `User.tour_seen_at`, `PATCH /api/me` accepts `tour_seen: true`.
-- The migration marks every existing account as having seen the tour, so only accounts created after the upgrade get it automatically.
 - API: `SprintFound.closed` (import preview) is replaced by `state` (`future`, `active` or `closed`), and `SprintAction` gains `active`.
 - Deploying your own santi on Railway: `railway.toml` is gone. Set the Dockerfile builder and the `/health` check in the service settings, or adapt `.railway/railway.ts` and run `railway config apply` (see docs/deploy/railway.md).
 
@@ -907,7 +918,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.27.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.28.0...HEAD
+[0.28.0]: https://github.com/emersonjds/santi/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/emersonjds/santi/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/emersonjds/santi/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/emersonjds/santi/compare/v0.25.0...v0.25.1
