@@ -13,7 +13,7 @@ UI moves to its own repository.
 ### Changed
 
 - Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
-- Pages load less JavaScript on first visit (issue page about 10 KB and backlog about 4 KB lighter; /projects, /account and project members about 16 KB lighter).
+- Pages load less JavaScript on first visit (issue page about 10 KB and backlog about 4 KB lighter; /projects and project members about 16 KB lighter). /account paints first and fetches its password and token forms right after, in parallel with its data.
 ### Fixed
 
 - Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
