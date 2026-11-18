@@ -43,7 +43,7 @@ async fn each_request_logs_one_json_line_with_the_route_template(pool: PgPool) {
         EnvFilter::new("info"),
         true,
         move || writer.clone(),
-        false,
+        None,
     ));
     let uri = "/api/projects/LOG/issues/1?secret=hush";
 

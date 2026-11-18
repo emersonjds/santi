@@ -5,11 +5,12 @@ use axum::extract::{MatchedPath, Request};
 use axum::http::{HeaderName, HeaderValue};
 use axum::middleware::Next;
 use axum::response::Response;
+use sentry::SentryFutureExt;
 use sentry::integrations::tracing::{ErrorLayer, SpanLayer};
 use tracing::field::Empty;
 use tracing::{Instrument, Level, Subscriber};
 use tracing_subscriber::EnvFilter;
-use tracing_subscriber::filter::{LevelFilter, filter_fn};
+use tracing_subscriber::filter::filter_fn;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::{Layer, SubscriberExt};
 use tracing_subscriber::registry::LookupSpan;
@@ -17,12 +18,12 @@ use tracing_subscriber::registry::LookupSpan;
 const X_REQUEST_ID: HeaderName = HeaderName::from_static("x-request-id");
 
 /// SAN-209: JSON lines (`json`) or human-readable ones, filtered like `RUST_LOG`. SAN-227: with
-/// `sentry`, error events except the per-request line also go to the bound Sentry client.
+/// `sentry` options, error events except the per-request line also go to the bound Sentry client.
 pub fn subscriber<W>(
     filter: EnvFilter,
     json: bool,
     writer: W,
-    sentry: bool,
+    sentry: Option<&sentry::ClientOptions>,
 ) -> Box<dyn Subscriber + Send + Sync>
 where
     W: for<'writer> MakeWriter<'writer> + Send + Sync + 'static,
@@ -40,13 +41,15 @@ where
         tracing_subscriber::registry()
             .with(filter)
             .with(lines)
-            .with(sentry.then(sentry_layers)),
+            .with(sentry.map(sentry_layers)),
     )
 }
 
-/// Request spans give error events their route, method and request id; the per-request line
-/// stays out of Sentry since the error that caused a 500 is reported on its own.
-fn sentry_layers<S>() -> impl Layer<S>
+/// Error events get route, method and request id as tags of the per-request hub, and from the
+/// trace context when traces are on. Only the `trace` span becomes a transaction: the `request`
+/// span carries `user_id`. The per-request line stays out since the error behind a 500 is
+/// reported on its own.
+fn sentry_layers<S>(options: &sentry::ClientOptions) -> impl Layer<S>
 where
     S: Subscriber + for<'span> LookupSpan<'span>,
 {
@@ -55,11 +58,16 @@ where
             && *metadata.level() == Level::ERROR
             && metadata.target() != module_path!()
     });
-    SpanLayer::new().with_filter(LevelFilter::INFO).and_then(
-        ErrorLayer::new()
-            .enable_span_attributes()
-            .with_filter(errors),
-    )
+    let traced = matches!(
+        options.traces_sampling_strategy,
+        sentry::TracesSamplingStrategy::FixedRate(rate) if rate > 0.0
+    );
+    let traces = filter_fn(|metadata| {
+        metadata.is_span() && metadata.name() == "trace" && metadata.target() == module_path!()
+    });
+    ErrorLayer::new()
+        .with_filter(errors)
+        .and_then(traced.then(|| SpanLayer::new().with_filter(traces)))
 }
 
 /// SAN-227: Sentry stays off unless `SANTI_SENTRY_DSN` is set; a malformed DSN is an error.
@@ -87,20 +95,43 @@ pub fn sentry_options(
     Ok(Some(options))
 }
 
-/// Keeps the request method only and drops the user; route, status and request id travel as
-/// tracing fields.
-fn scrub(mut event: sentry::protocol::Event<'static>) -> sentry::protocol::Event<'static> {
-    event.request = event.request.map(|request| sentry::protocol::Request {
-        method: request.method,
-        ..Default::default()
-    });
-    event.user = None;
-    for context in event.contexts.values_mut() {
-        if let sentry::protocol::Context::Other(fields) = context {
-            fields.retain(|key, _| !key.ends_with("user_id"));
-        }
+const KEPT_FIELDS: [&str; 4] = ["method", "route", "request_id", "status"];
+
+/// Allowlist: trace data and tags keep `KEPT_FIELDS`, tracing fields keep `error`, the source
+/// location stays; every other context, the request, user, extra and breadcrumbs go.
+fn scrub(event: sentry::protocol::Event<'static>) -> sentry::protocol::Event<'static> {
+    use sentry::protocol::Context;
+
+    let kept = |key: &String| KEPT_FIELDS.contains(&key.as_str());
+    let contexts = event
+        .contexts
+        .into_iter()
+        .filter_map(|(name, context)| match context {
+            Context::Trace(mut trace) => {
+                trace.data.retain(|key, _| kept(key));
+                Some((name, Context::Trace(trace)))
+            }
+            Context::Other(mut fields) if name == "Rust Tracing Fields" => {
+                fields.retain(|key, _| key == "error");
+                Some((name, Context::Other(fields)))
+            }
+            Context::Other(_) if name == "Rust Tracing Location" => Some((name, context)),
+            _ => None,
+        })
+        .collect();
+    sentry::protocol::Event {
+        request: None,
+        user: None,
+        extra: Default::default(),
+        breadcrumbs: Default::default(),
+        tags: event
+            .tags
+            .into_iter()
+            .filter(|(key, _)| kept(key))
+            .collect(),
+        contexts,
+        ..event
     }
-    event
 }
 
 /// SAN-209: one line per request with the route template, never the raw path or query; the
@@ -112,17 +143,30 @@ pub async fn log_request(request: Request, next: Next) -> Response {
         .extensions()
         .get::<MatchedPath>()
         .map_or("unmatched", MatchedPath::as_str);
+    let method = request.method().as_str().to_owned();
+    let hub = request_hub(&method, route, &id);
+    let trace = sentry::Hub::run(
+        hub.clone(),
+        || tracing::info_span!("trace", method, route, request_id = %id, status = Empty),
+    );
     let span = tracing::info_span!(
+        parent: &trace,
         "request",
-        method = %request.method(),
+        method,
         route,
         request_id = %id,
         user_id = Empty,
     );
-    let mut response = next.run(request).instrument(span.clone()).await;
+    let mut response = next
+        .run(request)
+        .instrument(span.clone())
+        .instrument(trace.clone())
+        .bind_hub(hub)
+        .await;
     let latency = started.elapsed();
     let status = response.status().as_u16();
     let latency_ms = latency.as_millis() as u64;
+    trace.record("status", status);
     span.in_scope(|| match level_for(status, latency) {
         Level::ERROR => tracing::error!(status, latency_ms, "request"),
         Level::WARN => tracing::warn!(status, latency_ms, "request"),
@@ -132,6 +176,22 @@ pub async fn log_request(request: Request, next: Next) -> Response {
         response.headers_mut().insert(X_REQUEST_ID, value);
     }
     response
+}
+
+/// A hub per request so the route, method and request id tag its error events; without a client
+/// the current hub is reused.
+fn request_hub(method: &str, route: &str, id: &str) -> Arc<sentry::Hub> {
+    let current = sentry::Hub::current();
+    if current.client().is_none() {
+        return current;
+    }
+    let hub = Arc::new(sentry::Hub::new_from_top(current));
+    hub.configure_scope(|scope| {
+        scope.set_tag("method", method);
+        scope.set_tag("route", route);
+        scope.set_tag("request_id", id);
+    });
+    hub
 }
 
 pub fn level_for(status: u16, latency: Duration) -> Level {
@@ -260,17 +320,25 @@ mod tests {
     }
 
     #[test]
-    fn sentry_events_lose_body_cookies_authorization_query_and_the_user() {
-        use sentry::protocol::{Context, Event, Request, User};
+    fn sentry_events_keep_only_allowlisted_fields() {
+        use sentry::protocol::{Breadcrumb, Context, Event, Request, TraceContext, User};
 
         let options = sentry_options(sentry_env(DSN, None)).unwrap().unwrap();
         let before_send = options.before_send.unwrap();
+        let trace = TraceContext {
+            data: [
+                ("user_id".to_string(), 42.into()),
+                ("route".to_string(), "/api/projects/{key}".into()),
+                ("method".to_string(), "POST".into()),
+                ("request_id".to_string(), "abc-123".into()),
+                ("code.file.path".to_string(), "src/auth.rs".into()),
+            ]
+            .into(),
+            ..Default::default()
+        };
         let fields = [
-            ("request:method".to_string(), "POST".into()),
-            ("request:route".to_string(), "/api/projects/{key}".into()),
-            ("request:request_id".to_string(), "abc-123".into()),
-            ("request:user_id".to_string(), 42.into()),
-            ("status".to_string(), 500.into()),
+            ("email".to_string(), "x@y.z".into()),
+            ("error".to_string(), "pool timed out".into()),
         ];
         let event = Event {
             request: Some(Request {
@@ -279,52 +347,60 @@ mod tests {
                     .ok(),
                 method: Some("POST".into()),
                 data: Some("{\"password\":\"hunter2\"}".into()),
-                query_string: Some("secret=hush".into()),
                 cookies: Some("santi_session=abc".into()),
-                headers: [
-                    ("Authorization".to_string(), "Bearer tok".to_string()),
-                    ("Cookie".to_string(), "santi_session=abc".to_string()),
-                ]
-                .into(),
+                headers: [("Authorization".to_string(), "Bearer tok".to_string())].into(),
                 env: [("REMOTE_ADDR".to_string(), "10.0.0.1".to_string())].into(),
+                ..Default::default()
             }),
             user: Some(User {
                 id: Some("42".into()),
                 email: Some("ana@example.com".into()),
-                username: Some("Ana".into()),
                 ..Default::default()
             }),
-            contexts: [(
-                "Rust Tracing Fields".to_string(),
-                Context::Other(fields.into()),
-            )]
+            contexts: [
+                ("trace".to_string(), Context::Trace(Box::new(trace))),
+                (
+                    "Rust Tracing Fields".to_string(),
+                    Context::Other(fields.into()),
+                ),
+                (
+                    "member".to_string(),
+                    Context::Other([("name".to_string(), "Ana".into())].into()),
+                ),
+            ]
+            .into(),
+            tags: [
+                ("route".to_string(), "/api/projects/{key}".to_string()),
+                ("nickname".to_string(), "Ana".to_string()),
+            ]
+            .into(),
+            extra: [("token".to_string(), "Bearer tok".into())].into(),
+            breadcrumbs: vec![Breadcrumb {
+                message: Some("ana@example.com".into()),
+                ..Default::default()
+            }]
             .into(),
             ..Default::default()
         };
 
         let scrubbed = before_send(event).unwrap();
 
-        let request = scrubbed.request.clone().unwrap();
-        assert_eq!(request.method.as_deref(), Some("POST"));
-        let text = serde_json::to_string(&scrubbed).unwrap();
-        for leak in [
-            "hunter2",
-            "hush",
-            "secret",
-            "santi_session",
-            "Bearer",
-            "10.0.0.1",
-            "LOG",
-            "ana@example.com",
-            "Ana",
-            "user_id",
-            "42",
-        ] {
-            assert!(!text.contains(leak), "{leak} in {text}");
-        }
+        let Some(Context::Trace(trace)) = scrubbed.contexts.get("trace") else {
+            panic!("trace context missing: {scrubbed:?}");
+        };
+        let kept: Vec<_> = trace.data.keys().map(String::as_str).collect();
+        assert_eq!(kept, ["method", "request_id", "route"]);
+        let Some(Context::Other(fields)) = scrubbed.contexts.get("Rust Tracing Fields") else {
+            panic!("tracing fields missing: {scrubbed:?}");
+        };
+        let kept: Vec<_> = fields.keys().map(String::as_str).collect();
+        assert_eq!(kept, ["error"]);
+        assert_eq!(scrubbed.contexts.len(), 2);
+        let tags: Vec<_> = scrubbed.tags.keys().map(String::as_str).collect();
+        assert_eq!(tags, ["route"]);
+        assert!(scrubbed.request.is_none());
         assert!(scrubbed.user.is_none());
-        for kept in ["/api/projects/{key}", "abc-123", "500"] {
-            assert!(text.contains(kept), "{kept} missing from {text}");
-        }
+        assert!(scrubbed.extra.is_empty());
+        assert!(scrubbed.breadcrumbs.values.is_empty());
     }
 }
