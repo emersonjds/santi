@@ -13,6 +13,7 @@ pub struct UserWithHash {
     pub display_name: String,
     pub theme: Theme,
     pub time_zone: Option<String>,
+    pub tour_seen_at: Option<DateTime<Utc>>,
     pub password_hash: String,
 }
 
@@ -25,7 +26,7 @@ pub async fn insert_user(
     sqlx::query_as!(
         User,
         r#"INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, $2, $3)
-           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone"#,
+           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at"#,
         email,
         display_name,
         password_hash
@@ -40,7 +41,7 @@ pub async fn find_user_by_email(
 ) -> Result<Option<UserWithHash>, sqlx::Error> {
     sqlx::query_as!(
         UserWithHash,
-        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone, password_hash
+        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at, password_hash
            FROM app_user WHERE email = $1 AND deleted_at IS NULL"#,
         email
     )
@@ -51,7 +52,7 @@ pub async fn find_user_by_email(
 pub async fn find_user(conn: &mut PgConnection, user_id: i64) -> Result<User, sqlx::Error> {
     sqlx::query_as!(
         User,
-        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone
+        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at
            FROM app_user WHERE id = $1"#,
         user_id
     )
@@ -59,26 +60,30 @@ pub async fn find_user(conn: &mut PgConnection, user_id: i64) -> Result<User, sq
     .await
 }
 
-/// `None` leaves a field as it is; `Some(None)` clears the zone. An erased user gets `Ok(None)`.
+/// `None` leaves a field as it is; `Some(None)` clears the zone; `tour_seen` stamps only once.
+/// An erased user gets `Ok(None)`.
 pub async fn update_user(
     conn: &mut PgConnection,
     user_id: i64,
     display_name: Option<&str>,
     theme: Option<Theme>,
     time_zone: Option<Option<&str>>,
+    tour_seen: bool,
 ) -> Result<Option<User>, sqlx::Error> {
     sqlx::query_as!(
         User,
         r#"UPDATE app_user
            SET display_name = COALESCE($2, display_name), theme = COALESCE($3, theme),
-               time_zone = CASE WHEN $4 THEN $5 ELSE time_zone END
+               time_zone = CASE WHEN $4 THEN $5 ELSE time_zone END,
+               tour_seen_at = CASE WHEN $6 THEN COALESCE(tour_seen_at, now()) ELSE tour_seen_at END
            WHERE id = $1 AND deleted_at IS NULL
-           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone"#,
+           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at"#,
         user_id,
         display_name,
         theme as Option<Theme>,
         time_zone.is_some(),
-        time_zone.flatten()
+        time_zone.flatten(),
+        tour_seen
     )
     .fetch_optional(&mut *conn)
     .await

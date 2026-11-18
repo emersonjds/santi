@@ -312,6 +312,8 @@ async fn patching_me_names_the_invalid_field(pool: PgPool) {
         (json!({ "theme": 5 }), "theme"),
         (json!({ "theme": true }), "theme"),
         (json!({ "time_zone": "Pacific/Auck\u{0}land" }), "time_zone"),
+        (json!({ "tour_seen": false }), "tour_seen"),
+        (json!({ "tour_seen": "yes" }), "tour_seen"),
     ] {
         let (status, problem) = app.patch("/api/me", body).await;
 
@@ -337,6 +339,74 @@ async fn null_clears_the_zone_and_an_empty_patch_changes_nothing(pool: PgPool) {
     assert_eq!(cleared["theme"], "light");
     assert_eq!(cleared["display_name"], unchanged["display_name"]);
     assert!(cleared["time_zone"].is_null());
+}
+
+/// SAN-230: the welcome tour opens once, until the account marks it seen.
+#[sqlx::test]
+async fn marking_the_tour_seen_keeps_the_first_time(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+    let (_, fresh) = app.get("/api/me").await;
+
+    let (status, first) = app.patch("/api/me", json!({ "tour_seen": true })).await;
+    let (_, again) = app
+        .patch("/api/me", json!({ "tour_seen": true, "theme": "dark" }))
+        .await;
+    let (_, export) = app.get("/api/me/export").await;
+
+    assert!(fresh["tour_seen_at"].is_null(), "{fresh}");
+    assert_eq!(status, StatusCode::OK);
+    assert!(first["tour_seen_at"].is_string(), "{first}");
+    assert_eq!(again["tour_seen_at"], first["tour_seen_at"]);
+    assert_eq!(again["theme"], "dark");
+    assert_eq!(export["user"]["tour_seen_at"], first["tour_seen_at"]);
+}
+
+/// SAN-230 A5: accounts that exist before the tour ships never get it automatically.
+#[sqlx::test(migrations = false)]
+async fn migration_0031_marks_existing_accounts_as_having_seen_the_tour(pool: PgPool) {
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("migrations");
+    let mut files: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .collect();
+    files.sort();
+    let run = |path: &std::path::PathBuf| std::fs::read_to_string(path).unwrap();
+    let (before, after): (Vec<_>, Vec<_>) = files
+        .iter()
+        .partition(|path| path.file_name().unwrap().to_str().unwrap() < "0031");
+    for file in before {
+        sqlx::raw_sql(sqlx::AssertSqlSafe(run(file)))
+            .execute(&pool)
+            .await
+            .unwrap();
+    }
+    let add = |email: &'static str| {
+        sqlx::query(
+            "INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, 'A', 'x')",
+        )
+        .bind(email)
+        .execute(&pool)
+    };
+    add("old@example.com").await.unwrap();
+
+    sqlx::raw_sql(sqlx::AssertSqlSafe(run(after[0])))
+        .execute(&pool)
+        .await
+        .unwrap();
+    add("new@example.com").await.unwrap();
+
+    let seen: Vec<(String, bool)> =
+        sqlx::query_as("SELECT email, tour_seen_at IS NOT NULL FROM app_user ORDER BY id")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        seen,
+        [
+            ("old@example.com".to_string(), true),
+            ("new@example.com".to_string(), false)
+        ]
+    );
 }
 
 #[sqlx::test]

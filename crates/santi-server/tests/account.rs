@@ -319,6 +319,7 @@ async fn a_rename_racing_the_erase_cannot_restore_the_name(pool: PgPool) {
         display_name: Some("Ana Lima".into()),
         theme: Some(Theme::Dark),
         time_zone: Some(Some("Pacific/Auckland".into())),
+        tour_seen: Some(true),
     };
     let result = service::update_me(&pool, &caller, rename).await;
 

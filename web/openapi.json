@@ -431,7 +431,7 @@
             }
           },
           "422": {
-            "description": "Blank or over 100 characters (`display_name`), unknown theme (`theme`) or a zone outside the IANA database (`time_zone`)",
+            "description": "Blank or over 100 characters (`display_name`), unknown theme (`theme`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9695,6 +9695,13 @@
               "null"
             ],
             "description": "IANA name, e.g. `Pacific/Auckland`."
+          },
+          "tour_seen": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Only `true`: stamps `tour_seen_at` the first time and keeps it afterwards."
           }
         },
         "additionalProperties": false
@@ -9776,6 +9783,14 @@
               "null"
             ],
             "description": "IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone."
+          },
+          "tour_seen_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the account first closed the welcome tour; `null` opens it once."
           }
         }
       },

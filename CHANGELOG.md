@@ -23,6 +23,7 @@ UI moves to its own repository.
 
 ### Upgrade notes
 
+- Migration `0031_tour_seen`; API: `User.tour_seen_at`, `PATCH /api/me` accepts `tour_seen: true`.
 - API: `SprintFound.closed` (import preview) is replaced by `state` (`future`, `active` or `closed`), and `SprintAction` gains `active`.
 - Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
 ### Changed
