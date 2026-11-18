@@ -26,6 +26,7 @@ pub const MAX_ISSUES: usize = 50_000;
 pub const MAX_STATUSES: usize = 500;
 pub const MAX_SPRINTS: usize = 2_000;
 pub const MAX_COMMENTS: usize = 200_000;
+pub const MAX_PREVIOUS_KEYS: usize = 100;
 
 pub const NOT_RESTORED: &str = "Attachments, notifications and issue history are not in an export \
 and were not restored; closed sprints report their issues as they are now.";
@@ -50,6 +51,21 @@ pub fn check(export: &mut ProjectExport) -> Result<String, AppError> {
     } = export;
     let key = check_project_key(&project.key)?;
     project.name = check_project_name(&project.name)?;
+    project.previous_keys = project
+        .previous_keys
+        .iter()
+        .map(|previous| check_project_key(previous))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut distinct = project.previous_keys.clone();
+    distinct.push(key.clone());
+    distinct.sort();
+    distinct.dedup();
+    if distinct.len() != project.previous_keys.len() + 1 {
+        return Err(AppError::invalid(
+            "previous_keys",
+            "distinct keys, none the project's key",
+        ));
+    }
     let statuses: usize = board
         .columns
         .iter()
@@ -305,6 +321,23 @@ fn at(field: &str) -> impl Fn(AppError) -> AppError {
     }
 }
 
+/// SAN-225: keeps the newest `MAX_PREVIOUS_KEYS` previous keys, newest first, and reports the
+/// rest.
+pub fn keep_newest_previous_keys(export: &mut ProjectExport) -> Vec<RestoreProblem> {
+    let project = &mut export.project;
+    if project.previous_keys.len() <= MAX_PREVIOUS_KEYS {
+        return Vec::new();
+    }
+    let skipped = project.previous_keys.split_off(MAX_PREVIOUS_KEYS);
+    vec![RestoreProblem {
+        issue_key: project.key.clone(),
+        message: format!(
+            "Kept the newest {MAX_PREVIOUS_KEYS} previous keys; {} were not restored.",
+            skipped.join(", ")
+        ),
+    }]
+}
+
 pub fn exists(key: &str) -> AppError {
     AppError::conflict(
         "project-exists",
@@ -478,6 +511,37 @@ mod tests {
         let mut many = export(file());
         many.comments = vec![many.comments[0].clone(); MAX_COMMENTS + 1];
         assert_eq!(field(check(&mut many).unwrap_err()), "comments");
+    }
+
+    #[test]
+    fn previous_keys_are_valid_distinct_and_not_the_key() {
+        let mut value = file();
+        value["project"]["previous_keys"] = json!(["baixa", "OLD"]);
+        let mut restored = export(value);
+        check(&mut restored).unwrap();
+        assert_eq!(restored.project.previous_keys, ["BAIXA", "OLD"]);
+        for bad in [json!(["1X"]), json!(["OLD", "OLD"]), json!(["SHOP"])] {
+            assert_ne!(refused(|value| value["project"]["previous_keys"] = bad), "");
+        }
+    }
+
+    #[test]
+    fn restore_keeps_the_newest_100_previous_keys_and_reports_the_rest() {
+        let mut value = file();
+        let many: Vec<String> = (0..102).map(|n| format!("K{n}")).collect();
+        value["project"]["previous_keys"] = json!(many);
+        let mut restored = export(value);
+        check(&mut restored).unwrap();
+
+        let problems = keep_newest_previous_keys(&mut restored);
+
+        assert_eq!(restored.project.previous_keys, many[..100]);
+        assert_eq!(problems.len(), 1);
+        assert_eq!(
+            problems[0].message,
+            "Kept the newest 100 previous keys; K100, K101 were not restored."
+        );
+        assert!(keep_newest_previous_keys(&mut restored).is_empty());
     }
 
     #[test]

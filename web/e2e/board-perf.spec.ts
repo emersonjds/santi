@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { type Page, expect, test } from '@playwright/test'
+import { type Page, expect, test } from './fixtures'
 
 // D39: INP < 100 ms. Event Timing reports interactions of 16 ms or more; none means faster.
 // Shared CI runners are 2-4x slower than a laptop; the D39 100 ms budget holds locally.

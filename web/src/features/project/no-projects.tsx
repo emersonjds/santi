@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { FolderKanban, Plus } from 'lucide-react'
+import { openTour } from '@/shared/lib/tour'
 import { Button } from '@/shared/ui/button'
 import { SampleProjectButton } from './sample-project-button'
 
@@ -19,6 +20,9 @@ export const NoProjects = () => (
       </Button>
       <SampleProjectButton />
     </div>
+    <Button variant='link' className='h-11' onClick={openTour}>
+      Take the tour
+    </Button>
   </div>
 )
 

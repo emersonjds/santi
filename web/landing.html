@@ -331,7 +331,7 @@
             </h2>
             <p class="section-lead">
               Connect an AI assistant over MCP, hand it an API token, and it can
-              create issues, move them, plan a sprint and comment — through 36
+              create issues, move them, plan a sprint and comment — through 38
               tools that act with exactly your permissions, nothing more.
             </p>
             <ol class="checks">
@@ -350,14 +350,14 @@
             <pre
               class="terminal mt-4"
               aria-label="Example santi commands"
-            ><code><span class="prompt">$</span> santi login --url http://localhost:8080
-<span class="prompt">$</span> santi issues create WEB --summary "Fix login" --type bug
-<span class="prompt">$</span> santi issues move WEB-12 --status "In Progress"
-<span class="prompt">$</span> santi sprints start WEB 3
+            ><code><span class="line" style="--n: 41"><span class="prompt">$</span> santi login --url http://localhost:8080</span>
+<span class="line" style="--n: 58"><span class="prompt">$</span> santi issues create WEB --summary "Fix login" --type bug</span>
+<span class="line" style="--n: 49"><span class="prompt">$</span> santi issues move WEB-12 --status "In Progress"</span>
+<span class="line" style="--n: 27"><span class="prompt">$</span> santi sprints start WEB 3</span>
 
 <span class="comment"># give an agent your boards</span>
-<span class="prompt">$</span> claude mcp add santi --env SANTI_URL=http://localhost:8080 \
-    --env SANTI_TOKEN=santi_… -- santi mcp</code></pre>
+<span class="line" style="--n: 62"><span class="prompt">$</span> claude mcp add santi --env SANTI_URL=http://localhost:8080 \</span>
+<span class="line" style="--n: 42">    --env SANTI_TOKEN=santi_… -- santi mcp</span></code></pre>
             <p class="mt-6">
               <a
                 class="link"
@@ -484,9 +484,9 @@
             <pre
               class="terminal rounded-t-none"
               aria-label="Commands to run santi with Docker"
-            ><code><span class="prompt">$</span> git clone https://github.com/emersonjds/santi.git
-<span class="prompt">$</span> cd santi
-<span class="prompt">$</span> docker compose up -d
+            ><code><span class="line" style="--n: 51"><span class="prompt">$</span> git clone https://github.com/emersonjds/santi.git</span>
+<span class="line" style="--n: 10"><span class="prompt">$</span> cd santi</span>
+<span class="line" style="--n: 22"><span class="prompt">$</span> docker compose up -d</span>
 <span class="comment"># open http://localhost:8080</span></code></pre>
           </div>
         </div>
@@ -704,7 +704,7 @@
           <details>
             <summary>Can AI agents work with it?</summary>
             <p>
-              Yes. <code>santi mcp</code> is an MCP server with 36 tools
+              Yes. <code>santi mcp</code> is an MCP server with 38 tools
               covering projects, boards, backlog, issues, comments and sprints.
               An agent acts with the API token you give it and sees exactly what
               that token's user sees.

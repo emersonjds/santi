@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT p.id AS project_id, m.role AS \"role: MemberRole\", p.trashed_at IS NOT NULL AS \"trashed!\"\n           FROM project p JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.key = $1",
+  "query": "SELECT p.id AS project_id, m.role AS \"role: MemberRole\", p.trashed_at IS NOT NULL AS \"trashed!\"\n           FROM project p JOIN member m ON m.project_id = p.id AND m.user_id = $2\n           WHERE p.id = resolve_project_key($1)",
   "describe": {
     "columns": [
       {
@@ -44,5 +44,5 @@
       null
     ]
   },
-  "hash": "3c2a2e3b9859f0e71d631ea05e082c54e752325a607464f0f7ab50ddcfd7bf6a"
+  "hash": "ad9e33607c5094124f8f7b262d1e7536c3e552a259be0d378a2628d08c50cd13"
 }

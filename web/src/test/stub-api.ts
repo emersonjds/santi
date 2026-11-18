@@ -141,6 +141,7 @@ export const ALICE = {
   display_name: 'Alice',
   theme: 'system',
   time_zone: null,
+  tour_seen_at: '2026-11-01T12:00:00Z',
 } satisfies User
 
 export const WEB = {
@@ -149,6 +150,7 @@ export const WEB = {
   name: 'Website',
   board_type: 'scrum',
   role: 'admin',
+  previous_keys: [],
 } as const
 
 export const OPS = {
@@ -157,6 +159,7 @@ export const OPS = {
   name: 'Operations',
   board_type: 'kanban',
   role: 'member',
+  previous_keys: [],
 } as const
 
 /** WEB and OPS as the home lists them: WEB starred, two open issues assigned to Alice in OPS. */

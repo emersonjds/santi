@@ -743,6 +743,7 @@ describe('uploading attachments', () => {
     queryClient.setQueryData(projectQuery('WEB').queryKey, {
       ...WEB,
       state: 'archived',
+      previous_keys: [],
     })
     await expect
       .element(screen.getByText('This project is archived and read-only.'))

@@ -59,7 +59,7 @@ export default [
   {
     name: 'initial JS, /login',
     path: firstVisit(split('login.tsx')),
-    limit: '161 KB',
+    limit: '127 KB',
     gzip: true,
   },
   {
@@ -142,6 +142,16 @@ export default [
       split('_authenticated/p/$key/issues/$number.tsx')
     ),
     limit: '150 KB',
+    gzip: true,
+  },
+  {
+    name: 'welcome tour chunk (home)',
+    path: lazyChunk(
+      'src/widgets/app-shell/welcome-tour.tsx',
+      SHELL,
+      split('_authenticated/index.tsx')
+    ),
+    limit: '19 KB',
     gzip: true,
   },
   {

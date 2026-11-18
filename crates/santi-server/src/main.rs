@@ -4,11 +4,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     let json = std::env::var("SANTI_LOG_FORMAT").as_deref() != Ok("pretty");
+    // SAN-227
+    let sentry = santi_server::observability::sentry_options(|name| std::env::var(name).ok())
+        .map_err(|error| format!("SANTI_SENTRY_DSN: {error}"))?;
     tracing::subscriber::set_global_default(santi_server::observability::subscriber(
         filter,
         json,
         std::io::stdout,
+        sentry.as_ref(),
     ))?;
+    let _sentry = sentry.map(sentry::init);
     let database_url = std::env::var("DATABASE_URL")?;
     let address = std::env::var("SANTI_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".into());
     let web_dir = std::env::var("SANTI_WEB_DIR").unwrap_or_else(|_| "web/dist".into());
@@ -77,6 +82,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let listener = tokio::net::TcpListener::bind(address).await?;
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     axum::serve(
         listener,
         santi_server::app(
@@ -96,6 +102,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .into_make_service_with_connect_info::<std::net::SocketAddr>(),
     )
+    // SAN-227: returning drops the Sentry guard, which flushes pending events.
+    .with_graceful_shutdown(async move {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = terminate.recv() => {}
+        }
+    })
     .await?;
     Ok(())
 }

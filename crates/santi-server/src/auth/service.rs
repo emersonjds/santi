@@ -67,6 +67,7 @@ pub async fn login(
         display_name: user.display_name,
         theme: user.theme,
         time_zone: user.time_zone,
+        tour_seen_at: user.tour_seen_at,
     };
     Ok((user, session))
 }
@@ -98,6 +99,9 @@ pub async fn update_me(
         Some(None) => Some(None),
         None => None,
     };
+    if input.tour_seen == Some(false) {
+        return Err(AppError::invalid("tour_seen", "can only be true"));
+    }
     let mut conn = pool.acquire().await?;
     repo::update_user(
         &mut conn,
@@ -105,6 +109,7 @@ pub async fn update_me(
         display_name.as_deref(),
         input.theme,
         time_zone.as_ref().map(Option::as_deref),
+        input.tour_seen.is_some(),
     )
     .await?
     .ok_or(AppError::Unauthorized)

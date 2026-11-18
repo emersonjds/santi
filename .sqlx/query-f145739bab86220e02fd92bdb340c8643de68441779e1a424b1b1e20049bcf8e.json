@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT i.id, p.archived_at IS NOT NULL AS \"archived!\"\n           FROM issue i\n           JOIN project p ON p.id = i.project_id AND p.trashed_at IS NULL\n           JOIN member m ON m.project_id = p.id AND m.user_id = $1\n           WHERE p.key = $2 AND i.number = $3",
+  "query": "SELECT i.id, p.archived_at IS NOT NULL AS \"archived!\"\n           FROM issue i\n           JOIN project p ON p.id = i.project_id AND p.trashed_at IS NULL\n           JOIN member m ON m.project_id = p.id AND m.user_id = $1\n           WHERE p.id = resolve_project_key($2) AND i.number = $3",
   "describe": {
     "columns": [
       {
@@ -33,5 +33,5 @@
       null
     ]
   },
-  "hash": "952ff4de19b31e8d80d9d32408949817f330d437f54f3b6abf01b17ae7b53964"
+  "hash": "f145739bab86220e02fd92bdb340c8643de68441779e1a424b1b1e20049bcf8e"
 }

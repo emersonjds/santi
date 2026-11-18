@@ -77,6 +77,20 @@ pub struct Project {
     pub trashed_by: Option<String>,
     /// When a trashed project is deleted for good: 60 days after `trashed_at` (OR-58).
     pub purge_at: Option<DateTime<Utc>>,
+    /// Keys the project had before, newest first; they still resolve to it (OR-38). Exports
+    /// written before SAN-225 lack it.
+    #[serde(default)]
+    #[schema(required = true)]
+    pub previous_keys: Vec<String>,
+}
+
+/// Absent fields stay as they are.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateProject {
+    pub name: Option<String>,
+    /// The new key; the current one becomes a previous key.
+    pub key: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]

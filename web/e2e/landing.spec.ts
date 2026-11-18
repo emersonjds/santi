@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test'
+import { type Page, expect, test } from './fixtures'
 
 const PASSWORD = 'correct horse battery'
 const HEADLINE = 'Agile planning that keeps up with your team.'
@@ -123,7 +123,49 @@ test('the nav opens the AI section with a sample conversation and the MCP setup 
   ).toHaveCount(0)
 
   await page.getByText('Can AI agents work with it?').click()
-  await expect(page.getByText(/an MCP server with 36 tools/)).toBeVisible()
+  await expect(page.getByText(/an MCP server with 38 tools/)).toBeVisible()
+})
+
+test.describe('with reduced motion', () => {
+  test.use({ reducedMotion: 'reduce' })
+
+  test('the terminals show their full text without typing and Copy copies the whole command', async ({
+    page,
+  }) => {
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.goto('/#self-host')
+
+    const selfHost = page.getByLabel('Commands to run santi with Docker')
+    const cli = page.getByLabel('Example santi commands')
+    await expect(selfHost.locator('.line')).toHaveCount(3)
+    await expect(cli.locator('.line')).toHaveCount(6)
+    expect(await selfHost.innerText()).toBe(
+      '$ git clone https://github.com/emersonjds/santi.git\n$ cd santi\n$ docker compose up -d\n# open http://localhost:8080'
+    )
+    expect(await cli.innerText()).toBe(
+      '$ santi login --url http://localhost:8080\n$ santi issues create WEB --summary "Fix login" --type bug\n$ santi issues move WEB-12 --status "In Progress"\n$ santi sprints start WEB 3\n\n# give an agent your boards\n$ claude mcp add santi --env SANTI_URL=http://localhost:8080 \\\n    --env SANTI_TOKEN=santi_… -- santi mcp'
+    )
+    const animations = await page
+      .locator('.terminal, .terminal .line, .terminal .comment')
+      .evaluateAll((elements) =>
+        elements.flatMap((element) => [
+          getComputedStyle(element).animationName,
+          getComputedStyle(element, '::after').animationName,
+        ])
+      )
+    expect(new Set(animations)).toEqual(new Set(['none']))
+
+    await page
+      .locator('#self-host')
+      .getByRole('button', { name: 'Copy' })
+      .click()
+    await expect(
+      page.locator('#self-host').getByRole('button', { name: 'Copied' })
+    ).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+      'git clone https://github.com/emersonjds/santi.git && cd santi && docker compose up -d'
+    )
+  })
 })
 
 test('signed in, / is the app and /about is still the landing page', async ({
