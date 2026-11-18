@@ -203,6 +203,24 @@
   .link {
     @apply font-medium text-primary underline underline-offset-4;
   }
+  .clients {
+    @apply mt-6 flex flex-wrap gap-2 text-sm font-medium;
+  }
+  .clients li {
+    @apply inline-flex h-11 items-center gap-2 rounded-full border bg-background px-4;
+  }
+  .clients svg {
+    @apply size-5 shrink-0 fill-current;
+  }
+  .segmented {
+    @apply inline-grid grid-cols-2 self-start rounded-lg border bg-muted p-1 text-sm font-medium;
+  }
+  .segmented button {
+    @apply h-11 cursor-pointer px-4 text-muted-foreground hover:text-foreground;
+  }
+  .segmented [aria-pressed='true'] {
+    @apply bg-background text-foreground shadow-xs;
+  }
 
   .faq {
     @apply mx-auto mt-12 max-w-3xl divide-y border-y;
@@ -250,12 +268,6 @@
   }
   .footer-bottom a {
     @apply font-medium text-primary underline-offset-4 hover:underline;
-  }
-  .footer-made {
-    @apply inline-flex items-center gap-1.5 font-medium text-foreground;
-  }
-  .footer-heart {
-    @apply size-4 fill-primary;
   }
   /* Privacy and terms: one readable column of prose. */
   .legal {
@@ -314,81 +326,93 @@
   }
 }
 
-/* Terminal typing (SAN-234): a view timeline flips --seen as a terminal enters the viewport and the style query starts each line's timed typing. */
+/* Terminal typing (SAN-234, looping since SAN-244): a view timeline holds --seen at 1 while a terminal is on screen; the style query then runs a --t clock from 0 to 1 every --cycle seconds, and each line derives its typed share from the clock and its --at start. */
 @property --seen {
   syntax: '<integer>';
   inherits: true;
   initial-value: 0;
 }
+@property --t {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
 @keyframes seen {
+  from,
   to {
     --seen: 1;
   }
 }
-@keyframes type {
+@keyframes clock {
   to {
-    left: calc(100% + 2ch);
-  }
-}
-@keyframes caret {
-  from {
-    border-color: #b8abf1;
-  }
-  50% {
-    border-color: transparent;
-  }
-}
-@keyframes fade-in {
-  from {
-    opacity: 0;
+    --t: 1;
   }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
+  @supports (animation-timeline: view()) and (width: round(1px, 1px)) {
     .terminal {
-      animation: seen linear both;
+      --cycle: 10;
+      animation: seen linear;
       animation-timeline: view();
-      animation-range: entry 0% entry 10%;
+      animation-range: cover;
     }
     .terminal .line {
       position: relative;
       display: inline-block;
     }
     .terminal code > * {
-      --at: 200ms;
+      --at: 0.2;
     }
     .terminal code > :nth-child(2) {
-      --at: 900ms;
+      --at: 0.9;
     }
     .terminal code > :nth-child(3) {
-      --at: 1600ms;
+      --at: 1.6;
     }
     .terminal code > :nth-child(4) {
-      --at: 2300ms;
+      --at: 2.3;
     }
     .terminal code > :nth-child(5) {
-      --at: 3000ms;
+      --at: 3;
     }
     .terminal code > :nth-child(6) {
-      --at: 3700ms;
+      --at: 3.7;
     }
     .terminal code > :nth-child(7) {
-      --at: 4400ms;
+      --at: 4.4;
     }
     @container style(--seen: 1) {
+      .terminal code {
+        animation: clock calc(var(--cycle) * 1s) linear infinite;
+      }
+      .terminal code > * {
+        --now: calc(var(--t) * var(--cycle));
+        --typed: clamp(0, (var(--now) - var(--at)) / 0.6, 1);
+        --shown: clamp(0, (var(--cycle) - 0.5 - var(--now)) * 100, 1);
+      }
       .terminal .line::after {
         position: absolute;
         inset: 0;
-        border-left: 2px solid transparent;
+        left: calc(
+          round(down, var(--typed) * var(--n), 1) / var(--n) * var(--shown) *
+            (100% + 2ch)
+        );
+        border-left: 2px solid
+          rgb(
+            184 171 241 /
+              calc(
+                clamp(0, var(--typed) * 1000, 1) *
+                  clamp(0, (1 - var(--typed)) * 1000, 1)
+              )
+          );
         background: #172033;
         content: '';
-        animation:
-          type 0.6s steps(var(--n)) var(--at) both,
-          caret 0.3s step-end var(--at) 2;
       }
       .terminal .comment {
-        animation: fade-in 0.4s var(--at) both;
+        opacity: calc(
+          clamp(0, (var(--now) - var(--at)) / 0.4, 1) * var(--shown)
+        );
       }
     }
   }
