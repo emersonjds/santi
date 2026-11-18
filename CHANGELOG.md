@@ -15,6 +15,7 @@ UI moves to its own repository.
 - The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
 - `docs/ops.md`: runbook for the hosted instance (what is monitored, steps on an alert, rollback, secret rotation).
 - `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
+- Landing page section on AI agents: connect Claude, ChatGPT and Codex, GitHub Copilot, Cursor or any MCP client and manage cards by conversation (36 MCP tools).
 ### Changed
 
 - Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
