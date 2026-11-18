@@ -17,6 +17,9 @@ UI moves to its own repository.
 ### Fixed
 
 - Board filters by parent accept an issue key with the project's previous key.
+### Changed
+
+- The card actions menu opens about four times faster on large boards.
 
 ### Upgrade notes
 
