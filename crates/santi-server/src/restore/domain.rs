@@ -413,7 +413,7 @@ pub fn key_number(key: &str) -> i64 {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use serde_json::{Value, json};
 
@@ -437,7 +437,7 @@ mod tests {
         })
     }
 
-    fn file() -> Value {
+    pub(crate) fn file() -> Value {
         json!({
             "project": {
                 "id": 7, "key": "SHOP", "name": "Shop", "board_type": "scrum", "role": "admin",

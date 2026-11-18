@@ -54,12 +54,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let legal = santi_server::Legal::from_web_dir(legal_pages, std::path::Path::new(&web_dir));
     // D53
     let storage_config = santi_server::storage::StorageConfig::from_env()?;
-    for warning in
-        storage_config.startup_warnings(std::env::var_os("RAILWAY_ENVIRONMENT").is_some())
-    {
+    // SAN-205
+    let backup_config =
+        santi_server::backups::BackupConfig::from_vars(|name| std::env::var(name).ok())?;
+    for warning in storage_config.startup_warnings(
+        std::env::var_os("RAILWAY_ENVIRONMENT").is_some(),
+        backup_config.is_some(),
+    ) {
         tracing::warn!("{warning}");
     }
     let storage = santi_server::storage::Storage::new(&storage_config)?;
+    if let Some(config) = backup_config {
+        let (pool, storage) = (pool.clone(), storage.clone());
+        tokio::spawn(async move {
+            let mut every_5_minutes = tokio::time::interval(std::time::Duration::from_secs(300));
+            let mut last_failure: Option<std::time::Instant> = None;
+            loop {
+                every_5_minutes.tick().await;
+                if last_failure
+                    .is_some_and(|at| at.elapsed() < std::time::Duration::from_secs(3600))
+                {
+                    continue;
+                }
+                let now = chrono::Utc::now();
+                match santi_server::backups::run_if_due(&pool, &storage, &config, now).await {
+                    Ok(Some(report)) => tracing::info!(
+                        run = %report.run,
+                        projects = report.projects,
+                        duration_ms = report.duration.as_millis() as u64,
+                        "backup done"
+                    ),
+                    Ok(None) => {}
+                    Err(error) => {
+                        last_failure = Some(std::time::Instant::now());
+                        tracing::error!(?error, "backup failed; retrying in an hour");
+                    }
+                }
+            }
+        });
+    }
     // D45 and OR-58: purge.
     let purge_pool = pool.clone();
     let purge_storage = storage.clone();
