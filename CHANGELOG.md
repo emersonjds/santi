@@ -13,6 +13,16 @@ UI moves to its own repository.
 ### Changed
 
 - Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
+### Fixed
+
+- Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
+### Changed
+
+- Railway deploy settings moved from `railway.toml` to `.railway/railway.ts` (Railway infrastructure as code); Railway stops reading `railway.toml` on 2026-12-01.
+
+### Upgrade notes
+
+- Deploying your own santi on Railway: `railway.toml` is gone. Set the Dockerfile builder and the `/health` check in the service settings, or adapt `.railway/railway.ts` and run `railway config apply` (see docs/deploy/railway.md).
 ### Security
 
 - Dependencies updated for new advisories: rmcp 3.11 (MCP HTTP transport limits and OAuth SSRF check), ctutils 0.4.8 and zod 4.6.7 (memory exhaustion on oversized collections). chrono, chrono-tz and humantime are flagged unmaintained with no safe release yet and stay under review.
