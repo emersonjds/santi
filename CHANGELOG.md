@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
+
 ### Fixed
 
 - Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
