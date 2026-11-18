@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-18
+
+> Account language preference and the translation core; dates follow the account language.
+
 ### Changed
 
 - Dates follow your account's language (English unless you pick another) instead of the browser's locale.
