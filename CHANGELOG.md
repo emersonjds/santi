@@ -10,6 +10,15 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- Dates follow your account's language (English unless you pick another) instead of the browser's locale.
+
+### Upgrade notes
+
+- Migration `0033_user_language` adds `app_user.language` (default `en`, no table rewrite).
+- API: `User` gains a required `language` (`en`, `es`, `pt-BR`, `pt-PT`, `zh-CN`); `PATCH /api/me` accepts `language` (case-sensitive, 422 on an unknown tag). Account export carries it inside `user`; older files without it still restore.
+
 ## [0.31.0] - 2026-11-18
 
 > Switch a project between Kanban and Scrum without losing sprints or history.

@@ -1,3 +1,5 @@
+import { currentLanguage } from '@/shared/i18n/i18n'
+
 const known = new Map<string, boolean>()
 
 /** The zone, or `undefined` (the browser's) when this browser's ICU lacks it: the server accepts newer tzdb names. */
@@ -14,12 +16,12 @@ export const safeTimeZone = (timeZone?: string) => {
   return known.get(timeZone) ? timeZone : undefined
 }
 
-/** SAN-93: dates in the account's zone; no zone means the browser's. */
+/** SAN-93: dates in the account's zone (no zone means the browser's) and the app's language (D62). */
 export const formatDate = (
   instant: Date | string,
   options: Intl.DateTimeFormatOptions,
   timeZone?: string,
-  locale?: string
+  locale: string = currentLanguage()
 ) =>
   new Intl.DateTimeFormat(locale, {
     ...options,

@@ -66,6 +66,7 @@ pub async fn login(
         email: user.email,
         display_name: user.display_name,
         theme: user.theme,
+        language: user.language,
         time_zone: user.time_zone,
         tour_seen_at: user.tour_seen_at,
     };
@@ -108,6 +109,7 @@ pub async fn update_me(
         user.id,
         display_name.as_deref(),
         input.theme,
+        input.language,
         time_zone.as_ref().map(Option::as_deref),
         input.tour_seen.is_some(),
     )
