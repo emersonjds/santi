@@ -69,7 +69,7 @@ describe('backlog page', () => {
     const backlog = screen.getByRole('region', { name: 'Backlog' })
     const create = backlog.getByRole('button', { name: 'Create sprint' })
     await expect.element(create).toBeVisible()
-    await expect.element(create).toHaveClass('bg-primary')
+    await expect.element(create).toHaveClass('bg-primary-fill')
     expect(create.element().querySelector('svg')).not.toBeNull()
     await expect
       .element(backlog)
