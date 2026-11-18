@@ -28,10 +28,18 @@ const onlyDownward = layers.slice(1).map((layer, index) => ({
 // D62 A5: files whose copy moved to messages.ts; the list grows batch by batch until it covers src/**/*.tsx.
 const translated = [
   'src/pages/account/account-page.tsx',
+  'src/features/account/change-password-form.tsx',
+  'src/features/account/delete-account-button.tsx',
+  'src/features/account/delete-account-dialog.tsx',
+  'src/features/account/export-data-button.tsx',
   'src/features/account/language-control.tsx',
+  'src/features/account/sessions-list.tsx',
   'src/features/account/theme-control.tsx',
   'src/features/account/time-zone-control.tsx',
   'src/features/account/time-zone-picker.tsx',
+  'src/features/api-token/create-token-form.tsx',
+  'src/features/api-token/revoke-token-button.tsx',
+  'src/features/api-token/revoke-token-dialog.tsx',
 ]
 const copyAttribute =
   'JSXAttribute[name.name=/^(aria-label|placeholder|title|alt|label)$/]'

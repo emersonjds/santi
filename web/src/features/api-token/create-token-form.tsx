@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { tokensQuery } from '@/entities/user/api-tokens'
 import { api } from '@/shared/api/client'
+import { useT } from '@/shared/i18n/i18n'
 import { showProblem } from '@/shared/lib/show-problem'
 import { Button } from '@/shared/ui/button'
 import {
@@ -17,15 +18,9 @@ import {
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { RootError } from '@/shared/ui/root-error'
+import { messages } from './messages'
 
 type NewToken = { name: string }
-
-// Mirrors auth/service.rs; the server stays the authority. No zod: it would put /account over its D39 budget.
-const checkName = (name: string) => {
-  const trimmed = name.trim()
-  if (trimmed === '') return 'Enter a name.'
-  return trimmed.length <= 100 || 'Use at most 100 characters.'
-}
 
 const FIELDS = ['name'] as const
 
@@ -36,6 +31,7 @@ const TokenOnce = ({
   token: string
   onDone: () => void
 }) => {
+  const t = useT(messages)
   const [copied, setCopied] = useState(false)
   // Clipboard needs a secure origin; elsewhere the token stays selectable in the field.
   const copy = () =>
@@ -43,7 +39,7 @@ const TokenOnce = ({
 
   return (
     <div className='grid gap-2 rounded-lg border border-primary bg-accent p-3'>
-      <Label htmlFor='new-token'>New token</Label>
+      <Label htmlFor='new-token'>{t('newToken')}</Label>
       <div className='flex gap-2'>
         <Input
           id='new-token'
@@ -54,11 +50,11 @@ const TokenOnce = ({
         />
         <Button type='button' className='h-11' onClick={copy}>
           {copied ? <Check /> : <Copy />}
-          {copied ? 'Copied' : 'Copy token'}
+          {copied ? t('copied') : t('copyToken')}
         </Button>
       </div>
       <p role='status' className='text-sm font-medium'>
-        Copy it now: you will not see it again.
+        {t('copyNow')}
       </p>
       <Button
         type='button'
@@ -66,13 +62,14 @@ const TokenOnce = ({
         className='h-11 justify-self-start md:h-9'
         onClick={onDone}
       >
-        Done
+        {t('done')}
       </Button>
     </div>
   )
 }
 
 export const CreateTokenForm = () => {
+  const t = useT(messages)
   const queryClient = useQueryClient()
   const [created, setCreated] = useState<string | null>(null)
   const form = useForm<NewToken>({
@@ -102,14 +99,21 @@ export const CreateTokenForm = () => {
         <FormField
           control={form.control}
           name='name'
-          rules={{ validate: checkName }}
+          rules={{
+            // Mirrors auth/service.rs; the server stays the authority. No zod: it would put /account over its D39 budget.
+            validate: (name) => {
+              const trimmed = name.trim()
+              if (trimmed === '') return t('enterName')
+              return trimmed.length <= 100 || t('nameTooLong')
+            },
+          }}
           render={({ field }) => (
             <FormItem>
-              <FormLabel className='sr-only'>Token name</FormLabel>
+              <FormLabel className='sr-only'>{t('tokenName')}</FormLabel>
               <FormControl>
                 <Input
                   autoComplete='off'
-                  placeholder='Token name, like laptop or CI'
+                  placeholder={t('tokenNameHint')}
                   className='h-11 text-base md:text-sm'
                   {...field}
                 />
@@ -120,7 +124,7 @@ export const CreateTokenForm = () => {
         />
         <Button className='h-11' disabled={form.formState.isSubmitting}>
           {form.formState.isSubmitting && <Loader2 className='animate-spin' />}
-          Create token
+          {t('createToken')}
         </Button>
         <div className='sm:col-span-2'>
           <RootError message={form.formState.errors.root?.message} />
