@@ -141,6 +141,7 @@ export const ALICE = {
   display_name: 'Alice',
   theme: 'system',
   time_zone: null,
+  tour_seen_at: '2026-11-01T12:00:00Z',
 } satisfies User
 
 export const WEB = {

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('a saved theme is on the page before the body is parsed', async ({
   page,

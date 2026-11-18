@@ -1,8 +1,16 @@
+import { useRef } from 'react'
 import { Link, useRouteContext } from '@tanstack/react-router'
-import { Keyboard, LogOut, MessageSquare, UserRound } from 'lucide-react'
+import {
+  Compass,
+  Keyboard,
+  LogOut,
+  MessageSquare,
+  UserRound,
+} from 'lucide-react'
 import { useSignOut } from '@/features/auth/use-sign-out'
 import { fullName } from '@/shared/lib/initials'
 import { FEEDBACK_URL } from '@/shared/lib/links'
+import { openTour } from '@/shared/lib/tour'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,13 +24,22 @@ import { AccountButton } from './account-button'
 export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
   const { user } = useRouteContext({ from: '/_authenticated' })
   const signOut = useSignOut()
+  const tour = useRef(false)
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <AccountButton />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-60'>
+      <DropdownMenuContent
+        align='end'
+        className='w-60'
+        // The tour opens once the focus is back on the trigger: its opener.
+        onCloseAutoFocus={() => {
+          if (tour.current) openTour()
+          tour.current = false
+        }}
+      >
         <DropdownMenuLabel className='grid font-normal'>
           <span className='truncate font-medium'>
             {fullName(user.display_name)}
@@ -41,6 +58,13 @@ export const AccountMenu = ({ onShortcuts }: { onShortcuts: () => void }) => {
         <DropdownMenuItem className='h-11 md:h-8' onSelect={onShortcuts}>
           <Keyboard />
           Keyboard shortcuts
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className='h-11 md:h-8'
+          onSelect={() => (tour.current = true)}
+        >
+          <Compass />
+          Take the tour
         </DropdownMenuItem>
         <DropdownMenuItem asChild className='h-11 md:h-8'>
           <a href={FEEDBACK_URL} target='_blank' rel='noreferrer'>
