@@ -198,6 +198,7 @@ pub async fn record_sprint_facts(
 
 /// The issues of `keys` that `user_id` can open: a member of their project, found by its live or
 /// a previous key, not trashed.
+/// Locked against a delete until the restore commits, so its links cannot lose an end.
 pub async fn find_link_ends(
     conn: &mut PgConnection,
     user_id: i64,
@@ -215,7 +216,8 @@ pub async fn find_link_ends(
            FROM unnest($2::text[], $3::text[], $4::bigint[]) AS r(key, project_key, number)
            JOIN project p ON p.id = resolve_project_key(r.project_key) AND p.trashed_at IS NULL
            JOIN member m ON m.project_id = p.id AND m.user_id = $1
-           JOIN issue i ON i.project_id = p.id AND i.number = r.number"#,
+           JOIN issue i ON i.project_id = p.id AND i.number = r.number
+           FOR KEY SHARE OF i"#,
         user_id,
         &key[..],
         &project[..],
