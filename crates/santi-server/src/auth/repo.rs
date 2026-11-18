@@ -465,7 +465,7 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     sqlx::query!(
         "UPDATE app_user
          SET email = 'erased:' || id, deleted_at = now(), display_name = 'Deleted user',
-             password_hash = '!', time_zone = NULL, theme = 'system'
+             password_hash = '!', time_zone = NULL, theme = 'system', tour_seen_at = NULL
          WHERE id = $1",
         user_id
     )

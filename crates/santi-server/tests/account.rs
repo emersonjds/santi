@@ -340,15 +340,17 @@ async fn the_address_an_erased_account_gets_cannot_be_squatted(pool: PgPool) {
     .execute(&pool)
     .await
     .unwrap();
-    let preferences = json!({ "theme": "dark", "time_zone": "Pacific/Auckland" });
+    let preferences =
+        json!({ "theme": "dark", "time_zone": "Pacific/Auckland", "tour_seen": true });
     ana.patch("/api/me", preferences).await;
     let (deleted, _, _) = delete_account(&ana, PASSWORD).await;
 
     assert_eq!(refused, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
     assert_eq!(problem["errors"][0]["field"], "email");
     assert_eq!(deleted, StatusCode::NO_CONTENT);
-    let erased: (String, bool, String, Option<String>) = sqlx::query_as(
-        "SELECT email, deleted_at IS NOT NULL, theme::text, time_zone FROM app_user WHERE id = $1",
+    let erased: (String, bool, String, Option<String>, bool) = sqlx::query_as(
+        "SELECT email, deleted_at IS NOT NULL, theme::text, time_zone, tour_seen_at IS NULL
+         FROM app_user WHERE id = $1",
     )
     .bind(ana.user_id)
     .fetch_one(&pool)
@@ -358,6 +360,7 @@ async fn the_address_an_erased_account_gets_cannot_be_squatted(pool: PgPool) {
     assert!(erased.1);
     assert_eq!(erased.2, "system");
     assert_eq!(erased.3, None);
+    assert!(erased.4, "the erase clears the tour stamp");
 }
 
 #[sqlx::test]

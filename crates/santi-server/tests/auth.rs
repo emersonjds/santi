@@ -361,6 +361,16 @@ async fn marking_the_tour_seen_keeps_the_first_time(pool: PgPool) {
     assert_eq!(export["user"]["tour_seen_at"], first["tour_seen_at"]);
 }
 
+#[sqlx::test]
+async fn a_null_tour_seen_changes_nothing(pool: PgPool) {
+    let app = TestApp::signed_in(pool, "ana@example.com").await;
+
+    let (status, me) = app.patch("/api/me", json!({ "tour_seen": null })).await;
+
+    assert_eq!(status, StatusCode::OK, "{me}");
+    assert!(me["tour_seen_at"].is_null(), "{me}");
+}
+
 /// SAN-230 A5: accounts that exist before the tour ships never get it automatically.
 #[sqlx::test(migrations = false)]
 async fn migration_0031_marks_existing_accounts_as_having_seen_the_tour(pool: PgPool) {
