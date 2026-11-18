@@ -10,6 +10,14 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- Exports, backups and restore keep issue links.
+
+### Upgrade notes
+
+- Account export and backups gain `links` per project; older files without it still restore.
+
 ## [0.29.0] - 2026-11-18
 
 > Scheduled backups for self-hosters and a faster card menu on large boards.

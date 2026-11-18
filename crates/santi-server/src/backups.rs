@@ -91,8 +91,9 @@ fn internal(error: impl ToString) -> AppError {
     AppError::Internal(error.to_string())
 }
 
-/// The JSON the restore endpoint accepts, or why it would refuse it. Comments and parents
-/// pointing at issues the export lacks (written while it was read) are dropped first.
+/// The JSON the restore endpoint accepts, or why it would refuse it. Comments, parents and links
+/// pointing at issues of the project the export lacks (written while it was read) are dropped
+/// first.
 pub fn restorable(mut export: ProjectExport, max_bytes: usize) -> Result<Vec<u8>, String> {
     let keys: HashSet<String> = export
         .issues
@@ -110,6 +111,26 @@ pub fn restorable(mut export: ProjectExport, max_bytes: usize) -> Result<Vec<u8>
         {
             issue.parent_key = None;
         }
+    }
+    let project = export.project.key.clone();
+    let in_file = |key: &String| {
+        keys.contains(key)
+            || key
+                .rsplit_once('-')
+                .is_some_and(|(other, _)| other != project)
+    };
+    let links = std::mem::take(&mut export.links);
+    export.links = links
+        .into_iter()
+        .filter(|link| keys.contains(&link.source) && in_file(&link.target))
+        .collect();
+    let over = export
+        .links
+        .len()
+        .saturating_sub(restore::domain::MAX_LINKS);
+    if over > 0 {
+        tracing::warn!(project = %project, over, "backup of project {project} leaves out {over} links past the restore limit");
+        export.links.truncate(restore::domain::MAX_LINKS);
     }
     restore::domain::check(&mut export.clone()).map_err(|error| format!("{error:?}"))?;
     let json = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
@@ -284,6 +305,8 @@ fn gzip(json: &[u8]) -> std::io::Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use santi_types::auth::ExportedLink;
+    use santi_types::links::Relation;
 
     fn vars(pairs: &[(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
         let pairs = pairs.to_vec();
@@ -412,6 +435,16 @@ mod tests {
         let mut gone = export.comments[0].clone();
         gone.issue_key = "SHOP-8".into();
         export.comments.push(gone);
+        let link = |source: &str, target: &str| ExportedLink {
+            source: source.into(),
+            target: target.into(),
+            relation: Relation::Blocks,
+        };
+        export.links = vec![
+            link("SHOP-1", "SHOP-9"),
+            link("SHOP-8", "SHOP-1"),
+            link("SHOP-1", "OPS-3"),
+        ];
 
         let json = restorable(export, usize::MAX).unwrap();
 
@@ -419,6 +452,24 @@ mod tests {
         assert_eq!(written.issues[1].parent_key, None);
         assert_eq!(written.comments.len(), 1);
         assert_eq!(written.comments[0].issue_key, "SHOP-2");
+        assert_eq!(written.links.len(), 1);
+        assert_eq!(written.links[0].target, "OPS-3");
+    }
+
+    #[test]
+    fn links_past_the_restore_cap_are_trimmed_not_fatal() {
+        let mut export = sample();
+        let link = ExportedLink {
+            source: "SHOP-1".into(),
+            target: "SHOP-2".into(),
+            relation: Relation::Relates,
+        };
+        export.links = vec![link; restore::domain::MAX_LINKS + 1];
+
+        let json = restorable(export, usize::MAX).unwrap();
+
+        let written: ProjectExport = serde_json::from_slice(&json).unwrap();
+        assert_eq!(written.links.len(), 500_000);
     }
 
     #[test]

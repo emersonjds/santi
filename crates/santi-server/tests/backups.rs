@@ -91,6 +91,15 @@ async fn a_run_writes_one_restorable_file_per_live_or_archived_project_then_a_ma
         )
         .await;
     assert_eq!(status, StatusCode::CREATED, "{body}");
+    ana.create_issue("BETA", json!({ "summary": "Linked" }))
+        .await;
+    let (status, body) = ana
+        .post(
+            "/api/projects/ALPHA/issues/1/links",
+            json!({ "relation": "blocks", "issue": "BETA-1" }),
+        )
+        .await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
     ana.create_project("GAMMA", "kanban").await;
     let (status, body) = ana.post("/api/projects/GAMMA/archive", json!(null)).await;
     assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
@@ -130,7 +139,7 @@ async fn a_run_writes_one_restorable_file_per_live_or_archived_project_then_a_ma
             "santi_version": env!("CARGO_PKG_VERSION"),
             "projects": [
                 { "key": "ALPHA", "issues": 1, "comments": 1 },
-                { "key": "BETA", "issues": 0, "comments": 0 },
+                { "key": "BETA", "issues": 1, "comments": 0 },
                 { "key": "GAMMA", "issues": 0, "comments": 0 },
             ]
         })
@@ -147,6 +156,10 @@ async fn a_run_writes_one_restorable_file_per_live_or_archived_project_then_a_ma
             .all(|key| modified(key) <= modified(&keys[3]))
     );
     let alpha = decoded(&storage, &keys[0]).await;
+    assert_eq!(
+        alpha["links"],
+        json!([{ "source": "ALPHA-1", "target": "BETA-1", "relation": "blocks" }])
+    );
     let (status, account) = ana.get("/api/me/export").await;
     assert_eq!(status, StatusCode::OK);
     let exported = account["projects"]
@@ -178,6 +191,9 @@ async fn a_run_writes_one_restorable_file_per_live_or_archived_project_then_a_ma
         (&restored["project"]["key"], &restored["issues"]),
         (&json!("ALPHA"), &json!(1))
     );
+    let (status, links) = ana.get("/api/projects/BETA/issues/1/links").await;
+    assert_eq!(status, StatusCode::OK, "{links}");
+    assert_eq!(links[0]["issue"]["key"], "ALPHA-1");
 }
 
 #[sqlx::test]

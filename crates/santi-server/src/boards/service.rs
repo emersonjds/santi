@@ -30,7 +30,7 @@ pub async fn get_settings(pool: &PgPool, member: &Member) -> Result<BoardSetting
 }
 
 /// On the caller's connection: a second one from the pool deadlocks it under load.
-async fn read_settings(
+pub(crate) async fn read_settings(
     conn: &mut PgConnection,
     member: &Member,
 ) -> Result<BoardSettings, AppError> {

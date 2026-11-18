@@ -4,7 +4,7 @@ use santi_types::auth::{
     LegalDocuments, LegalStatus, Login, PasswordResetPreview, ProjectExport, Register,
     ResetPassword, Session, SignedOut, UpdateMe, User,
 };
-use santi_types::issues::{Issue, IssueFilter, PageParams, StatusFilter};
+use santi_types::issues::{Issue, IssueFilter};
 use santi_types::projects::{MemberRole, Project, ProjectState};
 use sqlx::{PgConnection, PgPool};
 
@@ -14,7 +14,7 @@ use crate::Legal;
 use crate::error::{AppError, reject_nul};
 use crate::members::{self, Member};
 use crate::storage::Storage;
-use crate::{attachments, boards, home, issues, projects, sprints};
+use crate::{attachments, boards, home, issues, links, projects, sprints};
 
 /// Creates the user and signs them in; returns the user and the session token.
 pub async fn register(
@@ -184,47 +184,49 @@ pub async fn export_account(pool: &PgPool, user: &CurrentUser) -> Result<Account
     })
 }
 
-/// One project in full, read as `member`: the body `POST /api/projects/restore` reads.
+/// One project in full, read as `member` from one snapshot: the body `POST /api/projects/restore`
+/// reads.
 pub async fn export_project(
     pool: &PgPool,
     member: &Member,
     project: Project,
 ) -> Result<ProjectExport, AppError> {
-    let members = members::service::list_members(pool, member).await?;
-    let board = boards::service::get_settings(pool, member).await?;
-    let sprints = sprints::service::list_sprints(pool, member).await?;
-    let issues = all_issues(pool, member).await?;
-    let mut conn = pool.acquire().await?;
-    let comments = issues::repo::list_project_comments(&mut conn, member.project_id).await?; // after the issues they name
+    let mut tx = pool.begin().await?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        .execute(&mut *tx)
+        .await?;
+    let members = members::repo::list_members(&mut tx, member.project_id).await?;
+    let board = boards::service::read_settings(&mut tx, member).await?;
+    let sprints = sprints::repo::list_sprints(&mut tx, member.board_id).await?;
+    let issues = all_issues(&mut tx, member).await?;
+    let comments = issues::repo::list_project_comments(&mut tx, member.project_id).await?;
+    let links = links::service::export(&mut tx, member).await?;
+    tx.commit().await?;
     Ok(ProjectExport {
         members,
         board,
         sprints,
         issues,
         comments,
+        links,
         project,
     })
 }
 
-async fn all_issues(pool: &PgPool, member: &Member) -> Result<Vec<Issue>, AppError> {
-    let mut issues = Vec::new();
-    let mut cursor = None;
+async fn all_issues(conn: &mut PgConnection, member: &Member) -> Result<Vec<Issue>, AppError> {
+    let query = issues::domain::to_search_query(
+        &member.project_key,
+        &IssueFilter::default(),
+        Vec::new(),
+        Utc::now(),
+    )?;
+    let mut issues: Vec<Issue> = Vec::new();
     loop {
-        let page = PageParams {
-            limit: Some(200),
-            cursor,
-        };
-        let found = issues::service::search_issues(
-            pool,
-            member,
-            IssueFilter::default(),
-            StatusFilter::default(),
-            page,
-        )
-        .await?;
-        issues.extend(found.items);
-        cursor = found.next_cursor;
-        if cursor.is_none() {
+        let after = issues.last().map_or(0, |issue| issue.id);
+        let page = issues::repo::search_issues(conn, member.project_id, &query, after, 200).await?;
+        let done = page.len() < 200;
+        issues.extend(page);
+        if done {
             return Ok(issues);
         }
     }
