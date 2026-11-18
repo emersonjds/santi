@@ -85,6 +85,25 @@ block cross-site writes. Behind a proxy that appends `X-Forwarded-For`, set
 | `SANTI_TRUSTED_PROXIES` | `0` (`1` on Railway) | proxy hops in front of the server; the client address is the `X-Forwarded-For` entry the outermost one appended |
 | `SANTI_LEGAL_PAGES` | on | `off` removes `/privacy`, `/terms` and the sign-up checkboxes that link to them, for instances that publish no legal pages |
 
+### Error reporting (optional)
+
+Off unless `SANTI_SENTRY_DSN` is set; without it the server never contacts Sentry.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SANTI_SENTRY_DSN` | unset | Sentry project DSN; a malformed value stops the server at startup |
+| `SANTI_SENTRY_ENVIRONMENT` | `production` | environment name shown in Sentry |
+| `SANTI_SENTRY_TRACES_SAMPLE_RATE` | `0` | share of requests sent as performance traces, `0` to `1` |
+
+Sent: panics, errors behind a 500 answer, 503 request and statement timeouts, and failures of
+the hourly background purge (the error text may name a project key or storage path). Each report
+carries the error text, the source file and line, the server version, the route template
+(`/api/projects/{key}`), the HTTP method and the request id; no user. Never sent: request bodies,
+cookies, the `Authorization` header, query strings, the raw path, IP addresses, or any other
+tracing field. 4xx answers are never reported. A `RUST_LOG` stricter than `info` drops the
+request span, so no performance traces are sent; error reports keep the route, method and
+request id.
+
 Visitors without a session see the landing page at `/` (also at `/about`); signed-in users get the
 app. Its canonical and social links, `robots.txt` and `sitemap.xml` use the public address set at
 build time with `VITE_SITE_URL` (default `http://localhost:8080`), e.g.
