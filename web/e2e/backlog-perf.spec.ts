@@ -32,6 +32,7 @@ const worstInteraction = async (page: Page, name: string) => {
 test(`INP stays under ${INP_BUDGET} ms on a ${ISSUES}-issue backlog`, async ({
   page,
 }) => {
+  test.slow()
   await page.addInitScript(() => {
     window.interactions = []
     // Event Timing's threshold is newer than the DOM types.
@@ -90,6 +91,12 @@ test(`INP stays under ${INP_BUDGET} ms on a ${ISSUES}-issue backlog`, async ({
     { key, issues: ISSUES }
   )
   await page.goto(`/p/${key}/backlog`)
+  // Setup, not measured: the handles come with the drag layer's lazy chunk, which a busy runner
+  // can take seconds to boot. A CSS query polls cheaply; a role query recomputes every accessible
+  // name on each poll and starves the page it waits for.
+  await expect(page.locator(`[aria-label="Drag ${key}-3"]`)).toBeVisible({
+    timeout: 30_000,
+  })
   const handle = page.getByRole('button', {
     name: `Drag ${key}-3`,
     exact: true,
