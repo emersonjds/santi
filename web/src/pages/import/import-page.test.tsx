@@ -34,8 +34,8 @@ const JIRA: ImportPreview = {
     { name: 'Carol Smith', count: 1, member_id: null },
   ],
   sprints: [
-    { name: 'Sprint 1', count: 2, closed: true },
-    { name: 'Sprint 2', count: 1, closed: false },
+    { name: 'Sprint 1', count: 2, state: 'closed' },
+    { name: 'Sprint 2', count: 1, state: 'future' },
   ],
   issue_types: [
     { name: 'Epic', count: 1, suggested: 'epic' },

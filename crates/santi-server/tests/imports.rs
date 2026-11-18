@@ -120,7 +120,7 @@ async fn preview_reads_a_jira_export_and_suggests_a_mapping(pool: PgPool) {
         .iter()
         .find(|person| person["name"] == "bob@example.com");
     assert_eq!(bob_found.unwrap()["member_id"], bob.user_id);
-    assert_eq!(preview["sprints"][0]["closed"], true);
+    assert_eq!(preview["sprints"][0]["state"], "closed");
     assert_eq!(preview["issue_types"][2]["suggested"], "subtask");
     assert_eq!(preview["problems"][1]["line"], 7);
 }
@@ -497,6 +497,80 @@ async fn sprint_names_are_reused_only_in_the_mapped_state(pool: PgPool) {
     assert_eq!(sprints[0]["id"], old_one["id"]);
 }
 
+/// The PRM shape: a finished sprint and a running one, mapped as the preview suggests.
+#[sqlx::test]
+async fn a_finished_sprint_imports_closed_with_its_report_and_a_running_one_active(pool: PgPool) {
+    let (ana, _) = team(pool.clone(), "scrum").await;
+    let csv = "Issue key,Summary,Status,Sprint\n\
+               P-1,Shipped,Done,Sprint 1\n\
+               P-2,Also shipped,Done,Sprint 1\n\
+               P-3,Under way,In Progress,Sprint 2\n\
+               P-4,Finished early,Done,Sprint 2\n";
+    let (_, found) = preview(&ana, csv).await;
+    let mapping = json!({
+        "statuses": {
+            "Done": ana.status_id("SANTI", "Done").await,
+            "In Progress": ana.status_id("SANTI", "In Progress").await,
+        },
+        "sprints": {
+            "Sprint 1": found["sprints"][0]["state"],
+            "Sprint 2": found["sprints"][1]["state"],
+        },
+    });
+
+    let (status, result) = import(&ana, csv, &mapping).await;
+
+    assert_eq!(status, StatusCode::OK, "{result}");
+    let sprints = sprints(&ana).await;
+    let states: Vec<(&str, &str)> = sprints
+        .iter()
+        .map(|sprint| {
+            (
+                sprint["name"].as_str().unwrap(),
+                sprint["state"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(states, [("Sprint 1", "closed"), ("Sprint 2", "active")]);
+    let facts = |id: &Value| {
+        sqlx::query_as::<_, (bool, Option<String>)>(
+            "SELECT added_after_start, outcome::text FROM sprint_issue WHERE sprint_id = $1",
+        )
+        .bind(id.as_i64().unwrap())
+        .fetch_all(&pool)
+    };
+    let completed = Some("completed".to_string());
+    assert_eq!(
+        facts(&sprints[0]["id"]).await.unwrap(),
+        [(false, completed.clone()), (false, completed)]
+    );
+    assert_eq!(
+        facts(&sprints[1]["id"]).await.unwrap(),
+        [(false, None), (false, None)]
+    );
+
+    let (again, _) = import(&ana, csv, &mapping).await;
+    let other = json!({ "statuses": mapping["statuses"], "sprints": { "Sprint 3": "active" } });
+    let (refused, error) = import(
+        &ana,
+        "Issue key,Summary,Status,Sprint\nP-9,Next,Done,Sprint 3\n",
+        &other,
+    )
+    .await;
+
+    assert_eq!(again, StatusCode::OK);
+    assert_eq!(self::sprints(&ana).await.len(), 2);
+    assert_eq!(refused, StatusCode::UNPROCESSABLE_ENTITY, "{error}");
+    let id = &sprints[1]["id"];
+    let (completed, _) = ana
+        .post(
+            &format!("/api/projects/SANTI/sprints/{id}/complete"),
+            json!({ "open_issues": { "to": "backlog" } }),
+        )
+        .await;
+    assert_eq!(completed, StatusCode::OK);
+}
+
 /// Like planning an issue into a running sprint, an imported subtask that follows its parent into
 /// one counts as added after the start.
 #[sqlx::test]
@@ -576,7 +650,7 @@ async fn previews_of_large_files_stay_fast_and_off_the_workers(pool: PgPool) {
     println!("previewed 40k rows (400 of each) in {elapsed:?}");
     assert_eq!(status, StatusCode::OK, "{}", preview["errors"]);
     assert_eq!(preview["statuses"].as_array().unwrap().len(), 400);
-    assert_eq!(preview["sprints"][0]["closed"], true);
+    assert_eq!(preview["sprints"][0]["state"], "closed");
     assert!(elapsed < Duration::from_secs(2), "preview took {elapsed:?}");
 }
 
