@@ -13,9 +13,16 @@ UI moves to its own repository.
 ### Added
 
 - `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
+### Changed
 
+- Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
 ### Fixed
 
+- Importing a Jira or Linear export infers each sprint's state: a sprint whose work is all done, or that ended, imports closed with its report; the running one (dates covering today, else the oldest open one) imports active and starts like one started by hand; the rest are planned. The preview suggests planned instead when the board already runs a sprint, and an import whose sprint cannot start still succeeds, telling why on a problem row.
+
+### Upgrade notes
+
+- API: `SprintFound.closed` (import preview) is replaced by `state` (`future`, `active` or `closed`), and `SprintAction` gains `active`.
 - Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
 ### Changed
 
