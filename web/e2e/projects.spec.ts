@@ -1,4 +1,4 @@
-import { type Page, expect, test } from '@playwright/test'
+import { type Page, expect, test, newPage } from './fixtures'
 
 const PASSWORD = 'correct horse battery'
 
@@ -45,7 +45,7 @@ test('create a scrum project, invite a teammate, and they join through the link'
     .inputValue()
   expect(link).toMatch(/\/invites\/[\w-]+$/)
 
-  const teammate = await (await browser.newContext()).newPage()
+  const teammate = await newPage(browser)
   const graceEmail = `e2e-${unique()}@example.com`
   await register(teammate, 'Grace', graceEmail)
   await teammate.getByRole('button', { name: 'Account' }).click()
@@ -85,7 +85,7 @@ test('an admin changes a member role and removes them; a member gets 403 on the 
 }) => {
   const key = `M${unique().slice(-6).toUpperCase()}`
   await register(page, 'Ada', `e2e-${unique()}@example.com`)
-  const teammate = await (await browser.newContext()).newPage()
+  const teammate = await newPage(browser)
   const graceEmail = `e2e-${unique()}@example.com`
   await register(teammate, 'Grace', graceEmail)
   const token = await page.evaluate(

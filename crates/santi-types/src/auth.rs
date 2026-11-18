@@ -75,6 +75,8 @@ pub struct User {
     pub theme: Theme,
     /// IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone.
     pub time_zone: Option<String>,
+    /// When the account first closed the welcome tour; `null` opens it once.
+    pub tour_seen_at: Option<DateTime<Utc>>,
 }
 
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
@@ -108,6 +110,9 @@ pub struct UpdateMe {
     )]
     #[schema(value_type = Option<String>)]
     pub time_zone: Option<Option<String>>,
+    /// Only `true`: stamps `tour_seen_at` the first time and keeps it afterwards.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tour_seen: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

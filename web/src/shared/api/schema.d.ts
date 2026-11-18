@@ -2286,6 +2286,8 @@ export interface components {
             theme?: components["schemas"]["Theme"] | null;
             /** @description IANA name, e.g. `Pacific/Auckland`. */
             time_zone?: string | null;
+            /** @description Only `true`: stamps `tour_seen_at` the first time and keeps it afterwards. */
+            tour_seen?: boolean | null;
         };
         UpdateSprint: {
             /** Format: date-time */
@@ -2311,6 +2313,11 @@ export interface components {
             theme: components["schemas"]["Theme"];
             /** @description IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone. */
             time_zone?: string | null;
+            /**
+             * Format: date-time
+             * @description When the account first closed the welcome tour; `null` opens it once.
+             */
+            tour_seen_at?: string | null;
         };
         Velocity: {
             /**
@@ -2704,7 +2711,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`) or a zone outside the IANA database (`time_zone`) */
+            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`) */
             422: {
                 headers: {
                     [name: string]: unknown;
