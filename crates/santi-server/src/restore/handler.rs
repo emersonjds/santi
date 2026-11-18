@@ -32,7 +32,7 @@ pub fn router() -> OpenApiRouter<AppState> {
         (status = 201, body = RestoreResult, description = "A new project from one project of `GET /api/me/export`, with its board, sprints, issue numbers and comments; the caller is its only member, as admin (D58): other assignees are cleared, other reporters, comment authors and editors become the caller, each listed by name in `problems`"),
         (status = 400, body = Problem, content_type = "application/problem+json", description = "`bad-request`: the body could not be read"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-exists`: a project holds the key; nothing written"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`project-exists`: a project holds the key; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; nothing written"),
         (status = 413, body = Problem, content_type = "application/problem+json", description = "`payload-too-large`: over 50 MB"),
         (status = 422, body = Problem, content_type = "application/problem+json", description = "Malformed JSON is a 422 here, not a 400. Also: not an export, over 50,000 issues, 500 statuses, 2,000 sprints or 200,000 comments, a field a normal write refuses, or a key, parent, status or sprint the file does not hold; the field is named (`issues[3].summary`)"),
         (status = 429, body = Problem, content_type = "application/problem+json", description = "Rate limited like imports (D44); wait `Retry-After` seconds")))]

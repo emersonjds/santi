@@ -3707,7 +3707,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description `project-exists`: a project holds the key; nothing written */
+            /** @description `project-exists`: a project holds the key; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; nothing written */
             409: {
                 headers: {
                     [name: string]: unknown;
