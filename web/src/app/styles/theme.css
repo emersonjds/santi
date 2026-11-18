@@ -11,6 +11,10 @@
   --primary-foreground: #ffffff;
   --primary-hover: #3f2cb0;
   --primary-pressed: #34258f;
+  --primary-fill: var(--primary);
+  --primary-fill-foreground: var(--primary-foreground);
+  --primary-fill-hover: var(--primary-hover);
+  --primary-fill-pressed: var(--primary-pressed);
   --secondary: #f4f5f7;
   --secondary-foreground: #172033;
   --muted: #f4f5f7;
@@ -98,6 +102,10 @@
   --primary-foreground: #1b1348;
   --primary-hover: #b8abf1;
   --primary-pressed: #d7d0f7;
+  --primary-fill: #6650dc;
+  --primary-fill-foreground: #ffffff;
+  --primary-fill-hover: #5b45d6;
+  --primary-fill-pressed: #4f3bc9;
   --secondary: #1a1918;
   --secondary-foreground: #edebe8;
   --muted: #1a1918;
@@ -186,6 +194,10 @@
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
   --color-primary-pressed: var(--primary-pressed);
+  --color-primary-fill: var(--primary-fill);
+  --color-primary-fill-foreground: var(--primary-fill-foreground);
+  --color-primary-fill-hover: var(--primary-fill-hover);
+  --color-primary-fill-pressed: var(--primary-fill-pressed);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
