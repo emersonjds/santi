@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { forgetSession } from '@/entities/session/require-session'
 import { api, fieldMessage, okOrThrow } from '@/shared/api/client'
+import { useT } from '@/shared/i18n/i18n'
 import { toast } from '@/shared/lib/toast'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import {
@@ -17,9 +18,11 @@ import {
 import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
 import { PasswordInput } from '@/shared/ui/password-input'
+import { messages } from './messages'
 
 /** D45: asks for the password, then deletes the account and signs out everywhere (lazy chunk). */
 export const DeleteAccountDialog = ({ onClose }: { onClose: () => void }) => {
+  const t = useT(messages)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const returnFocus = useReturnFocus()
@@ -29,7 +32,7 @@ export const DeleteAccountDialog = ({ onClose }: { onClose: () => void }) => {
       okOrThrow(await api.DELETE('/api/me', { body: { password } })),
     onSuccess: async () => {
       forgetSession(queryClient)
-      toast.success('Your account was deleted.')
+      toast.success(t('deleted'))
       await navigate({ to: '/login' })
     },
   })
@@ -38,25 +41,16 @@ export const DeleteAccountDialog = ({ onClose }: { onClose: () => void }) => {
     <AlertDialog open onOpenChange={(open) => open || onClose()}>
       <AlertDialogContent onCloseAutoFocus={returnFocus}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+          <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className='grid gap-2'>
-              <p>
-                This can&apos;t be undone. You are signed out everywhere and
-                your API tokens stop working.
-              </p>
+              <p>{t('deleteFinal')}</p>
               <ul className='grid list-disc gap-1 ps-5'>
-                <li>Projects nobody else belongs to are deleted with you.</li>
-                <li>
-                  Where you are the last admin, the member with the oldest
-                  account becomes admin.
-                </li>
-                <li>
-                  Issues and comments you wrote in shared projects stay, shown
-                  as &ldquo;Deleted user&rdquo;.
-                </li>
+                <li>{t('deleteProjects')}</li>
+                <li>{t('deleteAdmins')}</li>
+                <li>{t('deleteKept')}</li>
               </ul>
-              <p>Export your data first if you want a copy.</p>
+              <p>{t('deleteExportFirst')}</p>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -68,7 +62,7 @@ export const DeleteAccountDialog = ({ onClose }: { onClose: () => void }) => {
             remove.mutate()
           }}
         >
-          <Label htmlFor='delete-account-password'>Password</Label>
+          <Label htmlFor='delete-account-password'>{t('password')}</Label>
           <PasswordInput
             id='delete-account-password'
             autoComplete='current-password'
@@ -87,7 +81,9 @@ export const DeleteAccountDialog = ({ onClose }: { onClose: () => void }) => {
           </p>
         </form>
         <AlertDialogFooter>
-          <AlertDialogCancel className='h-11 md:h-9'>Cancel</AlertDialogCancel>
+          <AlertDialogCancel className='h-11 md:h-9'>
+            {t('cancel')}
+          </AlertDialogCancel>
           <Button
             type='submit'
             form='delete-account'
@@ -95,7 +91,7 @@ export const DeleteAccountDialog = ({ onClose }: { onClose: () => void }) => {
             className='h-11 md:h-9'
             disabled={remove.isPending || password === ''}
           >
-            Delete account
+            {t('deleteAccount')}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

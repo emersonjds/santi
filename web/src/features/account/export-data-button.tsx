@@ -1,8 +1,10 @@
 import { useMutation } from '@tanstack/react-query'
 import { Download, Loader2 } from 'lucide-react'
 import { api, dataOrThrow } from '@/shared/api/client'
+import { useT } from '@/shared/i18n/i18n'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
+import { messages } from './messages'
 
 const save = (data: unknown) => {
   const file = new Blob([JSON.stringify(data, null, 2)], {
@@ -19,6 +21,7 @@ const save = (data: unknown) => {
 
 /** D45: the account and every project it administers, as one JSON file. */
 export const ExportDataButton = () => {
+  const t = useT(messages)
   const download = useMutation({
     mutationFn: async () => dataOrThrow(await api.GET('/api/me/export')),
     onSuccess: save,
@@ -33,7 +36,7 @@ export const ExportDataButton = () => {
       onClick={() => download.mutate()}
     >
       {download.isPending ? <Loader2 className='animate-spin' /> : <Download />}
-      Export my data
+      {t('exportData')}
     </Button>
   )
 }

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { KeyRound, Loader2 } from 'lucide-react'
 import { sessionsQuery } from '@/entities/user/sessions'
 import { api } from '@/shared/api/client'
+import { useT } from '@/shared/i18n/i18n'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
 import {
@@ -16,29 +17,16 @@ import {
 } from '@/shared/ui/form'
 import { PasswordInput } from '@/shared/ui/password-input'
 import { RootError } from '@/shared/ui/root-error'
+import { messages } from './messages'
 
 type Passwords = { current: string; new: string; confirm: string }
 
-const RULE = '10 to 128 characters.'
-const SAME = 'Choose a password different from the current one.'
-const FAILED = 'Could not change the password.'
-
-const changed = (count: number) => {
-  if (count === 0) return 'Password changed. No other sessions were signed out.'
-  if (count === 1) return 'Password changed. 1 other session was signed out.'
-  return `Password changed. ${count} other sessions were signed out.`
-}
-
-const minutes = (response: Response) => {
-  const count = Math.max(
-    1,
-    Math.ceil(Number(response.headers.get('Retry-After') ?? 60) / 60)
-  )
-  return `${count} minute${count === 1 ? '' : 's'}`
-}
+const minutes = (response: Response) =>
+  Math.max(1, Math.ceil(Number(response.headers.get('Retry-After') ?? 60) / 60))
 
 /** SAN-198: messages are fixed here; the server's wording never reaches the screen. */
 export const ChangePasswordForm = () => {
+  const t = useT(messages)
   const queryClient = useQueryClient()
   const form = useForm<Passwords>({
     defaultValues: { current: '', new: '', confirm: '' },
@@ -50,21 +38,25 @@ export const ChangePasswordForm = () => {
         body: { current: values.current, new: values.new },
       })
       .catch(() => undefined)
-    if (!result) return form.setError('root', { message: FAILED })
+    if (!result) return form.setError('root', { message: t('passwordFailed') })
     const { data, error, response } = result
     if (response.status === 429)
       return form.setError('root', {
-        message: `Too many attempts. Try again in ${minutes(response)}.`,
+        message: t('passwordTooMany', { count: minutes(response) }),
       })
     const field = error?.errors?.[0]?.field
     if (response.status === 422 && field === 'current')
       return form.setError('current', {
-        message: 'The current password is not right.',
+        message: t('passwordWrong'),
       })
     if (response.status === 422 && field === 'new')
-      return form.setError('new', { message: RULE })
-    if (!data) return form.setError('root', { message: FAILED })
-    toast.success(changed(data.signed_out))
+      return form.setError('new', { message: t('passwordRule') })
+    if (!data) return form.setError('root', { message: t('passwordFailed') })
+    toast.success(
+      data.signed_out === 0
+        ? t('passwordChangedAlone')
+        : t('passwordChanged', { count: data.signed_out })
+    )
     // reset() drops the field refs setFocus reads.
     form.setFocus('current')
     form.reset()
@@ -83,7 +75,7 @@ export const ChangePasswordForm = () => {
           name='current'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Current password</FormLabel>
+              <FormLabel>{t('currentPassword')}</FormLabel>
               <FormControl>
                 <PasswordInput autoComplete='current-password' {...field} />
               </FormControl>
@@ -97,17 +89,19 @@ export const ChangePasswordForm = () => {
           rules={{
             validate: (next, { current }) => {
               const length = [...next].length
-              if (length < 10 || length > 128) return RULE
-              return next !== current || SAME
+              if (length < 10 || length > 128) return t('passwordRule')
+              return next !== current || t('passwordSame')
             },
           }}
           render={({ field, fieldState }) => (
             <FormItem>
-              <FormLabel>New password</FormLabel>
+              <FormLabel>{t('newPassword')}</FormLabel>
               <FormControl>
                 <PasswordInput autoComplete='new-password' {...field} />
               </FormControl>
-              {!fieldState.error && <FormDescription>{RULE}</FormDescription>}
+              {!fieldState.error && (
+                <FormDescription>{t('passwordRule')}</FormDescription>
+              )}
               <FormMessage />
             </FormItem>
           )}
@@ -117,11 +111,11 @@ export const ChangePasswordForm = () => {
           name='confirm'
           rules={{
             validate: (confirm, values) =>
-              confirm === values.new || 'Passwords do not match.',
+              confirm === values.new || t('passwordMismatch'),
           }}
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Confirm new password</FormLabel>
+              <FormLabel>{t('confirmPassword')}</FormLabel>
               <FormControl>
                 <PasswordInput autoComplete='new-password' {...field} />
               </FormControl>
@@ -139,7 +133,7 @@ export const ChangePasswordForm = () => {
           ) : (
             <KeyRound />
           )}
-          Change password
+          {t('changePassword')}
         </Button>
       </form>
     </Form>
