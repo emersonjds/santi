@@ -37,7 +37,7 @@ export const LanguageControl = ({ saved }: { saved: Language }) => {
     onError: (_, language) => putBack(language),
   })
   const load = useMutation({
-    mutationFn: switchLanguage,
+    mutationFn: (language: Language) => switchLanguage(language),
     onSuccess: (_, language) => {
       if (language === picked.current) save.mutate(language)
     },

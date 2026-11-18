@@ -6,6 +6,7 @@ import {
   defineMessages,
   offeredLanguages,
   readStoredLanguage,
+  readyOrTimeout,
   setDictionaryLoader,
   switchLanguage,
   useT,
@@ -178,5 +179,65 @@ describe('i18n', () => {
       'Português (Portugal)',
       '中文（简体）',
     ])
+  })
+  it('treats an unreleased language as English outside development', async () => {
+    const load = vi.fn(async () => ({}))
+    setDictionaryLoader(load)
+    const released = offeredLanguages(false)
+    localStorage.setItem('santi-language', 'pt-BR')
+
+    expect(readStoredLanguage(released)).toBe('en')
+    await switchLanguage('pt-BR', released)
+
+    expect(currentLanguage()).toBe('en')
+    expect(document.documentElement.lang).toBe('en')
+    expect(readStoredLanguage()).toBe('en')
+    expect(load).not.toHaveBeenCalled()
+  })
+
+  it('skips the load when the language is already on, still dropping an older pending one', async () => {
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    const load = vi.fn(async (language: Language) => {
+      if (language === 'es') await held
+      return { ...dictionaries[language] }
+    })
+    setDictionaryLoader(load)
+    await switchLanguage('pt-BR')
+    await switchLanguage('pt-BR')
+    expect(load).toHaveBeenCalledTimes(1)
+
+    await switchLanguage('en')
+    localStorage.setItem('santi-language', 'pt-BR')
+    const late = switchLanguage('es')
+    await switchLanguage('en')
+    release()
+    await late
+
+    expect(currentLanguage()).toBe('en')
+    expect(readStoredLanguage()).toBe('en')
+  })
+
+  it('waits for the first language until it settles or the time is up', async () => {
+    await expect(readyOrTimeout(new Promise(() => {}), 10)).resolves.toBe(
+      undefined
+    )
+    await expect(
+      readyOrTimeout(Promise.reject(new Error('offline')), 5000)
+    ).resolves.toBe(undefined)
+
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    useLoader(async (language) => {
+      await held
+      return dictionaries[language] ?? {}
+    })
+    const late = switchLanguage('pt-BR')
+    await readyOrTimeout(late, 10)
+    expect(currentLanguage()).toBe('en')
+
+    release()
+    await late
+    expect(currentLanguage()).toBe('pt-BR')
   })
 })

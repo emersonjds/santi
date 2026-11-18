@@ -40,13 +40,15 @@ export const defineMessages = <const M extends Messages>(
 ): Namespace<M> => ({ id, en })
 
 const KEY = 'santi-language'
-const isLanguage = (value: unknown): value is Language =>
-  LANGUAGES.some((language) => language.value === value)
+type Offered = ReturnType<typeof offeredLanguages>
 
-export const readStoredLanguage = (): Language => {
+/** A language this build does not offer, or no language at all, reads as English. */
+const resolveLanguage = (value: unknown, offered: Offered): Language =>
+  offered.find((language) => language.value === value)?.value ?? 'en'
+
+export const readStoredLanguage = (offered = offeredLanguages()): Language => {
   try {
-    const value = localStorage.getItem(KEY)
-    return isLanguage(value) ? value : 'en'
+    return resolveLanguage(localStorage.getItem(KEY), offered)
   } catch {
     return 'en'
   }
@@ -67,19 +69,35 @@ export const setDictionaryLoader = (loader: typeof load) => {
 export const currentLanguage = () => state.language
 
 /** Loads the language's chunk, then switches the whole UI; a switch overtaken by a newer one is dropped. */
-export const switchLanguage = async (language: Language) => {
+export const switchLanguage = async (
+  requested: Language,
+  offered = offeredLanguages()
+) => {
+  const language = resolveLanguage(requested, offered)
   const ticket = ++latest
-  const dictionary = language === 'en' ? {} : await load(language)
-  if (ticket !== latest) return
-  state = { language, dictionary }
-  document.documentElement.lang = language
+  if (language !== state.language) {
+    const dictionary = language === 'en' ? {} : await load(language)
+    if (ticket !== latest) return
+    state = { language, dictionary }
+    document.documentElement.lang = language
+    listeners.forEach((listener) => listener())
+  }
   try {
     localStorage.setItem(KEY, language)
   } catch {
     // the choice lasts until the reload
   }
-  listeners.forEach((listener) => listener())
 }
+
+/** Settles once `pending` does, or after `ms`, whichever comes first; never rejects. */
+export const readyOrTimeout = (pending: Promise<unknown>, ms: number) =>
+  Promise.race([
+    pending.then(
+      () => {},
+      () => {}
+    ),
+    new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  ])
 
 const subscribe = (listener: () => void) => {
   listeners.add(listener)
