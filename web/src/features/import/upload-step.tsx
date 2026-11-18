@@ -91,7 +91,7 @@ export const UploadStep = ({ projectKey, onPreview }: UploadStepProps) => {
       >
         <FileUp className='size-8 text-muted-foreground' aria-hidden='true' />
         <p className='font-medium'>Drop a CSV export here</p>
-        <label className='inline-flex h-11 cursor-pointer items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:ring-offset-2'>
+        <label className='inline-flex h-11 cursor-pointer items-center gap-2 rounded-md bg-primary-fill px-4 text-sm font-medium text-primary-fill-foreground has-focus-visible:ring-2 has-focus-visible:ring-ring has-focus-visible:ring-offset-2'>
           {preview.isPending && (
             <Loader2 className='size-4 animate-spin' aria-hidden='true' />
           )}
