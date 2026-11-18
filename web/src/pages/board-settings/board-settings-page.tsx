@@ -19,10 +19,17 @@ const DangerZone = lazy(() =>
   import('./danger-zone').then((module) => ({ default: module.DangerZone }))
 )
 
+// Lazy: react-hook-form stays out of the route's first-visit JS (D39).
+const GeneralSection = lazy(() =>
+  import('./general-section').then((module) => ({
+    default: module.GeneralSection,
+  }))
+)
+
 const LINK =
   'inline-flex min-h-11 items-center text-sm font-medium text-primary hover:underline aria-disabled:cursor-not-allowed aria-disabled:no-underline aria-disabled:opacity-50'
 
-/** IA §3, §9: columns, statuses and the done window for admins; the danger zone for everyone. */
+/** IA §3, §9, SAN-225: name and key, columns, statuses and the done window for admins; the danger zone for everyone. */
 export const BoardSettingsPage = () => {
   const { key } = useParams({ from: '/_authenticated/p/$key' })
   const { data: project } = useSuspenseQuery(projectQuery(key))
@@ -32,6 +39,9 @@ export const BoardSettingsPage = () => {
     <div className='mx-auto grid w-full max-w-3xl gap-8 px-4 py-6 sm:px-6'>
       {project.role === 'admin' && (
         <WriteLock projectKey={key}>
+          <Suspense fallback={<Skeleton className='h-64' />}>
+            <GeneralSection project={project} />
+          </Suspense>
           <BoardSettings projectKey={key} kanban={kanban} />
         </WriteLock>
       )}

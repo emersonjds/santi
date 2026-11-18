@@ -150,6 +150,7 @@ export const WEB = {
   name: 'Website',
   board_type: 'scrum',
   role: 'admin',
+  previous_keys: [],
 } as const
 
 export const OPS = {
@@ -158,6 +159,7 @@ export const OPS = {
   name: 'Operations',
   board_type: 'kanban',
   role: 'member',
+  previous_keys: [],
 } as const
 
 /** WEB and OPS as the home lists them: WEB starred, two open issues assigned to Alice in OPS. */
