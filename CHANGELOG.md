@@ -10,6 +10,9 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Added
+
+- Optional error reporting to Sentry for the hosted instance (SANTI_SENTRY_DSN); off by default. Reports carry technical error details, not meant to identify you; account details, request bodies and tokens are removed.
 ### Changed
 
 - The sign-in page loads about 34 KB less JavaScript.

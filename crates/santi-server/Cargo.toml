@@ -31,10 +31,12 @@ futures-util.workspace = true
 uuid.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
+sentry.workspace = true
 
 [dev-dependencies]
 http-body-util.workspace = true
 log.workspace = true
+sentry = { workspace = true, features = ["test"] }
 
 [lints]
 workspace = true
