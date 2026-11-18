@@ -10,36 +10,38 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-18
+
+> Imports that know which sprint is running, an AI agents section, lighter pages and a container image for Arm.
+
 ### Added
 
-- The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
-- `docs/ops.md`: runbook for the hosted instance (what is monitored, steps on an alert, rollback, secret rotation).
-- `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
 - Landing page section on AI agents: connect Claude, ChatGPT and Codex, GitHub Copilot, Cursor or any MCP client and manage cards by conversation (36 MCP tools).
+- The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
+- `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
+- `docs/ops.md`: runbook for the hosted instance (what is monitored, steps on an alert, rollback, secret rotation).
+
 ### Changed
 
-- Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
 - Pages load less JavaScript on first visit (issue page about 10 KB and backlog about 4 KB lighter; /projects and project members about 16 KB lighter). /account paints first and fetches its password and token forms right after, in parallel with its data.
+- Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
+- The old Railway address redirects to getsanti.app, keeping the path; /health is not redirected.
+- Railway deploy settings moved from `railway.toml` to `.railway/railway.ts` (Railway infrastructure as code); Railway stops reading `railway.toml` on 2026-12-01.
+
 ### Fixed
 
 - Importing a Jira or Linear export infers each sprint's state: a sprint whose work is all done, or that ended, imports closed with its report; the running one (dates covering today, else the oldest open one) imports active and starts like one started by hand; the rest are planned. The preview suggests planned instead when the board already runs a sprint, and an import whose sprint cannot start still succeeds, telling why on a problem row.
+- Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
+- Accepting an invite while the inviter erases their account no longer fails with a server error.
+
+### Security
+
+- Dependencies updated for new advisories: rmcp 3.11 (MCP HTTP transport limits and OAuth SSRF check), ctutils 0.4.8 and zod 4.6.7 (memory exhaustion on oversized collections). chrono, chrono-tz and humantime are flagged unmaintained with no safe release yet and stay under review.
 
 ### Upgrade notes
 
 - API: `SprintFound.closed` (import preview) is replaced by `state` (`future`, `active` or `closed`), and `SprintAction` gains `active`.
-- Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
-- Accepting an invite while the inviter erases their account no longer fails with a server error.
-### Changed
-
-- Railway deploy settings moved from `railway.toml` to `.railway/railway.ts` (Railway infrastructure as code); Railway stops reading `railway.toml` on 2026-12-01.
-- The old Railway address redirects to getsanti.app, keeping the path; /health is not redirected.
-
-### Upgrade notes
-
 - Deploying your own santi on Railway: `railway.toml` is gone. Set the Dockerfile builder and the `/health` check in the service settings, or adapt `.railway/railway.ts` and run `railway config apply` (see docs/deploy/railway.md).
-### Security
-
-- Dependencies updated for new advisories: rmcp 3.11 (MCP HTTP transport limits and OAuth SSRF check), ctutils 0.4.8 and zod 4.6.7 (memory exhaustion on oversized collections). chrono, chrono-tz and humantime are flagged unmaintained with no safe release yet and stay under review.
 
 ## [0.26.0] - 2026-10-22
 
@@ -880,7 +882,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.26.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.27.0...HEAD
+[0.27.0]: https://github.com/emersonjds/santi/compare/v0.26.0...v0.27.0
 [0.26.0]: https://github.com/emersonjds/santi/compare/v0.25.1...v0.26.0
 [0.25.1]: https://github.com/emersonjds/santi/compare/v0.25.0...v0.25.1
 [0.25.0]: https://github.com/emersonjds/santi/compare/v0.24.1...v0.25.0
