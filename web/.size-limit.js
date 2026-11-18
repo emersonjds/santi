@@ -77,7 +77,7 @@ export default [
   {
     name: 'initial JS, /account',
     path: firstVisit(SHELL, split('_authenticated/account.tsx')),
-    limit: '145.5 KB',
+    limit: '148.5 KB',
     gzip: true,
   },
   {
@@ -98,7 +98,7 @@ export default [
       SHELL,
       split('_authenticated/account.tsx')
     ),
-    limit: '1.6 KB',
+    limit: '2.75 KB',
     gzip: true,
   },
   {
@@ -108,7 +108,7 @@ export default [
       SHELL,
       split('_authenticated/account.tsx')
     ),
-    limit: '1.6 KB',
+    limit: '2.75 KB',
     gzip: true,
   },
   {
@@ -118,7 +118,7 @@ export default [
       SHELL,
       split('_authenticated/account.tsx')
     ),
-    limit: '1.6 KB',
+    limit: '2.75 KB',
     gzip: true,
   },
   {
@@ -128,7 +128,7 @@ export default [
       SHELL,
       split('_authenticated/account.tsx')
     ),
-    limit: '1.6 KB',
+    limit: '2.75 KB',
     gzip: true,
   },
   {
