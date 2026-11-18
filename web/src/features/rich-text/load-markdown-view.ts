@@ -1,4 +1,4 @@
-let chunk: Promise<typeof import('./markdown-view')> | undefined
+import { preloadOnce } from '@/shared/lib/preload-chunk'
 
 /** D50: the renderer is its own chunk; callers start it beside the issue fetch. */
-export const preloadMarkdownView = () => (chunk ??= import('./markdown-view'))
+export const preloadMarkdownView = preloadOnce(() => import('./markdown-view'))

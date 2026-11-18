@@ -22,7 +22,7 @@ import {
 import { UploadRows } from '@/features/upload-attachments/upload-rows'
 import { attachmentsQuery } from '@/entities/attachment/attachments'
 import { commentTime, fullDateTime } from '@/entities/issue/comment-time'
-import { useAddComment, useEditComment } from '@/entities/issue/issue-mutations'
+import { useAddComment, useEditComment } from '@/entities/issue/issue-edits'
 import { commentsQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
