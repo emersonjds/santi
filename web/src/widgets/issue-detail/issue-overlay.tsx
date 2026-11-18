@@ -1,10 +1,12 @@
 import { Suspense, lazy } from 'react'
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { preloadMarkdownView } from '@/features/rich-text/load-markdown-view'
+import { preloadIssueSections } from './load-issue-sections'
 
 // Lazy: the board and backlog first visits have no initial JS to spare (D39).
 const IssueDialog = lazy(() => {
-  void preloadMarkdownView()
+  void preloadMarkdownView().catch(() => undefined)
+  void preloadIssueSections().catch(() => undefined)
   return import('./issue-dialog').then((module) => ({
     default: module.IssueDialog,
   }))
