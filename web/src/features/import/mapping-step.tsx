@@ -25,9 +25,10 @@ import { RootError } from '@/shared/ui/root-error'
 import { ProblemRows } from './problem-rows'
 
 const TYPES = ['story', 'task', 'bug', 'epic', 'subtask'] as const
-const SPRINT_ACTIONS = ['future', 'closed', 'skip'] as const
+const SPRINT_ACTIONS = ['future', 'active', 'closed', 'skip'] as const
 const SPRINT_LABEL = {
   future: 'Planned sprint',
+  active: 'Active sprint',
   closed: 'Closed sprint',
   skip: 'Leave out',
 } satisfies Record<SprintAction, string>
@@ -36,7 +37,16 @@ const SPRINT_LABEL = {
 const schema = z.object({
   statuses: z.array(z.string().min(1, 'Pick a status.')),
   people: z.array(z.string()),
-  sprints: z.array(z.enum(SPRINT_ACTIONS)),
+  sprints: z.array(z.enum(SPRINT_ACTIONS)).superRefine((sprints, context) =>
+    sprints.forEach((action, index) => {
+      if (action === 'active' && sprints.indexOf('active') < index)
+        context.addIssue({
+          code: 'custom',
+          path: [index],
+          message: 'Only one sprint can be active.',
+        })
+    })
+  ),
   types: z.array(z.enum(TYPES)),
 })
 
@@ -92,9 +102,7 @@ export const MappingStep = ({
         String(status.suggested_status_id ?? '')
       ),
       people: preview.people.map((person) => String(person.member_id ?? '')),
-      sprints: preview.sprints.map((sprint) =>
-        sprint.closed ? 'closed' : 'future'
-      ),
+      sprints: preview.sprints.map((sprint) => sprint.state),
       types: preview.issue_types.map((type) => type.suggested),
     },
   })

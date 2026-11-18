@@ -18,7 +18,7 @@ use santi_types::projects::{
     CreateProject, InviteInfo, MemberInfo, Project, ProjectState, RestoreResult,
 };
 use santi_types::reports::{ReportGroup, ReportIssue, ReportOutcome, SprintReport};
-use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, StartSprint};
+use santi_types::sprints::{CompleteSprint, CreateSprint, Sprint, SprintState, StartSprint};
 use serde::Serialize;
 
 use crate::cli::{
@@ -709,9 +709,10 @@ fn suggested_mapping(preview: &ImportPreview) -> ImportMapping {
             .sprints
             .iter()
             .map(|sprint| {
-                let action = match sprint.closed {
-                    true => SprintAction::Closed,
-                    false => SprintAction::Future,
+                let action = match sprint.state {
+                    SprintState::Future => SprintAction::Future,
+                    SprintState::Active => SprintAction::Active,
+                    SprintState::Closed => SprintAction::Closed,
                 };
                 (sprint.name.clone(), action)
             })
@@ -1313,7 +1314,11 @@ fn preview_text(preview: &ImportPreview) -> String {
         ));
     }
     for sprint in &preview.sprints {
-        let state = if sprint.closed { "closed" } else { "future" };
+        let state = match sprint.state {
+            SprintState::Future => "future",
+            SprintState::Active => "active",
+            SprintState::Closed => "closed",
+        };
         text.push(format!(
             "Sprint {} ({}) → {state}",
             sprint.name, sprint.count

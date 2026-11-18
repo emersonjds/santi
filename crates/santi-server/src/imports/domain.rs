@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, NaiveDate, NaiveTime, TimeDelta, Utc};
 use santi_types::FieldError;
 use santi_types::boards::{Status, StatusCategory};
 use santi_types::imports::{
@@ -9,9 +9,10 @@ use santi_types::imports::{
 };
 use santi_types::issues::{IssueType, Priority};
 use santi_types::projects::{BoardType, MemberInfo};
+use santi_types::sprints::SprintState;
 
 use crate::error::AppError;
-use crate::issues;
+use crate::{issues, sprints};
 
 pub const MAX_FILE_BYTES: usize = 10 * 1024 * 1024;
 pub const MAX_PROBLEMS: usize = 100;
@@ -325,11 +326,19 @@ pub fn check_mapping(
             );
         }
     }
+    let mut active = 0;
     for (name, action) in &mapping.sprints {
         if board_type == BoardType::Kanban && *action != SprintAction::Skip {
             error(
                 format!("mapping.sprints.{name}"),
                 "a kanban board has no sprints",
+            );
+        }
+        active += usize::from(*action == SprintAction::Active);
+        if active == 2 {
+            error(
+                format!("mapping.sprints.{name}"),
+                "only one sprint can be active",
             );
         }
     }
@@ -669,18 +678,93 @@ fn tally<'a>(names: impl Iterator<Item = &'a str>) -> Vec<(&'a str, i64)> {
     counts
 }
 
-/// Sprints an issue moved on from, or that ended before today.
-fn closed_sprints(export: &Export, today: NaiveDate) -> HashSet<&str> {
+/// Sprints with their issue counts in order of first appearance. Closed: an issue moved on from
+/// it, it ended before today, or every issue it holds last is done in the status the preview
+/// suggests. Active: of the others already started, the one whose dates cover today, else the
+/// oldest; none while the board runs a sprint of another name. The rest are future.
+fn sprint_states<'a>(
+    export: &'a Export,
+    statuses: &[Status],
+    today: NaiveDate,
+    running: Option<&str>,
+) -> Vec<(&'a str, i64, SprintState)> {
     let mut closed = HashSet::new();
+    let mut open = HashSet::new();
+    let mut starts: HashMap<&str, NaiveDate> = HashMap::new();
     for row in &export.rows {
         let ended = row.sprint_end.is_some_and(|end| end < today);
         for (index, name) in row.sprints.iter().enumerate() {
             if ended || index + 1 < row.sprints.len() {
                 closed.insert(name.as_str());
             }
+            if let Some(start) = row.sprint_start {
+                let earliest = starts.entry(name).or_insert(start);
+                *earliest = start.min(*earliest);
+            }
+        }
+        let category = row
+            .status_category
+            .unwrap_or_else(|| category_from_name(&row.status));
+        let done = suggested_category(&row.status, category, statuses) == StatusCategory::Done;
+        if let (Some(last), false) = (row.sprints.last(), done) {
+            open.insert(last.as_str());
         }
     }
-    closed
+    let mut states: Vec<(&str, i64, SprintState)> = tally(sprint_names(&export.rows))
+        .into_iter()
+        .map(|(name, count)| {
+            let state = match closed.contains(name) || !open.contains(name) {
+                true => SprintState::Closed,
+                false => SprintState::Future,
+            };
+            (name, count, state)
+        })
+        .collect();
+    // ponytail: rollover order never decides here, the older sprint of a rollover is closed.
+    let oldest = states
+        .iter_mut()
+        .filter(|(name, _, state)| {
+            *state == SprintState::Future && starts.get(name).is_none_or(|start| *start <= today)
+        })
+        .min_by_key(|(name, _, _)| {
+            (
+                !starts.contains_key(name),
+                starts.get(name).copied(),
+                natural_key(name),
+            )
+        });
+    if let Some(sprint) =
+        oldest.filter(|(name, _, _)| running.is_none_or(|running| running == *name))
+    {
+        sprint.2 = SprintState::Active;
+    }
+    states
+}
+
+/// Digits compare as numbers: "Sprint 2" before "Sprint 10".
+fn natural_key(name: &str) -> Vec<Result<u64, String>> {
+    let mut key = Vec::new();
+    let mut rest = name;
+    while let Some(first) = rest.chars().next() {
+        let digits = first.is_ascii_digit();
+        let end = rest
+            .find(|char: char| char.is_ascii_digit() != digits)
+            .unwrap_or(rest.len());
+        let (chunk, tail) = rest.split_at(end);
+        key.push(match digits {
+            true => Ok(chunk.parse().unwrap_or(u64::MAX)),
+            false => Err(chunk.to_lowercase()),
+        });
+        rest = tail;
+    }
+    key
+}
+
+/// The category of the status the preview suggests, which is what the import applies.
+fn suggested_category(name: &str, category: StatusCategory, statuses: &[Status]) -> StatusCategory {
+    suggest_status(name, category, statuses)
+        .and_then(|id| statuses.iter().find(|status| status.id == id))
+        .map_or(category, |status| status.category)
 }
 
 pub fn preview(
@@ -688,12 +772,11 @@ pub fn preview(
     statuses: &[Status],
     members: &[MemberInfo],
     today: NaiveDate,
+    running: Option<&str>,
 ) -> ImportPreview {
     let status_names = tally(export.rows.iter().map(|row| row.status.as_str()));
     let people = tally(people(&export.rows));
-    let sprints = tally(sprint_names(&export.rows));
     let types = tally(export.rows.iter().map(|row| row.issue_type.as_str()));
-    let closed = closed_sprints(export, today);
     let mut categories: HashMap<&str, Option<StatusCategory>> = HashMap::new();
     for row in &export.rows {
         categories
@@ -727,12 +810,12 @@ pub fn preview(
                     .map(|member| member.user_id),
             })
             .collect(),
-        sprints: sprints
+        sprints: sprint_states(export, statuses, today, running)
             .into_iter()
-            .map(|(name, count)| SprintFound {
+            .map(|(name, count, state)| SprintFound {
                 name: name.to_string(),
                 count,
-                closed: closed.contains(name),
+                state,
             })
             .collect(),
         issue_types: types
@@ -780,10 +863,12 @@ pub struct PlannedIssue {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlannedSprint {
+    /// Line of the first row naming it.
+    pub line: i64,
     pub name: String,
-    pub closed: bool,
-    pub start: NaiveDate,
-    pub end: NaiveDate,
+    pub state: SprintState,
+    pub start: DateTime<Utc>,
+    pub end: DateTime<Utc>,
 }
 
 pub struct Plan {
@@ -900,7 +985,7 @@ pub fn plan_import(
                 .copied()
                 .unwrap_or(SprintAction::Skip);
             let plannable = !matches!(issue_type, IssueType::Epic | IssueType::Subtask);
-            plannable && (action == SprintAction::Future || action == SprintAction::Closed && done)
+            plannable && action != SprintAction::Skip && (action != SprintAction::Closed || done)
         });
         let person = |name: &Option<String>| {
             name.as_ref()
@@ -938,7 +1023,7 @@ pub fn plan_import(
                 .collect(),
         });
     }
-    plan.sprints = plan_sprints(export, mapping);
+    plan.sprints = plan_sprints(export, mapping, now);
     plan
 }
 
@@ -976,8 +1061,12 @@ impl Types<'_> {
 }
 
 /// Sprints the mapping creates, dated by their cycle or by the issues in them.
-fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> {
-    let mut sprints: Vec<PlannedSprint> = Vec::new();
+fn plan_sprints(
+    export: &Export,
+    mapping: &ImportMapping,
+    now: DateTime<Utc>,
+) -> Vec<PlannedSprint> {
+    let mut sprints: Vec<(&str, SprintAction, NaiveDate, NaiveDate, i64)> = Vec::new();
     let mut index: HashMap<&str, usize> = HashMap::new();
     for row in &export.rows {
         for name in &row.sprints {
@@ -996,24 +1085,78 @@ fn plan_sprints(export: &Export, mapping: &ImportMapping) -> Vec<PlannedSprint> 
                 .sprint_end
                 .or(row.updated.or(row.created).map(|date| date.date_naive()));
             let Some(sprint) = index.get(name.as_str()).map(|at| &mut sprints[*at]) else {
-                let today = Utc::now().date_naive();
-                let start = start.unwrap_or(today);
+                let start = start.unwrap_or(now.date_naive());
                 index.insert(name, sprints.len());
-                sprints.push(PlannedSprint {
-                    name: name.clone(),
-                    closed: action == SprintAction::Closed,
+                sprints.push((
+                    name,
+                    action,
                     start,
-                    end: end.unwrap_or(start).max(start),
-                });
+                    end.unwrap_or(start).max(start),
+                    row.line,
+                ));
                 continue;
             };
-            sprint.start = start.map_or(sprint.start, |start| start.min(sprint.start));
-            sprint.end = end
-                .map_or(sprint.end, |end| end.max(sprint.end))
-                .max(sprint.start);
+            sprint.2 = start.map_or(sprint.2, |start| start.min(sprint.2));
+            sprint.3 = end.map_or(sprint.3, |end| end.max(sprint.3)).max(sprint.2);
         }
     }
     sprints
+        .into_iter()
+        .map(|(name, action, start, end, line)| {
+            let (state, start, end) = match action {
+                SprintAction::Active => {
+                    let (start, end) = running_window(export, name, now);
+                    (SprintState::Active, start, end)
+                }
+                SprintAction::Closed => (SprintState::Closed, day_start(start), day_end(end)),
+                SprintAction::Future | SprintAction::Skip => {
+                    (SprintState::Future, day_start(start), day_end(end))
+                }
+            };
+            PlannedSprint {
+                line,
+                name: name.to_string(),
+                state,
+                start,
+                end,
+            }
+        })
+        .collect()
+}
+
+/// The sprint's own dates in the export; otherwise it starts now and runs the default length.
+fn running_window(
+    export: &Export,
+    name: &str,
+    now: DateTime<Utc>,
+) -> (DateTime<Utc>, DateTime<Utc>) {
+    let rows = || {
+        export
+            .rows
+            .iter()
+            .filter(|row| row.sprints.iter().any(|sprint| sprint == name))
+    };
+    let start = rows()
+        .filter_map(|row| row.sprint_start)
+        .min()
+        .map_or(now, day_start);
+    let end = rows()
+        .filter_map(|row| row.sprint_end)
+        .max()
+        .map(day_end)
+        .filter(|end| *end > start)
+        .unwrap_or(start + TimeDelta::days(sprints::domain::DEFAULT_SPRINT_DAYS));
+    (start, end)
+}
+
+fn day_start(date: NaiveDate) -> DateTime<Utc> {
+    date.and_time(NaiveTime::MIN).and_utc()
+}
+
+fn day_end(date: NaiveDate) -> DateTime<Utc> {
+    date.and_hms_opt(23, 59, 0)
+        .expect("23:59 is a time of day")
+        .and_utc()
 }
 
 /// D41: epics, then their children, then subtasks.
@@ -1300,7 +1443,7 @@ mod tests {
     fn preview_suggests_statuses_people_sprints_and_types() {
         let export = read_export(JIRA).unwrap();
 
-        let preview = preview(&export, &statuses(), &members(), today());
+        let preview = preview(&export, &statuses(), &members(), today(), None);
 
         let statuses: Vec<(&str, StatusCategory, Option<i64>)> = preview
             .statuses
@@ -1341,12 +1484,12 @@ mod tests {
                 SprintFound {
                     name: "Sprint 1".into(),
                     count: 1,
-                    closed: true
+                    state: SprintState::Closed
                 },
                 SprintFound {
                     name: "Sprint 2".into(),
                     count: 2,
-                    closed: false
+                    state: SprintState::Active
                 },
             ]
         );
@@ -1372,14 +1515,20 @@ mod tests {
     fn linear_cycles_close_by_their_end_date_and_statuses_by_name() {
         let export = read_export(LINEAR).unwrap();
 
-        let preview = preview(&export, &statuses(), &members(), today());
+        let preview = preview(&export, &statuses(), &members(), today(), None);
 
-        let closed: Vec<(&str, bool)> = preview
+        let states: Vec<(&str, SprintState)> = preview
             .sprints
             .iter()
-            .map(|sprint| (sprint.name.as_str(), sprint.closed))
+            .map(|sprint| (sprint.name.as_str(), sprint.state))
             .collect();
-        assert_eq!(closed, [("Cycle 4", true), ("Cycle Five", false)]);
+        assert_eq!(
+            states,
+            [
+                ("Cycle 4", SprintState::Closed),
+                ("Cycle Five", SprintState::Future)
+            ]
+        );
         let categories: Vec<(&str, StatusCategory)> = preview
             .statuses
             .iter()
@@ -1452,19 +1601,271 @@ mod tests {
         assert_eq!(subtask.updated, at(2026, 10, 3, 8, 0));
         assert_eq!(plan.issues[0].sprint, None);
         assert_eq!(plan.issues[0].issue_type, IssueType::Epic);
-        let sprints: Vec<(&str, bool)> = plan
+        let sprints: Vec<(&str, SprintState)> = plan
             .sprints
             .iter()
-            .map(|sprint| (sprint.name.as_str(), sprint.closed))
+            .map(|sprint| (sprint.name.as_str(), sprint.state))
             .collect();
-        assert_eq!(sprints, [("Sprint 1", true), ("Sprint 2", false)]);
         assert_eq!(
-            plan.sprints[0].start,
-            NaiveDate::from_ymd_opt(2026, 10, 2).unwrap()
+            sprints,
+            [
+                ("Sprint 1", SprintState::Closed),
+                ("Sprint 2", SprintState::Future)
+            ]
+        );
+        assert_eq!(plan.sprints[0].start, at(2026, 10, 2, 0, 0));
+        assert_eq!(plan.sprints[0].end, at(2026, 10, 6, 23, 59));
+    }
+
+    fn sprint_states(preview: &ImportPreview) -> Vec<(&str, SprintState)> {
+        preview
+            .sprints
+            .iter()
+            .map(|sprint| (sprint.name.as_str(), sprint.state))
+            .collect()
+    }
+
+    #[test]
+    fn preview_runs_the_oldest_open_sprint_whatever_the_row_order() {
+        let rows = [
+            "A-1,Shipped,Done,Sprint 1",
+            "A-2,Also shipped,Done,Sprint 1",
+            "A-3,Under way,In Progress,Sprint 2",
+            "A-4,Finished early,Done,Sprint 2",
+            "A-5,Planned,To Do,Sprint 3",
+            "A-6,Planned later,To Do,Sprint 10",
+        ];
+        let csv = |rows: &[&str]| format!("Issue key,Summary,Status,Sprint\n{}\n", rows.join("\n"));
+        let reversed: Vec<&str> = rows.iter().rev().copied().collect();
+
+        let forward = preview(
+            &read_export(&csv(&rows)).unwrap(),
+            &statuses(),
+            &members(),
+            today(),
+            None,
+        );
+        let backward = preview(
+            &read_export(&csv(&reversed)).unwrap(),
+            &statuses(),
+            &members(),
+            today(),
+            None,
+        );
+
+        assert_eq!(
+            sprint_states(&forward),
+            [
+                ("Sprint 1", SprintState::Closed),
+                ("Sprint 2", SprintState::Active),
+                ("Sprint 3", SprintState::Future),
+                ("Sprint 10", SprintState::Future),
+            ]
         );
         assert_eq!(
-            plan.sprints[0].end,
-            NaiveDate::from_ymd_opt(2026, 10, 6).unwrap()
+            sprint_states(&backward),
+            [
+                ("Sprint 10", SprintState::Future),
+                ("Sprint 3", SprintState::Future),
+                ("Sprint 2", SprintState::Active),
+                ("Sprint 1", SprintState::Closed),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_cycle_covering_today_runs_and_one_starting_later_is_planned() {
+        let csv = "ID,Title,Status,Cycle Name,Cycle Start,Cycle End\n\
+                   E-1,Undated,In Progress,Cycle 1,,\n\
+                   E-2,Now,Todo,Cycle 2,2026-10-10T00:00:00.000Z,2026-10-20T00:00:00.000Z\n\
+                   E-3,Later,Todo,Cycle 3,2026-11-01T00:00:00.000Z,2026-11-14T00:00:00.000Z\n";
+        let export = read_export(csv).unwrap();
+
+        let preview = preview(&export, &statuses(), &members(), today(), None);
+
+        assert_eq!(
+            sprint_states(&preview),
+            [
+                ("Cycle 1", SprintState::Future),
+                ("Cycle 2", SprintState::Active),
+                ("Cycle 3", SprintState::Future),
+            ]
+        );
+    }
+
+    #[test]
+    fn localized_done_statuses_close_a_finished_sprint() {
+        let status = |id, name: &str, category| Status {
+            id,
+            name: name.into(),
+            category,
+            column_id: Some(1),
+        };
+        let statuses = [
+            status(21, "A fazer", StatusCategory::Todo),
+            status(22, "Em andamento", StatusCategory::InProgress),
+            status(23, "Concluído", StatusCategory::Done),
+            status(24, "Fechado", StatusCategory::Done),
+        ];
+        let csv = "Issue key,Summary,Status,Sprint\n\
+                   P-1,Entregue,Concluído,Sprint 1\n\
+                   P-2,Encerrada,Fechado,Sprint 1\n\
+                   P-3,Em curso,Em andamento,Sprint 2\n";
+        let export = read_export(csv).unwrap();
+
+        let preview = preview(&export, &statuses, &members(), today(), None);
+
+        assert_eq!(
+            sprint_states(&preview),
+            [
+                ("Sprint 1", SprintState::Closed),
+                ("Sprint 2", SprintState::Active),
+            ]
+        );
+    }
+
+    #[test]
+    fn preview_plans_the_running_sprint_while_the_board_runs_another() {
+        let csv = "Issue key,Summary,Status,Sprint\n\
+                   P-1,Under way,In Progress,Sprint 2\n";
+        let export = read_export(csv).unwrap();
+
+        let other = preview(&export, &statuses(), &members(), today(), Some("Sprint 7"));
+        let same = preview(&export, &statuses(), &members(), today(), Some("Sprint 2"));
+
+        assert_eq!(sprint_states(&other), [("Sprint 2", SprintState::Future)]);
+        assert_eq!(sprint_states(&same), [("Sprint 2", SprintState::Active)]);
+    }
+
+    #[test]
+    fn a_finished_sprint_and_a_running_one_preview_closed_and_active() {
+        let csv = "Issue key,Summary,Status,Sprint\n\
+                   P-3,Under way,In Progress,Sprint 2\n\
+                   P-1,Shipped,Done,Sprint 1\n";
+        let export = read_export(csv).unwrap();
+
+        let preview = preview(&export, &statuses(), &members(), today(), None);
+
+        assert_eq!(
+            sprint_states(&preview),
+            [
+                ("Sprint 2", SprintState::Active),
+                ("Sprint 1", SprintState::Closed),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_export_without_sprints_plans_none_and_a_kanban_board_takes_no_active_sprint() {
+        let export = read_export("Issue key,Summary,Status\nX-1,No sprint,Open\n").unwrap();
+        let mapping = ImportMapping {
+            sprints: [("Sprint 1".to_string(), SprintAction::Active)]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+
+        let preview = preview(&export, &statuses(), &members(), today(), None);
+        let plan = plan_import(
+            &export,
+            &mapping,
+            &categories(),
+            &HashMap::new(),
+            1,
+            Utc::now(),
+        );
+
+        assert!(preview.sprints.is_empty());
+        assert!(plan.sprints.is_empty());
+        assert_eq!(
+            field_errors(check_mapping(
+                &mapping,
+                &statuses(),
+                &members(),
+                BoardType::Kanban
+            )),
+            [(
+                "mapping.sprints.Sprint 1".to_string(),
+                "a kanban board has no sprints".to_string()
+            )]
+        );
+    }
+
+    fn field_errors(checked: Result<(), AppError>) -> Vec<(String, String)> {
+        let Err(AppError::Validation(errors)) = checked else {
+            panic!("expected a validation error");
+        };
+        errors
+            .into_iter()
+            .map(|error| (error.field, error.message))
+            .collect()
+    }
+
+    #[test]
+    fn a_mapping_runs_at_most_one_sprint() {
+        let mapping = ImportMapping {
+            sprints: [
+                ("Sprint 1".to_string(), SprintAction::Active),
+                ("Sprint 2".to_string(), SprintAction::Active),
+            ]
+            .into_iter()
+            .collect(),
+            ..Default::default()
+        };
+
+        let checked = check_mapping(&mapping, &statuses(), &members(), BoardType::Scrum);
+
+        assert_eq!(
+            field_errors(checked),
+            [(
+                "mapping.sprints.Sprint 2".to_string(),
+                "only one sprint can be active".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn an_active_sprint_runs_two_weeks_from_now_unless_the_export_dates_it() {
+        let now = at(2026, 10, 16, 12, 0);
+        let mut mapping = jira_mapping();
+        mapping
+            .sprints
+            .insert("Sprint 2".to_string(), SprintAction::Active);
+        let linear = ImportMapping {
+            sprints: [("Cycle 2".to_string(), SprintAction::Active)]
+                .into_iter()
+                .collect(),
+            ..Default::default()
+        };
+        let cycles = "ID,Title,Status,Cycle Name,Cycle Start,Cycle End\n\
+                      E-2,Now,Todo,Cycle 2,2026-10-10T00:00:00.000Z,2026-10-20T00:00:00.000Z\n";
+
+        let jira = plan_import(
+            &read_export(JIRA).unwrap(),
+            &mapping,
+            &categories(),
+            &HashMap::new(),
+            1,
+            now,
+        );
+        let linear = plan_import(
+            &read_export(cycles).unwrap(),
+            &linear,
+            &categories(),
+            &HashMap::new(),
+            1,
+            now,
+        );
+
+        let running = &jira.sprints[1];
+        assert_eq!(running.state, SprintState::Active);
+        assert_eq!((running.start, running.end), (now, at(2026, 10, 30, 12, 0)));
+        assert_eq!(jira.issues[1].sprint.as_deref(), Some("Sprint 2"));
+        let cycle = &linear.sprints[0];
+        assert_eq!(cycle.state, SprintState::Active);
+        assert_eq!(
+            (cycle.start, cycle.end),
+            (at(2026, 10, 10, 0, 0), at(2026, 10, 20, 23, 59))
         );
     }
 
