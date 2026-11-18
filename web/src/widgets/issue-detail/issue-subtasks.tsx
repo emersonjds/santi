@@ -6,12 +6,12 @@ import { RowAssignee, RowPriority } from '@/features/edit-row/row-fields'
 import { cardOf } from '@/entities/issue/board-cache'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { useOfferToFinishParent } from '@/entities/issue/finish-parent'
-import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import {
   useCreateIssue,
   useMoveSubtask,
   useUpdateSubtask,
-} from '@/entities/issue/issue-mutations'
+} from '@/entities/issue/issue-edits'
+import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { subtasksQuery } from '@/entities/issue/issue-queries'
 import { CATEGORY, statusesById } from '@/entities/issue/statuses'
 import {
@@ -107,8 +107,9 @@ const SubtaskRow = ({
 
 type IssueSubtasksProps = { issue: Issue; projectKey: string }
 
-/** D6: subtasks hang under stories, tasks and bugs, and are added here, never inline on the board. */
-export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
+const PARENTS_OF_SUBTASKS = new Set(['story', 'task', 'bug'])
+
+const SubtaskList = ({ issue, projectKey }: IssueSubtasksProps) => {
   const { data: subtasks = [] } = useQuery(subtasksQuery(projectKey, issue.key))
   const { data: settings } = useQuery(boardSettingsQuery(projectKey))
   const create = useCreateIssue(projectKey)
@@ -218,3 +219,9 @@ export const IssueSubtasks = ({ issue, projectKey }: IssueSubtasksProps) => {
     </section>
   )
 }
+
+/** D6: subtasks hang under stories, tasks and bugs, and are added here, never inline on the board. */
+export const IssueSubtasks = (props: IssueSubtasksProps) =>
+  PARENTS_OF_SUBTASKS.has(props.issue.issue_type) ? (
+    <SubtaskList {...props} />
+  ) : null

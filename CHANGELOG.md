@@ -18,6 +18,7 @@ UI moves to its own repository.
 ### Changed
 
 - Primary buttons in the dark theme use white text on a deeper violet (contrast 5.6:1, WCAG AA); links and violet text keep the lighter tone.
+- Pages load less JavaScript on first visit (issue page about 10 KB and backlog about 4 KB lighter; /projects and project members about 16 KB lighter). /account paints first and fetches its password and token forms right after, in parallel with its data.
 ### Fixed
 
 - Importing a Jira or Linear export infers each sprint's state: a sprint whose work is all done, or that ended, imports closed with its report; the running one (dates covering today, else the oldest open one) imports active and starts like one started by hand; the rest are planned. The preview suggests planned instead when the board already runs a sprint, and an import whose sprint cannot start still succeeds, telling why on a problem row.
