@@ -13,9 +13,11 @@ UI moves to its own repository.
 ### Added
 
 - Rename a project and change its key; old keys keep working as aliases until removed.
+- Scheduled backups for self-hosters: one restorable file per project, daily at SANTI_BACKUP_HOUR_UTC, keeping SANTI_BACKUP_KEEP runs.
 
 ### Upgrade notes
 
+- New optional settings `SANTI_BACKUP_HOUR_UTC` (0–23, unset keeps backups off) and `SANTI_BACKUP_KEEP` (default 14, at least 1); an invalid value stops the server at startup. Backups go to the attachments storage under `backups/`; `santi restore` also accepts one project's file.
 - Migration `0032_project_key_aliases` (number may change); API: `PATCH /api/projects/{key}`, `DELETE /api/projects/{key}/aliases/{alias}`, `Project.previous_keys`.
 - `POST /api/projects` and `POST /api/projects/restore` answer 409 `project-key-taken` or `project-key-alias` (was `already-exists`) for a key another project holds; a key held as another project's previous key is refused. A restore keeps the newest 100 previous keys and lists skipped or held ones in `problems`.
 - Optional error reporting to Sentry for the hosted instance (SANTI_SENTRY_DSN); off by default. Reports carry technical error details, not meant to identify you; account details, request bodies and tokens are removed.

@@ -123,8 +123,62 @@ before upgrading.
 
 ## Backups and restore
 
-santi does not back itself up yet. Dump PostgreSQL on a schedule and copy the attachments volume
-(or rely on the bucket's own durability):
+### Scheduled backups
+
+Off unless `SANTI_BACKUP_HOUR_UTC` is set.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `SANTI_BACKUP_HOUR_UTC` | unset | hour of the day (UTC, `0`–`23`) the daily backup runs; unset turns backups off |
+| `SANTI_BACKUP_KEEP` | `14` | how many backup runs to keep (at least `1`); older runs are deleted after each successful run |
+
+An invalid value stops the server at startup, naming the variable. Each day after that hour santi
+writes one gzip-compressed JSON file per project, every live and archived project of the instance
+(trashed ones are left out), to the attachments storage: the bucket when `SANTI_S3_*` is set,
+otherwise `SANTI_ATTACHMENTS_DIR`. Files land under
+`backups/{YYYY-MM-DDTHHMMSSZ}/{KEY}.json.gz`. A server that was down at that hour runs the backup
+when it starts later the same day; with several replicas only one writes it. Each run logs one
+`backup done` line with the project count and duration; a failed run is logged as an error (and
+sent to Sentry when configured) and retried five minutes later.
+
+To restore one project, decompress its file and hand it to the CLI or the API, signed in as the
+account that will own it:
+
+```bash
+gunzip SHOP.json.gz
+santi restore SHOP.json
+# or: curl -X POST https://santi.example.com/api/projects/restore \
+#       -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data-binary @SHOP.json
+```
+
+The restore works as described below: the restorer becomes the only member. Attachments are not
+in these files; back up the attachments volume or rely on the bucket.
+
+### Full backups with pg_dump
+
+A `pg_dump` keeps everything (attachments metadata, notifications, history, every account) and
+stays the full-fidelity option. A sidecar in `compose.yaml` that dumps daily and keeps 14 days:
+
+```yaml
+  pg-backup:
+    image: postgres:17
+    depends_on: [postgres]
+    environment:
+      PGPASSWORD: santi
+    volumes:
+      - ./backups:/backups
+    entrypoint:
+      - sh
+      - -c
+      - >-
+        while true; do
+        pg_dump -h postgres -U santi -d santi > /backups/santi-$$(date -u +%Y%m%dT%H%M%SZ).sql;
+        find /backups -name 'santi-*.sql' -mtime +14 -delete;
+        sleep 86400; done
+```
+
+Or dump PostgreSQL by hand and copy the attachments volume (or rely on the bucket's own
+durability):
 
 ```bash
 docker compose exec -T postgres pg_dump -U santi -d santi > santi.sql
