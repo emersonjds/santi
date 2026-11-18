@@ -20,7 +20,7 @@ use crate::issues::domain::{
 use crate::links::domain::{parse_issue_key, stored};
 use crate::projects::domain::{check_project_key, check_project_name};
 use crate::sprints::domain::{
-    check_goal, check_issue_can_change_sprint, check_sprint_name, check_window, require_scrum,
+    check_goal, check_issue_can_change_sprint, check_sprint_name, check_window,
 };
 
 pub const MAX_ISSUES: usize = 50_000;
@@ -96,7 +96,7 @@ pub fn check(export: &mut ProjectExport) -> Result<String, AppError> {
         }
     }
     let categories = check_board(project.board_type, board)?;
-    let sprint_ids = check_sprints(project.board_type, sprints)?;
+    let sprint_ids = check_sprints(sprints)?;
     check_issues(&key, issues, &categories, &sprint_ids)?;
     check_comments(issues, comments)?;
     check_links(&key, issues, links)?;
@@ -173,11 +173,9 @@ fn add_status(
     Ok(())
 }
 
-/// D6 and the sprint lifecycle: scrum only, times that fit the state, one running. Returns the ids.
-fn check_sprints(board_type: BoardType, list: &mut [Sprint]) -> Result<HashSet<i64>, AppError> {
-    if !list.is_empty() {
-        require_scrum(board_type).map_err(at("sprints"))?;
-    }
+/// The sprint lifecycle: times that fit the state, one running; a kanban project keeps the
+/// sprints it had as scrum (SAN-224). Returns the ids.
+fn check_sprints(list: &mut [Sprint]) -> Result<HashSet<i64>, AppError> {
     let mut ids = HashSet::with_capacity(list.len());
     let mut running = false;
     for (index, sprint) in list.iter_mut().enumerate() {
@@ -780,12 +778,12 @@ pub(crate) mod tests {
         in_sprint(&mut together, 1);
         in_sprint(&mut together, 2);
         assert!(check(&mut export(together)).is_ok());
-        assert_eq!(
-            refused(|value| {
-                value["project"]["board_type"] = json!("kanban");
-                value["board"]["board_type"] = json!("kanban");
-            }),
-            "sprints"
+        let mut switched = file();
+        switched["project"]["board_type"] = json!("kanban");
+        switched["board"]["board_type"] = json!("kanban");
+        assert!(
+            check(&mut export(switched)).is_ok(),
+            "SAN-224 keeps sprints"
         );
         let states: [fn(&mut Value); 3] = [
             |v| v["sprints"][0]["started_at"] = json!(null),

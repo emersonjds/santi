@@ -21,6 +21,7 @@ import {
 } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { RootError } from '@/shared/ui/root-error'
+import { BoardTypeControl } from './board-type'
 
 type Names = { name: string; key: string }
 
@@ -193,6 +194,7 @@ export const GeneralSection = ({ project }: { project: Project }) => {
             )}
           </form>
         </Form>
+        <BoardTypeControl project={project} />
         {project.previous_keys.length > 0 && (
           <div className='grid gap-2'>
             <h3 id='previous-keys' className='text-sm font-medium'>

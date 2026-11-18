@@ -154,8 +154,18 @@ async fn projects(client: &Client, command: ProjectsCommand, json: bool) -> Resu
             let projects = client.projects(state).await?;
             return show(json, &projects, |projects| lines(projects, project_line));
         }
-        ProjectsCommand::Edit { project, name, key } => {
-            let changes = UpdateProject { name, key };
+        ProjectsCommand::Edit {
+            project,
+            name,
+            key,
+            board_type,
+        } => {
+            let changes = UpdateProject {
+                name,
+                key,
+                board_type,
+                expected_board_type: None,
+            };
             let project = client.update_project(&project, &changes).await?;
             return show(json, &project, project_with_previous_keys);
         }

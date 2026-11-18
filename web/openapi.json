@@ -1892,7 +1892,7 @@
             }
           },
           "409": {
-            "description": "`project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project",
+            "description": "`project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project; `board-type-changed`: `expected_board_type` is not the current type",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3574,6 +3574,16 @@
               }
             }
           },
+          "409": {
+            "description": "`kanban-has-no-sprints`: `sprint_id` sent on a kanban board",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -4571,7 +4581,7 @@
             }
           },
           "409": {
-            "description": "`status-unmapped`",
+            "description": "`status-unmapped`; `kanban-has-no-sprints`: `sprint_id` sent on a kanban board",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5357,6 +5367,16 @@
               }
             }
           },
+          "409": {
+            "description": "`kanban-has-no-sprints`",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
           "422": {
             "content": {
               "application/problem+json": {
@@ -5417,7 +5437,7 @@
             }
           },
           "409": {
-            "description": "`sprint-not-future`",
+            "description": "`sprint-not-future`; `kanban-has-no-sprints`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5496,7 +5516,7 @@
             }
           },
           "409": {
-            "description": "`sprint-not-active`",
+            "description": "`sprint-not-active`; `kanban-has-no-sprints`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5663,7 +5683,7 @@
             }
           },
           "409": {
-            "description": "`sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13)",
+            "description": "`sprint-not-future`, `sprint-already-active` or `sprint-empty` (D13); `kanban-has-no-sprints`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -9904,6 +9924,28 @@
         "type": "object",
         "description": "Absent fields stay as they are.",
         "properties": {
+          "board_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BoardType",
+                "description": "Switches the board (SAN-224): sprints and reports stay; switching to scrum clears column\nWIP limits and the done window."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_board_type": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BoardType",
+                "description": "The type the caller last saw; a different current type refuses the whole change with\n409 `board-type-changed`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "key": {
             "type": [
               "string",

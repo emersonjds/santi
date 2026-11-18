@@ -104,6 +104,8 @@ pub struct UpdateProjectArgs {
     name: Option<String>,
     /// New key, 2–10 characters: a capital letter, then capital letters or digits.
     key: Option<String>,
+    /// `scrum` or `kanban`.
+    board_type: Option<BoardType>,
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -447,7 +449,7 @@ impl Santi {
     }
 
     #[tool(
-        description = "Rename a project and/or change its key. A key is 2–10 characters: a capital letter, then capital letters or digits. Old keys keep working as `previous_keys` (issue keys and links included) and no other project can take them until removed. Admins only. Requires `project`.",
+        description = "Rename a project, change its key and/or switch its `board_type` (`scrum` or `kanban`). A key is 2–10 characters: a capital letter, then capital letters or digits. Old keys keep working as `previous_keys` (issue keys and links included) and no other project can take them until removed. Switching keeps sprints, reports and each issue's sprint (hidden while kanban); switching to scrum clears column WIP limits and the done window. Admins only. Requires `project`.",
         annotations(
             read_only_hint = false,
             destructive_hint = false,
@@ -465,6 +467,8 @@ impl Santi {
                 let changes = UpdateProject {
                     name: args.name,
                     key: args.key,
+                    board_type: args.board_type,
+                    expected_board_type: None,
                 };
                 client
                     .update_project(&project(&args.project)?, &changes)

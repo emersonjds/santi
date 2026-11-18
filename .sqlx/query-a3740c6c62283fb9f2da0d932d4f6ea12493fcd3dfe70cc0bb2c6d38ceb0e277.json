@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE board SET board_type = $2, done_window_days = $3 WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "a3740c6c62283fb9f2da0d932d4f6ea12493fcd3dfe70cc0bb2c6d38ceb0e277"
+}

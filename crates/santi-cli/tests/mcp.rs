@@ -978,10 +978,11 @@ fn stdio_renames_a_project_and_frees_its_old_key() {
         assert_eq!(hints.destructive_hint, Some(false));
         let schema = Value::Object((*update.input_schema).clone());
         assert_eq!(schema["required"], json!(["project"]));
-        for field in ["name", "key"] {
+        for field in ["name", "key", "board_type"] {
             assert!(schema["properties"].get(field).is_some(), "{field}");
         }
         assert!(update.description.as_deref().unwrap().contains("2–10"));
+        assert!(update.description.as_deref().unwrap().contains("board_type"));
         let remove = tool("remove_project_alias");
         let hints = remove.annotations.clone().unwrap();
         assert_eq!(hints.destructive_hint, Some(true));
@@ -997,6 +998,13 @@ fn stdio_renames_a_project_and_frees_its_old_key() {
         assert_eq!(renamed["key"], "RNMD");
         assert_eq!(renamed["name"], "Renamed");
         assert_eq!(renamed["previous_keys"], json!(["RNM"]));
+        let switched = ok(
+            &client,
+            "update_project",
+            json!({ "project": "RNMD", "board_type": "scrum" }),
+        )
+        .await;
+        assert_eq!(switched["board_type"], "scrum");
         let board = ok(&client, "get_board", json!({ "project": "RNM" })).await;
         assert!(board.is_object());
         let taken = rejected(
