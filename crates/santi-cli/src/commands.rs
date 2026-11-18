@@ -157,7 +157,7 @@ async fn projects(client: &Client, command: ProjectsCommand, json: bool) -> Resu
         ProjectsCommand::Edit { project, name, key } => {
             let changes = UpdateProject { name, key };
             let project = client.update_project(&project, &changes).await?;
-            return show(json, &project, project_line);
+            return show(json, &project, project_with_previous_keys);
         }
         ProjectsCommand::RemoveAlias { project, alias } => {
             client.remove_project_alias(&project, &alias).await?;
@@ -861,7 +861,7 @@ fn project_line(project: &Project) -> String {
         at.map(|at| at.format("%Y-%m-%d").to_string())
             .unwrap_or_default()
     };
-    let line = match project.state {
+    match project.state {
         ProjectState::Active => line,
         ProjectState::Archived => format!(
             "{line} archived {}{}",
@@ -874,7 +874,11 @@ fn project_line(project: &Project) -> String {
             by(&project.trashed_by),
             day(project.purge_at)
         ),
-    };
+    }
+}
+
+fn project_with_previous_keys(project: &Project) -> String {
+    let line = project_line(project);
     match project.previous_keys.is_empty() {
         true => line,
         false => format!(

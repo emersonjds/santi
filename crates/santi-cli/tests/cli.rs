@@ -1235,7 +1235,7 @@ fn projects_are_renamed_rekeyed_and_their_old_keys_freed() {
         .stdout(contains("NOWVI-1").and(contains("Keep me")));
     run(&["projects", "list"])
         .success()
-        .stdout(contains("Previous keys: BAIXA"));
+        .stdout(contains("NOWVI").and(contains("Previous keys").not()));
     let listed = json(santi.with(&token).args(["projects", "list"]));
     let nowvi = listed
         .as_array()
