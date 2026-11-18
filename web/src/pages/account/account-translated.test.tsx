@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import { switchLanguage } from '@/shared/i18n/i18n'
 import { renderApp } from '@/test/render-app'
 import { ALICE, signedIn } from '@/test/stub-api'
@@ -23,6 +24,17 @@ const open = (sessions: unknown[] = []) => {
 
 describe('the rest of /account in pt-BR', () => {
   afterEach(() => switchLanguage('en'))
+
+  it('translates the name field and its validation', async () => {
+    const { screen } = await open()
+
+    await screen.getByLabelText('Nome', { exact: true }).fill('   ')
+    await userEvent.keyboard('{Enter}')
+
+    await expect
+      .element(screen.getByText('O nome é obrigatório.'))
+      .toBeVisible()
+  })
 
   it('translates the password form and its validation', async () => {
     const { screen } = await open()

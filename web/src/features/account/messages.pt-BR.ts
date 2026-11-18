@@ -68,4 +68,8 @@ export default {
   cancel: 'Cancelar',
   deleteAccount: 'Excluir conta',
   deleted: 'Sua conta foi excluída.',
+  name: 'Nome',
+  nameRequired: 'O nome é obrigatório.',
+  nameTooLong: 'O nome é longo demais.',
+  nameFailed: 'Não foi possível salvar o seu nome.',
 } satisfies Translation<typeof messages>

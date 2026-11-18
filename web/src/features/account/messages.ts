@@ -63,4 +63,8 @@ export const messages = defineMessages('features/account', {
   cancel: 'Cancel',
   deleteAccount: 'Delete account',
   deleted: 'Your account was deleted.',
+  name: 'Name',
+  nameRequired: 'Name is required.',
+  nameTooLong: 'Name is too long.',
+  nameFailed: 'Could not save your name.',
 })

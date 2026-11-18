@@ -31,6 +31,7 @@ const translated = [
   'src/features/account/change-password-form.tsx',
   'src/features/account/delete-account-button.tsx',
   'src/features/account/delete-account-dialog.tsx',
+  'src/features/account/display-name-field.tsx',
   'src/features/account/export-data-button.tsx',
   'src/features/account/language-control.tsx',
   'src/features/account/sessions-list.tsx',

@@ -53,4 +53,8 @@ export default {
   cancel: '取消',
   deleteAccount: '删除账户',
   deleted: '你的账户已删除。',
+  name: '名称',
+  nameRequired: '名称不能为空。',
+  nameTooLong: '名称过长。',
+  nameFailed: '无法保存名称。',
 } satisfies Translation<typeof messages>

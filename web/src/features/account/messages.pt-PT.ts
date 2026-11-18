@@ -70,4 +70,8 @@ export default {
   cancel: 'Cancelar',
   deleteAccount: 'Eliminar conta',
   deleted: 'A sua conta foi eliminada.',
+  name: 'Nome',
+  nameRequired: 'O nome é obrigatório.',
+  nameTooLong: 'O nome é demasiado longo.',
+  nameFailed: 'Não foi possível guardar o nome.',
 } satisfies Translation<typeof messages>
