@@ -7208,6 +7208,26 @@
           }
         }
       },
+      "ExportedLink": {
+        "type": "object",
+        "description": "A link of an issue of the project (D59), read from that issue, the `source`; `target` may be\nin another project and carries its key at export time.",
+        "required": [
+          "source",
+          "target",
+          "relation"
+        ],
+        "properties": {
+          "relation": {
+            "$ref": "#/components/schemas/Relation"
+          },
+          "source": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        }
+      },
       "FieldError": {
         "type": "object",
         "required": [
@@ -9011,6 +9031,13 @@
             "items": {
               "$ref": "#/components/schemas/Issue"
             }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExportedLink"
+            },
+            "description": "Absent from older files."
           },
           "members": {
             "type": "array",

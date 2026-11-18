@@ -159,9 +159,10 @@ santi restore SHOP.json.gz
 ```
 
 The restore works as described below: the restorer becomes the only member and the author of
-every comment.
+every comment. Links to issues of other projects come back only when the restorer is a member
+of those projects; the others are listed as problems.
 
-What a backup file does not contain: issue links (card SAN-207), attachment files and their
+What a backup file does not contain: attachment files and their
 metadata, issue history, stars, and the facts behind sprint reports (closed sprints report their
 issues as they are now). Back up the attachments volume or rely on the bucket for the files, and
 use `pg_dump` (below) when you need everything.

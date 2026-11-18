@@ -13,6 +13,7 @@ UI moves to its own repository.
 ### Added
 
 - Scheduled backups for self-hosters: one restorable file per project, daily at SANTI_BACKUP_HOUR_UTC, keeping SANTI_BACKUP_KEEP runs.
+- Exports, backups and restore keep issue links.
 
 ### Fixed
 
@@ -24,6 +25,7 @@ UI moves to its own repository.
 ### Upgrade notes
 
 - New optional settings `SANTI_BACKUP_HOUR_UTC` (0–23, unset keeps backups off) and `SANTI_BACKUP_KEEP` (default 14, at least 1); an invalid value stops the server at startup. Backups go to the attachments storage under `backups/`; `santi restore` also accepts one project's file.
+- Account export and backups gain `links` per project; older files without it still restore.
 
 ## [0.28.0] - 2026-11-18
 

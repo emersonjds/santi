@@ -1424,6 +1424,15 @@ export interface components {
             edited_by_id?: number | null;
             issue_key: string;
         };
+        /**
+         * @description A link of an issue of the project (D59), read from that issue, the `source`; `target` may be
+         *     in another project and carries its key at export time.
+         */
+        ExportedLink: {
+            relation: components["schemas"]["Relation"];
+            source: string;
+            target: string;
+        };
         FieldError: {
             field: string;
             message: string;
@@ -2019,6 +2028,8 @@ export interface components {
             board: components["schemas"]["BoardSettings"];
             comments: components["schemas"]["ExportedComment"][];
             issues: components["schemas"]["Issue"][];
+            /** @description Absent from older files. */
+            links?: components["schemas"]["ExportedLink"][];
             members: components["schemas"]["MemberInfo"][];
             project: components["schemas"]["Project"];
             sprints: components["schemas"]["Sprint"][];

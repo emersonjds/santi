@@ -206,6 +206,18 @@ pub struct ProjectExport {
     pub sprints: Vec<crate::sprints::Sprint>,
     pub issues: Vec<crate::issues::Issue>,
     pub comments: Vec<ExportedComment>,
+    /// Absent from older files.
+    #[serde(default)]
+    pub links: Vec<ExportedLink>,
+}
+
+/// A link of an issue of the project (D59), read from that issue, the `source`; `target` may be
+/// in another project and carries its key at export time.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct ExportedLink {
+    pub source: String,
+    pub target: String,
+    pub relation: crate::links::Relation,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

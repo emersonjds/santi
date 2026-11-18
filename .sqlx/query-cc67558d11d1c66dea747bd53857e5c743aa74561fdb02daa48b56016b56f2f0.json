@@ -1,0 +1,45 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT source AS \"source!\", target AS \"target!\", link_type AS \"link_type!\",\n                  is_source AS \"is_source!\"\n           FROM (SELECT l.id, p.key || '-' || mine.number AS source, op.key || '-' || o.number AS target,\n                        l.link_type, true AS is_source\n                 FROM issue mine\n                 JOIN project p ON p.id = mine.project_id\n                 JOIN issue_link l ON l.source_id = mine.id\n                 JOIN issue o ON o.id = l.target_id\n                 JOIN project op ON op.id = o.project_id AND op.trashed_at IS NULL\n                 JOIN member m ON m.project_id = op.id AND m.user_id = $1\n                 WHERE mine.project_id = $2\n                 UNION ALL\n                 SELECT l.id, p.key || '-' || mine.number, op.key || '-' || o.number, l.link_type, false\n                 FROM issue mine\n                 JOIN project p ON p.id = mine.project_id\n                 JOIN issue_link l ON l.target_id = mine.id\n                 JOIN issue o ON o.id = l.source_id AND o.project_id <> $2\n                 JOIN project op ON op.id = o.project_id AND op.trashed_at IS NULL\n                 JOIN member m ON m.project_id = op.id AND m.user_id = $1\n                 WHERE mine.project_id = $2) links\n           ORDER BY id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "source!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "target!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "link_type!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "is_source!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "cc67558d11d1c66dea747bd53857e5c743aa74561fdb02daa48b56016b56f2f0"
+}

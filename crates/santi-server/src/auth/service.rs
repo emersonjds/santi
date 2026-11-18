@@ -14,7 +14,7 @@ use crate::Legal;
 use crate::error::{AppError, reject_nul};
 use crate::members::{self, Member};
 use crate::storage::Storage;
-use crate::{attachments, boards, home, issues, projects, sprints};
+use crate::{attachments, boards, home, issues, links, projects, sprints};
 
 /// Creates the user and signs them in; returns the user and the session token.
 pub async fn register(
@@ -196,12 +196,14 @@ pub async fn export_project(
     let issues = all_issues(pool, member).await?;
     let mut conn = pool.acquire().await?;
     let comments = issues::repo::list_project_comments(&mut conn, member.project_id).await?; // after the issues they name
+    let links = links::service::export(&mut conn, member).await?;
     Ok(ProjectExport {
         members,
         board,
         sprints,
         issues,
         comments,
+        links,
         project,
     })
 }

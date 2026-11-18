@@ -91,8 +91,9 @@ fn internal(error: impl ToString) -> AppError {
     AppError::Internal(error.to_string())
 }
 
-/// The JSON the restore endpoint accepts, or why it would refuse it. Comments and parents
-/// pointing at issues the export lacks (written while it was read) are dropped first.
+/// The JSON the restore endpoint accepts, or why it would refuse it. Comments, parents and links
+/// pointing at issues of the project the export lacks (written while it was read) are dropped
+/// first.
 pub fn restorable(mut export: ProjectExport, max_bytes: usize) -> Result<Vec<u8>, String> {
     let keys: HashSet<String> = export
         .issues
@@ -111,6 +112,18 @@ pub fn restorable(mut export: ProjectExport, max_bytes: usize) -> Result<Vec<u8>
             issue.parent_key = None;
         }
     }
+    let project = export.project.key.clone();
+    let in_file = |key: &String| {
+        keys.contains(key)
+            || key
+                .rsplit_once('-')
+                .is_some_and(|(other, _)| other != project)
+    };
+    let links = std::mem::take(&mut export.links);
+    export.links = links
+        .into_iter()
+        .filter(|link| keys.contains(&link.source) && in_file(&link.target))
+        .collect();
     restore::domain::check(&mut export.clone()).map_err(|error| format!("{error:?}"))?;
     let json = serde_json::to_vec(&export).map_err(|error| error.to_string())?;
     if json.len() > max_bytes {
@@ -284,6 +297,8 @@ fn gzip(json: &[u8]) -> std::io::Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use santi_types::auth::ExportedLink;
+    use santi_types::links::Relation;
 
     fn vars(pairs: &[(&'static str, &'static str)]) -> impl Fn(&str) -> Option<String> {
         let pairs = pairs.to_vec();
@@ -412,6 +427,16 @@ mod tests {
         let mut gone = export.comments[0].clone();
         gone.issue_key = "SHOP-8".into();
         export.comments.push(gone);
+        let link = |source: &str, target: &str| ExportedLink {
+            source: source.into(),
+            target: target.into(),
+            relation: Relation::Blocks,
+        };
+        export.links = vec![
+            link("SHOP-1", "SHOP-9"),
+            link("SHOP-8", "SHOP-1"),
+            link("SHOP-1", "OPS-3"),
+        ];
 
         let json = restorable(export, usize::MAX).unwrap();
 
@@ -419,6 +444,8 @@ mod tests {
         assert_eq!(written.issues[1].parent_key, None);
         assert_eq!(written.comments.len(), 1);
         assert_eq!(written.comments[0].issue_key, "SHOP-2");
+        assert_eq!(written.links.len(), 1);
+        assert_eq!(written.links[0].target, "OPS-3");
     }
 
     #[test]
