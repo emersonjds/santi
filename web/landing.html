@@ -75,6 +75,7 @@
         </a>
         <nav aria-label="Main" class="flex items-center gap-1">
           <a href="#features" class="btn btn-ghost max-md:hidden">Features</a>
+          <a href="#ai" class="btn btn-ghost max-md:hidden">AI</a>
           <a href="#self-host" class="btn btn-ghost max-md:hidden">Self-host</a>
           <a href="#pricing" class="btn btn-ghost max-md:hidden">Pricing</a>
           <a href="#faq" class="btn btn-ghost max-md:hidden">FAQ</a>
@@ -318,28 +319,38 @@
           </div>
         </section>
 
-        <section aria-labelledby="agents-title" class="feature">
-          <div class="feature-text">
-            <p class="eyebrow">CLI and MCP</p>
-            <h2 id="agents-title" class="section-title">
-              Scripts and AI agents welcome.
+        <section
+          id="ai"
+          aria-labelledby="ai-title"
+          class="feature feature-flip"
+        >
+          <div class="feature-text min-w-0">
+            <p class="eyebrow">AI agents</p>
+            <h2 id="ai-title" class="section-title">
+              Give an AI agent the keys to your board.
             </h2>
             <p class="section-lead">
-              Everything the UI does goes through a documented JSON API. The
-              <code>santi</code> command line drives it from a terminal, and
-              <code>santi mcp</code> hands AI agents 16 tools that act with your
-              permissions, nothing more.
+              Connect an AI assistant over MCP, hand it an API token, and it can
+              create issues, move them, plan a sprint and comment — through 36
+              tools that act with exactly your permissions, nothing more.
             </p>
-            <ul class="checks">
-              <li>OpenAPI 3.1 document and interactive docs on every server</li>
-              <li>Personal API tokens you can revoke at any time</li>
-              <li>MCP over stdio or Streamable HTTP</li>
-            </ul>
-          </div>
-          <pre
-            class="terminal"
-            aria-label="Example santi commands"
-          ><code><span class="prompt">$</span> santi login --url http://localhost:8080
+            <ol class="checks">
+              <li>Create an API token from your account menu.</li>
+              <li>Add santi to your AI assistant, with that token.</li>
+              <li>Ask it to do something — it already knows your boards.</li>
+            </ol>
+            <p class="mt-6 text-muted-foreground">
+              Works with Claude, ChatGPT and Codex, GitHub Copilot, Cursor, or
+              any other MCP client.
+            </p>
+            <p class="mt-6 text-muted-foreground">
+              Prefer a terminal? The same santi API drives the
+              <code>santi</code> command line, scriptable end to end.
+            </p>
+            <pre
+              class="terminal mt-4"
+              aria-label="Example santi commands"
+            ><code><span class="prompt">$</span> santi login --url http://localhost:8080
 <span class="prompt">$</span> santi issues create WEB --summary "Fix login" --type bug
 <span class="prompt">$</span> santi issues move WEB-12 --status "In Progress"
 <span class="prompt">$</span> santi sprints start WEB 3
@@ -347,6 +358,52 @@
 <span class="comment"># give an agent your boards</span>
 <span class="prompt">$</span> claude mcp add santi --env SANTI_URL=http://localhost:8080 \
     --env SANTI_TOKEN=santi_… -- santi mcp</code></pre>
+            <p class="mt-6">
+              <a
+                class="link"
+                href="https://github.com/emersonjds/santi/blob/main/docs/mcp.md"
+                >Read the setup guide for every client</a
+              >
+            </p>
+          </div>
+          <div
+            class="card"
+            role="group"
+            aria-label="Example conversation with an AI assistant connected to santi"
+          >
+            <ol class="grid gap-6">
+              <li class="grid gap-2">
+                <p>
+                  <strong>You:</strong> Move WEB-12 to Done and add a comment
+                  that QA signed off.
+                </p>
+                <p>
+                  <strong>Assistant:</strong> Done — I moved WEB-12 to Done and
+                  added your comment: "QA signed off."
+                </p>
+              </li>
+              <li class="grid gap-2">
+                <p>
+                  <strong>You:</strong> Create a subtask under WEB-12 for the
+                  changelog entry, and put it in the next sprint.
+                </p>
+                <p>
+                  <strong>Assistant:</strong> Created WEB-15, a subtask of
+                  WEB-12, "Write the changelog entry," and planned it into
+                  Sprint 4.
+                </p>
+              </li>
+              <li class="grid gap-2">
+                <p>
+                  <strong>You:</strong> What's left on the board for Sprint 4?
+                </p>
+                <p>
+                  <strong>Assistant:</strong> 7 cards: 2 in To Do, 3 in In
+                  Progress, 2 in Done. WEB-15 is in To Do.
+                </p>
+              </li>
+            </ol>
+          </div>
         </section>
       </div>
 
@@ -647,9 +704,10 @@
           <details>
             <summary>Can AI agents work with it?</summary>
             <p>
-              Yes. <code>santi mcp</code> is an MCP server with 16 tools for
-              projects, boards, backlog, issues, comments and sprints. An agent
-              acts with the API token you give it and sees exactly what you see.
+              Yes. <code>santi mcp</code> is an MCP server with 36 tools
+              covering projects, boards, backlog, issues, comments and sprints.
+              An agent acts with the API token you give it and sees exactly what
+              that token's user sees.
             </p>
           </details>
           <details>
@@ -708,6 +766,7 @@
           <h2 id="footer-product" class="footer-title">Product</h2>
           <ul class="footer-links">
             <li><a href="#features">Features</a></li>
+            <li><a href="#ai">AI</a></li>
             <li><a href="#self-host">Self-host</a></li>
             <li><a href="#pricing">Pricing</a></li>
             <li><a href="#faq">FAQ</a></li>

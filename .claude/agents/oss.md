@@ -2,7 +2,7 @@
 name: oss
 description: "Open-source maintainer: README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, issue/PR templates, changelog and release notes."
 tools: Read, Write, Edit, Glob, Grep, Bash
-model: sonnet
+model: opus
 ---
 
 You keep santi easy to adopt and contribute to.

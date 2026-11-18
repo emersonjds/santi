@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { userEvent } from 'vitest/browser'
 import type { Project } from '@/shared/api/client'
 import { renderApp } from '@/test/render-app'
 import { MY_OPS, MY_WEB, inProjects, routeOf, signedIn } from '@/test/stub-api'
@@ -181,6 +182,27 @@ describe('projects page', () => {
 
     await expect.element(screen.getByText('Nothing in the trash')).toBeVisible()
     expect(requests.map(routeOf)).toContain('POST /api/projects/OLD/restore')
+  })
+
+  it('gives the focus back to Delete forever after Cancel and after Esc', async () => {
+    withLifecycle()
+    const { screen } = await renderApp('/projects?tab=trash')
+    const purge = screen.getByRole('button', { name: 'Delete Legacy forever' })
+    await expect.element(purge).toHaveAttribute('aria-haspopup', 'dialog')
+    await expect.element(purge).toHaveAttribute('aria-expanded', 'false')
+
+    await purge.click()
+    const dialog = screen.getByRole('alertdialog')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect.element(dialog).not.toBeInTheDocument()
+    await expect.element(purge).toHaveFocus()
+    await expect.element(purge).toHaveAttribute('aria-expanded', 'false')
+
+    await purge.click()
+    await expect.element(dialog).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(dialog).not.toBeInTheDocument()
+    await expect.element(purge).toHaveFocus()
   })
 
   it('deletes a trashed project forever once its key is typed', async () => {

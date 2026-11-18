@@ -17,8 +17,8 @@ import { RichTextField } from '@/features/rich-text/rich-text-field'
 import { DropZone } from '@/features/upload-attachments/drop-zone'
 import { useUploadQueue } from '@/features/upload-attachments/upload-queue'
 import { useRecordView } from '@/entities/home/record-visit'
+import { useEditIssue } from '@/entities/issue/issue-edits'
 import { TypeGlyph } from '@/entities/issue/issue-glyphs'
-import { useEditIssue } from '@/entities/issue/issue-mutations'
 import { issueQuery } from '@/entities/issue/issue-queries'
 import { mayDelete } from '@/entities/issue/may-delete'
 import { membersQuery, projectQuery } from '@/entities/project/project-queries'
@@ -29,12 +29,10 @@ import { type Issue, type Member, fieldMessage } from '@/shared/api/client'
 import { useReadOnly } from '@/shared/lib/read-only'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
-import { CommitInput } from '@/shared/ui/commit-input'
+import { CommitTextarea } from '@/shared/ui/commit-input'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { IssueAttachments } from './issue-attachments'
-import { IssueComments } from './issue-comments'
 import { IssueFields } from './issue-fields'
-import { IssueSubtasks } from './issue-subtasks'
+import { preloadIssueSections } from './load-issue-sections'
 
 type IssueProps = { issue: Issue; projectKey: string }
 
@@ -46,6 +44,19 @@ const IssueMenu = lazy(() =>
 // Lazy: links and their issue picker would push the issue page past its D39 budget.
 const IssueLinks = lazy(() =>
   import('./issue-links').then((module) => ({ default: module.IssueLinks }))
+)
+
+// Lazy, with no boundary of their own: the view paints once they are in (D39).
+const IssueAttachments = lazy(() =>
+  preloadIssueSections().then((module) => ({
+    default: module.IssueAttachments,
+  }))
+)
+const IssueSubtasks = lazy(() =>
+  preloadIssueSections().then((module) => ({ default: module.IssueSubtasks }))
+)
+const IssueComments = lazy(() =>
+  preloadIssueSections().then((module) => ({ default: module.IssueComments }))
 )
 
 const DeleteIssueDialog = lazy(() =>
@@ -104,7 +115,7 @@ const Summary = ({ issue, projectKey }: IssueProps) => {
   const edit = useEditIssue(projectKey, issue)
   return (
     <div className='grid gap-1'>
-      <CommitInput
+      <CommitTextarea
         aria-label='Summary'
         required
         maxLength={255}
@@ -231,8 +242,6 @@ const DetailSkeleton = () => (
   </div>
 )
 
-const PARENTS_OF_SUBTASKS = new Set(['story', 'task', 'bug'])
-
 type IssueDetailProps = {
   projectKey: string
   number: number
@@ -305,9 +314,7 @@ export const IssueDetail = ({
                 number={number}
                 uploads={uploads}
               />
-              {PARENTS_OF_SUBTASKS.has(issue.issue_type) && (
-                <IssueSubtasks issue={issue} projectKey={projectKey} />
-              )}
+              <IssueSubtasks issue={issue} projectKey={projectKey} />
               <Suspense fallback={<Skeleton className='h-11 w-full md:h-8' />}>
                 <IssueLinks projectKey={projectKey} number={number} />
               </Suspense>

@@ -11,7 +11,7 @@ import { DropZone } from '@/features/upload-attachments/drop-zone'
 import { PendingFiles } from '@/features/upload-attachments/pending-files'
 import { enqueueUploads } from '@/features/upload-attachments/upload-queue'
 import { epicsQuery, parentsQuery } from '@/entities/issue/board-query'
-import { useCreateIssue } from '@/entities/issue/issue-mutations'
+import { useCreateIssue } from '@/entities/issue/issue-edits'
 import { PRIORITY_LABEL, TYPE_LABEL } from '@/entities/issue/labels'
 import {
   membersQuery,

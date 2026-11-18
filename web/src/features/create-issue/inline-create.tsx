@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
-import { useCreateIssue } from '@/entities/issue/issue-mutations'
+import { useCreateIssue } from '@/entities/issue/issue-edits'
 import { TYPE_LABEL, isIssueType } from '@/entities/issue/labels'
 import { statusesOf } from '@/entities/issue/statuses'
 import { fieldMessage } from '@/shared/api/client'
