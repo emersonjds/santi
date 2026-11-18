@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 const unique = () => `${Date.now()}${Math.random().toString(36).slice(2, 6)}`
 
