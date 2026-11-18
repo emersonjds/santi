@@ -15,7 +15,7 @@ use crate::auth::extract::CurrentUser;
 use crate::error::AppError;
 use crate::rate_limit::{Action, ClientIp};
 
-const MAX_BODY_BYTES: usize = 50 * 1024 * 1024;
+pub const MAX_BODY_BYTES: usize = 50 * 1024 * 1024;
 
 // ponytail: one restore at a time per process, bounding memory to one 50 MB body; a queue or
 // per-instance budget if restores ever need to run side by side.
