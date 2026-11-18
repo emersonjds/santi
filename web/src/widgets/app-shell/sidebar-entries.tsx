@@ -1,5 +1,6 @@
 import { type ReactNode, Suspense, useRef } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { useT } from '@/shared/i18n/i18n'
 import {
   SidebarMenu,
   SidebarMenuButton,
@@ -7,8 +8,15 @@ import {
   SidebarMenuSkeleton,
 } from '@/shared/ui/sidebar'
 import { FlyoutControl } from './flyout-control'
+import { messages } from './messages'
 
 export type Flyout = 'Recent' | 'Starred' | 'More projects'
+
+const LABEL = {
+  Recent: 'recent',
+  Starred: 'starred',
+  'More projects': 'moreProjects',
+} as const
 
 export type FlyoutState = {
   open: Flyout | null
@@ -27,6 +35,7 @@ export const FlyoutEntry = ({
   flyouts: FlyoutState
   children: ReactNode
 }) => {
+  const t = useT(messages)
   const open = flyouts.open === name
   const trigger = useRef<HTMLButtonElement>(null)
   const close = () =>
@@ -44,7 +53,7 @@ export const FlyoutEntry = ({
         className='pointer-events-auto h-10'
       >
         <Icon />
-        <span>{name}</span>
+        <span>{t(LABEL[name])}</span>
       </SidebarMenuButton>
       {open && (
         <FlyoutControl value={{ close, trigger }}>

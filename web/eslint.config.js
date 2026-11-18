@@ -41,6 +41,20 @@ const translated = [
   'src/features/api-token/create-token-form.tsx',
   'src/features/api-token/revoke-token-button.tsx',
   'src/features/api-token/revoke-token-dialog.tsx',
+  'src/widgets/app-shell/account-button.tsx',
+  'src/widgets/app-shell/account-menu.tsx',
+  'src/widgets/app-shell/app-shell.tsx',
+  'src/widgets/app-shell/app-sidebar.tsx',
+  'src/widgets/app-shell/create-button.tsx',
+  'src/widgets/app-shell/notifications-button.tsx',
+  'src/widgets/app-shell/notifications-menu.tsx',
+  'src/widgets/app-shell/project-actions-button.tsx',
+  'src/widgets/app-shell/project-sections.tsx',
+  'src/widgets/app-shell/shortcut-sheet.tsx',
+  'src/widgets/app-shell/shortcuts.tsx',
+  'src/widgets/app-shell/sidebar-entries.tsx',
+  'src/widgets/app-shell/tour-host.tsx',
+  'src/widgets/app-shell/welcome-tour.tsx',
 ]
 const copyAttribute =
   'JSXAttribute[name.name=/^(aria-label|placeholder|title|alt|label)$/]'

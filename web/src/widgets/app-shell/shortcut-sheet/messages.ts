@@ -1,0 +1,28 @@
+import { defineMessages } from '@/shared/i18n/i18n'
+
+export const messages = defineMessages('widgets/app-shell/shortcut-sheet', {
+  keyboardShortcuts: 'Keyboard shortcuts',
+  shortcutsHint: 'Single keys work anywhere but in a field you are typing in.',
+  useShortcuts: 'Use keyboard shortcuts',
+  replayTour: 'Replay the welcome tour',
+  global: 'Global',
+  navigation: 'Navigation',
+  issueActions: 'Issue actions',
+  createIssue: 'Create an issue',
+  searchProject: 'Search this project',
+  jumpToProject: 'Jump to a project',
+  goToBoard: 'Go to the board',
+  goToBacklog: 'Go to the backlog',
+  linkIssue: 'Link the open issue to another',
+  showShortcuts: 'Show these shortcuts',
+  nextIssue: 'Next issue',
+  previousIssue: 'Previous issue',
+  nextColumn: 'Next column or section',
+  previousColumn: 'Previous column or section',
+  openIssue: 'Open the selected issue',
+  closeIssue: 'Close the issue',
+  assignToMe: 'Assign to me',
+  changeAssignee: 'Change the assignee of the open issue',
+  commentOnIssue: 'Comment on the open issue',
+  editSummary: 'Edit the summary of a backlog row',
+})

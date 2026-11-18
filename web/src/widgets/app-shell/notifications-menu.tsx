@@ -8,27 +8,34 @@ import {
   notificationsQuery,
   unreadCountQuery,
 } from '@/entities/notification/notification-queries'
+import { useT } from '@/shared/i18n/i18n'
 import { useIsMobile } from '@/shared/lib/use-mobile'
 import { Button } from '@/shared/ui/button'
 import { LoadFailed } from '@/shared/ui/load-failed'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { NotificationsButton } from './notifications-button'
+import { messages } from './notifications-menu/messages'
 
 const TITLE_ID = 'notifications-title'
 const TALL = 'h-11 md:h-9'
 
 const NotificationList = ({ onNavigate }: { onNavigate: () => void }) => {
+  const t = useT(messages)
   const list = useInfiniteQuery(notificationsQuery())
   if (!list.data)
     return list.isError ? (
       <LoadFailed
-        message='Notifications did not load.'
-        action='Try again'
+        message={t('notificationsFailed')}
+        action={t('tryAgain')}
         onRetry={() => void list.refetch()}
       />
     ) : (
-      <div role='status' aria-label='Loading notifications' className='grid'>
+      <div
+        role='status'
+        aria-label={t('loadingNotifications')}
+        className='grid'
+      >
         {[0, 1, 2].map((row) => (
           <Skeleton key={row} className='my-px h-20' />
         ))}
@@ -37,7 +44,7 @@ const NotificationList = ({ onNavigate }: { onNavigate: () => void }) => {
   if (list.data.length === 0)
     return (
       <p className='px-2 py-8 text-center text-sm text-muted-foreground'>
-        You're all caught up.
+        {t('caughtUp')}
       </p>
     )
   return (
@@ -58,7 +65,7 @@ const NotificationList = ({ onNavigate }: { onNavigate: () => void }) => {
           disabled={list.isFetchingNextPage}
           onClick={() => void list.fetchNextPage()}
         >
-          Load more
+          {t('loadMore')}
         </Button>
       )}
     </>
@@ -74,6 +81,7 @@ const Panel = ({
   close?: ReactNode
   onNavigate: () => void
 }) => {
+  const t = useT(messages)
   const { data } = useQuery(unreadCountQuery)
   const markAll = useMarkAllRead()
   return (
@@ -86,7 +94,7 @@ const Panel = ({
             className={TALL}
             onClick={() => markAll.mutate()}
           >
-            Mark all as read
+            {t('markAllRead')}
           </Button>
         ) : null}
         {close}
@@ -101,6 +109,7 @@ const Panel = ({
 /** SAN-172 Q7: a popover from the bell; a sheet from the bottom on phones. */
 export const NotificationsMenu = () => {
   const [open, setOpen] = useState(false)
+  const t = useT(messages)
   const narrow = useIsMobile()
   const close = () => setOpen(false)
 
@@ -118,13 +127,15 @@ export const NotificationsMenu = () => {
           >
             <Panel
               title={
-                <DialogPrimitive.Title>Notifications</DialogPrimitive.Title>
+                <DialogPrimitive.Title>
+                  {t('notifications')}
+                </DialogPrimitive.Title>
               }
               close={
                 <DialogPrimitive.Close asChild>
                   <Button variant='ghost' className='size-11 p-0'>
                     <X className='size-4' aria-hidden />
-                    <span className='sr-only'>Close</span>
+                    <span className='sr-only'>{t('close')}</span>
                   </Button>
                 </DialogPrimitive.Close>
               }
@@ -147,7 +158,7 @@ export const NotificationsMenu = () => {
         className='flex max-h-[min(36rem,calc(100dvh-5rem))] w-96 flex-col p-0'
       >
         <Panel
-          title={<h2 id={TITLE_ID}>Notifications</h2>}
+          title={<h2 id={TITLE_ID}>{t('notifications')}</h2>}
           onNavigate={close}
         />
       </PopoverContent>
