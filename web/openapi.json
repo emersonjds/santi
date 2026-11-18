@@ -9243,6 +9243,7 @@
         "description": "What a sprint name in the file becomes.",
         "enum": [
           "future",
+          "active",
           "closed",
           "skip"
         ]
@@ -9252,19 +9253,19 @@
         "required": [
           "name",
           "count",
-          "closed"
+          "state"
         ],
         "properties": {
-          "closed": {
-            "type": "boolean",
-            "description": "An issue moved on from it, or its cycle ended."
-          },
           "count": {
             "type": "integer",
             "format": "int64"
           },
           "name": {
             "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SprintState",
+            "description": "Closed when an issue moved on from it, its cycle ended or all its work is done; the newest\nother one is active; the rest are future."
           }
         }
       },

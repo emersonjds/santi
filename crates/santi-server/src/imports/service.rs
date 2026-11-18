@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::Utc;
-use santi_types::imports::{ImportMapping, ImportPreview, ImportResult};
+use santi_types::imports::{ImportMapping, ImportPreview, ImportResult, RowProblem};
 use santi_types::issues::IssueType;
 use santi_types::sprints::SprintState;
 use sqlx::PgPool;
 
-use super::domain::{self, BATCH_SIZE, Export, Plan};
+use super::domain::{self, BATCH_SIZE, Export, Plan, PlannedSprint};
 use super::repo::{self, ImportedIssue};
 use crate::error::AppError;
 use crate::issues::domain::rank_between;
@@ -19,16 +19,23 @@ pub async fn preview(
     file: Vec<u8>,
 ) -> Result<ImportPreview, AppError> {
     members::domain::require_admin(member)?;
-    let (statuses, people) = {
+    let (statuses, people, running) = {
         let mut conn = pool.acquire().await?;
         let statuses = boards::repo::list_statuses(&mut conn, member.project_id).await?;
         let people = members::repo::list_members(&mut conn, member.project_id).await?;
-        (statuses, people)
+        let running = sprints::repo::find_active(&mut conn, member.board_id).await?;
+        (statuses, people, running.map(|sprint| sprint.name))
     };
     let today = Utc::now().date_naive();
     in_background(move || {
         let export = domain::read_file(&file)?;
-        Ok(domain::preview(&export, &statuses, &people, today))
+        Ok(domain::preview(
+            &export,
+            &statuses,
+            &people,
+            today,
+            running.as_deref(),
+        ))
     })
     .await?
 }
@@ -58,7 +65,7 @@ pub async fn import(
     let count = plan.issues.len() as i64;
     let (first_number, state) = repo::take_issue_numbers(&mut tx, member.project_id, count).await?;
     projects::domain::check_active(state)?;
-    let sprint_ids = create_sprints(&mut tx, member, &plan).await?;
+    let (sprint_ids, start) = create_sprints(&mut tx, member, &plan).await?;
     tx.commit().await?;
     let mut created = HashSet::with_capacity(plan.issues.len());
     for batch in domain::insert_order(&plan.issues).chunks(BATCH_SIZE) {
@@ -112,17 +119,23 @@ pub async fn import(
     if !created.is_empty() {
         finish(pool, member, &export, &plan, &created).await?;
     }
+    let mut problems = Vec::new();
+    let running = plan
+        .sprints
+        .iter()
+        .find(|sprint| sprint.state == SprintState::Active);
+    if let (Some(sprint_id), Some(sprint)) = (start, running) {
+        problems.extend(start_sprint(pool, member, sprint_id, sprint).await?);
+    }
     let raced = plan.issues.len() - created.len();
+    problems.extend(plan.problems);
+    problems.truncate(domain::MAX_PROBLEMS);
     Ok(ImportResult {
         source: export.source,
         created: created.len() as i64,
         skipped: plan.skipped + raced as i64,
         failed: plan.failed,
-        problems: plan
-            .problems
-            .into_iter()
-            .take(domain::MAX_PROBLEMS)
-            .collect(),
+        problems,
     })
 }
 
@@ -151,6 +164,50 @@ async fn finish(
     repo::finish(&mut tx, member.project_id, export.source, &finished).await?;
     tx.commit().await?;
     Ok(())
+}
+
+/// Starts the sprint the mapping runs like a start by hand, once its issues are in. When it
+/// cannot start the import still succeeds: the sprint stays future and a problem row says why.
+async fn start_sprint(
+    pool: &PgPool,
+    member: &Member,
+    sprint_id: i64,
+    planned: &PlannedSprint,
+) -> Result<Option<RowProblem>, AppError> {
+    let mut tx = pool.begin().await?;
+    let sprint = sprints::repo::find_sprint_for_update(&mut tx, member.board_id, sprint_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let active = sprints::repo::find_active(&mut tx, member.board_id).await?;
+    let issue_count = sprints::repo::count_issues(&mut tx, sprint.id).await?;
+    let mut checked = sprints::domain::check_can_start(sprint.state, active.is_some(), issue_count);
+    if checked.is_ok() {
+        let marked =
+            sprints::repo::mark_started(&mut tx, sprint.id, planned.start, planned.end).await;
+        match marked {
+            // D13's index: a start by hand won the race.
+            Err(error)
+                if error
+                    .as_database_error()
+                    .is_some_and(|error| error.is_unique_violation()) =>
+            {
+                checked = sprints::domain::check_can_start(SprintState::Future, true, issue_count);
+            }
+            marked => marked?,
+        }
+    }
+    match checked {
+        Ok(()) => {
+            sprints::repo::snapshot_scope(&mut tx, sprint.id).await?;
+            tx.commit().await?;
+            Ok(None)
+        }
+        Err(AppError::Conflict { detail, .. }) => Ok(Some(RowProblem {
+            line: planned.line,
+            message: format!("sprint \"{}\" was left as future: {detail}", planned.name),
+        })),
+        Err(error) => Err(error),
+    }
 }
 
 async fn plan(
@@ -187,43 +244,61 @@ async fn plan(
     .await
 }
 
-/// A sprint of the same name in the state the mapping asks for (future or closed) is reused, so a
-/// second import creates none; a running sprint is never reused.
+/// A sprint of the same name is reused whatever its state, the one in the mapped state first,
+/// except a closed one for open work; a reused future sprint the mapping runs is started too.
+/// A new active sprint is created future and started once its issues are in, like one started by
+/// hand; it needs the board to run no other sprint. Returns the ids and the sprint to start.
 async fn create_sprints(
     conn: &mut sqlx::PgConnection,
     member: &Member,
     plan: &Plan,
-) -> Result<HashMap<String, i64>, AppError> {
+) -> Result<(HashMap<String, i64>, Option<i64>), AppError> {
     let existing = sprints::repo::list_sprints(conn, member.board_id).await?;
     let mut ids = HashMap::new();
+    let mut start = None;
     for sprint in &plan.sprints {
-        let state = match sprint.closed {
-            true => SprintState::Closed,
-            false => SprintState::Future,
-        };
         let same = existing
             .iter()
-            .find(|found| found.name == sprint.name && found.state == state);
+            .filter(|found| {
+                found.name == sprint.name
+                    && (found.state != SprintState::Closed || sprint.state == SprintState::Closed)
+            })
+            .min_by_key(|found| found.state != sprint.state);
         if let Some(found) = same {
+            if sprint.state == SprintState::Active && found.state == SprintState::Future {
+                start = Some(found.id);
+            }
             ids.insert(sprint.name.clone(), found.id);
             continue;
         }
+        let running = existing
+            .iter()
+            .any(|found| found.state == SprintState::Active);
+        if sprint.state == SprintState::Active && running {
+            return Err(AppError::invalid(
+                &format!("mapping.sprints.{}", sprint.name),
+                "the board already has an active sprint",
+            ));
+        }
         sprints::repo::take_sprint_number(conn, member.board_id).await?; // D12: never reused
-        let id = if sprint.closed {
+        let id = if sprint.state == SprintState::Closed {
             repo::insert_closed_sprint(
                 conn,
                 member.board_id,
                 &sprint.name,
-                sprint.start,
-                sprint.end,
+                sprint.start.date_naive(),
+                sprint.end.date_naive(),
             )
             .await?
         } else {
             sprints::repo::insert_sprint(conn, member.board_id, &sprint.name, "").await?
         };
+        if sprint.state == SprintState::Active {
+            start = Some(id);
+        }
         ids.insert(sprint.name.clone(), id);
     }
-    Ok(ids)
+    Ok((ids, start))
 }
 
 fn to_row(
