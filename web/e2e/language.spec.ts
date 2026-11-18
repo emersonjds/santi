@@ -38,10 +38,16 @@ test('a saved language is on the page before the app first renders', async ({
 
   await page.goto('/account')
 
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Conta' })
-  ).toBeVisible()
+  const heading = page.getByRole('heading', { level: 1 })
   const root = page.locator('html')
+  await expect(heading).toBeVisible()
+  if ((await page.locator('#language').count()) === 0) {
+    // Production build: pt-BR is not released yet, so the account reads English.
+    await expect(heading).toHaveText('Account')
+    await expect(root).toHaveAttribute('lang', 'en')
+    return
+  }
+  await expect(heading).toHaveText('Conta')
   await expect(root).toHaveAttribute('lang', 'pt-BR')
 
   await page.reload()
@@ -50,4 +56,13 @@ test('a saved language is on the page before the app first renders', async ({
     page.getByRole('heading', { level: 1, name: 'Conta' })
   ).toBeVisible()
   await expect(root).toHaveAttribute('data-lang-at-render', 'pt-BR')
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Account' }).click()
+  await page.getByRole('menuitem', { name: 'Sign out' }).click()
+  await expect(page).toHaveURL(/\/login/)
+  await expect(root).toHaveAttribute('lang', 'pt-BR')
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await expect(root).toHaveAttribute('lang', 'pt-BR')
 })
