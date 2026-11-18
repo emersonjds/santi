@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- Pricing: the hosted Free plan has no limit on people or projects and holds 2 GB of attachments (25 MB per file); Team is US$ 19 a month per workspace with 100 GB, e-mail support and backups; Enterprise is listed for SSO, SCIM, audit log, SLA and data residency. The landing copy is rewritten around free, fast, simple and open.
+
 ### Fixed
 
 - Landing: the CLI example sits below the AI section without scrolling sideways, every terminal finishes typing its last character, the self-host terminal animates, and the footer is centered.

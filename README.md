@@ -100,9 +100,9 @@ vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
 ## Pricing and sustainability
 
-santi is free and open source, and every feature ships in the open code. Self-hosting is free with
-no user or project limits; hosting and services fund the work, never features locked out of the
-code. Plans and prices: [docs/pricing.md](docs/pricing.md).
+santi is free and open source, and every feature ships in the open code. Self-hosting and the
+hosted Free plan have no user or project limits; hosting, enterprise add-ons and services fund the
+work, never features locked out of the code. Plans and prices: [docs/pricing.md](docs/pricing.md).
 
 ## License
 
