@@ -4,10 +4,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     let json = std::env::var("SANTI_LOG_FORMAT").as_deref() != Ok("pretty");
+    // SAN-227
+    let sentry = santi_server::observability::sentry_options(|name| std::env::var(name).ok())?
+        .map(sentry::init);
     tracing::subscriber::set_global_default(santi_server::observability::subscriber(
         filter,
         json,
         std::io::stdout,
+        sentry.is_some(),
     ))?;
     let database_url = std::env::var("DATABASE_URL")?;
     let address = std::env::var("SANTI_ADDR").unwrap_or_else(|_| "127.0.0.1:8080".into());
