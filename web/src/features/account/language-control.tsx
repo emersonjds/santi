@@ -53,6 +53,7 @@ export const LanguageControl = ({ saved }: { saved: Language }) => {
         id='language'
         value={choice}
         aria-describedby='language-status'
+        className='w-full px-3 md:h-11'
         onChange={(event) => {
           const language = offered[event.target.selectedIndex].value
           picked.current = language

@@ -52,7 +52,7 @@ export const TimeZoneControl = ({
       variant='outline'
       disabled={disabled}
       aria-describedby='time-zone-status'
-      className='h-11 w-full justify-between text-base font-normal md:text-sm'
+      className='h-11 w-full min-w-0 justify-between text-base font-normal md:text-sm'
     >
       <span className='truncate'>{choice ?? browser}</span>
       <Icon
