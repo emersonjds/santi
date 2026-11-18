@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { LANGUAGES } from '@/shared/i18n/i18n'
 import {
   folderOf,
   languagesWithLoader,
@@ -37,7 +38,29 @@ describe('dictionaries', () => {
       expect(source, path).toContain('satisfies Translation<')
   })
 
-  it('loads nothing for a language without a chunk', async () => {
-    await expect(loadDictionary('zh-CN')).resolves.toEqual({})
+  it('has a chunk for every language but English', () => {
+    expect([...languagesWithLoader].sort()).toEqual(
+      LANGUAGES.map(({ value }) => value)
+        .filter((value) => value !== 'en')
+        .sort()
+    )
+  })
+
+  it('loads nothing for English', async () => {
+    await expect(loadDictionary('en')).resolves.toEqual({})
+  })
+
+  it('uses only the plural forms each language has', async () => {
+    for (const { value } of LANGUAGES) {
+      const forms = new Intl.PluralRules(value).resolvedOptions()
+        .pluralCategories
+      const dictionary = await loadDictionary(value)
+      for (const [id, messages] of Object.entries(dictionary))
+        for (const message of Object.values(messages))
+          if (typeof message === 'object')
+            expect(forms, `${value} ${id}`).toEqual(
+              expect.arrayContaining(Object.keys(message))
+            )
+    }
   })
 })

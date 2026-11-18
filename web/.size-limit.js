@@ -91,10 +91,40 @@ export default [
     gzip: true,
   },
   {
-    // D62: every Portuguese (Brazil) string, loaded once by a device set to it.
+    // D62: one chunk per language, loaded once by a device set to it.
     name: 'pt-BR dictionary chunk',
     path: lazyChunk(
       'src/app/i18n/pt-BR.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '1.6 KB',
+    gzip: true,
+  },
+  {
+    name: 'es dictionary chunk',
+    path: lazyChunk(
+      'src/app/i18n/es.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '1.6 KB',
+    gzip: true,
+  },
+  {
+    name: 'pt-PT dictionary chunk',
+    path: lazyChunk(
+      'src/app/i18n/pt-PT.ts',
+      SHELL,
+      split('_authenticated/account.tsx')
+    ),
+    limit: '1.6 KB',
+    gzip: true,
+  },
+  {
+    name: 'zh-CN dictionary chunk',
+    path: lazyChunk(
+      'src/app/i18n/zh-CN.ts',
       SHELL,
       split('_authenticated/account.tsx')
     ),
