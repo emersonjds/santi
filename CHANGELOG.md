@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-11-18
+
+> A sharper landing: Rust performance up front, MCP client icons, looping terminals and a monthly/yearly price switch.
+
 ### Changed
 
 - Landing: a shorter opening paragraph.
