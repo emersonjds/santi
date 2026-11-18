@@ -6,12 +6,12 @@ import { RowAssignee, RowPriority } from '@/features/edit-row/row-fields'
 import { cardOf } from '@/entities/issue/board-cache'
 import { boardSettingsQuery } from '@/entities/issue/board-query'
 import { useOfferToFinishParent } from '@/entities/issue/finish-parent'
-import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import {
   useCreateIssue,
   useMoveSubtask,
   useUpdateSubtask,
-} from '@/entities/issue/issue-mutations'
+} from '@/entities/issue/issue-edits'
+import { TypeGlyph } from '@/entities/issue/issue-glyphs'
 import { subtasksQuery } from '@/entities/issue/issue-queries'
 import { CATEGORY, statusesById } from '@/entities/issue/statuses'
 import {
