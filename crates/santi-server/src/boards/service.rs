@@ -114,7 +114,9 @@ pub async fn update_settings(
     require_admin(member)?;
     domain::check_done_window(member.board_type, input.done_window_days)?;
     let mut conn = pool.acquire().await?;
-    repo::set_done_window(&mut conn, member.board_id, input.done_window_days).await?;
+    if !repo::set_done_window(&mut conn, member.board_id, input.done_window_days).await? {
+        domain::check_done_window(BoardType::Scrum, input.done_window_days)?;
+    }
     read_settings(&mut conn, member).await
 }
 
@@ -145,19 +147,18 @@ pub async fn update_column(
     require_admin(member)?;
     let name = domain::check_name("name", &input.name)?;
     domain::check_wip_limit(member.board_type, input.wip_limit)?;
-    let mut conn = pool.acquire().await?;
-    let updated = repo::update_column(
-        &mut conn,
-        member.board_id,
-        column_id,
-        &name,
-        input.wip_limit,
-    )
-    .await?;
+    let mut tx = pool.begin().await?;
+    if input.wip_limit.is_some() {
+        let board_type = repo::share_board_type(&mut tx, member.board_id).await?;
+        domain::check_wip_limit(board_type, input.wip_limit)?;
+    }
+    let updated =
+        repo::update_column(&mut tx, member.board_id, column_id, &name, input.wip_limit).await?;
     if !updated {
         return Err(AppError::NotFound);
     }
-    read_settings(&mut conn, member).await
+    tx.commit().await?;
+    get_settings(pool, member).await
 }
 
 pub async fn reorder_columns(

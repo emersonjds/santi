@@ -1,7 +1,7 @@
 use santi_types::projects::{BoardType, MemberRole, Project, ProjectState};
 use sqlx::PgConnection;
 
-use super::domain::TRASH_DAYS;
+use super::domain::{self, TRASH_DAYS};
 
 pub async fn insert_project(
     conn: &mut PgConnection,
@@ -400,27 +400,22 @@ pub async fn lock_board_type(
     .await
 }
 
-/// SAN-224: sprints and each issue's sprint stay; a scrum board has no column limits or done
-/// window.
+/// SAN-224: sprints and each issue's sprint stay; the done window takes the new type's default
+/// and a scrum board has no column limits.
 pub async fn switch_board(
     conn: &mut PgConnection,
     board_id: i64,
     board_type: BoardType,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        "UPDATE board SET board_type = $2 WHERE id = $1",
+        "UPDATE board SET board_type = $2, done_window_days = $3 WHERE id = $1",
         board_id,
-        board_type as BoardType
+        board_type as BoardType,
+        domain::default_done_window(board_type)
     )
     .execute(&mut *conn)
     .await?;
     if board_type == BoardType::Scrum {
-        sqlx::query!(
-            "UPDATE board SET done_window_days = NULL WHERE id = $1",
-            board_id
-        )
-        .execute(&mut *conn)
-        .await?;
         sqlx::query!(
             "UPDATE board_column SET wip_limit = NULL WHERE board_id = $1",
             board_id

@@ -2,8 +2,14 @@ mod common;
 
 use axum::http::StatusCode;
 use common::TestApp;
+use santi_server::boards;
+use santi_server::error::AppError;
+use santi_server::members::Member;
+use santi_types::boards::{UpdateBoardSettings, UpdateColumn};
+use santi_types::projects::{BoardType, MemberRole};
 use serde_json::{Value, json};
 use sqlx::PgPool;
+use std::time::Duration;
 
 async fn switch(app: &TestApp, key: &str, body: Value) -> (StatusCode, Value) {
     app.patch(&format!("/api/projects/{key}"), body).await
@@ -64,7 +70,7 @@ async fn scrum_to_kanban_keeps_sprints_and_shows_every_open_issue(pool: PgPool) 
     assert_eq!(card_keys(&board), ["FLOW-1", "FLOW-2", "FLOW-3"]);
     let settings = ana.settings("FLOW").await;
     assert_eq!(settings["board_type"], "kanban");
-    assert_eq!(settings["done_window_days"], Value::Null);
+    assert_eq!(settings["done_window_days"], 14);
     for uri in [
         "/api/projects/FLOW/backlog",
         "/api/projects/FLOW/reports/sprints",
@@ -211,4 +217,168 @@ async fn only_admins_of_active_projects_switch(pool: PgPool) {
     assert_eq!(archived, StatusCode::CONFLICT);
     assert_eq!(problem["type"], "urn:santi:error:project-archived");
     assert_eq!(ana.get("/api/projects/FLOW").await.1["board_type"], "scrum");
+}
+
+#[sqlx::test]
+async fn kanban_refuses_editing_and_deleting_sprints(pool: PgPool) {
+    let (ana, _, future) = scrum_with_sprints(pool).await;
+    switch(&ana, "FLOW", json!({ "board_type": "kanban" })).await;
+    let uri = format!("/api/projects/FLOW/sprints/{}", future["id"]);
+
+    let (edited, edit_problem) = ana.put(&uri, json!({ "name": "Renamed" })).await;
+    let (deleted, delete_problem) = ana.delete(&uri).await;
+
+    assert_eq!(edited, StatusCode::CONFLICT, "{edit_problem}");
+    assert_eq!(
+        edit_problem["type"],
+        "urn:santi:error:kanban-has-no-sprints"
+    );
+    assert_eq!(deleted, StatusCode::CONFLICT, "{delete_problem}");
+    assert_eq!(
+        delete_problem["type"],
+        "urn:santi:error:kanban-has-no-sprints"
+    );
+}
+
+#[sqlx::test]
+async fn kanban_keeps_each_issue_in_its_sprint(pool: PgPool) {
+    let (ana, active, _) = scrum_with_sprints(pool).await;
+    switch(&ana, "FLOW", json!({ "board_type": "kanban" })).await;
+
+    let patched = ana
+        .patch("/api/projects/FLOW/issues/1", json!({ "sprint_id": null }))
+        .await;
+    let moved = ana
+        .post(
+            "/api/projects/FLOW/issues/1/move",
+            json!({ "sprint_id": null }),
+        )
+        .await;
+    let loose = ana
+        .patch("/api/projects/FLOW/issues/3", json!({ "sprint_id": null }))
+        .await;
+
+    for (status, problem) in [patched, moved, loose] {
+        assert_eq!(status, StatusCode::CONFLICT, "{problem}");
+        assert_eq!(problem["type"], "urn:santi:error:kanban-has-no-sprints");
+    }
+    let issue = ana.get("/api/projects/FLOW/issues/1").await.1;
+    assert_eq!(issue["sprint_id"], active["id"]);
+}
+
+/// The caller as the extractor saw it before a switch to scrum committed.
+async fn caller_seeing_kanban(pool: &PgPool, app: &TestApp, key: &str) -> Member {
+    let (project_id, board_id): (i64, i64) = sqlx::query_as(
+        "SELECT p.id, b.id FROM project p JOIN board b ON b.project_id = p.id WHERE p.key = $1",
+    )
+    .bind(key)
+    .fetch_one(pool)
+    .await
+    .unwrap();
+    Member {
+        user_id: app.user_id,
+        project_id,
+        project_key: key.to_string(),
+        board_id,
+        board_type: BoardType::Kanban,
+        role: MemberRole::Admin,
+        archived: false,
+    }
+}
+
+#[sqlx::test]
+async fn a_scrum_board_takes_no_kanban_settings_from_a_stale_caller(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    ana.create_project("FLOW", "scrum").await;
+    let doing = ana.column_id("FLOW", "In Progress").await;
+    let stale = caller_seeing_kanban(&pool, &ana, "FLOW").await;
+
+    let window = boards::service::update_settings(
+        &pool,
+        &stale,
+        UpdateBoardSettings {
+            done_window_days: Some(14),
+        },
+    )
+    .await;
+    let limit = boards::service::update_column(
+        &pool,
+        &stale,
+        doing,
+        UpdateColumn {
+            name: "In Progress".to_string(),
+            wip_limit: Some(3),
+        },
+    )
+    .await;
+    let renamed = boards::service::update_column(
+        &pool,
+        &stale,
+        doing,
+        UpdateColumn {
+            name: "Doing".to_string(),
+            wip_limit: None,
+        },
+    )
+    .await;
+
+    assert!(matches!(window, Err(AppError::Validation(_))), "{window:?}");
+    assert!(matches!(limit, Err(AppError::Validation(_))), "{limit:?}");
+    assert!(renamed.is_ok(), "{renamed:?}");
+    let settings = ana.settings("FLOW").await;
+    assert_eq!(settings["done_window_days"], Value::Null);
+    for column in settings["columns"].as_array().unwrap() {
+        assert_eq!(column["wip_limit"], Value::Null, "{column}");
+    }
+}
+
+const LOCK_FLOW_BOARD: &str = "SELECT b.id FROM board b JOIN project p ON p.id = b.project_id WHERE p.key = 'FLOW' FOR UPDATE OF b";
+
+#[sqlx::test]
+async fn a_rename_does_not_wait_for_a_board_edit(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    ana.create_project("FLOW", "scrum").await;
+    let mut editing = pool.begin().await.unwrap();
+    sqlx::query(LOCK_FLOW_BOARD)
+        .execute(&mut *editing)
+        .await
+        .unwrap();
+
+    let renamed = tokio::time::timeout(
+        Duration::from_secs(3),
+        switch(&ana, "FLOW", json!({ "name": "Flow" })),
+    )
+    .await;
+    editing.rollback().await.unwrap();
+
+    let (status, project) = renamed.expect("the rename waited for the board");
+    assert_eq!(status, StatusCode::OK, "{project}");
+}
+
+/// A column edit holds the board, then its new status row needs the project: the switch must not
+/// hold the project while it waits for the board.
+#[sqlx::test]
+async fn a_switch_during_a_column_edit_does_not_deadlock(pool: PgPool) {
+    let ana = TestApp::signed_in(pool.clone(), "ana@example.com").await;
+    ana.create_project("FLOW", "scrum").await;
+    let mut editing = pool.begin().await.unwrap();
+    sqlx::query(LOCK_FLOW_BOARD)
+        .execute(&mut *editing)
+        .await
+        .unwrap();
+
+    let switching = tokio::spawn({
+        let ana = ana.clone();
+        async move { switch(&ana, "FLOW", json!({ "board_type": "kanban" })).await }
+    });
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let key_share = sqlx::query("SELECT id FROM project WHERE key = 'FLOW' FOR KEY SHARE")
+        .execute(&mut *editing)
+        .await;
+    let committed = editing.commit().await;
+    let (status, project) = switching.await.unwrap();
+
+    assert!(key_share.is_ok(), "{key_share:?}");
+    assert!(committed.is_ok(), "{committed:?}");
+    assert_eq!(status, StatusCode::OK, "{project}");
 }

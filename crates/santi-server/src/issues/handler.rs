@@ -68,6 +68,7 @@ pub async fn get_issue(
         (status = 200, body = Issue, description = "Absent fields untouched; null clears"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`kanban-has-no-sprints`: `sprint_id` sent on a kanban board"),
         (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn update_issue(
     State(state): State<AppState>,
@@ -106,7 +107,7 @@ pub async fn delete_issue(
         (status = 200, body = Issue, description = "Status changed (done timer per D8) and/or placed right next to one anchor (D4)"),
         (status = 401, body = Problem, content_type = "application/problem+json"),
         (status = 404, body = Problem, content_type = "application/problem+json"),
-        (status = 409, body = Problem, content_type = "application/problem+json", description = "`status-unmapped`"),
+        (status = 409, body = Problem, content_type = "application/problem+json", description = "`status-unmapped`; `kanban-has-no-sprints`: `sprint_id` sent on a kanban board"),
         (status = 422, body = Problem, content_type = "application/problem+json")))]
 pub async fn move_issue(
     State(state): State<AppState>,

@@ -175,6 +175,7 @@ pub async fn change_sprint(
     issue: &IssueKind,
     target: Option<i64>,
 ) -> Result<(), AppError> {
+    sprints::domain::require_scrum(member.board_type)?;
     if !sprints::domain::sprint_change_needed(issue.issue_type, issue.sprint_id, target)? {
         return Ok(());
     }
