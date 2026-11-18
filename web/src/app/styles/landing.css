@@ -269,12 +269,6 @@
   .footer-bottom a {
     @apply font-medium text-primary underline-offset-4 hover:underline;
   }
-  .footer-made {
-    @apply inline-flex items-center gap-1.5 font-medium text-foreground;
-  }
-  .footer-heart {
-    @apply size-4 fill-primary;
-  }
   /* Privacy and terms: one readable column of prose. */
   .legal {
     @apply max-w-3xl leading-relaxed;
