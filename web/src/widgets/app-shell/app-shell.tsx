@@ -26,7 +26,11 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       <AppSidebar />
       <SidebarInset className='min-w-0'>
         <TopBar />
-        <main id='content' className='flex min-w-0 flex-1 flex-col'>
+        <main
+          id='content'
+          tabIndex={-1}
+          className='flex min-w-0 flex-1 flex-col outline-none'
+        >
           {children}
         </main>
       </SidebarInset>

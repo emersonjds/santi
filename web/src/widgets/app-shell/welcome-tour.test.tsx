@@ -1,15 +1,25 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
+import { openTour } from '@/shared/lib/tour'
 import { renderApp } from '@/test/render-app'
 import { ALICE, routeOf, signedIn } from '@/test/stub-api'
 
 const SEEN = { ...ALICE, tour_seen_at: '2026-11-01T12:00:00Z' }
 
-const visit = async (tourSeenAt: string | null) => {
+const visit = async (tourSeenAt: string | null, accepted = true) => {
   const user = { ...ALICE, tour_seen_at: tourSeenAt }
   const requests = signedIn({
     'GET /api/me': { status: 200, body: user },
     'PATCH /api/me': { status: 200, body: SEEN },
+    'GET /api/me/legal': {
+      status: 200,
+      body: {
+        required: true,
+        terms_version: '2026-10-16',
+        privacy_version: '2026-10-16',
+        accepted,
+      },
+    },
   })
   const app = await renderApp('/')
   const writes = () =>
@@ -146,5 +156,80 @@ describe('welcome tour', () => {
     await userEvent.keyboard('{Escape}')
     await expect.element(dialog).not.toBeInTheDocument()
     expect(await writes()).toEqual([])
+  })
+
+  it('stays closed while the account has not accepted the terms', async () => {
+    const { screen, writes } = await visit(null, false)
+
+    await expect
+      .element(
+        screen.getByRole('heading', { name: 'Review the updated terms' })
+      )
+      .toBeVisible()
+    expect(
+      screen.getByRole('dialog', { name: 'Welcome to santi' }).elements()
+    ).toHaveLength(0)
+    expect(await writes()).toEqual([])
+  })
+
+  it('gives the focus to the page when the first visit closes it', async () => {
+    const { screen } = await visit(null)
+
+    await tour(screen).getByRole('button', { name: 'Skip tour' }).click()
+
+    await expect.element(tour(screen)).not.toBeInTheDocument()
+    await expect.element(screen.getByRole('main')).toHaveFocus()
+  })
+
+  it('keeps the focus on the dialog when going back to the first step', async () => {
+    const { screen } = await visit(null)
+    const dialog = tour(screen)
+
+    await dialog.getByRole('button', { name: 'Next' }).click()
+    await dialog.getByRole('button', { name: 'Back' }).click()
+
+    await expect
+      .element(dialog.getByRole('status'))
+      .toHaveTextContent('Step 1 of 5')
+    await expect
+      .element(dialog.getByRole('button', { name: 'Next' }))
+      .toHaveFocus()
+  })
+
+  it('does not finish on a fast double click on the last Next', async () => {
+    const { screen, writes } = await visit(null)
+    const dialog = tour(screen)
+    for (let step = 0; step < 3; step++)
+      await dialog.getByRole('button', { name: 'Next' }).click()
+
+    await userEvent.dblClick(dialog.getByRole('button', { name: 'Next' }))
+
+    await expect
+      .element(dialog.getByRole('status'))
+      .toHaveTextContent('Step 5 of 5')
+    await expect.element(dialog).toBeVisible()
+    expect(await writes()).toEqual([])
+  })
+
+  it('fills a 375px screen without horizontal scroll', async () => {
+    await page.viewport(375, 812)
+    const { screen } = await visit(null)
+    await expect.element(tour(screen)).toBeVisible()
+
+    const dialog = tour(screen).element()
+    expect(dialog.clientWidth).toBe(375)
+    expect(dialog.scrollWidth).toBe(dialog.clientWidth)
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(375)
+  })
+
+  it('keeps the first visit when a replay is asked while it is open', async () => {
+    const { screen, writes } = await visit(null)
+    await expect.element(tour(screen)).toBeVisible()
+
+    openTour()
+    await tour(screen).getByRole('button', { name: 'Skip tour' }).click()
+
+    await expect.element(tour(screen)).not.toBeInTheDocument()
+    await expect.poll(writes).toEqual([{ tour_seen: true }])
   })
 })

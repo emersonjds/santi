@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from '@tanstack/react-router'
 import {
@@ -71,6 +71,11 @@ export const WelcomeTour = ({ first, onClose }: WelcomeTourProps) => {
     onClose()
   }
   const returnFocus = useReturnFocus()
+  const focusPage = (event: Event) => {
+    event.preventDefault()
+    document.getElementById('content')?.focus()
+  }
+  const next = useRef<HTMLButtonElement>(null)
   const pathname = useLocation({ select: (location) => location.pathname })
   const [openedOn] = useState(pathname)
   useEffect(() => {
@@ -83,7 +88,7 @@ export const WelcomeTour = ({ first, onClose }: WelcomeTourProps) => {
     <Dialog open onOpenChange={(open) => open || close()}>
       <DialogContent
         showCloseButton={false}
-        onCloseAutoFocus={returnFocus}
+        onCloseAutoFocus={first ? focusPage : returnFocus}
         className='flex flex-col max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:overflow-y-auto max-sm:rounded-none max-sm:border-0 sm:max-w-md'
       >
         <step.icon className='size-8 text-primary' aria-hidden />
@@ -109,21 +114,32 @@ export const WelcomeTour = ({ first, onClose }: WelcomeTourProps) => {
           Step {at + 1} of {STEPS.length}
         </p>
         <div className='mt-auto flex flex-wrap gap-2 pt-2'>
-          {at > 0 && (
-            <Button
-              variant='outline'
-              className='h-11'
-              onClick={() => setAt(at - 1)}
-            >
-              Back
-            </Button>
-          )}
+          <Button
+            variant='outline'
+            className={at > 0 ? 'h-11' : 'invisible h-11'}
+            disabled={at === 0}
+            onClick={() => {
+              setAt(at - 1)
+              if (at === 1) next.current?.focus()
+            }}
+          >
+            Back
+          </Button>
           {last ? (
-            <Button className='h-11' onClick={close}>
+            <Button
+              key='done'
+              className='h-11'
+              onClick={(event) => event.detail > 1 || close()}
+            >
               Done
             </Button>
           ) : (
-            <Button className='h-11' onClick={() => setAt(at + 1)}>
+            <Button
+              key='next'
+              ref={next}
+              className='h-11'
+              onClick={() => setAt(at + 1)}
+            >
               Next
             </Button>
           )}
