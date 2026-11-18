@@ -25,6 +25,7 @@ UI moves to its own repository.
 
 - API: `SprintFound.closed` (import preview) is replaced by `state` (`future`, `active` or `closed`), and `SprintAction` gains `active`.
 - Editing a long issue title shows it whole: the field wraps and grows instead of hiding the end. Enter saves; Shift+Enter and pasted line breaks never split the title.
+- Accepting an invite while the inviter erases their account no longer fails with a server error.
 ### Changed
 
 - Railway deploy settings moved from `railway.toml` to `.railway/railway.ts` (Railway infrastructure as code); Railway stops reading `railway.toml` on 2026-12-01.
