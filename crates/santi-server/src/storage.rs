@@ -60,12 +60,21 @@ impl StorageConfig {
         Self::from_vars(|name| std::env::var(name).ok())
     }
 
-    /// Printed at startup; `on_railway` when `RAILWAY_ENVIRONMENT` is set.
-    pub fn startup_warnings(&self, on_railway: bool) -> Vec<&'static str> {
+    /// Printed at startup; `on_railway` when `RAILWAY_ENVIRONMENT` is set, `backups` when
+    /// scheduled backups are on.
+    pub fn startup_warnings(&self, on_railway: bool, backups: bool) -> Vec<&'static str> {
         match self {
-            StorageConfig::Local(_) if on_railway => vec![
-                "attachments are on the container disk and are lost on redeploy; set SANTI_S3_*",
-            ],
+            StorageConfig::Local(_) if on_railway => {
+                let mut warnings = vec![
+                    "attachments are on the container disk and are lost on redeploy; set SANTI_S3_*",
+                ];
+                if backups {
+                    warnings.push(
+                        "backups are on the container disk and are lost on redeploy; set SANTI_S3_*",
+                    );
+                }
+                warnings
+            }
             StorageConfig::S3(config) if public_http(&config.endpoint) => vec![
                 "SANTI_S3_ENDPOINT uses plain http to a public host; attachments and keys travel unencrypted",
             ],
@@ -138,7 +147,9 @@ impl Storage {
                 .and_then(|()| std::fs::canonicalize(dir))
                 .map_err(|error| format!("attachments directory {}: {error}", dir.display()))
                 .and_then(|dir| {
-                    LocalFileSystem::new_with_prefix(dir).map_err(|error| error.to_string())
+                    LocalFileSystem::new_with_prefix(dir)
+                        .map(|local| local.with_automatic_cleanup(true)) // emptied directories would list as backup runs
+                        .map_err(|error| error.to_string())
                 })
                 .map(|local| Storage {
                     store: Arc::new(local),
@@ -213,6 +224,19 @@ impl Storage {
             Err(Error::NotFound { .. }) => Ok(()),
             result => result,
         }
+    }
+
+    /// The names directly under `prefix`, from one listing.
+    pub async fn children(&self, prefix: &str) -> Result<Vec<String>> {
+        let listing = self
+            .store
+            .list_with_delimiter(Some(&Path::from(prefix)))
+            .await?;
+        Ok(listing
+            .common_prefixes
+            .iter()
+            .filter_map(|path| path.filename().map(String::from))
+            .collect())
     }
 
     /// Every key under `prefix`, in no particular order.

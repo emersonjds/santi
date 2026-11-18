@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT DISTINCT ON (p.id) p.key, m.user_id\n         FROM project p JOIN member m ON m.project_id = p.id\n         WHERE p.trashed_at IS NULL\n         ORDER BY p.id, m.role = 'admin' DESC, m.user_id",
+  "query": "SELECT DISTINCT ON (p.id) p.key, m.user_id AS \"user_id?\"\n         FROM project p LEFT JOIN member m ON m.project_id = p.id\n         WHERE p.trashed_at IS NULL\n         ORDER BY p.id, m.role = 'admin' DESC, m.user_id",
   "describe": {
     "columns": [
       {
@@ -16,7 +16,7 @@
       },
       {
         "ordinal": 1,
-        "name": "user_id",
+        "name": "user_id?",
         "type_info": "Int8",
         "origin": {
           "Table": {
@@ -34,5 +34,5 @@
       false
     ]
   },
-  "hash": "9860179376071dfb105e2765282773f65e552ea0e26a02796d588da7e1dcf369"
+  "hash": "ff610f04d0ca0d6599a28eadecfec464f7b01579155965d22bf78266c429ddc3"
 }

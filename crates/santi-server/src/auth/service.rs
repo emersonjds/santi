@@ -190,14 +190,17 @@ pub async fn export_project(
     member: &Member,
     project: Project,
 ) -> Result<ProjectExport, AppError> {
+    let members = members::service::list_members(pool, member).await?;
+    let board = boards::service::get_settings(pool, member).await?;
+    let sprints = sprints::service::list_sprints(pool, member).await?;
+    let issues = all_issues(pool, member).await?;
     let mut conn = pool.acquire().await?;
-    let comments = issues::repo::list_project_comments(&mut conn, member.project_id).await?;
-    drop(conn);
+    let comments = issues::repo::list_project_comments(&mut conn, member.project_id).await?; // after the issues they name
     Ok(ProjectExport {
-        members: members::service::list_members(pool, member).await?,
-        board: boards::service::get_settings(pool, member).await?,
-        sprints: sprints::service::list_sprints(pool, member).await?,
-        issues: all_issues(pool, member).await?,
+        members,
+        board,
+        sprints,
+        issues,
         comments,
         project,
     })
