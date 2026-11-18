@@ -12,6 +12,7 @@ UI moves to its own repository.
 
 ### Changed
 
+- The sign-in page loads about 34 KB less JavaScript.
 - The landing page terminals type their commands out as they scroll into view (static with reduced motion).
 ### Fixed
 
