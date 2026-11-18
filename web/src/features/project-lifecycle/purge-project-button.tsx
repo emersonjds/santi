@@ -1,18 +1,20 @@
 import { Suspense, lazy, useRef, useState } from 'react'
 import { Button } from '@/shared/ui/button'
 
-// Lazy: the confirmation and its Radix dialog load on the first press (D39).
+const loadDialogs = () => import('./lifecycle-dialogs')
+
+// Lazy: the confirmation and its Radix dialog load on hover, focus or the first press (D39).
 const PurgeProjectDialog = lazy(() =>
-  import('./lifecycle-dialogs').then((module) => ({
-    default: module.PurgeProjectDialog,
-  }))
+  loadDialogs().then((module) => ({ default: module.PurgeProjectDialog }))
 )
 
 type PurgeProps = { projectKey: string; projectName: string }
 
 export const PurgeProjectButton = ({ projectKey, projectName }: PurgeProps) => {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
+  const preload = () => void loadDialogs().catch(() => undefined)
 
   return (
     <>
@@ -23,16 +25,21 @@ export const PurgeProjectButton = ({ projectKey, projectName }: PurgeProps) => {
         aria-label={`Delete ${projectName} forever`}
         aria-haspopup='dialog'
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        onPointerEnter={preload}
+        onFocus={preload}
+        onClick={() => {
+          setMounted(true)
+          setOpen(true)
+        }}
       >
         Delete forever
       </Button>
-      {open && (
+      {mounted && (
         <Suspense fallback={null}>
           <PurgeProjectDialog
             projectKey={projectKey}
             projectName={projectName}
-            open
+            open={open}
             onOpenChange={setOpen}
             onCloseAutoFocus={(event) => {
               event.preventDefault()

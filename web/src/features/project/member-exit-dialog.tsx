@@ -18,9 +18,11 @@ export const MemberExitDialog = ({
   projectKey,
   member,
   copy,
+  open,
   onClose,
   onCloseAutoFocus,
-}: Omit<ExitProps, 'locked'> & {
+}: Omit<ExitProps, 'locked' | 'open'> & {
+  open: boolean
   onClose: () => void
   onCloseAutoFocus: (event: Event) => void
 }) => {
@@ -32,7 +34,14 @@ export const MemberExitDialog = ({
     )
   )
   return (
-    <AlertDialog open onOpenChange={(open) => open || onClose()}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) return
+        remove.reset()
+        onClose()
+      }}
+    >
       <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
         <AlertDialogHeader>
           <AlertDialogTitle>{copy.title}</AlertDialogTitle>

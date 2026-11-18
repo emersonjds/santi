@@ -27,9 +27,11 @@ export const RevokeInviteDialog = ({
   projectKey,
   inviteId,
   nextFocus,
+  open,
   opener,
   onClose,
 }: RevokeInviteProps & {
+  open: boolean
   opener: RefObject<HTMLButtonElement | null>
   onClose: () => void
 }) => {
@@ -61,7 +63,14 @@ export const RevokeInviteDialog = ({
   })
 
   return (
-    <AlertDialog open onOpenChange={(open) => open || onClose()}>
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) return
+        revoke.reset()
+        onClose()
+      }}
+    >
       <AlertDialogContent
         onCloseAutoFocus={(event) => {
           const target = after.current ?? opener.current
