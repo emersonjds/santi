@@ -1,82 +1,17 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { Suspense, lazy, useRef, useState } from 'react'
 import { ROLE_LABEL } from '@/entities/project/labels'
-import {
-  membersQuery,
-  projectQuery,
-  projectsQuery,
-} from '@/entities/project/project-queries'
-import { sessionQuery } from '@/entities/session/session-query'
 import {
   type Member,
   type MemberRole,
   api,
   dataOrThrow,
-  okOrThrow,
 } from '@/shared/api/client'
-import { toast } from '@/shared/lib/toast'
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/shared/ui/alert-dialog'
 import { Button } from '@/shared/ui/button'
 import { NativeSelect } from '@/shared/ui/native-select'
 import { RootError } from '@/shared/ui/root-error'
+import { useMembersWrite } from './use-members-write'
 
 type ControlProps = { projectKey: string; member: Member; locked: boolean }
-
-/** Members, and the project itself: an admin who steps down loses the admin pages, one who leaves the project. */
-const useMembersWrite = <Variables,>(
-  projectKey: string,
-  member: Member,
-  own: 'leave' | 'step down',
-  write: (variables: Variables) => Promise<unknown>
-) => {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const { data: me } = useQuery(sessionQuery)
-  const refresh = () =>
-    Promise.all([
-      ...[
-        membersQuery(projectKey),
-        projectQuery(projectKey),
-        projectsQuery,
-      ].map(({ queryKey }) =>
-        queryClient.invalidateQueries({ queryKey, exact: true })
-      ),
-      queryClient.invalidateQueries({ queryKey: ['home'] }),
-    ])
-
-  const afterOwnChange = async () => {
-    const name =
-      queryClient.getQueryData(projectQuery(projectKey).queryKey)?.name ??
-      queryClient
-        .getQueryData(projectsQuery.queryKey)
-        ?.find((project) => project.key === projectKey)?.name ??
-      projectKey
-    if (own === 'leave') {
-      await navigate({ to: '/' })
-      queryClient.removeQueries({ queryKey: projectQuery(projectKey).queryKey })
-      await refresh()
-      return toast.success(`You left ${name}.`)
-    }
-    await navigate({ to: '/p/$key/board', params: { key: projectKey } })
-    await refresh()
-    toast.success(`You are a member of ${name} now.`)
-  }
-
-  return useMutation({
-    mutationFn: write,
-    onSuccess: () => (me?.id === member.user_id ? afterOwnChange() : refresh()),
-  })
-}
 
 export const RoleSelect = ({ projectKey, member, locked }: ControlProps) => {
   const change = useMembersWrite(
@@ -131,13 +66,17 @@ export type OpenedByState = {
   onCloseAutoFocus?: (event: Event) => void
 }
 
-type ExitProps = ControlProps &
+export type ExitProps = ControlProps &
   OpenedByState & { copy: ExitCopy; describedBy?: string }
 
-/** Removing a member and leaving are the same write; leaving takes the caller home. */
+const loadDialog = () => import('./member-exit-dialog')
+
+// Lazy: the confirmation and its Radix dialog load on hover, focus or the first press (D39).
+const MemberExitDialog = lazy(() =>
+  loadDialog().then((module) => ({ default: module.MemberExitDialog }))
+)
+
 const MemberExitButton = ({
-  projectKey,
-  member,
   locked,
   copy,
   describedBy,
@@ -146,61 +85,52 @@ const MemberExitButton = ({
   ...props
 }: ExitProps) => {
   const [ownOpen, setOwnOpen] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
   const open = props.open ?? ownOpen
+  const [mounted, setMounted] = useState(open)
+  if (open && !mounted) setMounted(true)
   const setOpen = (next: boolean) => {
     setOwnOpen(next)
     onOpenChange?.(next)
   }
-  const remove = useMembersWrite(projectKey, member, 'leave', async () =>
-    okOrThrow(
-      await api.DELETE('/api/projects/{key}/members/{user_id}', {
-        params: { path: { key: projectKey, user_id: member.user_id } },
-      })
-    )
-  )
+  const preload = () => void loadDialog().catch(() => undefined)
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) remove.reset()
-      }}
-    >
+    <>
       {props.open === undefined && (
-        <AlertDialogTrigger asChild>
-          <Button
-            variant='outline'
-            className='h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9'
-            aria-disabled={locked || undefined}
-            onClick={(event) => locked && event.preventDefault()}
-            aria-label={copy.label}
-            aria-describedby={describedBy}
-          >
-            {copy.trigger}
-          </Button>
-        </AlertDialogTrigger>
+        <Button
+          ref={trigger}
+          variant='outline'
+          className='h-11 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 md:h-9'
+          aria-disabled={locked || undefined}
+          aria-haspopup='dialog'
+          aria-expanded={open}
+          onPointerEnter={preload}
+          onFocus={preload}
+          onClick={() => locked || setOpen(true)}
+          aria-label={copy.label}
+          aria-describedby={describedBy}
+        >
+          {copy.trigger}
+        </Button>
       )}
-      <AlertDialogContent onCloseAutoFocus={onCloseAutoFocus}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{copy.title}</AlertDialogTitle>
-          <AlertDialogDescription>{copy.description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <RootError message={remove.error?.message} />
-        <AlertDialogFooter>
-          <AlertDialogCancel className='h-11 md:h-9'>Cancel</AlertDialogCancel>
-          <Button
-            variant='destructive'
-            className='h-11 md:h-9'
-            disabled={remove.isPending}
-            onClick={() =>
-              remove.mutate(undefined, { onSuccess: () => setOpen(false) })
+      {mounted && (
+        <Suspense fallback={null}>
+          <MemberExitDialog
+            {...props}
+            open={open}
+            copy={copy}
+            onClose={() => setOpen(false)}
+            onCloseAutoFocus={
+              onCloseAutoFocus ??
+              ((event) => {
+                event.preventDefault()
+                trigger.current?.focus()
+              })
             }
-          >
-            {copy.confirm}
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          />
+        </Suspense>
+      )}
+    </>
   )
 }
 

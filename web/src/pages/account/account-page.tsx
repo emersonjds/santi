@@ -1,13 +1,12 @@
+import { Suspense, lazy } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
-import { ChangePasswordForm } from '@/features/account/change-password-form'
 import { DeleteAccountButton } from '@/features/account/delete-account-button'
 import { DisplayNameField } from '@/features/account/display-name-field'
 import { ExportDataButton } from '@/features/account/export-data-button'
 import { SessionsList } from '@/features/account/sessions-list'
 import { ThemeControl } from '@/features/account/theme-control'
 import { TimeZoneControl } from '@/features/account/time-zone-control'
-import { CreateTokenForm } from '@/features/api-token/create-token-form'
 import { RevokeTokenButton } from '@/features/api-token/revoke-token-button'
 import {
   legalDocumentsQuery,
@@ -19,6 +18,19 @@ import { formatDate } from '@/shared/lib/format-date'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { preloadAccountForms } from './load-account-forms'
+
+// Lazy: react-hook-form stays off the first visit; each form has its own fixed-height boundary (D39).
+const ChangePasswordForm = lazy(() =>
+  preloadAccountForms().then((module) => ({
+    default: module.ChangePasswordForm,
+  }))
+)
+const CreateTokenForm = lazy(() =>
+  preloadAccountForms().then((module) => ({
+    default: module.CreateTokenForm,
+  }))
+)
 
 type ReadOnlyFieldProps = { id: string; label: string; value: string }
 
@@ -92,7 +104,9 @@ export const AccountPage = () => {
         >
           Security
         </h2>
-        <ChangePasswordForm />
+        <Suspense fallback={<Skeleton className='h-[318px]' />}>
+          <ChangePasswordForm />
+        </Suspense>
         <h3 className='font-medium'>Sessions</h3>
         <SessionsList headingId='security' />
       </section>
@@ -107,7 +121,9 @@ export const AccountPage = () => {
             acts with all your rights until you revoke it.
           </p>
         </div>
-        <CreateTokenForm />
+        <Suspense fallback={<Skeleton className='h-28 sm:h-14' />}>
+          <CreateTokenForm />
+        </Suspense>
         <TokenList />
       </section>
       <section aria-labelledby='your-data' className='grid gap-4'>
