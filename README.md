@@ -54,9 +54,8 @@ cd santi
 docker compose up -d
 ```
 
-Open <http://localhost:8080>, choose **Create account**, then **New project**. The image is
-`linux/amd64`; on Apple Silicon or other ARM hosts, run
-`docker pull --platform linux/amd64 ghcr.io/emersonjds/santi:latest` before `docker compose up -d`.
+Open <http://localhost:8080>, choose **Create account**, then **New project**. The image runs on
+`linux/amd64` and `linux/arm64` (Apple Silicon, Graviton).
 
 **Docker with your own PostgreSQL 17:**
 

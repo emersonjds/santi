@@ -69,6 +69,27 @@ describe('members page', () => {
       .not.toHaveTextContent('Bob Stone')
   })
 
+  it('gives the focus back to Remove after Cancel and after Esc', async () => {
+    inProjects()
+    const { screen } = await renderApp('/p/WEB/settings/members')
+    const remove = screen.getByRole('button', { name: 'Remove Bob Stone' })
+    await expect.element(remove).toHaveAttribute('aria-haspopup', 'dialog')
+    await expect.element(remove).toHaveAttribute('aria-expanded', 'false')
+
+    await remove.click()
+    const confirm = screen.getByRole('alertdialog')
+    await confirm.getByRole('button', { name: 'Cancel' }).click()
+    await expect.element(confirm).not.toBeInTheDocument()
+    await expect.element(remove).toHaveFocus()
+    await expect.element(remove).toHaveAttribute('aria-expanded', 'false')
+
+    await remove.click()
+    await expect.element(confirm).toBeVisible()
+    await userEvent.keyboard('{Escape}')
+    await expect.element(confirm).not.toBeInTheDocument()
+    await expect.element(remove).toHaveFocus()
+  })
+
   it('keeps the last admin: controls disabled with the reason', async () => {
     inProjects()
     const { screen } = await renderApp('/p/WEB/settings/members')
