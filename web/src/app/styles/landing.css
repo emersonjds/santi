@@ -181,6 +181,10 @@
   .card-text {
     @apply text-muted-foreground;
   }
+  .feature-text code,
+  .card code {
+    overflow-wrap: break-word;
+  }
   .badge {
     @apply self-start rounded-md bg-status-progress-bg px-2 py-0.5 text-xs font-medium text-status-progress;
   }

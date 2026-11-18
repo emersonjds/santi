@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { issueNumber } from '@/entities/issue/board-query'
-import { useDeleteIssue } from '@/entities/issue/issue-mutations'
+import { useDeleteIssue } from '@/entities/issue/issue-edits'
 import { commentsQuery, subtasksQuery } from '@/entities/issue/issue-queries'
 import type { IssueType } from '@/shared/api/client'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'

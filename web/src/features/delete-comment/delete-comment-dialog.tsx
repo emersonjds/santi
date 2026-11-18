@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { useDeleteComment } from '@/entities/issue/issue-mutations'
+import { useDeleteComment } from '@/entities/issue/issue-edits'
 import { useReturnFocus } from '@/shared/lib/use-return-focus'
 import {
   AlertDialog,
