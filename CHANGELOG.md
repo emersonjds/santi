@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Changed
+
+- Landing: a shorter opening paragraph.
+
 ## [0.34.0] - 2026-11-18
 
 > Free for every team: hosted Free has no limit on people or projects, and the landing says why.
