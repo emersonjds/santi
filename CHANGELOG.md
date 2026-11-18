@@ -12,6 +12,7 @@ UI moves to its own repository.
 
 ### Added
 
+- The container image is published for `linux/arm64` as well as `linux/amd64`, so it runs natively on Apple Silicon and Arm servers.
 - `docs/ops.md`: runbook for the hosted instance (what is monitored, steps on an alert, rollback, secret rotation).
 - `scripts/gate.sh` runs the full CI gate locally on a throwaway database; `developer` and `main` now accept changes only through pull requests with every CI check green.
 ### Changed

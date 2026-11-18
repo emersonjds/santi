@@ -4,9 +4,8 @@ santi is one container image (`ghcr.io/emersonjds/santi`, server and web UI) plu
 Migrations run every time the server starts. The server answers `GET /health` with its status and
 version.
 
-The published image is built for `linux/amd64`. On an ARM machine (Apple Silicon, Graviton), pull
-it once with `docker pull --platform linux/amd64 ghcr.io/emersonjds/santi:latest` to run it under
-emulation, or build it from the checkout (see below).
+The published image is built for `linux/amd64` and `linux/arm64` (Apple Silicon, Graviton) since
+0.27.0; Docker picks the right one. Older tags are `linux/amd64` only.
 
 ## Docker Compose
 
