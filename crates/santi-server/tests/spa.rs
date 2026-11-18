@@ -349,3 +349,34 @@ async fn a_self_hoster_can_turn_the_legal_pages_off() {
     let home = send(&app, Method::GET, "/projects/TERMS/board").await;
     assert_eq!(home.status(), StatusCode::OK);
 }
+
+#[tokio::test]
+async fn the_old_railway_host_redirects_to_the_public_url_and_the_public_host_does_not() {
+    let pool = PgPool::connect_lazy("postgres://localhost/unused").unwrap();
+    let state = santi_server::AppState {
+        public_url: "https://getsanti.app".into(),
+        ..santi_server::AppState::new(pool)
+    };
+    let app = santi_server::app(state, None);
+    let request = |host: &str| {
+        Request::builder()
+            .uri("/p/RAD/board?x=1")
+            .header(header::HOST, host)
+            .body(Body::empty())
+            .unwrap()
+    };
+
+    let old = app
+        .clone()
+        .oneshot(request("santi-production-bc0c.up.railway.app"))
+        .await
+        .unwrap();
+    let public = app.oneshot(request("getsanti.app")).await.unwrap();
+
+    assert_eq!(old.status(), StatusCode::MOVED_PERMANENTLY);
+    assert_eq!(
+        old.headers()[header::LOCATION],
+        "https://getsanti.app/p/RAD/board?x=1"
+    );
+    assert_eq!(public.status(), StatusCode::NOT_FOUND);
+}
