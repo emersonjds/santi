@@ -10,6 +10,10 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+### Fixed
+
+- Landing: the CLI example sits below the AI section without scrolling sideways, every terminal finishes typing its last character, the self-host terminal animates, and the footer is centered.
+
 ## [0.33.0] - 2026-11-18
 
 > Groundwork for more languages: the account page and the app shell are translated.
