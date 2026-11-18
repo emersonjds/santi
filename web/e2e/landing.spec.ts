@@ -37,6 +37,12 @@ test('a visitor without a session lands on the landing page and its CTA opens si
   await page.goto('/')
   await expect(landingHeading(page)).toBeVisible()
   await expect(page.locator('img[src="/brand/mark.svg"]').first()).toBeVisible()
+  await expect(
+    page.getByRole('list', { name: 'Project facts' }).getByRole('listitem')
+  ).toContainText(['Self-host in one command'])
+  await expect(page.locator('.footer-bottom')).toHaveText(
+    'santi is open source under the AGPL-3.0.'
+  )
 
   await page
     .getByRole('main')
@@ -72,7 +78,20 @@ test('the nav opens the pricing section with Self-host, Free, Team and Enterpris
     'Enterprise',
   ])
   await expect(plans.nth(1)).toContainText('Unlimited people and projects')
-  await expect(plans.nth(2)).toContainText('US$ 19')
+  const team = plans.nth(2)
+  await expect(team).toContainText('US$ 19 /month per workspace')
+  await expect(team).not.toContainText('R$')
+  await expect(team.getByText('US$ 190')).toBeHidden()
+  await team.getByRole('button', { name: 'Yearly' }).click()
+  await expect(team.getByRole('button', { name: 'Yearly' })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  )
+  await expect(team.getByText('US$ 190')).toBeVisible()
+  await expect(team).toContainText('two months free')
+  await expect(team.getByText('US$ 19', { exact: true })).toBeHidden()
+  await team.getByRole('button', { name: 'Monthly' }).click()
+  await expect(team.getByText('US$ 19', { exact: true })).toBeVisible()
   await expect(
     plans.nth(0).getByRole('link', { name: 'Read the guide' })
   ).toHaveAttribute(
@@ -118,11 +137,14 @@ test('the nav opens the AI section with a sample conversation and the MCP setup 
     transcript.getByRole('listitem').filter({ hasText: 'You:' })
   ).toHaveCount(3)
   await expect(
-    ai.getByRole('link', { name: 'Read the setup guide for every client' })
-  ).toHaveAttribute(
+    ai.getByRole('list', { name: 'MCP clients' }).getByRole('listitem')
+  ).toHaveText(['Claude', 'ChatGPT and Codex', 'GitHub Copilot', 'Cursor'])
+  const guide = ai.getByRole('link', { name: 'View setup guide' })
+  await expect(guide).toHaveAttribute(
     'href',
     'https://github.com/emersonjds/santi/blob/main/docs/mcp.md'
   )
+  await expect(guide).toHaveClass(/\bbtn\b/)
   await expect(
     page.getByRole('heading', { name: 'Scripts and AI agents welcome.' })
   ).toHaveCount(0)
