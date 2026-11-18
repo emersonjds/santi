@@ -1,7 +1,13 @@
 # Deploy on Railway
 
 santi ships as one Docker image (API + web app) plus PostgreSQL. Railway builds the image from
-`Dockerfile` using `railway.toml`, runs migrations on start, and serves HTTPS on its domain.
+`Dockerfile`, runs migrations on start, and serves HTTPS on its domain.
+
+The service settings (Dockerfile builder, health check on `/health` with a 120 s timeout, watch
+paths) are declared in `.railway/railway.ts`, Railway's infrastructure as code. That file describes
+the instance at getsanti.app; for your own project, set the same values in the service settings or
+copy the file, change the project name and domain, and run `npm install` in `.railway/` followed by
+`railway config plan` and `railway config apply`. Railway does not read `.railway/` during deploys.
 
 ## One-time setup
 
