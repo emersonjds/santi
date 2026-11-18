@@ -630,15 +630,29 @@ async fn restore(
     only: Option<ProjectKey>,
     json: bool,
 ) -> Result<(), Error> {
-    let bytes = std::fs::read(&file)
+    let mut bytes = std::fs::read(&file)
         .map_err(|error| Error::Usage(format!("{}: {error}", file.display())))?;
+    if bytes.starts_with(&[0x1f, 0x8b]) {
+        let mut json = Vec::new();
+        std::io::Read::read_to_end(&mut flate2::read::GzDecoder::new(&bytes[..]), &mut json)
+            .map_err(|error| Error::Usage(format!("{}: {error}", file.display())))?;
+        bytes = json;
+    }
     // SAN-205: a scheduled backup file holds one project.
-    let mut projects = match serde_json::from_slice::<AccountExport>(&bytes) {
-        Ok(export) => export.projects,
-        Err(error) => vec![
-            serde_json::from_slice::<ProjectExport>(&bytes)
-                .map_err(|_| Error::Usage(format!("not a santi export: {error}")))?,
-        ],
+    #[derive(serde::Deserialize)]
+    struct Shape {
+        projects: Option<serde::de::IgnoredAny>,
+    }
+    let not_export =
+        |error: serde_json::Error| Error::Usage(format!("not a santi export: {error}"));
+    let single =
+        serde_json::from_slice::<Shape>(&bytes).is_ok_and(|shape| shape.projects.is_none());
+    let mut projects = if single {
+        vec![serde_json::from_slice::<ProjectExport>(&bytes).map_err(not_export)?]
+    } else {
+        serde_json::from_slice::<AccountExport>(&bytes)
+            .map_err(not_export)?
+            .projects
     };
     if let Some(key) = only {
         let keys: Vec<String> = projects

@@ -1357,6 +1357,45 @@ fn restore_recreates_each_project_of_an_export_then_skips_existing_keys() {
     run(&["restore", dir.path().join("csv.json").to_str().unwrap()])
         .code(2)
         .stderr(contains("not a santi export: "));
+    std::fs::write(dir.path().join("one.json"), "{}").unwrap();
+    run(&["restore", dir.path().join("one.json").to_str().unwrap()])
+        .code(2)
+        .stderr(contains("not a santi export: missing field `project`"));
+}
+
+#[test]
+fn restore_reads_a_single_project_backup_plain_or_gzipped() {
+    let santi = Santi::new();
+    let token = server().user();
+    let run = |args: &[&str]| santi.with(&token).args(args).assert();
+    server().project(&token, "SNG", "kanban");
+    run(&["issues", "create", "SNG", "--summary", "Only me"]).success();
+    let export = server().get(&token, "/api/me/export");
+    let project = export["projects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|project| project["project"]["key"] == "SNG")
+        .unwrap()
+        .to_string();
+    let dir = tempfile::tempdir().unwrap();
+    let plain = dir.path().join("SNG.json");
+    std::fs::write(&plain, &project).unwrap();
+    let gzipped = dir.path().join("SNG.json.gz");
+    let mut encoder = flate2::write::GzEncoder::new(
+        std::fs::File::create(&gzipped).unwrap(),
+        flate2::Compression::default(),
+    );
+    std::io::Write::write_all(&mut encoder, project.as_bytes()).unwrap();
+    encoder.finish().unwrap();
+
+    for file in [&plain, &gzipped] {
+        run(&["projects", "trash", "SNG", "--yes"]).success();
+        run(&["projects", "purge", "SNG", "--yes"]).success();
+        run(&["restore", file.to_str().unwrap()])
+            .success()
+            .stdout(contains("restored SNG (1 issues"));
+    }
 }
 
 #[test]

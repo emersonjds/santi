@@ -2355,6 +2355,7 @@ dependencies = [
  "axum",
  "chrono",
  "clap",
+ "flate2",
  "predicates",
  "reqwest",
  "rmcp",
