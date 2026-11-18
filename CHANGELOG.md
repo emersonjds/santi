@@ -12,7 +12,7 @@ UI moves to its own repository.
 
 ### Added
 
-- Optional error reporting to Sentry for the hosted instance (SANTI_SENTRY_DSN); off by default, no personal data.
+- Optional error reporting to Sentry for the hosted instance (SANTI_SENTRY_DSN); off by default. Reports carry technical error details, not meant to identify you; account details, request bodies and tokens are removed.
 
 ## [0.27.0] - 2026-11-18
 
