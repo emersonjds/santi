@@ -17,6 +17,7 @@ UI moves to its own repository.
 ### Upgrade notes
 
 - API: `PATCH /api/projects/{key}` accepts `board_type` and `expected_board_type` (409 `board-type-changed`).
+- API: on Kanban projects, editing, deleting, starting or completing a sprint and any issue `sprint_id` change (including `null`) return 409 `kanban-has-no-sprints`.
 
 ## [0.30.0] - 2026-11-18
 
