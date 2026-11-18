@@ -119,3 +119,48 @@ pub async fn delete(
     .await?;
     Ok(deleted.rows_affected() == 1)
 }
+
+/// A link of an issue of the project, read from that issue.
+pub struct ExportRow {
+    pub source: String,
+    pub target: String,
+    pub link_type: String,
+    pub is_source: bool,
+}
+
+/// D45: every link of an issue of `project_id` whose other issue `user_id` can open; a link
+/// between two issues of the project once, from its source.
+pub async fn list_project_links(
+    conn: &mut PgConnection,
+    user_id: i64,
+    project_id: i64,
+) -> Result<Vec<ExportRow>, sqlx::Error> {
+    sqlx::query_as!(
+        ExportRow,
+        r#"SELECT source AS "source!", target AS "target!", link_type AS "link_type!",
+                  is_source AS "is_source!"
+           FROM (SELECT l.id, p.key || '-' || mine.number AS source, op.key || '-' || o.number AS target,
+                        l.link_type, true AS is_source
+                 FROM issue mine
+                 JOIN project p ON p.id = mine.project_id
+                 JOIN issue_link l ON l.source_id = mine.id
+                 JOIN issue o ON o.id = l.target_id
+                 JOIN project op ON op.id = o.project_id AND op.trashed_at IS NULL
+                 JOIN member m ON m.project_id = op.id AND m.user_id = $1
+                 WHERE mine.project_id = $2
+                 UNION ALL
+                 SELECT l.id, p.key || '-' || mine.number, op.key || '-' || o.number, l.link_type, false
+                 FROM issue mine
+                 JOIN project p ON p.id = mine.project_id
+                 JOIN issue_link l ON l.target_id = mine.id
+                 JOIN issue o ON o.id = l.source_id AND o.project_id <> $2
+                 JOIN project op ON op.id = o.project_id AND op.trashed_at IS NULL
+                 JOIN member m ON m.project_id = op.id AND m.user_id = $1
+                 WHERE mine.project_id = $2) links
+           ORDER BY id"#,
+        user_id,
+        project_id
+    )
+    .fetch_all(&mut *conn)
+    .await
+}

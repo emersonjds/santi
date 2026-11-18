@@ -4,7 +4,7 @@ use santi_types::issues::{Issue, IssueType, Priority};
 use santi_types::sprints::{Sprint, SprintState};
 use sqlx::PgConnection;
 
-use super::domain::key_number;
+use super::domain::{LinkEnd, key_number};
 
 /// A sprint with the state and instants of the file.
 pub async fn insert_sprint(
@@ -190,6 +190,61 @@ pub async fn record_sprint_facts(
          FROM issue i JOIN sprint s ON s.id = i.sprint_id AND s.state <> 'future'
          WHERE i.project_id = $1",
         project_id
+    )
+    .execute(&mut *conn)
+    .await?;
+    Ok(())
+}
+
+/// The issues of `keys` that `user_id` can open: a member of their project, found by its live or
+/// a previous key, not trashed.
+/// Locked against a delete until the restore commits, so its links cannot lose an end.
+pub async fn find_link_ends(
+    conn: &mut PgConnection,
+    user_id: i64,
+    keys: &[&str],
+) -> Result<Vec<LinkEnd>, sqlx::Error> {
+    let key: Vec<String> = keys.iter().map(|key| key.to_string()).collect();
+    let project: Vec<String> = keys
+        .iter()
+        .map(|key| key.rsplit_once('-').unwrap_or_default().0.to_string())
+        .collect();
+    let number: Vec<i64> = keys.iter().map(|key| key_number(key)).collect();
+    sqlx::query_as!(
+        LinkEnd,
+        r#"SELECT r.key AS "key!", i.id, p.archived_at IS NOT NULL AS "archived!"
+           FROM unnest($2::text[], $3::text[], $4::bigint[]) AS r(key, project_key, number)
+           JOIN project p ON p.id = resolve_project_key(r.project_key) AND p.trashed_at IS NULL
+           JOIN member m ON m.project_id = p.id AND m.user_id = $1
+           JOIN issue i ON i.project_id = p.id AND i.number = r.number
+           FOR KEY SHARE OF i"#,
+        user_id,
+        &key[..],
+        &project[..],
+        &number[..]
+    )
+    .fetch_all(&mut *conn)
+    .await
+}
+
+/// Links as (source id, target id, link type) by `user_id`; one already there is left alone.
+pub async fn insert_links(
+    conn: &mut PgConnection,
+    user_id: i64,
+    rows: &[(i64, i64, &str)],
+) -> Result<(), sqlx::Error> {
+    let source: Vec<i64> = rows.iter().map(|row| row.0).collect();
+    let target: Vec<i64> = rows.iter().map(|row| row.1).collect();
+    let link_type: Vec<String> = rows.iter().map(|row| row.2.to_string()).collect();
+    sqlx::query!(
+        "INSERT INTO issue_link (source_id, target_id, link_type, created_by)
+         SELECT r.source_id, r.target_id, r.link_type, $1
+         FROM unnest($2::bigint[], $3::bigint[], $4::text[]) AS r(source_id, target_id, link_type)
+         ON CONFLICT DO NOTHING",
+        user_id,
+        &source[..],
+        &target[..],
+        &link_type[..]
     )
     .execute(&mut *conn)
     .await?;

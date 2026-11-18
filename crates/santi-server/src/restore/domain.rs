@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use santi_types::FieldError;
-use santi_types::auth::{ExportedComment, ProjectExport};
+use santi_types::auth::{ExportedComment, ExportedLink, ProjectExport};
 use santi_types::boards::{BoardSettings, Status, StatusCategory};
 use santi_types::issues::{Issue, IssueType};
 use santi_types::projects::{BoardType, RestoreProblem};
@@ -17,6 +17,7 @@ use crate::issues::domain::{
     check_comment_body, check_description, check_parent, check_points, check_summary, is_rank,
     normalize_labels,
 };
+use crate::links::domain::{parse_issue_key, stored};
 use crate::projects::domain::{check_project_key, check_project_name};
 use crate::sprints::domain::{
     check_goal, check_issue_can_change_sprint, check_sprint_name, check_window, require_scrum,
@@ -27,6 +28,8 @@ pub const MAX_STATUSES: usize = 500;
 pub const MAX_SPRINTS: usize = 2_000;
 pub const MAX_COMMENTS: usize = 200_000;
 pub const MAX_PREVIOUS_KEYS: usize = 100;
+/// Above what fits in `restore::handler::MAX_BODY_BYTES`.
+pub const MAX_LINKS: usize = 500_000;
 
 pub const NOT_RESTORED: &str = "Attachments, notifications and issue history are not in an export \
 and were not restored; closed sprints report their issues as they are now.";
@@ -47,6 +50,7 @@ pub fn check(export: &mut ProjectExport) -> Result<String, AppError> {
         sprints,
         issues,
         comments,
+        links,
         ..
     } = export;
     let key = check_project_key(&project.key)?;
@@ -81,6 +85,7 @@ pub fn check(export: &mut ProjectExport) -> Result<String, AppError> {
         ("issues", issues.len(), MAX_ISSUES),
         ("sprints", sprints.len(), MAX_SPRINTS),
         ("comments", comments.len(), MAX_COMMENTS),
+        ("links", links.len(), MAX_LINKS),
     ];
     for (field, count, limit) in limits {
         if count > limit {
@@ -94,6 +99,7 @@ pub fn check(export: &mut ProjectExport) -> Result<String, AppError> {
     let sprint_ids = check_sprints(project.board_type, sprints)?;
     check_issues(&key, issues, &categories, &sprint_ids)?;
     check_comments(issues, comments)?;
+    check_links(&key, issues, links)?;
     Ok(key)
 }
 
@@ -302,6 +308,110 @@ fn check_comments(issues: &[Issue], comments: &mut [ExportedComment]) -> Result<
             check_comment_body(&comment.body).map_err(at(&format!("comments[{index}].body")))?;
     }
     Ok(())
+}
+
+/// A link starts at an issue of the file; a target in the project is one too, any other is
+/// resolved on restore. Keys are normalised in place.
+fn check_links(key: &str, issues: &[Issue], links: &mut [ExportedLink]) -> Result<(), AppError> {
+    let keys: HashSet<&str> = issues.iter().map(|issue| issue.key.as_str()).collect();
+    for (index, link) in links.iter_mut().enumerate() {
+        let field = |name: &str| format!("links[{index}].{name}");
+        let in_file = |name: &str| AppError::invalid(&field(name), "names no issue in the file");
+        let (_, source) = issue_key(&link.source).map_err(at(&field("source")))?;
+        if !keys.contains(source.as_str()) {
+            return Err(in_file("source"));
+        }
+        let (project, target) = issue_key(&link.target).map_err(at(&field("target")))?;
+        if project == key && !keys.contains(target.as_str()) {
+            return Err(in_file("target"));
+        }
+        if source == target {
+            return Err(AppError::invalid(
+                &field("target"),
+                "an issue cannot link to itself",
+            ));
+        }
+        (link.source, link.target) = (source, target);
+    }
+    Ok(())
+}
+
+/// ` ops-12` → (`OPS`, `OPS-12`).
+fn issue_key(key: &str) -> Result<(String, String), AppError> {
+    let (project, number) = parse_issue_key(key)?;
+    let key = format!("{project}-{number}");
+    Ok((project, key))
+}
+
+/// An issue the restorer can open, by its key in the file.
+pub struct LinkEnd {
+    pub key: String,
+    pub id: i64,
+    pub archived: bool,
+}
+
+/// The links to insert as (source id, target id, link type), and why each other one is skipped.
+pub fn plan_links(
+    links: &[ExportedLink],
+    ends: &[LinkEnd],
+) -> (Vec<(i64, i64, &'static str)>, Vec<RestoreProblem>) {
+    let ends: HashMap<&str, &LinkEnd> = ends.iter().map(|end| (end.key.as_str(), end)).collect();
+    let resolve = |key: &str| match ends.get(key) {
+        None => Err(format!("you cannot open {key}")),
+        Some(end) if end.archived => Err(format!("the project of {key} is archived")),
+        Some(end) => Ok(end.id),
+    };
+    let mut rows = Vec::with_capacity(links.len());
+    let mut problems = Vec::new();
+    for link in links {
+        let ids = resolve(&link.source).and_then(|source| Ok((source, resolve(&link.target)?)));
+        match ids {
+            Ok((source, target)) if source != target => {
+                let stored = stored(link.relation);
+                rows.push(if stored.forward {
+                    (source, target, stored.link_type)
+                } else {
+                    (target, source, stored.link_type)
+                });
+            }
+            outcome => {
+                let reason = outcome
+                    .err()
+                    .unwrap_or_else(|| "an issue cannot link to itself".into());
+                let relation = serde_json::to_string(&link.relation).unwrap_or_default();
+                let relation = relation.trim_matches('"').replace('_', " ");
+                problems.push(RestoreProblem {
+                    issue_key: link.source.clone(),
+                    message: format!(
+                        "Link {} {relation} {} skipped: {reason}.",
+                        link.source, link.target
+                    ),
+                });
+            }
+        }
+    }
+    (rows, problems)
+}
+
+/// The skipped links that fit in `room` problems; when they do not, the last one counts the rest.
+pub fn keep_skipped(
+    skipped: Vec<RestoreProblem>,
+    room: usize,
+    project_key: &str,
+) -> Vec<RestoreProblem> {
+    if skipped.len() <= room {
+        return skipped;
+    }
+    let Some(listed) = room.checked_sub(1) else {
+        return Vec::new();
+    };
+    let more = skipped.len() - listed;
+    let mut kept: Vec<RestoreProblem> = skipped.into_iter().take(listed).collect();
+    kept.push(RestoreProblem {
+        issue_key: project_key.into(),
+        message: format!("{more} more links skipped."),
+    });
+    kept
 }
 
 /// Moves a validation error or a refused board rule onto the field of the file it came from.
@@ -803,5 +913,98 @@ pub(crate) mod tests {
         assert_eq!(key_number("A1-B-3"), 3);
         assert_eq!(exists("SHOP").to_problem().status, 409);
         assert!(exists("SHOP").to_problem().detail.contains("SHOP"));
+    }
+
+    #[test]
+    fn a_link_whose_ends_are_one_issue_is_skipped_and_inverse_relations_are_stored_forward() {
+        let link = |source: &str, target: &str, relation| ExportedLink {
+            source: source.into(),
+            target: target.into(),
+            relation,
+        };
+        let end = |key: &str, id| LinkEnd {
+            key: key.into(),
+            id,
+            archived: false,
+        };
+        let links = [
+            link("SHOP-1", "OLD-1", santi_types::links::Relation::Relates),
+            link("SHOP-1", "SHOP-2", santi_types::links::Relation::IsClonedBy),
+        ];
+
+        let (rows, problems) = plan_links(
+            &links,
+            &[end("SHOP-1", 1), end("OLD-1", 1), end("SHOP-2", 2)],
+        );
+
+        assert_eq!(rows, [(2, 1, "clones")]);
+        assert_eq!(
+            problems[0].message,
+            "Link SHOP-1 relates OLD-1 skipped: an issue cannot link to itself."
+        );
+    }
+
+    #[test]
+    fn skipped_links_past_the_problem_room_end_in_one_count() {
+        let skipped: Vec<RestoreProblem> = (1..=5)
+            .map(|number| RestoreProblem {
+                issue_key: format!("SHOP-{number}"),
+                message: format!("Link SHOP-{number} blocks OPS-1 skipped: you cannot open OPS-1."),
+            })
+            .collect();
+
+        let kept = keep_skipped(skipped.clone(), 3, "SHOP");
+
+        assert_eq!(kept.len(), 3);
+        assert_eq!(kept[..2], skipped[..2]);
+        assert_eq!(kept[2].issue_key, "SHOP");
+        assert_eq!(kept[2].message, "3 more links skipped.");
+        assert_eq!(keep_skipped(skipped.clone(), 5, "SHOP"), skipped);
+        assert!(keep_skipped(skipped, 0, "SHOP").is_empty());
+    }
+
+    #[test]
+    fn links_start_in_the_file_and_name_issues_by_key() {
+        let mut value = file();
+        value["links"] = json!([
+            { "source": " shop-2 ", "target": "SHOP-3", "relation": "blocks" },
+            { "source": "SHOP-1", "target": "OPS-4", "relation": "is_cloned_by" }
+        ]);
+        let mut linked = export(value);
+        check(&mut linked).unwrap();
+        assert_eq!(linked.links[0].source, "SHOP-2");
+
+        type Change = fn(&mut Value);
+        let cases: [(&str, Change); 6] = [
+            ("links[0].source", |v| {
+                v["links"][0]["source"] = json!("SHOP-9")
+            }),
+            ("links[0].source", |v| {
+                v["links"][0]["source"] = json!("OPS-1")
+            }),
+            ("links[0].source", |v| {
+                v["links"][0]["source"] = json!("SHOP")
+            }),
+            ("links[0].target", |v| {
+                v["links"][0]["target"] = json!("SHOP-9")
+            }),
+            ("links[0].target", |v| {
+                v["links"][0]["target"] = json!("OPS-x")
+            }),
+            ("links[0].target", |v| {
+                v["links"][0]["target"] = json!("SHOP-1")
+            }),
+        ];
+        for (wanted, change) in cases {
+            let got = refused(|value| {
+                value["links"] =
+                    json!([{ "source": "SHOP-1", "target": "SHOP-2", "relation": "relates" }]);
+                change(value);
+            });
+            assert_eq!(got, wanted);
+        }
+        let mut many = linked.clone();
+        many.links = vec![many.links[0].clone(); MAX_LINKS + 1];
+        assert_eq!(field(check(&mut many).unwrap_err()), "links");
     }
 }

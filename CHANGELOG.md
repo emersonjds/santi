@@ -10,6 +10,18 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-18
+
+> Exports, backups and restores keep the links between issues.
+
+### Added
+
+- Exports, backups and restore keep issue links.
+
+### Upgrade notes
+
+- Account export and backups gain `links` per project; older files without it still restore.
+
 ## [0.29.0] - 2026-11-18
 
 > Scheduled backups for self-hosters and a faster card menu on large boards.
@@ -930,7 +942,8 @@ First release: the MVP, self-hosted with `docker compose up -d`.
 - Hashed API tokens and sessions; non-members get 404 for a project, members without the right
   role get 403.
 
-[Unreleased]: https://github.com/emersonjds/santi/compare/v0.29.0...HEAD
+[Unreleased]: https://github.com/emersonjds/santi/compare/v0.30.0...HEAD
+[0.30.0]: https://github.com/emersonjds/santi/compare/v0.29.0...v0.30.0
 [0.29.0]: https://github.com/emersonjds/santi/compare/v0.28.0...v0.29.0
 [0.28.0]: https://github.com/emersonjds/santi/compare/v0.27.0...v0.28.0
 [0.27.0]: https://github.com/emersonjds/santi/compare/v0.26.0...v0.27.0

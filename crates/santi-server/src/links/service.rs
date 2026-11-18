@@ -1,3 +1,4 @@
+use santi_types::auth::ExportedLink;
 use santi_types::links::{CreateLink, IssueLink, LinkedIssue};
 use sqlx::{PgConnection, PgPool};
 
@@ -98,4 +99,20 @@ pub async fn delete(pool: &PgPool, member: &Member, number: i64, id: i64) -> Res
         return Err(AppError::NotFound);
     }
     Ok(())
+}
+
+/// The project's links for its export, read as `member`.
+pub async fn export(
+    conn: &mut PgConnection,
+    member: &Member,
+) -> Result<Vec<ExportedLink>, AppError> {
+    let rows = repo::list_project_links(conn, member.user_id, member.project_id).await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| ExportedLink {
+            relation: domain::seen_from(&row.link_type, row.is_source),
+            source: row.source,
+            target: row.target,
+        })
+        .collect())
 }

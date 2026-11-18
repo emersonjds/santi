@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO issue_link (source_id, target_id, link_type, created_by)\n         SELECT r.source_id, r.target_id, r.link_type, $1\n         FROM unnest($2::bigint[], $3::bigint[], $4::text[]) AS r(source_id, target_id, link_type)\n         ON CONFLICT DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8Array",
+        "Int8Array",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9d52ad61fc06c9e898b91032dd2d167a88445a7b6bbe8eb4d2b72fab99aa20b4"
+}
