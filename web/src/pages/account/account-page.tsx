@@ -1,4 +1,4 @@
-import { lazy } from 'react'
+import { Suspense, lazy } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
 import { DeleteAccountButton } from '@/features/account/delete-account-button'
@@ -18,15 +18,16 @@ import { formatDate } from '@/shared/lib/format-date'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { preloadAccountForms } from './load-account-forms'
 
-// Lazy, with no boundary of their own: react-hook-form stays off the first visit and the page paints once (D39).
+// Lazy: react-hook-form stays off the first visit; each form has its own fixed-height boundary (D39).
 const ChangePasswordForm = lazy(() =>
-  import('@/features/account/change-password-form').then((module) => ({
+  preloadAccountForms().then((module) => ({
     default: module.ChangePasswordForm,
   }))
 )
 const CreateTokenForm = lazy(() =>
-  import('@/features/api-token/create-token-form').then((module) => ({
+  preloadAccountForms().then((module) => ({
     default: module.CreateTokenForm,
   }))
 )
@@ -103,7 +104,9 @@ export const AccountPage = () => {
         >
           Security
         </h2>
-        <ChangePasswordForm />
+        <Suspense fallback={<Skeleton className='h-[318px]' />}>
+          <ChangePasswordForm />
+        </Suspense>
         <h3 className='font-medium'>Sessions</h3>
         <SessionsList headingId='security' />
       </section>
@@ -118,7 +121,9 @@ export const AccountPage = () => {
             acts with all your rights until you revoke it.
           </p>
         </div>
-        <CreateTokenForm />
+        <Suspense fallback={<Skeleton className='h-28 sm:h-14' />}>
+          <CreateTokenForm />
+        </Suspense>
         <TokenList />
       </section>
       <section aria-labelledby='your-data' className='grid gap-4'>
