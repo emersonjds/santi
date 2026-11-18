@@ -16,6 +16,7 @@ const ARCHIVED: Project = {
   state: 'archived',
   archived_at: new Date(Date.now() - 3 * HOUR).toISOString(),
   archived_by: 'Alice',
+  previous_keys: [],
 }
 
 const TRASHED: Project = {
@@ -28,6 +29,7 @@ const TRASHED: Project = {
   trashed_at: new Date(Date.now() - 2 * DAY).toISOString(),
   trashed_by: 'EMERSON JUNIOR DANIEL SILVA',
   purge_at: new Date(Date.now() + 58 * DAY - HOUR).toISOString(),
+  previous_keys: [],
 }
 
 /** `GET /api/projects?state=` answers DOC archived and OLD trashed until they leave that state. */

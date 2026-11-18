@@ -123,7 +123,7 @@ test('the nav opens the AI section with a sample conversation and the MCP setup 
   ).toHaveCount(0)
 
   await page.getByText('Can AI agents work with it?').click()
-  await expect(page.getByText(/an MCP server with 36 tools/)).toBeVisible()
+  await expect(page.getByText(/an MCP server with 38 tools/)).toBeVisible()
 })
 
 test.describe('with reduced motion', () => {

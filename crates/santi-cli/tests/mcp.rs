@@ -13,7 +13,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 
 type Client = RunningService<RoleClient, ()>;
 
-const TOOLS: [&str; 36] = [
+const TOOLS: [&str; 38] = [
     "add_attachment",
     "add_comment",
     "archive_project",
@@ -42,6 +42,7 @@ const TOOLS: [&str; 36] = [
     "move_issue",
     "plan_issue",
     "purge_project",
+    "remove_project_alias",
     "restore_project",
     "revoke_invite",
     "search_issues",
@@ -50,6 +51,7 @@ const TOOLS: [&str; 36] = [
     "unarchive_project",
     "unlink_issues",
     "update_issue",
+    "update_project",
 ];
 
 #[test]
@@ -914,7 +916,7 @@ fn stdio_archives_trashes_restores_and_purges_a_project() {
             json!({ "key": "GONE", "name": "Again" }),
         )
         .await;
-        assert!(duplicate.contains("already exists"), "{duplicate}");
+        assert_eq!(duplicate, "GONE is already Gone soon's key.");
         let malformed = rejected(
             &client,
             "create_project",
@@ -954,6 +956,72 @@ fn stdio_archives_trashes_restores_and_purges_a_project() {
         ok(&client, "trash_project", project.clone()).await;
         ok(&client, "purge_project", project.clone()).await;
         assert!(keys(ok(&client, "list_projects", json!({ "state": "trashed" })).await).is_empty());
+        client.cancel().await.unwrap();
+    });
+}
+
+#[test]
+fn stdio_renames_a_project_and_frees_its_old_key() {
+    let token = server().user();
+    server().project(&token, "RNM", "kanban");
+    server().project(&token, "RNMT", "kanban");
+    let config = tempfile::tempdir().unwrap();
+    server().block_on(async {
+        let mut command = santi(&config);
+        command.env("SANTI_TOKEN", &token);
+        let client = ().serve(TokioChildProcess::new(command).unwrap()).await.unwrap();
+        let tools = client.list_all_tools().await.unwrap();
+        let tool = |name: &str| tools.iter().find(|tool| tool.name == name).unwrap();
+        let update = tool("update_project");
+        let hints = update.annotations.clone().unwrap();
+        assert_eq!(hints.idempotent_hint, Some(true));
+        assert_eq!(hints.destructive_hint, Some(false));
+        let schema = Value::Object((*update.input_schema).clone());
+        assert_eq!(schema["required"], json!(["project"]));
+        for field in ["name", "key"] {
+            assert!(schema["properties"].get(field).is_some(), "{field}");
+        }
+        assert!(update.description.as_deref().unwrap().contains("2–10"));
+        let remove = tool("remove_project_alias");
+        let hints = remove.annotations.clone().unwrap();
+        assert_eq!(hints.destructive_hint, Some(true));
+        let schema = Value::Object((*remove.input_schema).clone());
+        assert_eq!(schema["required"], json!(["project", "alias"]));
+
+        let renamed = ok(
+            &client,
+            "update_project",
+            json!({ "project": "RNM", "name": "Renamed", "key": "RNMD" }),
+        )
+        .await;
+        assert_eq!(renamed["key"], "RNMD");
+        assert_eq!(renamed["name"], "Renamed");
+        assert_eq!(renamed["previous_keys"], json!(["RNM"]));
+        let board = ok(&client, "get_board", json!({ "project": "RNM" })).await;
+        assert!(board.is_object());
+        let taken = rejected(
+            &client,
+            "update_project",
+            json!({ "project": "RNMT", "key": "RNM" }),
+        )
+        .await;
+        assert_eq!(
+            taken,
+            "RNM is a previous key of Renamed. Ask that project's admin to remove it before you can use it."
+        );
+        ok(
+            &client,
+            "remove_project_alias",
+            json!({ "project": "RNMD", "alias": "RNM" }),
+        )
+        .await;
+        let moved = ok(
+            &client,
+            "update_project",
+            json!({ "project": "RNMT", "key": "RNM" }),
+        )
+        .await;
+        assert_eq!(moved["previous_keys"], json!(["RNMT"]));
         client.cancel().await.unwrap();
     });
 }

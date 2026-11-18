@@ -387,7 +387,7 @@ async fn hot_endpoints_stay_within_statement_and_latency_budgets(pool: PgPool) {
     );
 
     // The sample project (SAN-62) runs once per user: its whole seed, then the cheap reopen.
-    for (name, budget, ceiling) in [("sample", 152, CEILING * 4), ("sample again", 3, CEILING)] {
+    for (name, budget, ceiling) in [("sample", 154, CEILING * 4), ("sample again", 3, CEILING)] {
         let mut request = json_request(Method::POST, "/api/sample-project", None, None);
         request
             .headers_mut()

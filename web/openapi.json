@@ -7,7 +7,7 @@
       "name": "AGPL-3.0-only",
       "identifier": "AGPL-3.0-only"
     },
-    "version": "0.27.0"
+    "version": "0.28.0"
   },
   "paths": {
     "/api/auth/login": {
@@ -1816,6 +1816,165 @@
           },
           "409": {
             "description": "`project-not-trashed`: only a trashed project can be purged",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "update_project",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key, current or previous",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProject"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Saved; a new key keeps the old one as a previous key, and a previous key of this project swaps with the current one",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Name of 1 to 100 characters; key of 2 to 10 capital letters or digits, a letter first",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projects/{key}/aliases/{alias}": {
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "remove_alias",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Project key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "alias",
+            "in": "path",
+            "description": "One of the project's previous keys",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed: the key no longer leads here and any project can take it"
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not an admin of the project",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown project, not a member, or not one of its previous keys",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`project-archived`",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -8734,7 +8893,8 @@
           "name",
           "board_type",
           "role",
-          "state"
+          "state",
+          "previous_keys"
         ],
         "properties": {
           "archived_at": {
@@ -8763,6 +8923,13 @@
           },
           "name": {
             "type": "string"
+          },
+          "previous_keys": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Keys the project had before, newest first; they still resolve to it (OR-38). Exports\nwritten before SAN-225 lack it."
           },
           "purge_at": {
             "type": [
@@ -9702,6 +9869,26 @@
               "null"
             ],
             "description": "Only `true`: stamps `tour_seen_at` the first time and keeps it afterwards."
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateProject": {
+        "type": "object",
+        "description": "Absent fields stay as they are.",
+        "properties": {
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The new key; the current one becomes a previous key."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "additionalProperties": false

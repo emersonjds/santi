@@ -433,6 +433,22 @@ export interface paths {
         delete: operations["purge_project"];
         options?: never;
         head?: never;
+        patch: operations["update_project"];
+        trace?: never;
+    };
+    "/api/projects/{key}/aliases/{alias}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["remove_alias"];
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -1976,6 +1992,11 @@ export interface components {
             key: string;
             name: string;
             /**
+             * @description Keys the project had before, newest first; they still resolve to it (OR-38). Exports
+             *     written before SAN-225 lack it.
+             */
+            previous_keys: string[];
+            /**
              * Format: date-time
              * @description When a trashed project is deleted for good: 60 days after `trashed_at` (OR-58).
              */
@@ -2288,6 +2309,12 @@ export interface components {
             time_zone?: string | null;
             /** @description Only `true`: stamps `tour_seen_at` the first time and keeps it afterwards. */
             tour_seen?: boolean | null;
+        };
+        /** @description Absent fields stay as they are. */
+        UpdateProject: {
+            /** @description The new key; the current one becomes a previous key. */
+            key?: string | null;
+            name?: string | null;
         };
         UpdateSprint: {
             /** Format: date-time */
@@ -3804,6 +3831,134 @@ export interface operations {
                 };
             };
             /** @description `project-not-trashed`: only a trashed project can be purged */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    update_project: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key, current or previous */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProject"];
+            };
+        };
+        responses: {
+            /** @description Saved; a new key keeps the old one as a previous key, and a previous key of this project swaps with the current one */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Project"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived`; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; the detail names that project */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Name of 1 to 100 characters; key of 2 to 10 capital letters or digits, a letter first */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    remove_alias: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Project key */
+                key: string;
+                /** @description One of the project's previous keys */
+                alias: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed: the key no longer leads here and any project can take it */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not an admin of the project */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unknown project, not a member, or not one of its previous keys */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description `project-archived` */
             409: {
                 headers: {
                     [name: string]: unknown;

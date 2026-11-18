@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use axum::body::Bytes;
 use santi_types::boards::BoardSettings;
-use santi_types::projects::{MemberRole, RestoreResult};
+use santi_types::projects::{MemberRole, RestoreProblem, RestoreResult};
 use sqlx::{PgConnection, PgPool};
 
 use super::{domain, repo};
@@ -19,25 +19,45 @@ pub async fn restore(
     body: Bytes,
 ) -> Result<RestoreResult, AppError> {
     let caller = user.id;
-    let (mut export, key, problems) = tokio::task::spawn_blocking(move || {
+    let (mut export, key, mut problems) = tokio::task::spawn_blocking(move || {
         let mut export = domain::read(&body)?;
         let key = domain::check(&mut export)?;
-        let problems = domain::resolve_people(&mut export, caller);
+        let mut problems = domain::keep_newest_previous_keys(&mut export);
+        problems.extend(domain::resolve_people(&mut export, caller));
         Ok::<_, AppError>((export, key, problems))
     })
     .await
     .map_err(|error| AppError::Internal(error.to_string()))??;
     let mut tx = pool.begin().await?;
     crate::timeouts::allow_long_statements(&mut tx).await?;
-    // ponytail: two restores of one key racing past this check: the second gets the generic 409.
+    let mut keys = export.project.previous_keys.clone();
+    keys.push(key.clone());
+    keys.sort();
+    keys.dedup();
+    for locked in &keys {
+        projects::repo::lock_key(&mut tx, locked).await?;
+    }
     if projects::repo::find_key_state(&mut tx, &key)
         .await?
         .is_some()
     {
         return Err(domain::exists(&key));
     }
+    projects::service::take_key(&mut tx, &key, None, user.id).await?;
     let project = &export.project;
     let project_id = projects::repo::insert_project(&mut tx, &key, &project.name).await?;
+    let mut previous_keys = Vec::with_capacity(project.previous_keys.len());
+    for previous in &project.previous_keys {
+        match projects::service::take_key(&mut tx, previous, Some(project_id), user.id).await {
+            Ok(_) => previous_keys.push(previous.clone()),
+            Err(AppError::Conflict { .. }) => problems.push(RestoreProblem {
+                issue_key: key.clone(),
+                message: format!("Previous key {previous} stays with another project."),
+            }),
+            Err(error) => return Err(error),
+        }
+    }
+    projects::repo::insert_aliases(&mut tx, project_id, &previous_keys).await?;
     let board_id = projects::repo::insert_board(
         &mut tx,
         project_id,
