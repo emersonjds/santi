@@ -1674,7 +1674,7 @@
             }
           },
           "409": {
-            "description": "`project-exists`: a project holds the key; nothing written",
+            "description": "`project-exists`: a project holds the key; `project-key-taken`: another project's key; `project-key-alias`: another project's previous key; nothing written",
             "content": {
               "application/problem+json": {
                 "schema": {

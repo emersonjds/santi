@@ -98,6 +98,24 @@ async fn quick_filters_hide_rows_but_not_totals(pool: PgPool) {
 }
 
 #[sqlx::test]
+async fn backlog_filters_by_a_parent_written_with_the_previous_project_key(pool: PgPool) {
+    let ana = TestApp::signed_in(pool, "ana@example.com").await;
+    ana.create_project("SANTI", "scrum").await;
+    ana.create_issue("SANTI", json!({ "summary": "Epic", "issue_type": "epic" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Child", "parent": "SANTI-1" }))
+        .await;
+    ana.create_issue("SANTI", json!({ "summary": "Orphan" }))
+        .await;
+    ana.patch("/api/projects/SANTI", json!({ "key": "NOWVI" }))
+        .await;
+
+    let (_, backlog) = ana.get("/api/projects/NOWVI/backlog?parent=SANTI-1").await;
+
+    assert_eq!(section_keys(&backlog, 0), ["NOWVI-2"]);
+}
+
+#[sqlx::test]
 async fn backlog_filters_an_assignee_or_unassigned(pool: PgPool) {
     let ana = TestApp::signed_in(pool, "ana@example.com").await;
     ana.create_project("SANTI", "scrum").await;

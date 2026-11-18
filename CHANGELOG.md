@@ -14,6 +14,9 @@ UI moves to its own repository.
 
 - Scheduled backups for self-hosters: one restorable file per project, daily at SANTI_BACKUP_HOUR_UTC, keeping SANTI_BACKUP_KEEP runs.
 
+### Fixed
+
+- Board filters by parent accept an issue key with the project's previous key.
 ### Changed
 
 - The card actions menu opens about four times faster on large boards.
