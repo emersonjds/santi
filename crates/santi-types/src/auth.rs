@@ -73,6 +73,10 @@ pub struct User {
     pub email: String,
     pub display_name: String,
     pub theme: Theme,
+    /// Absent from older export files, which read as `en`.
+    #[serde(default)]
+    #[schema(required = true)]
+    pub language: Language,
     /// IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone.
     pub time_zone: Option<String>,
     /// When the account first closed the welcome tour; `null` opens it once.
@@ -94,6 +98,29 @@ pub enum Theme {
     System,
 }
 
+/// BCP 47 tag of the web app's language; case-sensitive.
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[cfg_attr(feature = "sqlx", derive(sqlx::Encode, sqlx::Decode))]
+pub enum Language {
+    #[default]
+    #[serde(rename = "en")]
+    #[cfg_attr(feature = "sqlx", sqlx(rename = "en"))]
+    En,
+    #[serde(rename = "es")]
+    #[cfg_attr(feature = "sqlx", sqlx(rename = "es"))]
+    Es,
+    #[serde(rename = "pt-BR")]
+    #[cfg_attr(feature = "sqlx", sqlx(rename = "pt-BR"))]
+    PtBr,
+    #[serde(rename = "pt-PT")]
+    #[cfg_attr(feature = "sqlx", sqlx(rename = "pt-PT"))]
+    PtPt,
+    #[serde(rename = "zh-CN")]
+    #[cfg_attr(feature = "sqlx", sqlx(rename = "zh-CN"))]
+    ZhCn,
+}
+
 /// Absent fields stay as they are; `"time_zone": null` goes back to the browser's zone.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -102,6 +129,8 @@ pub struct UpdateMe {
     pub display_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<Theme>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<Language>,
     /// IANA name, e.g. `Pacific/Auckland`.
     #[serde(
         default,
@@ -229,4 +258,21 @@ pub struct ExportedComment {
     /// Last change of the text; null until a save changes it (D52).
     pub edited_at: Option<DateTime<Utc>>,
     pub edited_by_id: Option<i64>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Language, User};
+
+    #[test]
+    fn a_user_from_an_export_older_than_languages_reads_as_english() {
+        let old = serde_json::json!({
+            "id": 1, "email": "ana@example.com", "display_name": "Ana", "theme": "dark",
+            "time_zone": null, "tour_seen_at": null
+        });
+
+        let user: User = serde_json::from_value(old).unwrap();
+
+        assert_eq!(user.language, Language::En);
+    }
 }

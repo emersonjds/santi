@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use santi_types::auth::{
-    ApiToken, InviteUse, LegalAcceptance, PasswordResetPreview, Session, Theme, User,
+    ApiToken, InviteUse, Language, LegalAcceptance, PasswordResetPreview, Session, Theme, User,
 };
 use sqlx::PgConnection;
 
@@ -12,6 +12,7 @@ pub struct UserWithHash {
     pub email: String,
     pub display_name: String,
     pub theme: Theme,
+    pub language: Language,
     pub time_zone: Option<String>,
     pub tour_seen_at: Option<DateTime<Utc>>,
     pub password_hash: String,
@@ -26,7 +27,7 @@ pub async fn insert_user(
     sqlx::query_as!(
         User,
         r#"INSERT INTO app_user (email, display_name, password_hash) VALUES ($1, $2, $3)
-           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at"#,
+           RETURNING id, email, display_name, theme AS "theme: Theme", language AS "language: Language", time_zone, tour_seen_at"#,
         email,
         display_name,
         password_hash
@@ -41,7 +42,7 @@ pub async fn find_user_by_email(
 ) -> Result<Option<UserWithHash>, sqlx::Error> {
     sqlx::query_as!(
         UserWithHash,
-        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at, password_hash
+        r#"SELECT id, email, display_name, theme AS "theme: Theme", language AS "language: Language", time_zone, tour_seen_at, password_hash
            FROM app_user WHERE email = $1 AND deleted_at IS NULL"#,
         email
     )
@@ -52,7 +53,7 @@ pub async fn find_user_by_email(
 pub async fn find_user(conn: &mut PgConnection, user_id: i64) -> Result<User, sqlx::Error> {
     sqlx::query_as!(
         User,
-        r#"SELECT id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at
+        r#"SELECT id, email, display_name, theme AS "theme: Theme", language AS "language: Language", time_zone, tour_seen_at
            FROM app_user WHERE id = $1"#,
         user_id
     )
@@ -67,6 +68,7 @@ pub async fn update_user(
     user_id: i64,
     display_name: Option<&str>,
     theme: Option<Theme>,
+    language: Option<Language>,
     time_zone: Option<Option<&str>>,
     tour_seen: bool,
 ) -> Result<Option<User>, sqlx::Error> {
@@ -74,13 +76,15 @@ pub async fn update_user(
         User,
         r#"UPDATE app_user
            SET display_name = COALESCE($2, display_name), theme = COALESCE($3, theme),
-               time_zone = CASE WHEN $4 THEN $5 ELSE time_zone END,
-               tour_seen_at = CASE WHEN $6 THEN COALESCE(tour_seen_at, now()) ELSE tour_seen_at END
+               language = COALESCE($4, language),
+               time_zone = CASE WHEN $5 THEN $6 ELSE time_zone END,
+               tour_seen_at = CASE WHEN $7 THEN COALESCE(tour_seen_at, now()) ELSE tour_seen_at END
            WHERE id = $1 AND deleted_at IS NULL
-           RETURNING id, email, display_name, theme AS "theme: Theme", time_zone, tour_seen_at"#,
+           RETURNING id, email, display_name, theme AS "theme: Theme", language AS "language: Language", time_zone, tour_seen_at"#,
         user_id,
         display_name,
         theme as Option<Theme>,
+        language as Option<Language>,
         time_zone.is_some(),
         time_zone.flatten(),
         tour_seen
@@ -465,7 +469,8 @@ pub async fn erase_user(conn: &mut PgConnection, user_id: i64) -> Result<(), sql
     sqlx::query!(
         "UPDATE app_user
          SET email = 'erased:' || id, deleted_at = now(), display_name = 'Deleted user',
-             password_hash = '!', time_zone = NULL, theme = 'system', tour_seen_at = NULL
+             password_hash = '!', time_zone = NULL, theme = 'system', language = 'en',
+             tour_seen_at = NULL
          WHERE id = $1",
         user_id
     )

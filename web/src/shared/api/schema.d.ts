@@ -1638,6 +1638,11 @@ export interface components {
         IssueType: "epic" | "story" | "task" | "bug" | "subtask";
         /** @enum {string} */
         ItemKind: "project" | "issue";
+        /**
+         * @description BCP 47 tag of the web app's language; case-sensitive.
+         * @enum {string}
+         */
+        Language: "en" | "es" | "pt-BR" | "pt-PT" | "zh-CN";
         /** @description One row of the append-only acceptance record: `document` is `terms`, `privacy` or `age`. */
         LegalAcceptance: {
             /** Format: date-time */
@@ -2315,6 +2320,7 @@ export interface components {
         /** @description Absent fields stay as they are; `"time_zone": null` goes back to the browser's zone. */
         UpdateMe: {
             display_name?: string | null;
+            language?: components["schemas"]["Language"] | null;
             theme?: components["schemas"]["Theme"] | null;
             /** @description IANA name, e.g. `Pacific/Auckland`. */
             time_zone?: string | null;
@@ -2350,6 +2356,8 @@ export interface components {
             email: string;
             /** Format: int64 */
             id: number;
+            /** @description Absent from older export files, which read as `en`. */
+            language: components["schemas"]["Language"];
             theme: components["schemas"]["Theme"];
             /** @description IANA name, e.g. `Pacific/Auckland`; `null` means the browser's zone. */
             time_zone?: string | null;
@@ -2751,7 +2759,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`) */
+            /** @description Blank or over 100 characters (`display_name`), unknown theme (`theme`) or language tag (`language`), a zone outside the IANA database (`time_zone`) or `false` (`tour_seen`) */
             422: {
                 headers: {
                     [name: string]: unknown;
