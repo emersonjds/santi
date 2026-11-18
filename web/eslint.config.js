@@ -36,6 +36,9 @@ const translated = [
 const copyAttribute =
   'JSXAttribute[name.name=/^(aria-label|placeholder|title|alt|label)$/]'
 const rawCopy = 'Copy comes from messages.ts through useT (D62).'
+const notCopy =
+  'JSXAttribute[name.name=/^(className|key|id|href|to|type|role|name|value|htmlFor|lang|dir|data-.+|aria-(hidden|controls|describedby|labelledby|current|live|haspopup|expanded))$/] *'
+const rendered = ':matches(LogicalExpression, ConditionalExpression)'
 
 export default defineConfig(
   {
@@ -109,7 +112,11 @@ export default defineConfig(
           message: rawCopy,
         },
         {
-          selector: `${copyAttribute} > JSXExpressionContainer > Literal[value=/[A-Za-z]/]`,
+          selector: `:matches(JSXExpressionContainer, JSXExpressionContainer ${rendered}) > Literal[value=/[A-Za-z]/]:not(${notCopy})`,
+          message: rawCopy,
+        },
+        {
+          selector: `JSXExpressionContainer TemplateElement[value.raw=/[A-Za-z]/]:not(${notCopy})`,
           message: rawCopy,
         },
       ],
