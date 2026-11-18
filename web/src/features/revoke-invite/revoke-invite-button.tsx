@@ -2,11 +2,11 @@ import { Suspense, lazy, useRef, useState } from 'react'
 import { Button } from '@/shared/ui/button'
 import type { RevokeInviteProps } from './revoke-invite-dialog'
 
-// Lazy: the confirmation and its Radix dialog load on the first press (D39).
+const loadDialog = () => import('./revoke-invite-dialog')
+
+// Lazy: the confirmation and its Radix dialog load on hover, focus or the first press (D39).
 const RevokeInviteDialog = lazy(() =>
-  import('./revoke-invite-dialog').then((module) => ({
-    default: module.RevokeInviteDialog,
-  }))
+  loadDialog().then((module) => ({ default: module.RevokeInviteDialog }))
 )
 
 type RevokeInviteButtonProps = RevokeInviteProps & {
@@ -19,7 +19,9 @@ export const RevokeInviteButton = ({
   ...props
 }: RevokeInviteButtonProps) => {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const opener = useRef<HTMLButtonElement>(null)
+  const preload = () => void loadDialog().catch(() => undefined)
 
   return (
     <>
@@ -30,14 +32,20 @@ export const RevokeInviteButton = ({
         aria-describedby={describedBy}
         aria-haspopup='dialog'
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        onPointerEnter={preload}
+        onFocus={preload}
+        onClick={() => {
+          setMounted(true)
+          setOpen(true)
+        }}
       >
         Revoke
       </Button>
-      {open && (
+      {mounted && (
         <Suspense fallback={null}>
           <RevokeInviteDialog
             {...props}
+            open={open}
             opener={opener}
             onClose={() => setOpen(false)}
           />

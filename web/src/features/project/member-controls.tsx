@@ -69,11 +69,11 @@ export type OpenedByState = {
 export type ExitProps = ControlProps &
   OpenedByState & { copy: ExitCopy; describedBy?: string }
 
-// Lazy: the confirmation and its Radix dialog load on the first press (D39).
+const loadDialog = () => import('./member-exit-dialog')
+
+// Lazy: the confirmation and its Radix dialog load on hover, focus or the first press (D39).
 const MemberExitDialog = lazy(() =>
-  import('./member-exit-dialog').then((module) => ({
-    default: module.MemberExitDialog,
-  }))
+  loadDialog().then((module) => ({ default: module.MemberExitDialog }))
 )
 
 const MemberExitButton = ({
@@ -87,10 +87,13 @@ const MemberExitButton = ({
   const [ownOpen, setOwnOpen] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
   const open = props.open ?? ownOpen
+  const [mounted, setMounted] = useState(open)
+  if (open && !mounted) setMounted(true)
   const setOpen = (next: boolean) => {
     setOwnOpen(next)
     onOpenChange?.(next)
   }
+  const preload = () => void loadDialog().catch(() => undefined)
   return (
     <>
       {props.open === undefined && (
@@ -101,6 +104,8 @@ const MemberExitButton = ({
           aria-disabled={locked || undefined}
           aria-haspopup='dialog'
           aria-expanded={open}
+          onPointerEnter={preload}
+          onFocus={preload}
           onClick={() => locked || setOpen(true)}
           aria-label={copy.label}
           aria-describedby={describedBy}
@@ -108,10 +113,11 @@ const MemberExitButton = ({
           {copy.trigger}
         </Button>
       )}
-      {open && (
+      {mounted && (
         <Suspense fallback={null}>
           <MemberExitDialog
             {...props}
+            open={open}
             copy={copy}
             onClose={() => setOpen(false)}
             onCloseAutoFocus={
