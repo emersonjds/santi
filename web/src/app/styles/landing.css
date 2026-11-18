@@ -124,6 +124,9 @@
   .feature-flip .feature-text {
     @apply lg:order-2;
   }
+  .feature-wide {
+    @apply mx-auto w-full max-w-3xl min-w-0 lg:order-3 lg:col-span-full;
+  }
   .eyebrow {
     @apply text-sm font-semibold tracking-wide text-primary uppercase;
   }
@@ -160,7 +163,7 @@
     @apply text-[#a8a29e];
   }
   .terminal-card {
-    @apply min-w-0 overflow-hidden rounded-xl shadow-[0_24px_64px_-24px_rgb(23_32_51/0.4)];
+    @apply min-w-0 overflow-clip rounded-xl shadow-[0_24px_64px_-24px_rgb(23_32_51/0.4)];
   }
   .terminal-bar {
     @apply flex items-center justify-between border-b border-white/10 bg-[#0f172a] pl-5 text-sm text-[#a8a29e];
@@ -235,6 +238,25 @@
   .footer-links a {
     @apply inline-flex min-h-11 items-center hover:text-foreground;
   }
+  .footer-bottom {
+    @apply grid justify-items-center gap-2 border-t py-8 text-center text-sm text-muted-foreground;
+    border-image: linear-gradient(
+        90deg,
+        transparent,
+        var(--primary),
+        transparent
+      )
+      1;
+  }
+  .footer-bottom a {
+    @apply font-medium text-primary underline-offset-4 hover:underline;
+  }
+  .footer-made {
+    @apply inline-flex items-center gap-1.5 font-medium text-foreground;
+  }
+  .footer-heart {
+    @apply size-4 fill-primary;
+  }
   /* Privacy and terms: one readable column of prose. */
   .legal {
     @apply max-w-3xl leading-relaxed;
@@ -305,7 +327,7 @@
 }
 @keyframes type {
   to {
-    left: 100%;
+    left: calc(100% + 2ch);
   }
 }
 @keyframes caret {
@@ -334,25 +356,25 @@
       display: inline-block;
     }
     .terminal code > * {
-      --at: 0.2s;
+      --at: 200ms;
     }
     .terminal code > :nth-child(2) {
-      --at: 0.9s;
+      --at: 900ms;
     }
     .terminal code > :nth-child(3) {
-      --at: 1.6s;
+      --at: 1600ms;
     }
     .terminal code > :nth-child(4) {
-      --at: 2.3s;
+      --at: 2300ms;
     }
     .terminal code > :nth-child(5) {
-      --at: 3s;
+      --at: 3000ms;
     }
     .terminal code > :nth-child(6) {
-      --at: 3.7s;
+      --at: 3700ms;
     }
     .terminal code > :nth-child(7) {
-      --at: 4.4s;
+      --at: 4400ms;
     }
     @container style(--seen: 1) {
       .terminal .line::after {
