@@ -39,7 +39,7 @@ async fn contract(storage: Storage) {
 
     assert_eq!(size, 11);
     assert_eq!(read_back(&storage, &key).await, b"hello world");
-    assert_eq!(storage.list("7").await.unwrap(), [key.clone()]);
+    assert_eq!(storage.list("7").await.unwrap(), std::slice::from_ref(&key));
     assert!(storage.list("8").await.unwrap().is_empty());
     storage.delete(&key).await.unwrap();
     assert!(

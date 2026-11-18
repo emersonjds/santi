@@ -15,7 +15,7 @@ use crate::storage::Storage;
 use crate::{auth, members, projects};
 
 /// Session advisory lock held by the replica running a backup.
-pub const LOCK_KEY: i64 = 0x5341_4e2d_3230_35;
+pub const LOCK_KEY: i64 = 0x5341_4e2d_3230_3500;
 
 const PREFIX: &str = "backups";
 
