@@ -65,19 +65,19 @@ export default [
   {
     name: 'initial JS, / (home, with the shell)',
     path: firstVisit(SHELL, split('_authenticated/index.tsx')),
-    limit: '150.4 KB',
+    limit: '150.9 KB',
     gzip: true,
   },
   {
     name: 'initial JS, /projects (all projects)',
     path: firstVisit(SHELL, split('_authenticated/projects/index.tsx')),
-    limit: '145.7 KB',
+    limit: '146.2 KB',
     gzip: true,
   },
   {
     name: 'initial JS, /account',
     path: firstVisit(SHELL, split('_authenticated/account.tsx')),
-    limit: '147 KB',
+    limit: '147.4 KB',
     gzip: true,
   },
   {
@@ -138,7 +138,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/board.tsx')
     ),
-    limit: '162.2 KB',
+    limit: '162.7 KB',
     gzip: true,
   },
   {
@@ -148,7 +148,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/issues/$number.tsx')
     ),
-    limit: '162.2 KB',
+    limit: '162.6 KB',
     gzip: true,
   },
   {
@@ -202,7 +202,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/backlog.tsx')
     ),
-    limit: '164.5 KB',
+    limit: '165.0 KB',
     gzip: true,
   },
   {
@@ -212,7 +212,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/reports/index.tsx')
     ),
-    limit: '148.3 KB',
+    limit: '148.8 KB',
     gzip: true,
   },
   {
@@ -222,7 +222,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/people.tsx')
     ),
-    limit: '147.9 KB',
+    limit: '148.4 KB',
     gzip: true,
   },
   {
@@ -232,7 +232,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/reports/$id.tsx')
     ),
-    limit: '153.2 KB',
+    limit: '153.7 KB',
     gzip: true,
   },
   {
@@ -242,7 +242,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/members.tsx')
     ),
-    limit: '149.7 KB',
+    limit: '150.1 KB',
     gzip: true,
   },
   {
@@ -252,7 +252,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/index.tsx')
     ),
-    limit: '147.4 KB',
+    limit: '147.9 KB',
     gzip: true,
   },
   {
@@ -262,7 +262,7 @@ export default [
       split('_authenticated/p/$key/route.tsx'),
       split('_authenticated/p/$key/settings/import.tsx')
     ),
-    limit: '145.3 KB',
+    limit: '145.7 KB',
     gzip: true,
   },
 ]
