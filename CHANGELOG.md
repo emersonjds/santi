@@ -10,6 +10,18 @@ UI moves to its own repository.
 
 ## [Unreleased]
 
+## [0.35.1] - 2026-11-26
+
+> Security patch: `url` 2.5.9 closes RUSTSEC-2026-0592, plus routine dependency updates.
+
+### Security
+
+- `url` 2.5.9 fixes RUSTSEC-2026-0592: a URL with thousands of nested `blob:` prefixes could overflow the stack in `Url::origin()`.
+
+### Changed
+
+- Dependency updates for the web (23 packages, including TanStack Query and Router, Vite and CodeMirror), the Rust workspace and the CI actions. Per-route JS budgets move up by 0.1 to 0.2 KB to the new baseline, still under the 170 KB cap.
+
 ## [0.35.0] - 2026-11-18
 
 > A sharper landing: Rust performance up front, MCP client icons, looping terminals and a monthly/yearly price switch.
